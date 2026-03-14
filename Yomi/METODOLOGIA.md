@@ -21,7 +21,8 @@
 ## Sesiones
 | # | Fecha | Qué se hizo |
 |---|-------|-------------|
-| 1 | 2026-03-13 | Setup proyecto, Cursor, GitHub Desktop, documentación inicial, primer commit |
+| 1 | 2026-03-13 | Setup completo: Homebrew, Node, Claude Code, estructura carpetas, 4 modelos, GRDB, tab bar 4 tabs funcionando en simulador |
+| 2 | 2026-03-14 | En progreso |
 
 ## Aprendizajes
 - Tachimanga (iOS) es closed-source, arquitectura inferida de Mihon + LNReader
