@@ -90,6 +90,20 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v2_extensions") { db in
+            try db.create(table: "extension", ifNotExists: true) { t in
+                t.primaryKey("id", .text)
+                t.column("name",          .text).notNull()
+                t.column("version",       .text).notNull()
+                t.column("language",      .text).notNull()
+                t.column("iconURL",       .text)
+                t.column("sourceListURL", .text).notNull()
+                t.column("isInstalled",   .boolean).notNull().defaults(to: false)
+                t.column("isNSFW",        .boolean).notNull().defaults(to: false)
+                t.column("sourceIds",     .text).notNull().defaults(to: "[]")
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -211,5 +225,37 @@ extension Source: FetchableRecord, PersistableRecord {
         container["baseURL"]     = baseURL.absoluteString
         container["isInstalled"] = isInstalled
         container["isNSFW"]      = isNSFW
+    }
+}
+
+// MARK: - GRDB: Extension
+
+extension Extension: FetchableRecord, PersistableRecord {
+    static let databaseTableName = "extension"
+
+    nonisolated init(row: Row) throws {
+        id            = row["id"]
+        name          = row["name"]
+        version       = row["version"]
+        language      = row["language"]
+        iconURL       = (row["iconURL"] as String?).flatMap { URL(string: $0) }
+        sourceListURL = URL(string: row["sourceListURL"])!
+        isInstalled   = row["isInstalled"]
+        isNSFW        = row["isNSFW"]
+        let raw: String = row["sourceIds"] ?? "[]"
+        sourceIds     = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
+    }
+
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
+        container["id"]            = id
+        container["name"]          = name
+        container["version"]       = version
+        container["language"]      = language
+        container["iconURL"]       = iconURL?.absoluteString
+        container["sourceListURL"] = sourceListURL.absoluteString
+        container["isInstalled"]   = isInstalled
+        container["isNSFW"]        = isNSFW
+        container["sourceIds"]     = (try? JSONEncoder().encode(sourceIds))
+                                         .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
     }
 }
