@@ -99,7 +99,7 @@ final class DatabaseManager {
 extension Manga: FetchableRecord, PersistableRecord {
     static let databaseTableName = "manga"
 
-    init(row: Row) throws {
+    nonisolated init(row: Row) throws {
         id            = row["id"]
         path          = row["path"]
         sourceId      = row["sourceId"]
@@ -118,7 +118,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         lastUpdatedAt = row["lastUpdatedAt"]
     }
 
-    func encode(to container: inout PersistenceContainer) throws {
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
         container["id"]            = id
         container["path"]          = path
         container["sourceId"]      = sourceId
@@ -143,7 +143,7 @@ extension Manga: FetchableRecord, PersistableRecord {
 extension Chapter: FetchableRecord, PersistableRecord {
     static let databaseTableName = "chapter"
 
-    init(row: Row) throws {
+    nonisolated init(row: Row) throws {
         id            = row["id"]
         mangaId       = row["mangaId"]
         path          = row["path"]
@@ -155,7 +155,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         progress      = row["progress"]
     }
 
-    func encode(to container: inout PersistenceContainer) throws {
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
         container["id"]            = id
         container["mangaId"]       = mangaId
         container["path"]          = path
@@ -173,13 +173,13 @@ extension Chapter: FetchableRecord, PersistableRecord {
 extension Category: FetchableRecord, PersistableRecord {
     static let databaseTableName = "category"
 
-    init(row: Row) throws {
+    nonisolated init(row: Row) throws {
         id   = row["id"]
         name = row["name"]
         sort = row["sort"]
     }
 
-    func encode(to container: inout PersistenceContainer) throws {
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
         container["id"]   = id
         container["name"] = name
         container["sort"] = sort
@@ -191,7 +191,7 @@ extension Category: FetchableRecord, PersistableRecord {
 extension Source: FetchableRecord, PersistableRecord {
     static let databaseTableName = "source"
 
-    init(row: Row) throws {
+    nonisolated init(row: Row) throws {
         id          = row["id"]
         name        = row["name"]
         language    = row["language"]
@@ -202,7 +202,7 @@ extension Source: FetchableRecord, PersistableRecord {
         isNSFW      = row["isNSFW"]
     }
 
-    func encode(to container: inout PersistenceContainer) throws {
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
         container["id"]          = id
         container["name"]        = name
         container["language"]    = language
