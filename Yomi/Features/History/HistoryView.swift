@@ -4,9 +4,9 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack {
             ContentUnavailableView(
-                "Sin historial",
+                "No history",
                 systemImage: "clock",
-                description: Text("Las obras que leas aparecerán aquí.")
+                description: Text("Titles you read will appear here.")
             )
             .navigationTitle("History")
         }

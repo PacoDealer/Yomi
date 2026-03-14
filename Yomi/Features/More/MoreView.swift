@@ -4,9 +4,9 @@ struct MoreView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Fuentes") {
+                Section("Sources") {
                     NavigationLink {
-                        ContentUnavailableView("Próximamente", systemImage: "puzzlepiece")
+                        ContentUnavailableView("Coming soon", systemImage: "puzzlepiece")
                     } label: {
                         Label("Plugins", systemImage: "puzzlepiece")
                     }
@@ -14,13 +14,13 @@ struct MoreView: View {
 
                 Section("General") {
                     NavigationLink {
-                        ContentUnavailableView("Próximamente", systemImage: "gearshape")
+                        ContentUnavailableView("Coming soon", systemImage: "gearshape")
                     } label: {
-                        Label("Ajustes", systemImage: "gearshape")
+                        Label("Settings", systemImage: "gearshape")
                     }
                 }
             }
-            .navigationTitle("Más")
+            .navigationTitle("More")
         }
     }
 }

@@ -4,9 +4,9 @@ struct BrowseView: View {
     var body: some View {
         NavigationStack {
             ContentUnavailableView(
-                "Sin fuentes instaladas",
+                "No sources installed",
                 systemImage: "safari",
-                description: Text("Instalá plugins desde Más para empezar a explorar.")
+                description: Text("Install plugins from More to start browsing.")
             )
             .navigationTitle("Browse")
         }
