@@ -8,8 +8,7 @@ struct LibraryView: View {
     }
 
     private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
     ]
 
     var body: some View {
