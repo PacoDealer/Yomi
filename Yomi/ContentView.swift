@@ -10,25 +10,18 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
-            LibraryView()
-                .tabItem {
-                    Label("Library", systemImage: "books.vertical")
-                }
-
-            BrowseView()
-                .tabItem {
-                    Label("Browse", systemImage: "safari")
-                }
-
-            HistoryView()
-                .tabItem {
-                    Label("History", systemImage: "clock")
-                }
-
-            MoreView()
-                .tabItem {
-                    Label("More", systemImage: "ellipsis.circle")
-                }
+            Tab("Library", systemImage: "books.vertical") {
+                LibraryView()
+            }
+            Tab("Browse", systemImage: "safari") {
+                BrowseView()
+            }
+            Tab("History", systemImage: "clock") {
+                HistoryView()
+            }
+            Tab("More", systemImage: "ellipsis.circle") {
+                MoreView()
+            }
         }
     }
 }
