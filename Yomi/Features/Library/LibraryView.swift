@@ -17,9 +17,9 @@ struct LibraryView: View {
             Group {
                 if viewModel.filteredMangas.isEmpty && viewModel.searchText.isEmpty {
                     ContentUnavailableView(
-                        "Tu biblioteca está vacía",
+                        "Your library is empty",
                         systemImage: "books.vertical",
-                        description: Text("Explorá fuentes y agregá obras para verlas aquí.")
+                        description: Text("Browse sources and add titles to see them here.")
                     )
                 } else if viewModel.filteredMangas.isEmpty {
                     ContentUnavailableView.search(text: viewModel.searchText)
@@ -36,7 +36,7 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Library")
-            .searchable(text: $viewModel.searchText, prompt: "Buscar en biblioteca")
+            .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
