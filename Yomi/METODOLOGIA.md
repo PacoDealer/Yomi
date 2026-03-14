@@ -28,3 +28,7 @@
 - LNReader usa Function() para ejecutar plugins JS — en iOS se usa JavaScriptCore
 - El repo Suwayomi-Server era un fork de otro proyecto, no tenía nada útil — se descartó
 - iOS 18+ permite usar APIs modernas de SwiftUI sin preocuparse por compatibilidad
+- **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` reemplaza a `.tabItem {}` — la API vieja no renderiza nada y falla silenciosamente
+- **Xcode 16 PBXFileSystemSynchronizedRootGroup**: todos los archivos de la carpeta del proyecto se incluyen automáticamente en el bundle sin excepciones — nunca usar archivos placeholder (`.gitkeep`, `.gitignore`) en la carpeta del target
+- **Swift 6 + GRDB**: los métodos `init(row:)` y `encode(to:)` de `FetchableRecord`/`PersistableRecord` requieren `nonisolated` cuando el proyecto tiene `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
+- **DerivedData stale**: ante errores de Xcode que persisten tras cambios en archivos, limpiar con `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*` y luego ⇧⌘K en Xcode
