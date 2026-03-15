@@ -13,24 +13,23 @@ struct BrowseView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                Picker("Tab", selection: $selectedTab) {
+                    ForEach(BrowseTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
                 switch selectedTab {
                 case .sources: sourcesTab
                 case .search:  searchTab
                 }
             }
             .navigationTitle("Browse")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("Tab", selection: $selectedTab) {
-                        ForEach(BrowseTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 200)
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
