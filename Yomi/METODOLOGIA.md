@@ -49,6 +49,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 | 3 | 2026-03-14 | Sistema de extensiones JS: Extension model, ExtensionQueries, DatabaseManager migración v2, JSBridge v1 (JavaScriptCore), ExtensionManager, test-source.js, BrowseView con CTA + lista de extensiones instaladas, AdaptiveGrid en LibraryView |
 | 4 | 2026-03-15 | JSBridge v2 (dual format Yomi+LNReader, SOURCE.fetch semaphore, cheerio stub, localStorage shim), mangadex.js plugin real (API MangaDex), BrowseView end-to-end con SourceBrowseView, PluginsView (install from URL + catálogo Keiyoushi de referencia), ChapterReaderView (RTL manga + webtoon scroll, pinch zoom 1-4x, overlay inmersivo), MangaDetailView con lista de capítulos real |
 | 5 | 2026-03-15 | Save to library (heart button → MangaQueries.update, inLibrary toggle + haptics). ChapterQueries (markRead: isRead=true, readAt=now, progress=1.0, touchLastRead en manga padre). mangadex.js pagination loop (offset hasta json.total, limit=500, cap 20 iteraciones). HistoryView real con MangaQueries.fetchHistory() (lastReadAt != nil, desc). Prev/next chapter en ReaderOverlayView (displayedChapter state, loadPages() extraído). Dedup plugin install con SHA256(URL).prefix(8) via CryptoKit. |
+| 7 | 2026-03-15 | UX fixes (NSFW filter en PluginsView, Browse picker movido bajo nav bar con .inline, Settings navigationTitle). AppSettings singleton (@Observable + UserDefaults, @ObservationIgnored). SettingsView (General/Reader manga/Reader novel/Appearance). InsightsView (tiempo total + por título, formatTime). DB migration v4_reading_insights (readingSeconds en manga y novel). ChapterReaderView: time tracking en onDisappear (Task.detached background), keepScreenOn via UIApplication.isIdleTimerDisabled, defaultReaderMode desde AppSettings, showPageNumber en overlay. MangaQueries.fetchOne(id:). |
 
 ## Aprendizajes técnicos
 - **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` — la API vieja `.tabItem {}` no renderiza nada
@@ -63,6 +64,8 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **GRDB bulk column update**: usar `Model.filter(Column("id") == id).updateAll(db, [Column("field").set(to: value)])` en lugar de fetch-mutate-save para updates parciales
 - **SHA256 stable IDs**: `CryptoKit.SHA256.hash(data: Data(url.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()` — genera IDs de 16 chars reproducibles desde una URL
 - **MangaDex pagination**: API soporta limit=500; iterar con offset hasta json.total; capear iteraciones en 20 para evitar loops infinitos
+- **@Observable + UserDefaults**: usar `@ObservationIgnored` en el ivar `defaults`; las computed properties con get/set a UserDefaults funcionan correctamente como bindings gracias al wrapper `@State` en la vista
+- **UIApplication.isIdleTimerDisabled**: siempre resetear a `false` en `.onDisappear` — de lo contrario la pantalla queda encendida globalmente aunque el usuario salga del reader
 
 ## Decisiones de arquitectura
 - GRDB sobre SwiftData: control total del esquema, más maduro, compatible con migraciones incrementales
