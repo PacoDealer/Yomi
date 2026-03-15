@@ -23,6 +23,9 @@ struct PluginsView: View {
     @State private var catalogError: String? = nil
     @State private var searchText = ""
 
+    // NSFW filter
+    @State private var showNSFW: Bool = false
+
     // Install sheet
     @State private var showInstallSheet = false
 
@@ -30,8 +33,9 @@ struct PluginsView: View {
     @State private var androidInfoEntry: KeiyoushiEntry? = nil
 
     private var filteredCatalog: [KeiyoushiEntry] {
-        guard !searchText.isEmpty else { return catalogItems }
-        return catalogItems.filter { $0.name.localizedStandardContains(searchText) }
+        var base = searchText.isEmpty ? catalogItems : catalogItems.filter { $0.name.localizedStandardContains(searchText) }
+        if !showNSFW { base = base.filter { $0.nsfw == 0 } }
+        return base
     }
 
     var body: some View {
@@ -43,6 +47,12 @@ struct PluginsView: View {
         .navigationTitle("Plugins")
         .searchable(text: $searchText, prompt: "Search catalog")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { showNSFW.toggle() } label: {
+                    Label("NSFW", systemImage: showNSFW ? "eye" : "eye.slash")
+                        .foregroundStyle(showNSFW ? .red : .secondary)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showInstallSheet = true
@@ -128,7 +138,7 @@ struct PluginsView: View {
                 }
             }
         } header: {
-            Text("Keiyoushi catalog (\(catalogItems.count))")
+            Text("Keiyoushi catalog (\(filteredCatalog.count))")
         }
     }
 
