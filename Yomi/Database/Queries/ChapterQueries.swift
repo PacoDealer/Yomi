@@ -27,7 +27,7 @@ enum ChapterQueries {
 
     /// Marca un capítulo como leído: isRead=true, readAt=ahora, progress=1.0
     static func markRead(id: String) throws {
-        try DatabaseManager.shared.db.write { db in
+        _ = try DatabaseManager.shared.db.write { db in
             try Chapter
                 .filter(Column("id") == id)
                 .updateAll(db, [
