@@ -104,6 +104,39 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v3_novels") { db in
+
+            // Tabla novel
+            try db.create(table: "novel", ifNotExists: true) { t in
+                t.primaryKey("id", .text)
+                t.column("path",          .text).notNull()
+                t.column("sourceId",      .text).notNull()
+                t.column("title",         .text).notNull()
+                t.column("coverURL",      .text)
+                t.column("summary",       .text)
+                t.column("author",        .text)
+                t.column("status",        .text).notNull().defaults(to: "unknown")
+                // Array de géneros serializado como JSON
+                t.column("genres",        .text).notNull().defaults(to: "[]")
+                t.column("inLibrary",     .boolean).notNull().defaults(to: false)
+                t.column("lastReadAt",    .datetime)
+                t.column("lastUpdatedAt", .datetime)
+            }
+
+            // Tabla novel_chapter
+            try db.create(table: "novel_chapter", ifNotExists: true) { t in
+                t.primaryKey("id", .text)
+                // Clave foránea hacia novel
+                t.column("novelId",       .text).notNull().references("novel", onDelete: .cascade)
+                t.column("path",          .text).notNull()
+                t.column("name",          .text).notNull()
+                t.column("chapterNumber", .double)
+                t.column("isRead",        .boolean).notNull().defaults(to: false)
+                t.column("readAt",        .datetime)
+                t.column("releaseTime",   .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -257,5 +290,73 @@ extension Extension: FetchableRecord, PersistableRecord {
         container["isNSFW"]        = isNSFW
         container["sourceIds"]     = (try? JSONEncoder().encode(sourceIds))
                                          .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    }
+}
+
+// MARK: - GRDB: Novel
+
+extension Novel: FetchableRecord, PersistableRecord {
+    static let databaseTableName = "novel"
+
+    nonisolated init(row: Row) throws {
+        id            = row["id"]
+        path          = row["path"]
+        sourceId      = row["sourceId"]
+        title         = row["title"]
+        coverURL      = (row["coverURL"] as String?).flatMap { URL(string: $0) }
+        summary       = row["summary"]
+        author        = row["author"]
+        status        = row["status"] ?? "unknown"
+        // Decodifica el JSON almacenado de vuelta a [String]
+        let raw: String = row["genres"] ?? "[]"
+        genres        = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
+        inLibrary     = row["inLibrary"]
+        lastReadAt    = row["lastReadAt"]
+        lastUpdatedAt = row["lastUpdatedAt"]
+    }
+
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
+        container["id"]            = id
+        container["path"]          = path
+        container["sourceId"]      = sourceId
+        container["title"]         = title
+        container["coverURL"]      = coverURL?.absoluteString
+        container["summary"]       = summary
+        container["author"]        = author
+        container["status"]        = status
+        // Serializa [String] a JSON para guardarlo en la columna TEXT
+        container["genres"]        = (try? JSONEncoder().encode(genres))
+                                         .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        container["inLibrary"]     = inLibrary
+        container["lastReadAt"]    = lastReadAt
+        container["lastUpdatedAt"] = lastUpdatedAt
+    }
+}
+
+// MARK: - GRDB: NovelChapter
+
+extension NovelChapter: FetchableRecord, PersistableRecord {
+    static let databaseTableName = "novel_chapter"
+
+    nonisolated init(row: Row) throws {
+        id            = row["id"]
+        novelId       = row["novelId"]
+        path          = row["path"]
+        name          = row["name"]
+        chapterNumber = row["chapterNumber"]
+        isRead        = row["isRead"]
+        readAt        = row["readAt"]
+        releaseTime   = row["releaseTime"]
+    }
+
+    nonisolated func encode(to container: inout PersistenceContainer) throws {
+        container["id"]            = id
+        container["novelId"]       = novelId
+        container["path"]          = path
+        container["name"]          = name
+        container["chapterNumber"] = chapterNumber
+        container["isRead"]        = isRead
+        container["readAt"]        = readAt
+        container["releaseTime"]   = releaseTime
     }
 }
