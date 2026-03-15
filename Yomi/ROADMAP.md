@@ -1,21 +1,17 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 4)
-Flujo completo funcionando: Browse → Source → Manga grid → Detail → Chapter list → Reader.
-Plugins reales: mangadex.js conectado a la API pública de MangaDex.
-Lector: modo RTL manga + modo webtoon scroll, zoom, overlay inmersivo.
+## Estado actual (post sesión 5)
+Persistencia completa: biblioteca, historial, progreso de lectura. MangaDex trae todos los capítulos. Reader con navegación entre capítulos. Plugins sin duplicados.
 
-## Sesión 5 — Core UX (próxima)
-Prioridad: que la app se sienta completa para un usuario real.
-
+## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
 |---|---------|-------------------|
-| 1 | **Save to library** — heart button guarda/quita manga de biblioteca. LibraryView carga desde DB en lugar de datos hardcodeados | MangaDetailView, LibraryView, LibraryViewModel, MangaQueries |
-| 2 | **Mark chapter as read** — al llegar a la última página se marca isRead=true en DB | ChapterReaderView, nuevo ChapterQueries.markRead() |
-| 3 | **Chapter pagination** — mangadex.js solo trae 100 caps; implementar offset loop o paginación lazy | mangadex.js, MangaDetailView |
-| 4 | **History tab** — lista de manga con lastReadAt != nil, ordenado por fecha desc | HistoryView (reescritura), MangaQueries |
-| 5 | **Prev/next chapter** — botones en overlay del reader para navegar entre capítulos | ChapterReaderView, ReaderOverlayView |
-| 6 | **Dedup plugin install** — usar hash de URL como id en lugar de UUID | PluginsView, ExtensionManager |
+| 1 | ✅ **Save to library** — heart button guarda/quita manga de biblioteca. LibraryView carga desde DB en lugar de datos hardcodeados | MangaDetailView, LibraryView, LibraryViewModel, MangaQueries |
+| 2 | ✅ **Mark chapter as read** — al llegar a la última página se marca isRead=true en DB | ChapterReaderView, nuevo ChapterQueries.markRead() |
+| 3 | ✅ **Chapter pagination** — mangadex.js trae todos los capítulos con offset loop (limit=500, cap 20 iter) | mangadex.js |
+| 4 | ✅ **History tab** — lista de manga con lastReadAt != nil, ordenado por fecha desc | HistoryView (reescritura), MangaQueries |
+| 5 | ✅ **Prev/next chapter** — botones en overlay del reader para navegar entre capítulos | ChapterReaderView, ReaderOverlayView |
+| 6 | ✅ **Dedup plugin install** — SHA256(URL).prefix(8) via CryptoKit como id estable | PluginsView |
 
 ## Sesión 6 — LNReader compatibility
 Objetivo: correr plugins reales de LNReader sin modificación.
