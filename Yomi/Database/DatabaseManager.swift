@@ -137,6 +137,15 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v4_reading_insights") { db in
+            try db.alter(table: "manga") { t in
+                t.add(column: "readingSeconds", .integer).notNull().defaults(to: 0)
+            }
+            try db.alter(table: "novel") { t in
+                t.add(column: "readingSeconds", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -159,29 +168,31 @@ extension Manga: FetchableRecord, PersistableRecord {
         // Decodifica el JSON almacenado de vuelta a [String]
         let raw: String = row["genres"] ?? "[]"
         genres        = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
-        inLibrary     = row["inLibrary"]
-        isLocal       = row["isLocal"]
-        lastReadAt    = row["lastReadAt"]
-        lastUpdatedAt = row["lastUpdatedAt"]
+        inLibrary      = row["inLibrary"]
+        isLocal        = row["isLocal"]
+        lastReadAt     = row["lastReadAt"]
+        lastUpdatedAt  = row["lastUpdatedAt"]
+        readingSeconds = row["readingSeconds"] ?? 0
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]            = id
-        container["path"]          = path
-        container["sourceId"]      = sourceId
-        container["title"]         = title
-        container["coverURL"]      = coverURL?.absoluteString
-        container["summary"]       = summary
-        container["author"]        = author
-        container["artist"]        = artist
-        container["status"]        = status.rawValue
+        container["id"]             = id
+        container["path"]           = path
+        container["sourceId"]       = sourceId
+        container["title"]          = title
+        container["coverURL"]       = coverURL?.absoluteString
+        container["summary"]        = summary
+        container["author"]         = author
+        container["artist"]         = artist
+        container["status"]         = status.rawValue
         // Serializa [String] a JSON para guardarlo en la columna TEXT
-        container["genres"]        = (try? JSONEncoder().encode(genres))
-                                         .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        container["inLibrary"]     = inLibrary
-        container["isLocal"]       = isLocal
-        container["lastReadAt"]    = lastReadAt
-        container["lastUpdatedAt"] = lastUpdatedAt
+        container["genres"]         = (try? JSONEncoder().encode(genres))
+                                          .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        container["inLibrary"]      = inLibrary
+        container["isLocal"]        = isLocal
+        container["lastReadAt"]     = lastReadAt
+        container["lastUpdatedAt"]  = lastUpdatedAt
+        container["readingSeconds"] = readingSeconds
     }
 }
 
@@ -310,26 +321,28 @@ extension Novel: FetchableRecord, PersistableRecord {
         // Decodifica el JSON almacenado de vuelta a [String]
         let raw: String = row["genres"] ?? "[]"
         genres        = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
-        inLibrary     = row["inLibrary"]
-        lastReadAt    = row["lastReadAt"]
-        lastUpdatedAt = row["lastUpdatedAt"]
+        inLibrary      = row["inLibrary"]
+        lastReadAt     = row["lastReadAt"]
+        lastUpdatedAt  = row["lastUpdatedAt"]
+        readingSeconds = row["readingSeconds"] ?? 0
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]            = id
-        container["path"]          = path
-        container["sourceId"]      = sourceId
-        container["title"]         = title
-        container["coverURL"]      = coverURL?.absoluteString
-        container["summary"]       = summary
-        container["author"]        = author
-        container["status"]        = status
+        container["id"]             = id
+        container["path"]           = path
+        container["sourceId"]       = sourceId
+        container["title"]          = title
+        container["coverURL"]       = coverURL?.absoluteString
+        container["summary"]        = summary
+        container["author"]         = author
+        container["status"]         = status
         // Serializa [String] a JSON para guardarlo en la columna TEXT
-        container["genres"]        = (try? JSONEncoder().encode(genres))
-                                         .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        container["inLibrary"]     = inLibrary
-        container["lastReadAt"]    = lastReadAt
-        container["lastUpdatedAt"] = lastUpdatedAt
+        container["genres"]         = (try? JSONEncoder().encode(genres))
+                                          .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        container["inLibrary"]      = inLibrary
+        container["lastReadAt"]     = lastReadAt
+        container["lastUpdatedAt"]  = lastUpdatedAt
+        container["readingSeconds"] = readingSeconds
     }
 }
 

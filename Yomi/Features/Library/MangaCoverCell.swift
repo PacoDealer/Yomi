@@ -36,7 +36,7 @@ struct MangaCoverCell: View {
         title: "Chainsaw Man", coverURL: nil, summary: nil,
         author: "Tatsuki Fujimoto", artist: "Tatsuki Fujimoto",
         status: .ongoing, genres: ["Acción", "Horror"],
-        inLibrary: true, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil
+        inLibrary: true, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
     ))
     .frame(width: 160)
     .padding()

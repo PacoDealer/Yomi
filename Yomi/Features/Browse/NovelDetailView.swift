@@ -226,7 +226,8 @@ private struct NovelStatusBadge: View {
                 genres: ["Fantasy", "Isekai", "Drama"],
                 inLibrary: false,
                 lastReadAt: nil,
-                lastUpdatedAt: nil
+                lastUpdatedAt: nil,
+                readingSeconds: 0
             ),
             bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
         )
