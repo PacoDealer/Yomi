@@ -8,7 +8,7 @@ enum ChapterQueries {
 
     /// Devuelve todos los capítulos de un manga ordenados por número de capítulo ascendente
     static func fetchAll(mangaId: String) throws -> [Chapter] {
-        try DatabaseManager.shared.db.read { db in
+        try DatabaseManager.shared.database.read { db in
             try Chapter
                 .filter(Column("mangaId") == mangaId)
                 .order(Column("chapterNumber").asc)
@@ -20,7 +20,7 @@ enum ChapterQueries {
 
     /// Inserta o actualiza un capítulo (usa el id como clave)
     static func upsert(_ chapter: Chapter) throws {
-        try DatabaseManager.shared.db.write { db in
+        try DatabaseManager.shared.database.write { db in
             try chapter.save(db)
         }
     }
@@ -28,7 +28,7 @@ enum ChapterQueries {
     /// Marca un capítulo como leído: isRead=true, readAt=ahora, progress=1.0
     /// También actualiza lastReadAt del manga padre.
     static func markRead(id: String, mangaId: String) throws {
-        _ = try DatabaseManager.shared.db.write { db in
+        _ = try DatabaseManager.shared.database.write { db in
             try Chapter
                 .filter(Column("id") == id)
                 .updateAll(db, [
@@ -44,7 +44,7 @@ enum ChapterQueries {
 
     /// Elimina el capítulo con el id indicado (no lanza error si no existe)
     static func delete(id: String) throws {
-        try DatabaseManager.shared.db.write { db in
+        try DatabaseManager.shared.database.write { db in
             _ = try Chapter.deleteOne(db, key: id)
         }
     }
