@@ -6,13 +6,13 @@ final class DatabaseManager {
 
     // MARK: - Singleton
 
-    static let shared = DatabaseManager()
+    nonisolated(unsafe) static let shared = DatabaseManager()
     private init() {}
 
     // MARK: - Conexión
 
     /// Cola de acceso a la base de datos; se inicializa en setup()
-    private(set) var db: DatabaseQueue!
+    nonisolated(unsafe) private(set) var db: DatabaseQueue!
 
     // MARK: - Setup
 
