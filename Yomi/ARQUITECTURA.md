@@ -16,7 +16,8 @@ Yomi/
 ├── Database/
 │   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord
 │   └── Queries/
-│       ├── MangaQueries.swift       # CRUD manga
+│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchLibrary, fetchHistory, insert, update, touchLastRead, delete
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(mangaId:), upsert, markRead, delete
 │       └── ExtensionQueries.swift   # CRUD extensiones
 ├── Features/
 │   ├── Library/
@@ -27,9 +28,9 @@ Yomi/
 │   ├── Browse/
 │   │   └── BrowseView.swift         # Sources tab + SourceBrowseView
 │   ├── Reader/
-│   │   └── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay
+│   │   └── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter
 │   ├── History/
-│   │   └── HistoryView.swift        # Historial de lectura (pendiente)
+│   │   └── HistoryView.swift        # Historial con HistoryViewModel inline, lista manga por lastReadAt desc
 │   ├── More/
 │   │   ├── MoreView.swift           # Root tab More
 │   │   └── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi
@@ -49,7 +50,7 @@ Yomi/
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
 ├─────────────────────────────────────────┤
-│         ViewModels (@Observable)        │  LibraryViewModel, etc.
+│         ViewModels (@Observable)        │  LibraryViewModel, HistoryViewModel, etc.
 ├─────────────────────────────────────────┤
 │    ExtensionManager + JSBridge          │  Features/Extensions/
 ├──────────────────┬──────────────────────┤
@@ -149,10 +150,18 @@ BrowseView
 → MangaDetailView(manga)
 → Task.detached { bridge.getChapterList(mangaPath:) }
 → List → ChapterRow → NavigationLink
-→ ChapterReaderView(chapter, manga, bridge)
+→ ChapterReaderView(chapter, manga, bridge, chapters, currentIndex)
 → Task.detached { bridge.getPageList(chapterPath:) }
 → MangaReaderView (RTL TabView)  o
 WebtoonReaderView (ScrollView LazyVStack)
+
+## Flujo mark-as-read
+ChapterReaderView
+→ .onChange(of: currentPage) { if newPage == pages.count - 1 }
+→ Task { ChapterQueries.markRead(id:mangaId:) }
+   → UPDATE chapter SET isRead=true, readAt=now, progress=1.0
+   → MangaQueries.touchLastRead(mangaId:)
+      → UPDATE manga SET lastReadAt=now
 
 ## Concurrencia
 - Todas las llamadas a JSBridge se hacen desde `Task.detached(priority: .userInitiated)`
