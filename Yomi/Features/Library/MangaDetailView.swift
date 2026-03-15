@@ -4,13 +4,15 @@ struct MangaDetailView: View {
     let manga: Manga
 
     @State private var synopsisExpanded = false
+    @State private var chapters: [Chapter] = []
+    @State private var bridge: JSBridge? = nil
+    @State private var isLoadingChapters = false
 
     var body: some View {
         List {
             // MARK: Header
             Section {
                 HStack(alignment: .top, spacing: 12) {
-                    // Portada
                     AsyncImage(url: manga.coverURL) { image in
                         image
                             .resizable()
@@ -24,7 +26,6 @@ struct MangaDetailView: View {
                     .cornerRadius(8)
                     .clipped()
 
-                    // Metadata
                     VStack(alignment: .leading, spacing: 6) {
                         Text(manga.title)
                             .font(.headline)
@@ -65,10 +66,36 @@ struct MangaDetailView: View {
             }
 
             // MARK: Chapters
-            Section("Chapters") {
-                Text("No chapters available.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            Section {
+                if isLoadingChapters {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                } else if chapters.isEmpty {
+                    Text(bridge == nil ? "No source available for this manga." : "No chapters found.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(chapters) { chapter in
+                        NavigationLink {
+                            ChapterReaderView(chapter: chapter, manga: manga, bridge: bridge!)
+                        } label: {
+                            ChapterRow(chapter: chapter)
+                        }
+                        .disabled(bridge == nil)
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("Chapters")
+                    if !chapters.isEmpty {
+                        Text("(\(chapters.count))")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -77,17 +104,61 @@ struct MangaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    // agregar/quitar de biblioteca — próximamente
+                    // add/remove from library — coming soon
                 } label: {
                     Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
                         .foregroundStyle(manga.inLibrary ? .red : .primary)
                 }
             }
         }
+        .task { await loadChapters() }
+    }
+
+    // MARK: Load chapters
+
+    private func loadChapters() async {
+        let sourceId = manga.sourceId
+        let mangaPath = manga.path
+        let mangaId = manga.id
+
+        let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId })
+        guard let ext else { return }
+
+        isLoadingChapters = true
+
+        let (loadedBridge, loadedChapters) = await Task.detached(priority: .userInitiated) {
+            let b = JSBridge(scriptURL: ext.sourceListURL)
+            let chapters = b?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
+            return (b, chapters)
+        }.value
+
+        bridge = loadedBridge
+        chapters = loadedChapters
+        isLoadingChapters = false
     }
 }
 
-// MARK: - Status Badge
+// MARK: - ChapterRow
+
+private struct ChapterRow: View {
+    let chapter: Chapter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(chapter.name)
+                .font(.subheadline)
+                .foregroundStyle(chapter.isRead ? .secondary : .primary)
+            if let number = chapter.chapterNumber {
+                Text("Chapter \(number, specifier: "%.1f")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - StatusBadge
 
 private struct StatusBadge: View {
     let status: MangaStatus
@@ -113,6 +184,8 @@ private struct StatusBadge: View {
         }
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     NavigationStack {
