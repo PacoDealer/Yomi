@@ -28,6 +28,8 @@ struct Novel: Identifiable, Codable {
     var lastReadAt: Date?
     /// Fecha y hora de la última actualización de metadatos
     var lastUpdatedAt: Date?
+    /// Segundos totales de tiempo de lectura registrado
+    var readingSeconds: Int
 }
 
 // MARK: - NovelChapter

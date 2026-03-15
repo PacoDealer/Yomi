@@ -223,7 +223,7 @@ private struct StatusBadge: View {
             author: "Kentaro Miura", artist: "Kentaro Miura",
             status: .hiatus,
             genres: ["Action", "Dark Fantasy", "Adventure"],
-            inLibrary: true, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil
+            inLibrary: true, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
         ))
     }
 }

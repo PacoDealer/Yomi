@@ -237,9 +237,10 @@ struct SourceBrowseView: View {
                     author:        nil,
                     status:        "unknown",
                     genres:        [],
-                    inLibrary:     false,
-                    lastReadAt:    nil,
-                    lastUpdatedAt: nil
+                    inLibrary:      false,
+                    lastReadAt:     nil,
+                    lastUpdatedAt:  nil,
+                    readingSeconds: 0
                 )
             }
         } else {
