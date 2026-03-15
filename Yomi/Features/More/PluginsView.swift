@@ -1,4 +1,5 @@
 import SwiftUI
+import CryptoKit
 
 // MARK: - Keiyoushi catalog model
 
@@ -333,11 +334,24 @@ private struct InstallFromURLSheet: View {
     }
 
     private func installFromURL() async {
-        guard let url = URL(string: pluginURL.trimmingCharacters(in: .whitespaces)) else { return }
+        let urlString = pluginURL.trimmingCharacters(in: .whitespaces)
+        guard let url = URL(string: urlString) else { return }
+
+        // Stable ID: first 8 bytes of SHA256(url) as 16-char hex
+        let hash    = SHA256.hash(data: Data(urlString.utf8))
+        let stableId = hash.prefix(8).map { String(format: "%02x", $0) }.joined()
+
         isInstalling = true
         errorMessage = nil
+
+        if extensionManager.installed.contains(where: { $0.id == stableId }) {
+            errorMessage = "This plugin is already installed."
+            isInstalling = false
+            return
+        }
+
         let ext = Extension(
-            id:            UUID().uuidString,
+            id:            stableId,
             name:          pluginName.trimmingCharacters(in: .whitespaces),
             version:       "1.0.0",
             language:      pluginLang.trimmingCharacters(in: .whitespaces).lowercased(),
