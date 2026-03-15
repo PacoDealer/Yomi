@@ -9,7 +9,7 @@ struct NovelItem {
     var cover: String?
 }
 
-struct NovelChapter {
+struct JSNovelChapter {
     var name: String
     var path: String
     var chapterNumber: Double?
@@ -23,7 +23,7 @@ struct SourceNovel {
     var author: String?
     var summary: String?
     var status: String?
-    var chapters: [NovelChapter]
+    var chapters: [JSNovelChapter]
 }
 
 // MARK: - JSBridge
@@ -503,7 +503,7 @@ final class JSBridge {
         guard let dict = result?.toDictionary() as? [String: Any] else { return nil }
         let chapters: [NovelChapter] = (dict["chapters"] as? [[String: Any]] ?? []).compactMap {
             guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
-            return NovelChapter(
+            return JSNovelChapter(
                 name:          name,
                 path:          cPath,
                 chapterNumber: $0["chapterNumber"] as? Double,
