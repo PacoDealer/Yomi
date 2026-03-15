@@ -32,8 +32,12 @@ Yomi/
 │   ├── History/
 │   │   └── HistoryView.swift        # Historial con HistoryViewModel inline, lista manga por lastReadAt desc
 │   ├── More/
-│   │   ├── MoreView.swift           # Root tab More
+│   │   ├── MoreView.swift           # Root tab More (Settings, Insights, About)
 │   │   └── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi
+│   ├── Settings/
+│   │   ├── AppSettings.swift        # @Observable UserDefaults singleton
+│   │   ├── SettingsView.swift       # subsecciones General/Reader/Appearance/About
+│   │   └── InsightsView.swift       # tiempo de lectura total y por manga
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge
 │       └── ExtensionManager.swift   # Instalar/remover plugins
@@ -61,10 +65,11 @@ Yomi/
 
 ## Base de datos (SQLite via GRDB)
 
-### Tablas actuales (migración v2)
+### Tablas actuales (migración v4)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
-              status, genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt)
+              status, genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
+              readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
               isDownloaded, readAt, progress)
@@ -75,6 +80,13 @@ source       (id, name, language, version, iconURL, baseURL, isInstalled, isNSFW
 
 extension    (id, name, version, language, iconURL, sourceListURL,
               isInstalled, isNSFW, sourceIds JSON)
+
+novel        (id, path, sourceId, title, coverURL, summary, author, status,
+              genres JSON, inLibrary, lastReadAt, lastUpdatedAt,
+              readingSeconds INTEGER NOT NULL DEFAULT 0)
+
+novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
+               readAt, releaseTime)
 ```
 
 ### Por qué GRDB y no SwiftData
@@ -177,3 +189,4 @@ ChapterReaderView
 | Plugins .js locales | API remota propia | Sin servidor, funciona offline |
 | Formato A propio | Solo LNReader | LNReader no tiene plugins de manga, solo novelas |
 | Keiyoushi como referencia | Intentar correr .apk | .apk Android no corren en iOS |
+| UserDefaults para settings | CoreData o archivo JSON | Settings simples no necesitan una DB — UserDefaults es suficiente y más simple |
