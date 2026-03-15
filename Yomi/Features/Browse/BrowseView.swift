@@ -125,7 +125,12 @@ private struct ExtensionRow: View {
 struct SourceBrowseView: View {
     let ext: Extension
 
+    // MARK: State
+
     @State private var mangas: [Manga] = []
+    @State private var novels: [Novel] = []
+    @State private var bridge: JSBridge? = nil
+    @State private var isNovelSource = false
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText = ""
@@ -134,10 +139,23 @@ struct SourceBrowseView: View {
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
     ]
 
+    // MARK: Filtered Content
+
     private var filteredMangas: [Manga] {
         guard !searchText.isEmpty else { return mangas }
         return mangas.filter { $0.title.localizedStandardContains(searchText) }
     }
+
+    private var filteredNovels: [Novel] {
+        guard !searchText.isEmpty else { return novels }
+        return novels.filter { $0.title.localizedStandardContains(searchText) }
+    }
+
+    private var isContentEmpty: Bool {
+        isNovelSource ? filteredNovels.isEmpty : filteredMangas.isEmpty
+    }
+
+    // MARK: Body
 
     var body: some View {
         Group {
@@ -150,19 +168,27 @@ struct SourceBrowseView: View {
                     systemImage: "exclamationmark.triangle",
                     description: Text(error)
                 )
-            } else if filteredMangas.isEmpty && searchText.isEmpty {
+            } else if isContentEmpty && searchText.isEmpty {
                 ContentUnavailableView(
                     "No titles found",
                     systemImage: "books.vertical",
                     description: Text("This source returned no results.")
                 )
-            } else if filteredMangas.isEmpty {
+            } else if isContentEmpty {
                 ContentUnavailableView.search(text: searchText)
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(filteredMangas) { manga in
-                            MangaCoverCell(manga: manga)
+                        if isNovelSource {
+                            if let b = bridge {
+                                ForEach(filteredNovels) { novel in
+                                    NovelCoverCell(novel: novel, bridge: b)
+                                }
+                            }
+                        } else {
+                            ForEach(filteredMangas) { manga in
+                                MangaCoverCell(manga: manga)
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -173,19 +199,92 @@ struct SourceBrowseView: View {
         .navigationTitle(ext.name)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search \(ext.name)")
-        .task { await loadMangas() }
+        .task { await loadContent() }
     }
 
-    private func loadMangas() async {
+    // MARK: Load Content
+
+    private func loadContent() async {
         isLoading = true
         errorMessage = nil
-        let sourceId = ext.id
+        let sourceId  = ext.id
         let scriptURL = ext.sourceListURL
-        let results = await Task.detached(priority: .userInitiated) {
-            JSBridge(scriptURL: scriptURL)?.getMangaList(page: 1, sourceId: sourceId) ?? []
+
+        let loadedBridge = await Task.detached(priority: .userInitiated) {
+            JSBridge(scriptURL: scriptURL)
         }.value
-        mangas = results
+
+        guard let b = loadedBridge else {
+            errorMessage = "Failed to load source plugin."
+            isLoading = false
+            return
+        }
+
+        bridge = b
+
+        if b.isLNReaderPlugin {
+            isNovelSource = true
+            let items = await Task.detached(priority: .userInitiated) {
+                b.popularNovels(page: 1)
+            }.value
+            novels = items.map { item in
+                Novel(
+                    id:            UUID().uuidString,
+                    path:          item.path,
+                    sourceId:      sourceId,
+                    title:         item.name,
+                    coverURL:      URL(string: item.cover ?? ""),
+                    summary:       nil,
+                    author:        nil,
+                    status:        "unknown",
+                    genres:        [],
+                    inLibrary:     false,
+                    lastReadAt:    nil,
+                    lastUpdatedAt: nil
+                )
+            }
+        } else {
+            isNovelSource = false
+            let results = await Task.detached(priority: .userInitiated) {
+                b.getMangaList(page: 1, sourceId: sourceId)
+            }.value
+            mangas = results
+        }
+
         isLoading = false
+    }
+}
+
+// MARK: - NovelCoverCell
+
+private struct NovelCoverCell: View {
+    let novel: Novel
+    let bridge: JSBridge
+
+    var body: some View {
+        NavigationLink {
+            NovelDetailView(novel: novel, bridge: bridge)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                AsyncImage(url: novel.coverURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .aspectRatio(2 / 3, contentMode: .fit)
+                }
+                .cornerRadius(8)
+                .clipped()
+
+                Text(novel.title)
+                    .font(.caption)
+                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
