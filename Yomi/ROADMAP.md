@@ -1,7 +1,7 @@
 # Roadmap — Yomi
 
 ## Estado actual (post sesión 7)
-Persistencia completa: biblioteca, historial, progreso de lectura, tiempo de lectura (readingSeconds). MangaDex trae todos los capítulos. Reader con navegación entre capítulos, modo configurable (RTL/webtoon), pantalla encendida. Settings persistidos en UserDefaults. InsightsView con tiempo total y por título. Soporte dual manga (Formato A) y novelas (Formato B) end-to-end.
+UX completa para uso real. Settings funcionales. Reading Insights operativo. Flujo completo manga y novelas end-to-end.
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -13,17 +13,14 @@ Persistencia completa: biblioteca, historial, progreso de lectura, tiempo de lec
 | 5 | ✅ **Prev/next chapter** — botones en overlay del reader para navegar entre capítulos | ChapterReaderView, ReaderOverlayView |
 | 6 | ✅ **Dedup plugin install** — SHA256(URL).prefix(8) via CryptoKit como id estable | PluginsView |
 
-## Sesión 6 — LNReader compatibility
-Objetivo: correr plugins reales de LNReader sin modificación.
-
+## Sesión 6 — LNReader compatibility ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Cheerio shim real** — implementar load(html) con selectores CSS básicos usando regex o parser propio en JS | JSBridge (injectCheerio) |
-| 2 | **Novel model** — NovelItem, SourceNovel, NovelChapter en DB (tabla `novel` y `novel_chapter`) | DatabaseManager migración v3, nuevos modelos |
-| 3 | **NovelDetailView** — equivalente a MangaDetailView para novelas (cover, author, status, chapter list) | nuevo archivo |
-| 4 | **TextReaderView** — lector de texto HTML con fuente configurable, tamaño, interlineado, tema claro/oscuro | nuevo archivo |
-| 5 | **Plugin repo URL** — instalar desde un index.json (como LNReader plugins branch) en lugar de URL directa | PluginsView, ExtensionManager |
-| 6 | **Asura Scans plugin** — plugin Formato A con scraping básico | nuevo asurascans.js |
+| 1 | ✅ **Cheerio shim real** — parser HTML recursivo + motor CSS en JS puro | JSBridge (injectCheerio) |
+| 2 | ✅ **Novel model** — NovelItem, SourceNovel, JSNovelChapter + tablas novel y novel_chapter | DatabaseManager migración v3, nuevos modelos |
+| 3 | ✅ **NovelDetailView** — cover, author, status, lista de capítulos | nuevo archivo |
+| 4 | ✅ **TextReaderView** — WKWebView con font size slider, dark/light toggle, overlay inmersivo | nuevo archivo |
+| 5 | ✅ **BrowseView dual-format** — detecta isLNReaderPlugin, muestra manga o novelas | BrowseView, NovelCoverCell |
 
 ## Sesión 7 — Settings & Insights ✅ Completa
 | # | Feature | Detalle |
@@ -38,14 +35,23 @@ Objetivo: correr plugins reales de LNReader sin modificación.
 | 8 | ✅ **keepScreenOn + defaultReaderMode** — AppSettings aplicados en reader | ChapterReaderView |
 | 9 | ✅ **MoreView restructurada** — Settings, Insights, About (con LicensesView) | MoreView |
 
-## Sesión 8 — Sync & Backup
+## Sesión 8 — Plugins & Discovery
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Backup & Restore** — exportar DB como JSON a Files.app | nuevo BackupManager |
-| 2 | **AniList tracking** — OAuth + marcar capítulos leídos | nuevo AniListService |
-| 3 | **iCloud sync** — backup automático a iCloud Drive | nuevo iCloudSyncManager |
-| 4 | **Updates tab** — background refresh de capítulos nuevos | nuevo UpdateService |
-| 5 | **Downloads** — guardar capítulos offline | nuevo DownloadManager |
+| 1 | **Asura Scans plugin** | Formato A, scraping HTML con cheerio |
+| 2 | **Aqua Manga plugin** | Formato A, scraping HTML |
+| 3 | **Plugin repo index.json** | Instalar desde URL de índice en lugar de URL directa |
+| 4 | **Search within source** | BrowseView Search tab → getMangaList/searchNovels con query |
+| 5 | **Cover skeleton loading** | Placeholder animado con .redacted(reason: .placeholder) |
+| 6 | **Haptics** | UIImpactFeedbackGenerator en acciones clave |
+
+## Sesión 9 — Sync & Offline
+| # | Feature | Detalle |
+|---|---------|---------|
+| 1 | **Backup & Restore** | Exportar DB como JSON a Files.app |
+| 2 | **Downloads** | Guardar capítulos offline, DownloadManager |
+| 3 | **AniList tracking** | OAuth + marcar capítulos leídos |
+| 4 | **Updates tab** | Background refresh de capítulos nuevos en biblioteca |
 
 ## Backlog (sin sesión asignada)
 - App icon y splash screen
@@ -59,7 +65,7 @@ Objetivo: correr plugins reales de LNReader sin modificación.
 | Fuente | Formato | Estado |
 |--------|---------|--------|
 | MangaDex | Formato A (API JSON) | ✅ Implementado |
-| Asura Scans | Formato A (scraping) | Sesión 6 |
-| Aqua Manga | Formato A (scraping) | Sesión 6 |
+| Asura Scans | Formato A (scraping) | Sesión 8 |
+| Aqua Manga | Formato A (scraping) | Sesión 8 |
 | Royal Road | Formato B (LNReader) | Sesión 6+ |
 | NovelUpdates | Formato B (LNReader) | Sesión 6+ |

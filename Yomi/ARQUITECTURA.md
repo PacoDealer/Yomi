@@ -14,10 +14,11 @@ Yomi/
 │   ├── Source.swift         # Metadatos de fuente (legacy, reemplazado por Extension)
 │   └── Extension.swift      # Plugin JS instalado
 ├── Database/
-│   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord
+│   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
 │   └── Queries/
-│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchLibrary, fetchHistory, insert, update, touchLastRead, delete
+│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchHistory, insert, update, touchLastRead, delete
 │       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(mangaId:), upsert, markRead, delete
+│       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensiones
 ├── Features/
 │   ├── Library/
@@ -26,20 +27,22 @@ Yomi/
 │   │   ├── MangaCoverCell.swift     # Celda de portada
 │   │   └── MangaDetailView.swift    # Detalle + lista de capítulos
 │   ├── Browse/
-│   │   └── BrowseView.swift         # Sources tab + SourceBrowseView
+│   │   ├── BrowseView.swift         # Sources tab + SourceBrowseView (dual manga/novel)
+│   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
 │   ├── Reader/
-│   │   └── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter
+│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter, time tracking
+│   │   └── TextReaderView.swift     # Lector HTML para novelas (WKWebView, font size, dark/light)
 │   ├── History/
 │   │   └── HistoryView.swift        # Historial con HistoryViewModel inline, lista manga por lastReadAt desc
 │   ├── More/
-│   │   ├── MoreView.swift           # Root tab More (Settings, Insights, About)
-│   │   └── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi
+│   │   ├── MoreView.swift           # Root tab More (Settings, Insights, About + LicensesView)
+│   │   └── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter
 │   ├── Settings/
-│   │   ├── AppSettings.swift        # @Observable UserDefaults singleton
-│   │   ├── SettingsView.swift       # subsecciones General/Reader/Appearance/About
-│   │   └── InsightsView.swift       # tiempo de lectura total y por manga
+│   │   ├── AppSettings.swift        # @Observable singleton, UserDefaults-backed
+│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance
+│   │   └── InsightsView.swift       # Tiempo de lectura total y por manga
 │   └── Extensions/
-│       ├── JSBridge.swift           # JavaScriptCore bridge
+│       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real)
 │       └── ExtensionManager.swift   # Instalar/remover plugins
 ├── Resources/
 │   ├── mangadex.js                  # Plugin MangaDex (Formato A)
@@ -54,12 +57,12 @@ Yomi/
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
 ├─────────────────────────────────────────┤
-│         ViewModels (@Observable)        │  LibraryViewModel, HistoryViewModel, etc.
+│   ViewModels (@Observable) + AppSettings│  LibraryViewModel, HistoryViewModel, etc.
 ├─────────────────────────────────────────┤
 │    ExtensionManager + JSBridge          │  Features/Extensions/
 ├──────────────────┬──────────────────────┤
 │   GRDB (SQLite)  │  JavaScriptCore      │
-│   DatabaseManager│  Plugins JS          │
+│   appDatabase    │  Plugins JS          │
 │   *Queries       │  (mangadex.js, etc.) │
 └──────────────────┴──────────────────────┘
 
@@ -88,6 +91,12 @@ novel        (id, path, sourceId, title, coverURL, summary, author, status,
 novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
                readAt, releaseTime)
 ```
+
+### Migraciones
+- **v1_initial**: manga, chapter, category, source
+- **v2_extensions**: extension
+- **v3_novels**: novel, novel_chapter
+- **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0` / `ALTER TABLE novel ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
 
 ### Por qué GRDB y no SwiftData
 - Control total del esquema SQL y migraciones incrementales
@@ -151,7 +160,7 @@ var isLNReaderPlugin: Bool {
 | `SOURCE.fetch(url, opts)` | URLSession + DispatchSemaphore (blocking, 30s timeout) | ✅ Funcional |
 | `console.log/warn/error` | Swift print() | ✅ Funcional |
 | `localStorage` / `sessionStorage` | In-memory JS object con get/set/removeItem | ✅ Funcional |
-| `cheerio.load(html)` | Stub — selectores retornan vacío | ⚠️ Pendiente |
+| `cheerio.load(html)` | Parser HTML recursivo + motor CSS selectores en JS puro | ✅ Funcional |
 
 ## Flujo de datos — Browse → Reader
 BrowseView
@@ -180,6 +189,7 @@ ChapterReaderView
 - JSBridge y sus métodos son `nonisolated` para satisfacer Swift 6 con `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
 - SOURCE.fetch bloquea el thread con `DispatchSemaphore` — nunca llamar desde MainActor
 - Resultado se entrega a la UI via `await MainActor.run { state = result }`
+- `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
 
 ## Decisiones de diseño
 | Decisión | Alternativa descartada | Motivo |
@@ -189,4 +199,5 @@ ChapterReaderView
 | Plugins .js locales | API remota propia | Sin servidor, funciona offline |
 | Formato A propio | Solo LNReader | LNReader no tiene plugins de manga, solo novelas |
 | Keiyoushi como referencia | Intentar correr .apk | .apk Android no corren en iOS |
-| UserDefaults para settings | CoreData o archivo JSON | Settings simples no necesitan una DB — UserDefaults es suficiente y más simple |
+| GRDB acceso nonisolated | Propiedad en singleton MainActor | Module-level `nonisolated(unsafe) var appDatabase` es el patrón oficial GRDB para Swift 6 strict concurrency — evita actor hops en *Queries |
+| UserDefaults para settings | CoreData / archivo JSON | Settings simples no necesitan DB — UserDefaults con @Observable wrapper es suficiente |
