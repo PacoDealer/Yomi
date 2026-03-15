@@ -1,6 +1,15 @@
 import Foundation
 import GRDB
 
+// MARK: - appDatabase
+
+/// Módulo-level DatabaseQueue accesible desde cualquier contexto de aislamiento.
+/// Se asigna una sola vez en DatabaseManager.setup() antes de que se ejecute
+/// cualquier query. GRDB DatabaseQueue es internamente thread-safe.
+nonisolated(unsafe) var appDatabase: DatabaseQueue!
+
+// MARK: - DatabaseManager
+
 /// Gestiona la conexión y las migraciones de la base de datos SQLite
 final class DatabaseManager {
 
@@ -8,15 +17,6 @@ final class DatabaseManager {
 
     static let shared = DatabaseManager()
     private init() {}
-
-    // MARK: - Conexión
-
-    /// Cola de acceso a la base de datos; se inicializa en setup()
-    nonisolated(unsafe) private(set) var db: DatabaseQueue!
-
-    /// Acceso nonisolated a la base de datos; seguro porque db se escribe
-    /// una sola vez en setup() antes de que se ejecute cualquier query
-    nonisolated var database: DatabaseQueue { db }
 
     // MARK: - Setup
 
@@ -26,13 +26,13 @@ final class DatabaseManager {
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("yomi.db")
 
-        db = try DatabaseQueue(path: fileURL.path)
-        try migrate()
+        appDatabase = try DatabaseQueue(path: fileURL.path)
+        try migrate(appDatabase)
     }
 
     // MARK: - Migraciones
 
-    private func migrate() throws {
+    private func migrate(_ db: DatabaseQueue) throws {
         var migrator = DatabaseMigrator()
 
         // v1 — tablas iniciales
