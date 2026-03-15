@@ -10,18 +10,40 @@ enum ReaderMode: String, CaseIterable {
 // MARK: - ChapterReaderView
 
 struct ChapterReaderView: View {
-    let chapter: Chapter
     let manga: Manga
     let bridge: JSBridge
+    let chapters: [Chapter]
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var displayedChapter: Chapter
+    @State private var displayedIndex: Int
     @State private var pages: [String] = []
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
     @State private var readerMode: ReaderMode = .horizontalRTL
     @State private var showOverlay = true
     @State private var currentPage = 0
+
+    init(chapter: Chapter, manga: Manga, bridge: JSBridge, chapters: [Chapter], currentIndex: Int) {
+        self.manga = manga
+        self.bridge = bridge
+        self.chapters = chapters
+        _displayedChapter = State(initialValue: chapter)
+        _displayedIndex = State(initialValue: currentIndex)
+    }
+
+    // MARK: - Computed
+
+    private var prevChapter: Chapter? {
+        displayedIndex > 0 ? chapters[displayedIndex - 1] : nil
+    }
+
+    private var nextChapter: Chapter? {
+        displayedIndex < chapters.count - 1 ? chapters[displayedIndex + 1] : nil
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ZStack {
@@ -48,8 +70,8 @@ struct ChapterReaderView: View {
                         .onAppear {
                             Task {
                                 try? ChapterQueries.markRead(
-                                    id: chapter.id,
-                                    mangaId: chapter.mangaId
+                                    id: displayedChapter.id,
+                                    mangaId: displayedChapter.mangaId
                                 )
                             }
                         }
@@ -58,12 +80,18 @@ struct ChapterReaderView: View {
 
             ReaderOverlayView(
                 manga: manga,
-                chapter: chapter,
+                chapter: displayedChapter,
                 currentPage: currentPage,
                 totalPages: pages.count,
                 readerMode: $readerMode,
                 showOverlay: $showOverlay,
-                onDismiss: { dismiss() }
+                onDismiss: { dismiss() },
+                onPrevChapter: prevChapter.map { ch in
+                    { navigateTo(chapter: ch, index: displayedIndex - 1) }
+                },
+                onNextChapter: nextChapter.map { ch in
+                    { navigateTo(chapter: ch, index: displayedIndex + 1) }
+                }
             )
         }
         .navigationBarHidden(true)
@@ -73,22 +101,38 @@ struct ChapterReaderView: View {
             if !pages.isEmpty && newPage == pages.count - 1 {
                 Task {
                     try? ChapterQueries.markRead(
-                        id: chapter.id,
-                        mangaId: chapter.mangaId
+                        id: displayedChapter.id,
+                        mangaId: displayedChapter.mangaId
                     )
                 }
             }
         }
-        .task {
-            let path = chapter.path
-            let result = await Task.detached(priority: .userInitiated) {
-                bridge.getPageList(chapterPath: path)
-            }.value
-            pages = result
-            isLoading = false
-            if result.isEmpty {
-                errorMessage = "No pages found for this chapter."
-            }
+        .task { await loadPages() }
+    }
+
+    // MARK: - Navigation
+
+    private func navigateTo(chapter: Chapter, index: Int) {
+        displayedChapter = chapter
+        displayedIndex = index
+        pages = []
+        isLoading = true
+        currentPage = 0
+        errorMessage = nil
+        Task { await loadPages() }
+    }
+
+    // MARK: - Load Pages
+
+    private func loadPages() async {
+        let path = displayedChapter.path
+        let result = await Task.detached(priority: .userInitiated) {
+            bridge.getPageList(chapterPath: path)
+        }.value
+        pages = result
+        isLoading = false
+        if result.isEmpty {
+            errorMessage = "No pages found for this chapter."
         }
     }
 }
@@ -206,6 +250,8 @@ struct ReaderOverlayView: View {
     @Binding var readerMode: ReaderMode
     @Binding var showOverlay: Bool
     let onDismiss: () -> Void
+    let onPrevChapter: (() -> Void)?
+    let onNextChapter: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -266,15 +312,40 @@ struct ReaderOverlayView: View {
                 .frame(height: 88)
                 .ignoresSafeArea(edges: .bottom)
 
-                HStack {
+                HStack(spacing: 0) {
+                    Button {
+                        onPrevChapter?()
+                    } label: {
+                        Image(systemName: "chevron.left.2")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(onPrevChapter != nil ? .white : .white.opacity(0.25))
+                            .frame(width: 44, height: 44)
+                    }
+                    .disabled(onPrevChapter == nil)
+
                     Spacer()
+
                     if totalPages > 0 {
                         Text("Page \(currentPage + 1) / \(totalPages)")
                             .font(.subheadline)
                             .foregroundStyle(.white)
                     }
+
                     Spacer()
+
+                    Button {
+                        onNextChapter?()
+                    } label: {
+                        Image(systemName: "chevron.right.2")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(onNextChapter != nil ? .white : .white.opacity(0.25))
+                            .frame(width: 44, height: 44)
+                    }
+                    .disabled(onNextChapter == nil)
                 }
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
             }
         }
@@ -299,6 +370,8 @@ struct ReaderOverlayView: View {
             status: .hiatus, genres: [], inLibrary: true, isLocal: false,
             lastReadAt: nil, lastUpdatedAt: nil
         ),
-        bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
+        bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
+        chapters: [],
+        currentIndex: 0
     )
 }
