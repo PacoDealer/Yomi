@@ -16,14 +16,16 @@ struct ChapterReaderView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var settings = AppSettings.shared
     @State private var displayedChapter: Chapter
     @State private var displayedIndex: Int
     @State private var pages: [String] = []
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
-    @State private var readerMode: ReaderMode = .horizontalRTL
+    @State private var readerMode: ReaderMode
     @State private var showOverlay = true
     @State private var currentPage = 0
+    @State private var sessionStart: Date = Date()
 
     init(chapter: Chapter, manga: Manga, bridge: JSBridge, chapters: [Chapter], currentIndex: Int) {
         self.manga = manga
@@ -31,6 +33,8 @@ struct ChapterReaderView: View {
         self.chapters = chapters
         _displayedChapter = State(initialValue: chapter)
         _displayedIndex = State(initialValue: currentIndex)
+        let modeString = AppSettings.shared.defaultReaderMode
+        _readerMode = State(initialValue: ReaderMode(rawValue: modeString) ?? .horizontalRTL)
     }
 
     // MARK: - Computed
@@ -85,6 +89,7 @@ struct ChapterReaderView: View {
                 totalPages: pages.count,
                 readerMode: $readerMode,
                 showOverlay: $showOverlay,
+                showPageNumber: settings.showPageNumber,
                 onDismiss: { dismiss() },
                 onPrevChapter: prevChapter.map { ch in
                     { navigateTo(chapter: ch, index: displayedIndex - 1) }
@@ -97,6 +102,21 @@ struct ChapterReaderView: View {
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+            guard !pages.isEmpty else { return }
+            let seconds = Int(Date().timeIntervalSince(sessionStart))
+            guard seconds > 3 else { return }
+            let mangaId = manga.id
+            Task.detached(priority: .background) {
+                guard var m = try? MangaQueries.fetchOne(id: mangaId) else { return }
+                m.readingSeconds += seconds
+                try? MangaQueries.update(m)
+            }
+        }
         .onChange(of: currentPage) { _, newPage in
             if !pages.isEmpty && newPage == pages.count - 1 {
                 Task {
@@ -125,6 +145,7 @@ struct ChapterReaderView: View {
     // MARK: - Load Pages
 
     private func loadPages() async {
+        sessionStart = Date()
         let path = displayedChapter.path
         let result = await Task.detached(priority: .userInitiated) {
             bridge.getPageList(chapterPath: path)
@@ -249,6 +270,7 @@ struct ReaderOverlayView: View {
     let totalPages: Int
     @Binding var readerMode: ReaderMode
     @Binding var showOverlay: Bool
+    let showPageNumber: Bool
     let onDismiss: () -> Void
     let onPrevChapter: (() -> Void)?
     let onNextChapter: (() -> Void)?
@@ -326,7 +348,7 @@ struct ReaderOverlayView: View {
 
                     Spacer()
 
-                    if totalPages > 0 {
+                    if showPageNumber && totalPages > 0 {
                         Text("Page \(currentPage + 1) / \(totalPages)")
                             .font(.subheadline)
                             .foregroundStyle(.white)
