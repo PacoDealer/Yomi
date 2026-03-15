@@ -92,7 +92,7 @@ struct NovelDetailView: View {
                 } else {
                     ForEach(chapters) { chapter in
                         NavigationLink {
-                            TextReaderView(chapter: chapter, bridge: bridge)
+                            TextReaderView(chapter: chapter, novel: novel, bridge: bridge)
                         } label: {
                             NovelChapterRow(chapter: chapter)
                         }
