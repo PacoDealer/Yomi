@@ -2,17 +2,21 @@ import Foundation
 import GRDB
 
 /// Gestiona la conexión y las migraciones de la base de datos SQLite
-@MainActor(unsafe) final class DatabaseManager {
+final class DatabaseManager {
 
     // MARK: - Singleton
 
-    nonisolated(unsafe) static let shared = DatabaseManager()
+    static let shared = DatabaseManager()
     private init() {}
 
     // MARK: - Conexión
 
     /// Cola de acceso a la base de datos; se inicializa en setup()
     nonisolated(unsafe) private(set) var db: DatabaseQueue!
+
+    /// Acceso nonisolated a la base de datos; seguro porque db se escribe
+    /// una sola vez en setup() antes de que se ejecute cualquier query
+    nonisolated var database: DatabaseQueue { db }
 
     // MARK: - Setup
 
