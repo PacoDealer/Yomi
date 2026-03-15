@@ -2,11 +2,11 @@ import Foundation
 import GRDB
 
 /// Gestiona la conexión y las migraciones de la base de datos SQLite
-final class DatabaseManager {
+@MainActor(unsafe) final class DatabaseManager {
 
     // MARK: - Singleton
 
-    static let shared = DatabaseManager()
+    nonisolated(unsafe) static let shared = DatabaseManager()
     private init() {}
 
     // MARK: - Conexión
