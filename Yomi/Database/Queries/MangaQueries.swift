@@ -22,6 +22,16 @@ enum MangaQueries {
         }
     }
 
+    /// Devuelve manga con lastReadAt != nil, ordenados por fecha de lectura descendente
+    static func fetchHistory() throws -> [Manga] {
+        try DatabaseManager.shared.db.read { db in
+            try Manga
+                .filter(Column("lastReadAt") != nil)
+                .order(Column("lastReadAt").desc)
+                .fetchAll(db)
+        }
+    }
+
     // MARK: - Escritura
 
     /// Inserta un nuevo manga; falla si ya existe un registro con el mismo id
@@ -35,6 +45,15 @@ enum MangaQueries {
     static func update(_ manga: Manga) throws {
         try DatabaseManager.shared.db.write { db in
             try manga.update(db)
+        }
+    }
+
+    /// Actualiza lastReadAt a la fecha actual para el manga indicado
+    static func touchLastRead(mangaId: String) throws {
+        _ = try DatabaseManager.shared.db.write { db in
+            try Manga
+                .filter(Column("id") == mangaId)
+                .updateAll(db, [Column("lastReadAt").set(to: Date())])
         }
     }
 

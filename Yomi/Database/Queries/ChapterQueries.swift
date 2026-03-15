@@ -26,7 +26,8 @@ enum ChapterQueries {
     }
 
     /// Marca un capítulo como leído: isRead=true, readAt=ahora, progress=1.0
-    static func markRead(id: String) throws {
+    /// También actualiza lastReadAt del manga padre.
+    static func markRead(id: String, mangaId: String) throws {
         _ = try DatabaseManager.shared.db.write { db in
             try Chapter
                 .filter(Column("id") == id)
@@ -36,6 +37,7 @@ enum ChapterQueries {
                     Column("progress").set(to: 1.0)
                 ])
         }
+        try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
     // MARK: - Eliminación
