@@ -3,10 +3,20 @@ import SwiftUI
 struct MangaDetailView: View {
     let manga: Manga
 
+    // MARK: - State
+
     @State private var synopsisExpanded = false
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
+    @State private var inLibrary: Bool
+
+    init(manga: Manga) {
+        self.manga = manga
+        _inLibrary = State(initialValue: manga.inLibrary)
+    }
+
+    // MARK: - Body
 
     var body: some View {
         List {
@@ -104,17 +114,27 @@ struct MangaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    // add/remove from library — coming soon
+                    inLibrary.toggle()
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    Task { await toggleLibrary() }
                 } label: {
-                    Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
-                        .foregroundStyle(manga.inLibrary ? .red : .primary)
+                    Image(systemName: inLibrary ? "heart.fill" : "heart")
+                        .foregroundStyle(inLibrary ? .red : .primary)
                 }
             }
         }
         .task { await loadChapters() }
     }
 
-    // MARK: Load chapters
+    // MARK: - Toggle Library
+
+    private func toggleLibrary() async {
+        var updated = manga
+        updated.inLibrary = inLibrary
+        try? MangaQueries.update(updated)
+    }
+
+    // MARK: - Load Chapters
 
     private func loadChapters() async {
         let sourceId = manga.sourceId

@@ -53,7 +53,5 @@ struct LibraryView: View {
 }
 
 #Preview {
-    let vm = LibraryViewModel()
-    vm.loadPreviewData()
-    return LibraryView(viewModel: vm)
+    LibraryView()
 }
