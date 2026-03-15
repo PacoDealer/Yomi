@@ -83,31 +83,51 @@ function getChapterList(mangaPath) {
         var parts = mangaPath.split("/");
         var mangaId = parts[parts.length - 1];
 
-        var url = "https://api.mangadex.org/manga/" + mangaId + "/feed"
-            + "?limit=100"
-            + "&translatedLanguage[]=en"
-            + "&order[chapter]=asc"
-            + "&includes[]=scanlation_group";
+        var limit      = 500;
+        var offset     = 0;
+        var total      = null;
+        var maxIter    = 20;
+        var iterations = 0;
+        var allChapters = [];
 
-        var body = SOURCE.fetch(url);
-        var json = JSON.parse(body);
+        while (iterations < maxIter) {
+            var url = "https://api.mangadex.org/manga/" + mangaId + "/feed"
+                + "?limit=" + limit
+                + "&offset=" + offset
+                + "&translatedLanguage[]=en"
+                + "&order[chapter]=asc"
+                + "&includes[]=scanlation_group";
 
-        if (!json || !json.data) { return []; }
+            var body = SOURCE.fetch(url);
+            var json = JSON.parse(body);
 
-        return json.data.map(function(chapter) {
-            var attrs = chapter.attributes || {};
-            var chapterNum = attrs.chapter ? parseFloat(attrs.chapter) : null;
-            var name = attrs.title
-                ? attrs.title
-                : (attrs.chapter ? "Chapter " + attrs.chapter : "Chapter");
+            if (!json || !json.data || json.data.length === 0) { break; }
 
-            return {
-                id:            chapter.id,
-                path:          "/chapter/" + chapter.id,
-                name:          name,
-                chapterNumber: chapterNum
-            };
-        });
+            if (total === null) { total = json.total || 0; }
+
+            for (var i = 0; i < json.data.length; i++) {
+                var chapter = json.data[i];
+                var attrs = chapter.attributes || {};
+                var chapterNum = attrs.chapter ? parseFloat(attrs.chapter) : null;
+                var name = attrs.title
+                    ? attrs.title
+                    : (attrs.chapter ? "Chapter " + attrs.chapter : "Chapter");
+
+                allChapters.push({
+                    id:            chapter.id,
+                    path:          "/chapter/" + chapter.id,
+                    name:          name,
+                    chapterNumber: chapterNum
+                });
+            }
+
+            offset += json.data.length;
+            iterations++;
+
+            if (offset >= total) { break; }
+        }
+
+        return allChapters;
     } catch (e) {
         console.log("getChapterList error: " + e);
         return [];
