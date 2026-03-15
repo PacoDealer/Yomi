@@ -45,6 +45,9 @@ struct ChapterReaderView: View {
                     )
                 case .verticalScroll:
                     WebtoonReaderView(pages: pages, showOverlay: $showOverlay)
+                        .onAppear {
+                            Task { try? ChapterQueries.markRead(id: chapter.id) }
+                        }
                 }
             }
 
@@ -61,6 +64,11 @@ struct ChapterReaderView: View {
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
+        .onChange(of: currentPage) { _, newPage in
+            if !pages.isEmpty && newPage == pages.count - 1 {
+                Task { try? ChapterQueries.markRead(id: chapter.id) }
+            }
+        }
         .task {
             let path = chapter.path
             let result = await Task.detached(priority: .userInitiated) {
