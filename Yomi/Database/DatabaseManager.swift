@@ -6,7 +6,7 @@ final class DatabaseManager {
 
     // MARK: - Singleton
 
-    nonisolated(unsafe) static let shared = DatabaseManager()
+    static let shared = DatabaseManager()
     private init() {}
 
     // MARK: - Conexión
