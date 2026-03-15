@@ -6,9 +6,9 @@ struct MoreView: View {
             List {
                 Section("Sources") {
                     NavigationLink {
-                        ContentUnavailableView("Coming soon", systemImage: "puzzlepiece")
+                        PluginsView()
                     } label: {
-                        Label("Plugins", systemImage: "puzzlepiece")
+                        Label("Plugins", systemImage: "puzzlepiece.extension")
                     }
                 }
 
