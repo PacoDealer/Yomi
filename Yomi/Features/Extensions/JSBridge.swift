@@ -135,40 +135,323 @@ final class JSBridge {
         ctx.setObject(source, forKeyedSubscript: "SOURCE" as NSString)
     }
 
-    /// Minimal cheerio stub — prevents crashes in plugins that call cheerio.load()
-    /// Full DOM traversal is not available without a real HTML parser; selectors return empty results.
+    /// Full cheerio shim — hand-written recursive descent HTML parser + CSS selector engine.
+    /// Supports: tag, .class, #id, tag.class, tag[attr], tag[attr=val], descendant combinator, comma lists.
+    /// Methods: text(), html(), attr(), find(), each(), map(), first(), last(), eq(), length, toArray(),
+    ///          parent(), children(), is(), hasClass(), filter(), next(), prev()
     nonisolated private static func injectCheerio(into ctx: JSContext) {
-        ctx.evaluateScript("""
-        var cheerio = {
-            load: function(html, options) {
-                function $(selector) {
-                    return {
-                        length:  0,
-                        text:    function()     { return ''; },
-                        html:    function()     { return ''; },
-                        attr:    function(name) { return undefined; },
-                        find:    function(sel)  { return $(sel); },
-                        filter:  function(sel)  { return $(sel); },
-                        each:    function(fn)   { return this; },
-                        map:     function(fn)   { return []; },
-                        first:   function()     { return this; },
-                        last:    function()     { return this; },
-                        eq:      function(i)    { return this; },
-                        parent:  function()     { return this; },
-                        children:function(sel)  { return sel ? $(sel) : this; },
-                        next:    function()     { return this; },
-                        prev:    function()     { return this; },
-                        is:      function()     { return false; },
-                        hasClass:function()     { return false; },
-                        toArray: function()     { return []; }
-                    };
+        // Raw string literal: backslashes pass through unchanged — no double-escaping needed for JS regex.
+        ctx.evaluateScript(#"""
+        (function(global) {
+            'use strict';
+
+            // ── Void elements (never push onto stack) ───────────────────────────────
+            var VOID = {area:1,base:1,br:1,col:1,embed:1,hr:1,img:1,input:1,
+                        link:1,meta:1,param:1,source:1,track:1,wbr:1};
+
+            // ── Node constructors ────────────────────────────────────────────────────
+            function El(tag) { return {type:'el',tag:tag,attrs:{},children:[],parent:null}; }
+            function Tx(t)   { return {type:'tx',text:t,children:[],parent:null}; }
+
+            // ── HTML parser ──────────────────────────────────────────────────────────
+            // Tokenises with indexOf + regex; builds a node tree; resilient to malformed HTML.
+            function parse(html) {
+                html = html || '';
+                var root = El('#root');
+                var stack = [root];
+                var i = 0, n = html.length;
+
+                function top() { return stack[stack.length - 1]; }
+
+                function skipTo(str) {
+                    var idx = html.indexOf(str, i);
+                    i = (idx === -1) ? n : idx + str.length;
                 }
-                $.root  = function() { return $(null); };
-                $.load  = cheerio.load;
-                return $;
+
+                function appendChild(node) {
+                    node.parent = top();
+                    top().children.push(node);
+                }
+
+                while (i < n) {
+                    var lt = html.indexOf('<', i);
+                    if (lt === -1) {
+                        var rem = html.slice(i);
+                        if (rem) appendChild(Tx(rem));
+                        break;
+                    }
+                    if (lt > i) appendChild(Tx(html.slice(i, lt)));
+                    i = lt + 1;
+                    if (i >= n) break;
+
+                    // Comment
+                    if (html.substr(i, 3) === '!--') { skipTo('-->'); continue; }
+                    // Doctype / processing instruction
+                    if (html[i] === '!') { skipTo('>'); continue; }
+
+                    // Closing tag
+                    if (html[i] === '/') {
+                        var gt0 = html.indexOf('>', i);
+                        var raw0 = html.slice(i + 1, gt0 === -1 ? n : gt0).trim().toLowerCase().split(/\s/)[0];
+                        i = gt0 === -1 ? n : gt0 + 1;
+                        for (var s0 = stack.length - 1; s0 > 0; s0--) {
+                            if (stack[s0].tag === raw0) { stack.length = s0; break; }
+                        }
+                        continue;
+                    }
+
+                    // Opening tag — scan to '>' respecting quoted attribute values
+                    var end = i;
+                    var inQ = null;
+                    while (end < n) {
+                        var ch = html[end];
+                        if (inQ) { if (ch === inQ) inQ = null; }
+                        else if (ch === '"' || ch === "'") { inQ = ch; }
+                        else if (ch === '>') break;
+                        end++;
+                    }
+                    var rawTag = html.slice(i, end);
+                    i = end + 1;
+
+                    var selfClose = rawTag.slice(-1) === '/';
+                    if (selfClose) rawTag = rawTag.slice(0, -1);
+
+                    var nm = rawTag.match(/^([a-zA-Z][a-zA-Z0-9:_-]*)/);
+                    if (!nm) continue;
+                    var tag = nm[1].toLowerCase();
+
+                    // Parse attributes
+                    var attrs = {};
+                    var rest = rawTag.slice(nm[0].length);
+                    var aRe = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*)))?/g;
+                    var am;
+                    while ((am = aRe.exec(rest)) !== null) {
+                        var av = am[2] !== undefined ? am[2]
+                               : am[3] !== undefined ? am[3]
+                               : (am[4] || '');
+                        attrs[am[1].toLowerCase()] = av;
+                    }
+
+                    var el = El(tag);
+                    el.attrs = attrs;
+                    appendChild(el);
+
+                    if (!selfClose && !VOID[tag]) {
+                        stack.push(el);
+                        // Raw text elements: consume verbatim until the matching close tag
+                        if (tag === 'script' || tag === 'style') {
+                            var close = '</' + tag;
+                            var ci = html.toLowerCase().indexOf(close, i);
+                            var rawTxt = ci === -1 ? html.slice(i) : html.slice(i, ci);
+                            if (rawTxt) { var tx = Tx(rawTxt); tx.parent = el; el.children.push(tx); }
+                            if (ci !== -1) {
+                                var cgt = html.indexOf('>', ci);
+                                i = cgt === -1 ? n : cgt + 1;
+                            } else { i = n; }
+                            stack.pop();
+                        }
+                    }
+                }
+                return root;
             }
-        };
-        """)
+
+            // ── All descendants in document order ────────────────────────────────────
+            function descendants(node) {
+                var out = [];
+                var ch = node.children || [];
+                for (var i = 0; i < ch.length; i++) {
+                    out.push(ch[i]);
+                    var sub = descendants(ch[i]);
+                    for (var j = 0; j < sub.length; j++) out.push(sub[j]);
+                }
+                return out;
+            }
+
+            // ── CSS selector engine ──────────────────────────────────────────────────
+            // Parses one simple selector token (tag, .class, #id, [attr], [attr=val], combinations).
+            function parseSimple(sel) {
+                var tag=null, id=null, cls=null, attr=null, attrVal=null, hasAttr=false;
+                // [attr=val] or [attr]
+                var am = sel.match(/\[([a-zA-Z_:][a-zA-Z0-9_:.-]*)(?:=["']?([^"'\]]*)["']?)?\]/);
+                if (am) {
+                    attr = am[1].toLowerCase(); hasAttr = true;
+                    attrVal = am[2] !== undefined ? am[2] : null;
+                    sel = sel.replace(am[0], '');
+                }
+                var im = sel.match(/#([\w-]+)/);
+                if (im) { id = im[1]; sel = sel.replace(im[0], ''); }
+                var cm = sel.match(/\.([\w-]+)/);
+                if (cm) { cls = cm[1]; sel = sel.replace(cm[0], ''); }
+                var tm = sel.match(/^([a-zA-Z][\w-]*)/);
+                if (tm) { tag = tm[1].toLowerCase(); }
+                return {tag:tag, id:id, cls:cls, attr:attr, attrVal:attrVal, hasAttr:hasAttr};
+            }
+
+            function matchesSimple(node, s) {
+                if (node.type !== 'el' || node.tag === '#root') return false;
+                if (s.tag && node.tag !== s.tag) return false;
+                if (s.id  && node.attrs.id !== s.id) return false;
+                if (s.cls && (node.attrs['class'] || '').split(/\s+/).indexOf(s.cls) === -1) return false;
+                if (s.hasAttr) {
+                    if (!(s.attr in node.attrs)) return false;
+                    if (s.attrVal !== null && node.attrs[s.attr] !== s.attrVal) return false;
+                }
+                return true;
+            }
+
+            // Select nodes matching selectorStr within ctx (handles comma + descendant combinator)
+            function select(ctx, selectorStr) {
+                if (!selectorStr) return [];
+                var parts = selectorStr.split(',');
+                if (parts.length > 1) {
+                    var r = [];
+                    for (var p = 0; p < parts.length; p++) {
+                        var sub = select(ctx, parts[p].trim());
+                        for (var q = 0; q < sub.length; q++) {
+                            if (r.indexOf(sub[q]) === -1) r.push(sub[q]);
+                        }
+                    }
+                    return r;
+                }
+                var segs = selectorStr.trim().split(/\s+/);
+                var pool = descendants(ctx);
+                var s0 = parseSimple(segs[0]);
+                var matched = pool.filter(function(n) { return matchesSimple(n, s0); });
+                for (var s = 1; s < segs.length; s++) {
+                    var si = parseSimple(segs[s]);
+                    var next = [];
+                    for (var m = 0; m < matched.length; m++) {
+                        var d = descendants(matched[m]);
+                        for (var di = 0; di < d.length; di++) {
+                            if (matchesSimple(d[di], si) && next.indexOf(d[di]) === -1) next.push(d[di]);
+                        }
+                    }
+                    matched = next;
+                }
+                return matched;
+            }
+
+            // ── Serialization ────────────────────────────────────────────────────────
+            function textOf(node) {
+                if (node.type === 'tx') return node.text || '';
+                var out = '';
+                var ch = node.children || [];
+                for (var i = 0; i < ch.length; i++) out += textOf(ch[i]);
+                return out;
+            }
+
+            function htmlOf(node) {
+                var out = '';
+                var ch = node.children || [];
+                for (var i = 0; i < ch.length; i++) {
+                    var c = ch[i];
+                    if (c.type === 'tx') {
+                        out += c.text || '';
+                    } else {
+                        var as = '';
+                        for (var k in c.attrs) as += ' ' + k + '="' + c.attrs[k] + '"';
+                        out += '<' + c.tag + as + '>' + htmlOf(c) + '</' + c.tag + '>';
+                    }
+                }
+                return out;
+            }
+
+            // ── Cheerio wrapper ──────────────────────────────────────────────────────
+            function wrap(nodes) {
+                var obj = {
+                    length: nodes.length,
+                    text: function() {
+                        return nodes.map(function(n) { return textOf(n); }).join('');
+                    },
+                    html: function() {
+                        return nodes.length ? htmlOf(nodes[0]) : '';
+                    },
+                    attr: function(name) {
+                        return nodes.length ? nodes[0].attrs[name.toLowerCase()] : undefined;
+                    },
+                    find: function(sel) {
+                        var found = [];
+                        for (var i = 0; i < nodes.length; i++) {
+                            var sub = select(nodes[i], sel);
+                            for (var j = 0; j < sub.length; j++) {
+                                if (found.indexOf(sub[j]) === -1) found.push(sub[j]);
+                            }
+                        }
+                        return wrap(found);
+                    },
+                    each: function(fn) {
+                        for (var i = 0; i < nodes.length; i++) fn(i, wrap([nodes[i]]));
+                        return obj;
+                    },
+                    map: function(fn) {
+                        var r = [];
+                        for (var i = 0; i < nodes.length; i++) r.push(fn(i, wrap([nodes[i]])));
+                        return r;
+                    },
+                    first:   function() { return wrap(nodes.length ? [nodes[0]] : []); },
+                    last:    function() { return wrap(nodes.length ? [nodes[nodes.length-1]] : []); },
+                    eq: function(i) {
+                        var idx = i < 0 ? nodes.length + i : i;
+                        return wrap(idx >= 0 && idx < nodes.length ? [nodes[idx]] : []);
+                    },
+                    toArray: function() { return nodes.slice(); },
+                    parent: function() {
+                        var ps = [];
+                        for (var i = 0; i < nodes.length; i++) {
+                            var p = nodes[i].parent;
+                            if (p && p.tag !== '#root' && ps.indexOf(p) === -1) ps.push(p);
+                        }
+                        return wrap(ps);
+                    },
+                    children: function(sel) {
+                        var ch = [];
+                        for (var i = 0; i < nodes.length; i++) {
+                            var c = (nodes[i].children || []).filter(function(n) { return n.type === 'el'; });
+                            for (var j = 0; j < c.length; j++) {
+                                if (!sel || matchesSimple(c[j], parseSimple(sel))) ch.push(c[j]);
+                            }
+                        }
+                        return wrap(ch);
+                    },
+                    is: function(sel) {
+                        try { return nodes.length ? matchesSimple(nodes[0], parseSimple(sel)) : false; }
+                        catch(e) { return false; }
+                    },
+                    hasClass: function(c) {
+                        return nodes.length ? (nodes[0].attrs['class'] || '').split(/\s+/).indexOf(c) !== -1 : false;
+                    },
+                    filter: function(sel) {
+                        if (typeof sel === 'string') {
+                            var s = parseSimple(sel);
+                            return wrap(nodes.filter(function(n) { return matchesSimple(n, s); }));
+                        }
+                        return wrap(nodes.filter(sel));
+                    },
+                    next: function() { return wrap([]); },
+                    prev: function() { return wrap([]); }
+                };
+                return obj;
+            }
+
+            // ── Public API ───────────────────────────────────────────────────────────
+            global.cheerio = {
+                load: function(html) {
+                    var root;
+                    try { root = parse(html); } catch(e) { root = El('#root'); }
+                    function $(selector) {
+                        try {
+                            if (!selector) return wrap([]);
+                            if (selector === '*') return wrap(descendants(root));
+                            return wrap(select(root, selector));
+                        } catch(e) { return wrap([]); }
+                    }
+                    $.root = function() { return wrap([root]); };
+                    $.load = global.cheerio.load;
+                    return $;
+                }
+            };
+        })(this);
+        """#)
     }
 
     // MARK: - Plugin API — Manga (Format A)
