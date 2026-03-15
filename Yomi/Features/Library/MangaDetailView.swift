@@ -89,9 +89,15 @@ struct MangaDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(chapters) { chapter in
+                    ForEach(Array(chapters.enumerated()), id: \.element.id) { index, chapter in
                         NavigationLink {
-                            ChapterReaderView(chapter: chapter, manga: manga, bridge: bridge!)
+                            ChapterReaderView(
+                                chapter: chapter,
+                                manga: manga,
+                                bridge: bridge!,
+                                chapters: chapters,
+                                currentIndex: index
+                            )
                         } label: {
                             ChapterRow(chapter: chapter)
                         }
