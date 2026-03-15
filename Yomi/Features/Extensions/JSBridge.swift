@@ -501,7 +501,7 @@ final class JSBridge {
             .objectForKeyedSubscript("parseNovel")?
             .call(withArguments: [path])
         guard let dict = result?.toDictionary() as? [String: Any] else { return nil }
-        let chapters: [NovelChapter] = (dict["chapters"] as? [[String: Any]] ?? []).compactMap {
+        let chapters: [JSNovelChapter] = (dict["chapters"] as? [[String: Any]] ?? []).compactMap {
             guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
             return JSNovelChapter(
                 name:          name,
