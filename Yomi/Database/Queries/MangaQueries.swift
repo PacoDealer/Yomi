@@ -13,6 +13,13 @@ enum MangaQueries {
         }
     }
 
+    /// Devuelve el manga con el id indicado, o nil si no existe
+    static func fetchOne(id: String) throws -> Manga? {
+        try DatabaseManager.shared.db.read { db in
+            try Manga.fetchOne(db, key: id)
+        }
+    }
+
     /// Devuelve solo los manga que el usuario agregó a su biblioteca
     static func fetchLibrary() throws -> [Manga] {
         try DatabaseManager.shared.db.read { db in
