@@ -368,7 +368,7 @@ struct ReaderOverlayView: View {
             title: "Berserk", coverURL: nil, summary: nil,
             author: "Kentaro Miura", artist: "Kentaro Miura",
             status: .hiatus, genres: [], inLibrary: true, isLocal: false,
-            lastReadAt: nil, lastUpdatedAt: nil
+            lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
         ),
         bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
         chapters: [],

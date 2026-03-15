@@ -550,10 +550,11 @@ final class JSBridge {
                 artist:        dict["artist"]  as? String,
                 status:        MangaStatus(rawValue: dict["status"] as? String ?? "") ?? .unknown,
                 genres:        dict["genres"]  as? [String] ?? [],
-                inLibrary:     false,
-                isLocal:       false,
-                lastReadAt:    nil,
-                lastUpdatedAt: nil
+                inLibrary:      false,
+                isLocal:        false,
+                lastReadAt:     nil,
+                lastUpdatedAt:  nil,
+                readingSeconds: 0
             )
         }
     }

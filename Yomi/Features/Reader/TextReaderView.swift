@@ -266,7 +266,8 @@ private struct TextReaderOverlayView: View {
             genres: ["Fantasy", "Isekai"],
             inLibrary: false,
             lastReadAt: nil,
-            lastUpdatedAt: nil
+            lastUpdatedAt: nil,
+            readingSeconds: 0
         ),
         bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
     )
