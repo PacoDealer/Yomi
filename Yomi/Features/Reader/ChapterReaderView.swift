@@ -383,7 +383,7 @@ struct ReaderOverlayView: View {
         chapter: Chapter(
             id: "ch-1", mangaId: "1", path: "/chapter/ch-1",
             name: "Chapter 1", chapterNumber: 1.0,
-            isRead: false, isDownloaded: false, readAt: nil, progress: 0.0
+            isRead: false, isDownloaded: false, readAt: nil, progress: 0.0, readingSeconds: 0
         ),
         manga: Manga(
             id: "1", path: "/manga/berserk", sourceId: "com.yomi.test",

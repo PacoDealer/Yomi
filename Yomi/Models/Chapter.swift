@@ -20,4 +20,6 @@ struct Chapter: Identifiable, Codable {
     var readAt: Date?
     /// Progreso de lectura entre 0.0 (sin leer) y 1.0 (completado)
     var progress: Double
+    /// Segundos totales de tiempo de lectura registrado para este capítulo
+    var readingSeconds: Int
 }

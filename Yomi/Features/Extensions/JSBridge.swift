@@ -573,10 +573,11 @@ final class JSBridge {
                 path:          path,
                 name:          name,
                 chapterNumber: dict["chapterNumber"] as? Double,
-                isRead:        false,
-                isDownloaded:  false,
-                readAt:        nil,
-                progress:      0.0
+                isRead:          false,
+                isDownloaded:    false,
+                readAt:          nil,
+                progress:        0.0,
+                readingSeconds:  0
             )
         }
     }
