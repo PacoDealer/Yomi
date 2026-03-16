@@ -1,7 +1,7 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 7)
-UX completa para uso real. Settings funcionales. Reading Insights operativo. Flujo completo manga y novelas end-to-end.
+## Estado actual (post sesión 8)
+UX completa para uso real. Backup JSON operativo. Tracking MyAnimeList integrado. Navegación entre capítulos con tiempo de lectura por capítulo. Historial con clear. Insights por manga.
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -27,45 +27,54 @@ UX completa para uso real. Settings funcionales. Reading Insights operativo. Flu
 |---|---------|---------|
 | 1 | ✅ **NSFW filter** — toggle en PluginsView oculta entradas nsfw==1 del catálogo Keiyoushi | PluginsView |
 | 2 | ✅ **Browse picker fix** — segmented picker movido bajo nav bar con .inline para evitar superposición | BrowseView |
-| 3 | ✅ **AppSettings** — @Observable singleton con UserDefaults (@ObservationIgnored), 10 settings | nuevo AppSettings.swift |
-| 4 | ✅ **SettingsView** — 4 secciones: General, Reader manga, Reader novel, Appearance | nuevo SettingsView.swift |
+| 3 | ✅ **AppSettings** — @Observable singleton con UserDefaults, 6 settings | nuevo AppSettings.swift |
+| 4 | ✅ **SettingsView** — General / Reader manga / Reader novel / Appearance | nuevo SettingsView.swift |
 | 5 | ✅ **InsightsView** — tiempo total y por título (readingSeconds), formatTime helper | nuevo InsightsView.swift |
 | 6 | ✅ **DB v4 migration** — readingSeconds INTEGER en manga y novel | DatabaseManager |
 | 7 | ✅ **Time tracking en reader** — onDisappear acumula segundos en manga.readingSeconds | ChapterReaderView |
-| 8 | ✅ **keepScreenOn + defaultReaderMode** — AppSettings aplicados en reader | ChapterReaderView |
-| 9 | ✅ **MoreView restructurada** — Settings, Insights, About (con LicensesView) | MoreView |
+| 8 | ✅ **keepScreenOn + readerMode** — AppSettings aplicados en reader | ChapterReaderView |
+| 9 | ✅ **MoreView restructurada** — Settings, Plugins, Insights, About (con LicensesView) | MoreView |
 
-## Sesión 8 — Plugins & Discovery
+## Sesión 8 — Sync, Tracking & Polish ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Asura Scans plugin** | Formato A, scraping HTML con cheerio |
-| 2 | **Aqua Manga plugin** | Formato A, scraping HTML |
-| 3 | **Plugin repo index.json** | Instalar desde URL de índice en lugar de URL directa |
-| 4 | **Search within source** | BrowseView Search tab → getMangaList/searchNovels con query |
-| 5 | **Cover skeleton loading** | Placeholder animado con .redacted(reason: .placeholder) |
-| 6 | **Haptics** | UIImpactFeedbackGenerator en acciones clave |
+| 1 | ✅ **Backup & Restore** — exportar manga + capítulos a JSON, importar con upsert merge | BackupManager, BackupView |
+| 2 | ✅ **MyAnimeList OAuth** — login PKCE plain, yomi:// callback, tracking automático al terminar capítulo | MALService, MALView |
+| 3 | ✅ **Navegación prev/next chapter (refactor)** — currentChapterIndex + activeChapter, navigateToChapter, hasPrev/hasNext | ChapterReaderView |
+| 4 | ✅ **Timer de lectura por capítulo** — Timer 1s, ChapterQueries.addReadingTime en disappear/nav | ChapterReaderView, ChapterQueries |
+| 5 | ✅ **DB v4_reading_time** — readingSeconds INTEGER en chapter | DatabaseManager |
+| 6 | ✅ **HistoryView reescritura** — Task.detached + MainActor.run, clear button | HistoryView |
+| 7 | ✅ **InsightsView** — movido a Features/More, usa readingSeconds acumulado por capítulo | InsightsView |
+| 8 | ✅ **SettingsView** — movido a Features/More, usa 6 propiedades reales de AppSettings | SettingsView |
+| 9 | ✅ **MangaDetailView** — heart con upsert/insert, merge isRead+readingSeconds desde DB | MangaDetailView |
+| 10 | ✅ **MangaQueries** — fetchRecentlyRead, upsert; eliminado fetchHistory (dead code) | MangaQueries |
+| 11 | ✅ **PluginsView** — SHA256 id a 32 chars (prefix(32)) | PluginsView |
+| 12 | ✅ **mangadex.js** — getChapterList con limit=100, offset loop, cap 2000 | mangadex.js |
+| 13 | ✅ **MoreView** — secciones: App / Sources / Reading / Tracking / Data / Info | MoreView |
 
-## Sesión 9 — Sync & Offline
+## Sesión 9 — Downloads & Updates
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Backup & Restore** | Exportar DB como JSON a Files.app |
-| 2 | **Downloads** | Guardar capítulos offline, DownloadManager |
-| 3 | **AniList tracking** | OAuth + marcar capítulos leídos |
-| 4 | **Updates tab** | Background refresh de capítulos nuevos en biblioteca |
+| 1 | **Downloads** — guardar capítulos offline, DownloadManager, badge en ChapterRow | DownloadManager (nuevo) |
+| 2 | **Updates tab** — background refresh de capítulos nuevos en biblioteca, badge en tab | UpdatesView (nuevo) |
+| 3 | **AniList tracking** — alternativa a MAL, OAuth 2, integración paralela | AniListService (nuevo) |
+| 4 | **Notificaciones** — local notifications para capítulos nuevos | UserNotifications |
 
 ## Backlog (sin sesión asignada)
 - App icon y splash screen
 - iPad layout (sidebar en lugar de tab bar)
-- Notificaciones de nuevos capítulos
 - Gestos personalizables en el reader
 - Plugin marketplace propio (index.json hosteado)
+- Plugin repo index.json (instalar desde índice en lugar de URL directa)
+- Search within source (BrowseView Search tab)
+- Cover skeleton loading (.redacted placeholder)
 - TestFlight / App Store distribution
 
 ## Fuentes de plugins objetivo
 | Fuente | Formato | Estado |
 |--------|---------|--------|
 | MangaDex | Formato A (API JSON) | ✅ Implementado |
-| Asura Scans | Formato A (scraping) | Sesión 8 |
-| Aqua Manga | Formato A (scraping) | Sesión 8 |
+| Asura Scans | Formato A (scraping) | Backlog |
+| Aqua Manga | Formato A (scraping) | Backlog |
 | Royal Road | Formato B (LNReader) | Sesión 6+ |
 | NovelUpdates | Formato B (LNReader) | Sesión 6+ |
