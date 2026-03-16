@@ -6,20 +6,38 @@ struct MoreView: View {
     var body: some View {
         NavigationStack {
             List {
-                // MARK: Main navigation
-                Section {
+                // MARK: App
+                Section("App") {
                     NavigationLink { SettingsView() } label: {
                         Label("Settings", systemImage: "gearshape")
                     }
+                }
+
+                // MARK: Sources
+                Section("Sources") {
                     NavigationLink { PluginsView() } label: {
                         Label("Plugins", systemImage: "puzzlepiece.extension")
                     }
                 }
 
-                // MARK: Stats
-                Section {
+                // MARK: Reading
+                Section("Reading") {
                     NavigationLink { InsightsView() } label: {
-                        Label("Reading Insights", systemImage: "chart.bar")
+                        Label("Insights", systemImage: "chart.bar")
+                    }
+                }
+
+                // MARK: Tracking
+                Section("Tracking") {
+                    NavigationLink { MALView() } label: {
+                        Label("MyAnimeList", systemImage: "person.crop.circle.badge.checkmark")
+                    }
+                }
+
+                // MARK: Data
+                Section("Data") {
+                    NavigationLink { BackupView() } label: {
+                        Label("Backup", systemImage: "externaldrive")
                     }
                 }
 

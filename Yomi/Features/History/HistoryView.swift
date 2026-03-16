@@ -1,83 +1,102 @@
 import SwiftUI
 
-// MARK: - HistoryViewModel
-
-@Observable
-final class HistoryViewModel {
-    var mangas: [Manga] = []
-
-    func load() async {
-        do {
-            mangas = try MangaQueries.fetchHistory()
-        } catch {
-            mangas = []
-        }
-    }
-}
-
 // MARK: - HistoryView
 
 struct HistoryView: View {
-    @State private var viewModel = HistoryViewModel()
+
+    // MARK: - State
+
+    @State private var mangas: [Manga] = []
+    @State private var isLoading = false
+
+    // MARK: - Body
 
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.mangas.isEmpty {
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if mangas.isEmpty {
                     ContentUnavailableView(
                         "No history",
                         systemImage: "clock",
-                        description: Text("Titles you read will appear here.")
+                        description: Text("Manga you read will appear here.")
                     )
                 } else {
-                    List(viewModel.mangas) { manga in
-                        NavigationLink {
-                            MangaDetailView(manga: manga)
-                        } label: {
-                            HistoryRow(manga: manga)
+                    List {
+                        ForEach(mangas) { manga in
+                            NavigationLink {
+                                MangaDetailView(manga: manga)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    AsyncImage(url: manga.coverURL) { image in
+                                        image
+                                            .resizable()
+                                            .aspectRatio(2 / 3, contentMode: .fill)
+                                    } placeholder: {
+                                        Rectangle()
+                                            .fill(Color.secondary.opacity(0.3))
+                                            .aspectRatio(2 / 3, contentMode: .fit)
+                                    }
+                                    .frame(width: 48, height: 72)
+                                    .cornerRadius(6)
+                                    .clipped()
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(manga.title)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .lineLimit(2)
+                                        if let date = manga.lastReadAt {
+                                            Text(date.formatted(.relative(presentation: .named)))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
                         }
                     }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("History")
-            .task { await viewModel.load() }
-        }
-    }
-}
-
-// MARK: - HistoryRow
-
-private struct HistoryRow: View {
-    let manga: Manga
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AsyncImage(url: manga.coverURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(2 / 3, contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.3))
-                    .aspectRatio(2 / 3, contentMode: .fill)
-            }
-            .frame(width: 40, height: 60)
-            .cornerRadius(6)
-            .clipped()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(manga.title)
-                    .font(.headline)
-                    .lineLimit(2)
-
-                if let readAt = manga.lastReadAt {
-                    Text(readAt.formatted(.relative(presentation: .named)))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if !mangas.isEmpty {
+                        Button("Clear") { clearHistory() }
+                            .foregroundStyle(.red)
+                    }
                 }
             }
+            .task { await loadHistory() }
         }
-        .padding(.vertical, 2)
+    }
+
+    // MARK: - Load
+
+    private func loadHistory() async {
+        isLoading = true
+        let result = await Task.detached {
+            (try? MangaQueries.fetchRecentlyRead()) ?? []
+        }.value
+        await MainActor.run {
+            mangas = result
+            isLoading = false
+        }
+    }
+
+    // MARK: - Clear
+
+    private func clearHistory() {
+        for manga in mangas {
+            var m = manga
+            m.lastReadAt = nil
+            Task.detached { try? MangaQueries.upsert(m) }
+        }
+        mangas = []
     }
 }
 
