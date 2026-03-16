@@ -20,7 +20,7 @@ enum ChapterQueries {
 
     /// Inserta o actualiza un capítulo (usa el id como clave)
     nonisolated static func upsert(_ chapter: Chapter) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try chapter.save(db)
         }
     }
@@ -40,11 +40,21 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
+    /// Acumula segundos de lectura en el campo readingSeconds del capítulo
+    nonisolated static func addReadingTime(id: String, seconds: Int) throws {
+        guard seconds > 0 else { return }
+        _ = try appDatabase.write { db in
+            try Chapter
+                .filter(Column("id") == id)
+                .updateAll(db, Column("readingSeconds") += seconds)
+        }
+    }
+
     // MARK: - Eliminación
 
     /// Elimina el capítulo con el id indicado (no lanza error si no existe)
     nonisolated static func delete(id: String) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             _ = try Chapter.deleteOne(db, key: id)
         }
     }

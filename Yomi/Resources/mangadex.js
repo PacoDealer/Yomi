@@ -83,27 +83,21 @@ function getChapterList(mangaPath) {
         var parts = mangaPath.split("/");
         var mangaId = parts[parts.length - 1];
 
-        var limit      = 500;
-        var offset     = 0;
-        var total      = null;
-        var maxIter    = 20;
-        var iterations = 0;
+        var limit = 100;
+        var offset = 0;
         var allChapters = [];
 
-        while (iterations < maxIter) {
+        while (true) {
             var url = "https://api.mangadex.org/manga/" + mangaId + "/feed"
                 + "?limit=" + limit
                 + "&offset=" + offset
                 + "&translatedLanguage[]=en"
-                + "&order[chapter]=asc"
-                + "&includes[]=scanlation_group";
+                + "&order[chapter]=asc";
 
             var body = SOURCE.fetch(url);
             var json = JSON.parse(body);
 
             if (!json || !json.data || json.data.length === 0) { break; }
-
-            if (total === null) { total = json.total || 0; }
 
             for (var i = 0; i < json.data.length; i++) {
                 var chapter = json.data[i];
@@ -121,10 +115,9 @@ function getChapterList(mangaPath) {
                 });
             }
 
-            offset += json.data.length;
-            iterations++;
-
-            if (offset >= total) { break; }
+            if (json.data.length < limit) { break; }
+            offset += limit;
+            if (offset > 2000) { break; }
         }
 
         return allChapters;

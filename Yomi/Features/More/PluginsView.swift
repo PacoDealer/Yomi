@@ -347,21 +347,21 @@ private struct InstallFromURLSheet: View {
         let urlString = pluginURL.trimmingCharacters(in: .whitespaces)
         guard let url = URL(string: urlString) else { return }
 
-        // Stable ID: first 8 bytes of SHA256(url) as 16-char hex
-        let hash    = SHA256.hash(data: Data(urlString.utf8))
-        let stableId = hash.prefix(8).map { String(format: "%02x", $0) }.joined()
+        // Stable ID: first 32 chars of SHA256(url) as lowercase hex
+        let hash = SHA256.hash(data: Data(urlString.utf8))
+        let id = String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased())
 
         isInstalling = true
         errorMessage = nil
 
-        if extensionManager.installed.contains(where: { $0.id == stableId }) {
+        if extensionManager.installed.contains(where: { $0.id == id }) {
             errorMessage = "This plugin is already installed."
             isInstalling = false
             return
         }
 
         let ext = Extension(
-            id:            stableId,
+            id:            id,
             name:          pluginName.trimmingCharacters(in: .whitespaces),
             version:       "1.0.0",
             language:      pluginLang.trimmingCharacters(in: .whitespaces).lowercased(),
