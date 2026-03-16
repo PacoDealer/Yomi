@@ -9,11 +9,11 @@ struct MangaDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
-    @State private var inLibrary: Bool
+    @State private var isInLibrary: Bool
 
     init(manga: Manga) {
         self.manga = manga
-        _inLibrary = State(initialValue: manga.inLibrary)
+        _isInLibrary = State(initialValue: manga.inLibrary)
     }
 
     // MARK: - Body
@@ -92,11 +92,10 @@ struct MangaDetailView: View {
                     ForEach(Array(chapters.enumerated()), id: \.element.id) { index, chapter in
                         NavigationLink {
                             ChapterReaderView(
-                                chapter: chapter,
                                 manga: manga,
                                 bridge: bridge!,
                                 chapters: chapters,
-                                currentIndex: index
+                                chapterIndex: index
                             )
                         } label: {
                             ChapterRow(chapter: chapter)
@@ -120,24 +119,23 @@ struct MangaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    inLibrary.toggle()
+                    isInLibrary.toggle()
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    Task { await toggleLibrary() }
+                    let newValue = isInLibrary
+                    let m = manga
+                    Task.detached {
+                        var updated = m
+                        updated.inLibrary = newValue
+                        do { try MangaQueries.update(updated) }
+                        catch { try? MangaQueries.insert(updated) }
+                    }
                 } label: {
-                    Image(systemName: inLibrary ? "heart.fill" : "heart")
-                        .foregroundStyle(inLibrary ? .red : .primary)
+                    Image(systemName: isInLibrary ? "heart.fill" : "heart")
+                        .foregroundStyle(isInLibrary ? .red : .primary)
                 }
             }
         }
         .task { await loadChapters() }
-    }
-
-    // MARK: - Toggle Library
-
-    private func toggleLibrary() async {
-        var updated = manga
-        updated.inLibrary = inLibrary
-        try? MangaQueries.update(updated)
     }
 
     // MARK: - Load Chapters
@@ -159,7 +157,18 @@ struct MangaDetailView: View {
         }.value
 
         bridge = loadedBridge
-        chapters = loadedChapters
+
+        // Merge persisted read/time state from DB
+        let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+        let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+        chapters = loadedChapters.map { ch in
+            guard let persisted = savedMap[ch.id] else { return ch }
+            var merged = ch
+            merged.isRead = persisted.isRead
+            merged.readingSeconds = persisted.readingSeconds
+            return merged
+        }
+
         isLoadingChapters = false
     }
 }

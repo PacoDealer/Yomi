@@ -17,8 +17,7 @@ struct ChapterReaderView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var settings = AppSettings.shared
-    @State private var displayedChapter: Chapter
-    @State private var displayedIndex: Int
+    @State private var currentChapterIndex: Int
     @State private var pages: [String] = []
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
@@ -26,26 +25,23 @@ struct ChapterReaderView: View {
     @State private var showOverlay = true
     @State private var currentPage = 0
     @State private var sessionStart: Date = Date()
+    @State private var readingTimer: Timer? = nil
+    @State private var sessionSeconds: Int = 0
 
-    init(chapter: Chapter, manga: Manga, bridge: JSBridge, chapters: [Chapter], currentIndex: Int) {
+    init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
         self.bridge = bridge
         self.chapters = chapters
-        _displayedChapter = State(initialValue: chapter)
-        _displayedIndex = State(initialValue: currentIndex)
-        let modeString = AppSettings.shared.defaultReaderMode
+        _currentChapterIndex = State(initialValue: chapterIndex)
+        let modeString = AppSettings.shared.readerMode
         _readerMode = State(initialValue: ReaderMode(rawValue: modeString) ?? .horizontalRTL)
     }
 
     // MARK: - Computed
 
-    private var prevChapter: Chapter? {
-        displayedIndex > 0 ? chapters[displayedIndex - 1] : nil
-    }
-
-    private var nextChapter: Chapter? {
-        displayedIndex < chapters.count - 1 ? chapters[displayedIndex + 1] : nil
-    }
+    private var activeChapter: Chapter { chapters[currentChapterIndex] }
+    private var hasPrevChapter: Bool { currentChapterIndex > 0 }
+    private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
 
     // MARK: - Body
 
@@ -74,8 +70,8 @@ struct ChapterReaderView: View {
                         .onAppear {
                             Task {
                                 try? ChapterQueries.markRead(
-                                    id: displayedChapter.id,
-                                    mangaId: displayedChapter.mangaId
+                                    id: activeChapter.id,
+                                    mangaId: activeChapter.mangaId
                                 )
                             }
                         }
@@ -84,33 +80,41 @@ struct ChapterReaderView: View {
 
             ReaderOverlayView(
                 manga: manga,
-                chapter: displayedChapter,
+                chapter: activeChapter,
                 currentPage: currentPage,
                 totalPages: pages.count,
                 readerMode: $readerMode,
                 showOverlay: $showOverlay,
-                showPageNumber: settings.showPageNumber,
+                showPageNumber: true,
+                hasPrevChapter: hasPrevChapter,
+                hasNextChapter: hasNextChapter,
                 onDismiss: { dismiss() },
-                onPrevChapter: prevChapter.map { ch in
-                    { navigateTo(chapter: ch, index: displayedIndex - 1) }
-                },
-                onNextChapter: nextChapter.map { ch in
-                    { navigateTo(chapter: ch, index: displayedIndex + 1) }
-                }
+                onPrevChapter: { navigateToChapter(currentChapterIndex - 1) },
+                onNextChapter: { navigateToChapter(currentChapterIndex + 1) }
             )
         }
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
+            UIApplication.shared.isIdleTimerDisabled = true
+            readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                sessionSeconds += 1
+            }
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
+            readingTimer?.invalidate()
+            readingTimer = nil
+            let secs = sessionSeconds
+            let cid = activeChapter.id
+            let mangaId = manga.id
+            Task.detached {
+                try? ChapterQueries.addReadingTime(id: cid, seconds: secs)
+            }
             guard !pages.isEmpty else { return }
             let seconds = Int(Date().timeIntervalSince(sessionStart))
             guard seconds > 3 else { return }
-            let mangaId = manga.id
             Task.detached(priority: .background) {
                 guard var m = try? MangaQueries.fetchOne(id: mangaId) else { return }
                 m.readingSeconds += seconds
@@ -118,12 +122,20 @@ struct ChapterReaderView: View {
             }
         }
         .onChange(of: currentPage) { _, newPage in
-            if !pages.isEmpty && newPage == pages.count - 1 {
-                Task {
-                    try? ChapterQueries.markRead(
-                        id: displayedChapter.id,
-                        mangaId: displayedChapter.mangaId
-                    )
+            if pages.count > 0 && newPage == pages.count - 1 {
+                let cid = activeChapter.id
+                let mid = activeChapter.mangaId
+                Task.detached {
+                    try? ChapterQueries.markRead(id: cid, mangaId: mid)
+                }
+                if MALService.shared.isLoggedIn {
+                    Task {
+                        let mangaTitle = manga.title
+                        let chapNum = Int(activeChapter.chapterNumber ?? 0)
+                        if let malId = await MALService.shared.searchManga(title: mangaTitle) {
+                            await MALService.shared.updateMangaProgress(malId: malId, chaptersRead: chapNum)
+                        }
+                    }
                 }
             }
         }
@@ -132,21 +144,40 @@ struct ChapterReaderView: View {
 
     // MARK: - Navigation
 
-    private func navigateTo(chapter: Chapter, index: Int) {
-        displayedChapter = chapter
-        displayedIndex = index
+    private func navigateToChapter(_ index: Int) {
+        readingTimer?.invalidate()
+        readingTimer = nil
+        let secs = sessionSeconds
+        let cid = activeChapter.id
+        Task.detached {
+            try? ChapterQueries.addReadingTime(id: cid, seconds: secs)
+        }
+        currentChapterIndex = index
         pages = []
         isLoading = true
-        currentPage = 0
         errorMessage = nil
-        Task { await loadPages() }
+        sessionSeconds = 0
+        readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            sessionSeconds += 1
+        }
+        let path = chapters[index].path
+        let b = bridge
+        Task.detached(priority: .userInitiated) {
+            let result = b.getPageList(chapterPath: path)
+            await MainActor.run {
+                pages = result
+                isLoading = false
+                currentPage = 0
+                if result.isEmpty { errorMessage = "No pages found." }
+            }
+        }
     }
 
     // MARK: - Load Pages
 
     private func loadPages() async {
         sessionStart = Date()
-        let path = displayedChapter.path
+        let path = activeChapter.path
         let result = await Task.detached(priority: .userInitiated) {
             bridge.getPageList(chapterPath: path)
         }.value
@@ -271,9 +302,11 @@ struct ReaderOverlayView: View {
     @Binding var readerMode: ReaderMode
     @Binding var showOverlay: Bool
     let showPageNumber: Bool
+    let hasPrevChapter: Bool
+    let hasNextChapter: Bool
     let onDismiss: () -> Void
-    let onPrevChapter: (() -> Void)?
-    let onNextChapter: (() -> Void)?
+    let onPrevChapter: () -> Void
+    let onNextChapter: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -336,15 +369,15 @@ struct ReaderOverlayView: View {
 
                 HStack(spacing: 0) {
                     Button {
-                        onPrevChapter?()
+                        onPrevChapter()
                     } label: {
                         Image(systemName: "chevron.left.2")
                             .font(.title3)
                             .fontWeight(.semibold)
-                            .foregroundStyle(onPrevChapter != nil ? .white : .white.opacity(0.25))
+                            .foregroundStyle(hasPrevChapter ? .white : .white.opacity(0.25))
                             .frame(width: 44, height: 44)
                     }
-                    .disabled(onPrevChapter == nil)
+                    .disabled(!hasPrevChapter)
 
                     Spacer()
 
@@ -357,15 +390,15 @@ struct ReaderOverlayView: View {
                     Spacer()
 
                     Button {
-                        onNextChapter?()
+                        onNextChapter()
                     } label: {
                         Image(systemName: "chevron.right.2")
                             .font(.title3)
                             .fontWeight(.semibold)
-                            .foregroundStyle(onNextChapter != nil ? .white : .white.opacity(0.25))
+                            .foregroundStyle(hasNextChapter ? .white : .white.opacity(0.25))
                             .frame(width: 44, height: 44)
                     }
-                    .disabled(onNextChapter == nil)
+                    .disabled(!hasNextChapter)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -380,11 +413,6 @@ struct ReaderOverlayView: View {
 
 #Preview {
     ChapterReaderView(
-        chapter: Chapter(
-            id: "ch-1", mangaId: "1", path: "/chapter/ch-1",
-            name: "Chapter 1", chapterNumber: 1.0,
-            isRead: false, isDownloaded: false, readAt: nil, progress: 0.0, readingSeconds: 0
-        ),
         manga: Manga(
             id: "1", path: "/manga/berserk", sourceId: "com.yomi.test",
             title: "Berserk", coverURL: nil, summary: nil,
@@ -394,6 +422,6 @@ struct ReaderOverlayView: View {
         ),
         bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
         chapters: [],
-        currentIndex: 0
+        chapterIndex: 0
     )
 }
