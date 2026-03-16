@@ -16,8 +16,8 @@ Yomi/
 ├── Database/
 │   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
 │   └── Queries/
-│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchHistory, insert, update, touchLastRead, delete
-│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(mangaId:), upsert, markRead, delete
+│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchRecentlyRead, insert, update, upsert, touchLastRead, delete
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(mangaId:), upsert, markRead, addReadingTime, delete
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensiones
 ├── Features/
@@ -25,25 +25,28 @@ Yomi/
 │   │   ├── LibraryView.swift        # Grid de manga guardados
 │   │   ├── LibraryViewModel.swift   # Estado y filtrado
 │   │   ├── MangaCoverCell.swift     # Celda de portada
-│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos
+│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button + DB merge
 │   ├── Browse/
 │   │   ├── BrowseView.swift         # Sources tab + SourceBrowseView (dual manga/novel)
 │   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
 │   ├── Reader/
-│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter, time tracking
+│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter, timer lectura, MAL tracking
 │   │   └── TextReaderView.swift     # Lector HTML para novelas (WKWebView, font size, dark/light)
 │   ├── History/
-│   │   └── HistoryView.swift        # Historial con HistoryViewModel inline, lista manga por lastReadAt desc
+│   │   └── HistoryView.swift        # Historial por lastReadAt desc, clear button
 │   ├── More/
-│   │   ├── MoreView.swift           # Root tab More (Settings, Insights, About + LicensesView)
-│   │   └── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter
-│   ├── Settings/
-│   │   ├── AppSettings.swift        # @Observable singleton, UserDefaults-backed
-│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance
-│   │   └── InsightsView.swift       # Tiempo de lectura total y por manga
+│   │   ├── MoreView.swift           # Root tab More (App / Sources / Reading / Tracking / Data / Info)
+│   │   ├── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter
+│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About
+│   │   ├── InsightsView.swift       # Tiempo de lectura total y por manga
+│   │   ├── BackupManager.swift      # Exportar/importar JSON (manga + chapters)
+│   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
+│   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
+│   │   └── MALView.swift            # Login/disconnect UI + SafariView
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real)
 │       └── ExtensionManager.swift   # Instalar/remover plugins
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 6 propiedades
 ├── Resources/
 │   ├── mangadex.js                  # Plugin MangaDex (Formato A)
 │   └── test-source.js               # Plugin de prueba (Formato A)
@@ -57,7 +60,7 @@ Yomi/
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
 ├─────────────────────────────────────────┤
-│   ViewModels (@Observable) + AppSettings│  LibraryViewModel, HistoryViewModel, etc.
+│   ViewModels (@Observable) + AppSettings│  LibraryViewModel, BackupManager, MALService
 ├─────────────────────────────────────────┤
 │    ExtensionManager + JSBridge          │  Features/Extensions/
 ├──────────────────┬──────────────────────┤
@@ -75,7 +78,8 @@ manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
-              isDownloaded, readAt, progress)
+              isDownloaded, readAt, progress,
+              readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 category     (id, name, sort)
 
@@ -96,7 +100,10 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - **v1_initial**: manga, chapter, category, source
 - **v2_extensions**: extension
 - **v3_novels**: novel, novel_chapter
-- **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0` / `ALTER TABLE novel ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
+- **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds` / `ALTER TABLE novel ADD COLUMN readingSeconds`
+- **v4_reading_time**: `ALTER TABLE chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
+
+> Nota: dos migraciones con prefijo v4_ coexisten sin conflicto — GRDB las trackea por nombre string, no por número. La siguiente migración debe usar prefijo `v5_`.
 
 ### Por qué GRDB y no SwiftData
 - Control total del esquema SQL y migraciones incrementales
@@ -170,19 +177,61 @@ BrowseView
 → LazyVGrid → MangaCoverCell → NavigationLink
 → MangaDetailView(manga)
 → Task.detached { bridge.getChapterList(mangaPath:) }
+→ merge con DB (isRead, readingSeconds por capítulo)
 → List → ChapterRow → NavigationLink
-→ ChapterReaderView(chapter, manga, bridge, chapters, currentIndex)
+→ ChapterReaderView(manga:bridge:chapters:chapterIndex:)
 → Task.detached { bridge.getPageList(chapterPath:) }
 → MangaReaderView (RTL TabView)  o
-WebtoonReaderView (ScrollView LazyVStack)
+   WebtoonReaderView (ScrollView LazyVStack)
 
-## Flujo mark-as-read
+## Flujo mark-as-read + tracking
 ChapterReaderView
 → .onChange(of: currentPage) { if newPage == pages.count - 1 }
 → Task { ChapterQueries.markRead(id:mangaId:) }
    → UPDATE chapter SET isRead=true, readAt=now, progress=1.0
    → MangaQueries.touchLastRead(mangaId:)
       → UPDATE manga SET lastReadAt=now
+→ if MALService.isLoggedIn
+   → MALService.searchManga(title:)
+   → MALService.updateMangaProgress(malId:chaptersRead:)
+
+## Flujo de lectura + tiempo
+ChapterReaderView.onAppear
+→ isIdleTimerDisabled = true
+→ readingTimer = Timer(1s) { sessionSeconds += 1 }
+
+ChapterReaderView.onDisappear / navigateToChapter
+→ readingTimer.invalidate()
+→ Task.detached { ChapterQueries.addReadingTime(id:seconds:) }
+   → UPDATE chapter SET readingSeconds += seconds
+→ Task.detached { MangaQueries.update(manga con readingSeconds acumulado) }
+→ isIdleTimerDisabled = false
+
+## Flujo Backup
+BackupManager.exportBackup()
+→ MangaQueries.fetchAll() + await appDatabase.read { Chapter.fetchAll }
+→ JSONSerialization → Data
+→ FileManager.temporaryDirectory → URL
+→ BackupView lo presenta via ShareLink
+
+BackupManager.importBackup(from:)
+→ Data(contentsOf:) → JSONSerialization
+→ decodeManga / decodeChapter
+→ MangaQueries.upsert + ChapterQueries.upsert (merge, no reemplaza)
+
+## Flujo MAL OAuth
+MALService.authorizationURL()
+→ genera code_verifier aleatorio (plain PKCE)
+→ construye URL authorize MAL
+
+BackupView / MALView → SFSafariViewController
+→ usuario autoriza → MAL redirige a yomi://callback?code=...
+
+YomiApp / MALView.onOpenURL
+→ MALService.handleCallback(url:)
+→ POST /oauth2/token (code + code_verifier)
+→ GET /users/@me (username)
+→ guarda accessToken en UserDefaults
 
 ## Concurrencia
 - Todas las llamadas a JSBridge se hacen desde `Task.detached(priority: .userInitiated)`
@@ -190,6 +239,7 @@ ChapterReaderView
 - SOURCE.fetch bloquea el thread con `DispatchSemaphore` — nunca llamar desde MainActor
 - Resultado se entrega a la UI via `await MainActor.run { state = result }`
 - `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
+- `appDatabase.read` tiene overload async: desde contexto @MainActor requiere `try await appDatabase.read { ... }`
 
 ## Decisiones de diseño
 | Decisión | Alternativa descartada | Motivo |
@@ -199,5 +249,8 @@ ChapterReaderView
 | Plugins .js locales | API remota propia | Sin servidor, funciona offline |
 | Formato A propio | Solo LNReader | LNReader no tiene plugins de manga, solo novelas |
 | Keiyoushi como referencia | Intentar correr .apk | .apk Android no corren en iOS |
-| GRDB acceso nonisolated | Propiedad en singleton MainActor | Module-level `nonisolated(unsafe) var appDatabase` es el patrón oficial GRDB para Swift 6 strict concurrency — evita actor hops en *Queries |
-| UserDefaults para settings | CoreData / archivo JSON | Settings simples no necesitan DB — UserDefaults con @Observable wrapper es suficiente |
+| GRDB acceso nonisolated | Propiedad en singleton MainActor | Module-level `nonisolated(unsafe) var appDatabase` es el patrón oficial GRDB para Swift 6 — evita actor hops en *Queries |
+| UserDefaults para settings | CoreData / archivo JSON | Settings simples no necesitan DB |
+| Token MAL en UserDefaults | Keychain | Suficiente para MVP; migrar a Keychain antes de App Store |
+| Backup JSON manual | CloudKit / iCloud Drive sync | Sin dependencia de servicios Apple; portátil entre plataformas |
+| MAL PKCE plain | PKCE S256 | MAL API solo soporta el método plain |
