@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents an installable extension package (like Mihon's .apk extensions).
 /// One Extension can expose multiple Sources (e.g. MangaDex with EN, ES, JP sources).
-struct Extension: Identifiable, Codable {
+struct Extension: Identifiable, Codable, Hashable {
     let id: String                  // Reverse-domain, e.g. "com.yomi.mangadex"
     var name: String
     var version: String             // Semantic version, e.g. "1.0.0"

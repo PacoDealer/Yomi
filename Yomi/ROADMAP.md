@@ -1,7 +1,7 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 8)
-UX completa para uso real. Backup JSON operativo. Tracking MyAnimeList integrado. Navegación entre capítulos con tiempo de lectura por capítulo. Historial con clear. Insights por manga.
+## Estado actual (post sesión 9)
+UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marcados como leídos al terminar. Historial real desde DB. Búsqueda dentro de fuentes (client-side). Skeleton shimmer en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights.
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -52,22 +52,37 @@ UX completa para uso real. Backup JSON operativo. Tracking MyAnimeList integrado
 | 12 | ✅ **mangadex.js** — getChapterList con limit=100, offset loop, cap 2000 | mangadex.js |
 | 13 | ✅ **MoreView** — secciones: App / Sources / Reading / Tracking / Data / Info | MoreView |
 
-## Sesión 9 — Downloads & Updates
+## Sesión 9 — Polish & Real Data ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Downloads** — guardar capítulos offline, DownloadManager, badge en ChapterRow | DownloadManager (nuevo) |
-| 2 | **Updates tab** — background refresh de capítulos nuevos en biblioteca, badge en tab | UpdatesView (nuevo) |
-| 3 | **AniList tracking** — alternativa a MAL, OAuth 2, integración paralela | AniListService (nuevo) |
-| 4 | **Notificaciones** — local notifications para capítulos nuevos | UserNotifications |
+| 1 | ✅ **Save to library** — heart → GRDB upsert + fetchOne, UIImpactFeedbackGenerator | MangaDetailView, MangaQueries |
+| 2 | ✅ **Mark chapter as read** — última página + onDisappear si currentPage > 0 | ChapterReaderView, ChapterQueries.markRead |
+| 3 | ✅ **ChapterQueries CRUD completo** — fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll | ChapterQueries |
+| 4 | ✅ **History tab datos reales** — GRDB filter lastReadAt IS NOT NULL, orden DESC, swipe-to-delete local | HistoryView |
+| 5 | ✅ **LibraryViewModel sort** — lastReadAt DESC NULLS LAST, luego title ASC en Swift | LibraryViewModel |
+| 6 | ✅ **Search within source** — BrowseView Search tab, filtro client-side sobre getMangaList, source picker (Hashable) | BrowseView, SearchView |
+| 7 | ✅ **Cover skeleton shimmer** — LinearGradient animado con phase @State, GeometryReader | MangaCoverCell, ShimmerView |
+| 8 | ✅ **Double-tap zoom reset** — simultaneousGesture(TapGesture(count:2)) + spring animation | MangaPageView |
+| 9 | ✅ **Fix Extension+Hashable** — Picker requiere Hashable en tipo de selección | Extension.swift |
+| 10 | ✅ **Fix Text+Text iOS 26** — Text("\(Text(date, style:.relative)) ago") reemplaza operador + | HistoryView |
+
+## Sesión 10 — Server-side search & categories
+| # | Feature | Detalle |
+|---|---------|---------|
+| 1 | **Server-side search por plugin** | Agregar searchManga(query:page:) a JSBridge + plugins Formato A (mangadex.js usa /manga?title=...) |
+| 2 | **Categories** | LibraryView category filter tabs, CategoryView CRUD, tabla join manga↔category (migración v5_) |
+| 3 | **Chapter pagination** | mangadex.js offset loop, botón "load more" en MangaDetailView |
+| 4 | **Plugin dedup en install** | Verificar si ya existe extensión con mismo sourceListURL antes de instalar |
+| 5 | **App icon** | Diseñar y configurar AppIcon en Assets.xcassets |
+| 6 | **Downloads** | Guardar capítulos offline, DownloadManager, badge en ChapterRow |
 
 ## Backlog (sin sesión asignada)
-- App icon y splash screen
 - iPad layout (sidebar en lugar de tab bar)
+- Updates tab (background refresh de capítulos nuevos en biblioteca)
+- AniList tracking (alternativa a MAL)
 - Gestos personalizables en el reader
 - Plugin marketplace propio (index.json hosteado)
-- Plugin repo index.json (instalar desde índice en lugar de URL directa)
-- Search within source (BrowseView Search tab)
-- Cover skeleton loading (.redacted placeholder)
+- Notificaciones de nuevos capítulos
 - TestFlight / App Store distribution
 
 ## Fuentes de plugins objetivo

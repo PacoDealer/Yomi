@@ -92,7 +92,7 @@ private struct HistoryRow: View {
                     .font(.headline)
                     .lineLimit(1)
                 if let d = manga.lastReadAt {
-                    (Text(d, style: .relative) + Text(" ago"))
+                    Text("\(Text(d, style: .relative)) ago")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
