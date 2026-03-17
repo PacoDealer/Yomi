@@ -59,15 +59,17 @@ struct BrowseView: View {
 
 private struct SearchView: View {
     @State private var extensionManager = ExtensionManager.shared
-    @State private var globalSearch = ""
+    @State private var searchQuery: String = ""
     @State private var searchResults: [Manga] = []
-    @State private var isSearching = false
+    @State private var isSearching: Bool = false
     @State private var selectedSource: Extension? = nil
-    @State private var hasSearched = false
+    @State private var debounceTask: Task<Void, Never>? = nil
 
     private let columns = [
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
     ]
+
+    // MARK: Body
 
     var body: some View {
         Group {
@@ -80,24 +82,23 @@ private struct SearchView: View {
             } else if isSearching {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if hasSearched && searchResults.isEmpty {
-                ContentUnavailableView.search(text: globalSearch)
-            } else if searchResults.isEmpty {
+            } else if !searchResults.isEmpty {
+                resultsGrid
+            } else if searchQuery.count >= 2 {
+                ContentUnavailableView.search(text: searchQuery)
+            } else if searchQuery.isEmpty {
                 ContentUnavailableView(
                     "Search titles",
                     systemImage: "magnifyingglass",
                     description: Text("Results from your installed sources will appear here.")
                 )
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(searchResults) { manga in
-                            MangaCoverCell(manga: manga)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                }
+                // 1 character typed
+                ContentUnavailableView(
+                    "Keep typing",
+                    systemImage: "magnifyingglass",
+                    description: Text("Type at least 2 characters to search.")
+                )
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -114,32 +115,47 @@ private struct SearchView: View {
                 .background(.bar)
             }
         }
-        .searchable(text: $globalSearch, prompt: "Search titles")
-        .onSubmit(of: .search) { Task { await performSearch() } }
+        .searchable(text: $searchQuery, prompt: "Search titles")
+        .onChange(of: searchQuery) { _, newValue in
+            debounceTask?.cancel()
+            guard newValue.count >= 2 else {
+                searchResults = []
+                isSearching = false
+                return
+            }
+            isSearching = true
+            let query = newValue
+            let sources = selectedSource.map { [$0] } ?? extensionManager.installed
+            debounceTask = Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
+                let results = await Task.detached(priority: .userInitiated) {
+                    sources.flatMap { ext in
+                        JSBridge(scriptURL: ext.sourceListURL)?
+                            .searchManga(query: query, page: 1, sourceId: ext.id)
+                        ?? []
+                    }
+                }.value
+                await MainActor.run {
+                    searchResults = results
+                    isSearching = false
+                }
+            }
+        }
     }
 
-    // MARK: Perform Search
+    // MARK: Results Grid
 
-    private func performSearch() async {
-        guard !globalSearch.trimmingCharacters(in: .whitespaces).isEmpty else {
-            searchResults = []
-            hasSearched = false
-            return
-        }
-        isSearching = true
-        hasSearched = true
-        let query = globalSearch
-        let sources = selectedSource.map { [$0] } ?? extensionManager.installed
-        let results = await Task.detached {
-            sources.flatMap { ext in
-                JSBridge(scriptURL: ext.sourceListURL)?
-                    .getMangaList(page: 1, sourceId: ext.id)
-                    .filter { $0.title.localizedStandardContains(query) }
-                ?? []
+    private var resultsGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(searchResults) { manga in
+                    MangaCoverCell(manga: manga)
+                }
             }
-        }.value
-        searchResults = results
-        isSearching = false
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+        }
     }
 }
 

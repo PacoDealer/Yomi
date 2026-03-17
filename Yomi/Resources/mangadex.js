@@ -150,6 +150,83 @@ function getPageList(chapterPath) {
     }
 }
 
+function searchManga(query, page) {
+    try {
+        var offset = (page - 1) * 20;
+        var url = "https://api.mangadex.org/manga"
+            + "?title=" + encodeURIComponent(query)
+            + "&limit=20"
+            + "&offset=" + offset
+            + "&includes[]=cover_art"
+            + "&contentRating[]=safe"
+            + "&contentRating[]=suggestive"
+            + "&contentRating[]=erotica"
+            + "&order[relevance]=desc";
+
+        var body = SOURCE.fetch(url);
+        var json = JSON.parse(body);
+
+        if (!json || !json.data) { return []; }
+
+        return json.data.map(function(manga) {
+            var attrs = manga.attributes || {};
+            var rels  = manga.relationships || [];
+
+            // Title: prefer English, fall back to first available value
+            var titleObj = attrs.title || {};
+            var title = titleObj.en;
+            if (!title) {
+                var keys = Object.keys(titleObj);
+                title = keys.length > 0 ? titleObj[keys[0]] : manga.id;
+            }
+
+            // Cover URL
+            var coverURL = null;
+            var coverRel = findRel(rels, "cover_art");
+            if (coverRel && coverRel.attributes && coverRel.attributes.fileName) {
+                coverURL = "https://uploads.mangadex.org/covers/"
+                    + manga.id + "/" + coverRel.attributes.fileName;
+            }
+
+            // Author / Artist
+            var authorRel = findRel(rels, "author");
+            var author = authorRel && authorRel.attributes ? authorRel.attributes.name : null;
+
+            var artistRel = findRel(rels, "artist");
+            var artist = artistRel && artistRel.attributes ? artistRel.attributes.name : null;
+
+            // Genres (tags with group == "genre")
+            var genres = (attrs.tags || [])
+                .filter(function(tag) {
+                    return tag.attributes && tag.attributes.group === "genre";
+                })
+                .map(function(tag) {
+                    return (tag.attributes.name && tag.attributes.name.en) || "";
+                })
+                .filter(function(g) { return g.length > 0; });
+
+            // Summary
+            var descObj = attrs.description || {};
+            var summary = descObj.en || "";
+
+            return {
+                id:       manga.id,
+                path:     "/manga/" + manga.id,
+                title:    title,
+                coverURL: coverURL,
+                summary:  summary,
+                author:   author,
+                artist:   artist,
+                status:   attrs.status || "unknown",
+                genres:   genres
+            };
+        });
+    } catch (e) {
+        console.log("searchManga error: " + e);
+        return [];
+    }
+}
+
 // Utility: find first relationship of a given type
 function findRel(relationships, type) {
     for (var i = 0; i < relationships.length; i++) {

@@ -10,21 +10,53 @@ final class LibraryViewModel {
     var isLoading: Bool = false
     var errorMessage: String? = nil
 
-    // MARK: - Computed
+    // MARK: - Categories
 
-    /// Filtra por título ignorando mayúsculas y diacríticos (ej: "attack" encuentra "Ättack")
-    var filteredMangas: [Manga] {
-        guard !searchText.isEmpty else { return mangas }
-        return mangas.filter {
-            $0.title.localizedStandardContains(searchText)
+    var categories: [Category] = []
+
+    /// When nil → show all library manga. When set → filter to that category.
+    var selectedCategoryId: String? = nil {
+        didSet { updateFilteredIds() }
+    }
+
+    private(set) var filteredIds: Set<String> = []
+
+    private func updateFilteredIds() {
+        guard let catId = selectedCategoryId else {
+            filteredIds = []
+            return
+        }
+        Task.detached {
+            let ids = (try? CategoryQueries.mangaIds(inCategory: catId)) ?? []
+            await MainActor.run { self.filteredIds = Set(ids) }
         }
     }
+
+    func loadCategories() {
+        Task.detached {
+            let cats = (try? CategoryQueries.fetchAll()) ?? []
+            await MainActor.run { self.categories = cats }
+        }
+    }
+
+    // MARK: - Computed
+
+    /// Manga shown in the grid: category-filtered first, then title search.
+    var displayedManga: [Manga] {
+        let base = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
+        guard !searchText.isEmpty else { return base }
+        return base.filter { $0.title.localizedStandardContains(searchText) }
+    }
+
+    /// Legacy alias kept for any existing callsite that uses filteredMangas.
+    var filteredMangas: [Manga] { displayedManga }
 
     // MARK: - Load
 
     func loadLibrary() async {
         isLoading = true
         errorMessage = nil
+        loadCategories()
         do {
             let fetched = try MangaQueries.fetchLibrary()
             mangas = fetched.sorted {

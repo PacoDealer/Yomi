@@ -254,3 +254,67 @@ function getPageList(chapterPath) {
         return [];
     }
 }
+
+// MARK: - searchManga
+
+function searchManga(query, page) {
+    try {
+        var url = BASE_URL + "/series?search=" + encodeURIComponent(query) + "&page=" + page;
+        var html = SOURCE.fetch(url);
+
+        var grid = between(html, 'class="grid', '</main>');
+        if (!grid) grid = html;
+
+        var results = [];
+        var cards = betweenAll(grid, "<a href=", "</a>");
+
+        for (var i = 0; i < cards.length; i++) {
+            var card = cards[i];
+
+            var path = "";
+            var hrefEnd = card.indexOf('"', 1);
+            if (card[0] === '"') {
+                path = card.substring(1, hrefEnd);
+            } else if (card[0] === "'") {
+                hrefEnd = card.indexOf("'", 1);
+                path = card.substring(1, hrefEnd);
+            }
+
+            if (!path || path.indexOf("/series/") === -1) continue;
+
+            if (path.indexOf("http") === 0) {
+                path = path.replace(BASE_URL, "");
+            }
+
+            var imgTag = between(card, "<img", ">");
+            var coverURL = attr(imgTag, "src");
+            if (!coverURL) coverURL = attr(imgTag, "data-src");
+
+            var title = attr(imgTag, "alt");
+            if (!title) {
+                var spanContent = between(card, "<span", "</span>");
+                title = stripTags("<span" + spanContent + "</span>");
+            }
+            if (!title) continue;
+
+            var id = path.replace(/\//g, "-").replace(/^-/, "");
+
+            results.push({
+                id:       id,
+                path:     path,
+                title:    title.trim(),
+                coverURL: coverURL,
+                summary:  "",
+                author:   "",
+                artist:   "",
+                status:   "ongoing",
+                genres:   []
+            });
+        }
+
+        return results;
+    } catch (e) {
+        console.log("asurascans searchManga error: " + e);
+        return [];
+    }
+}
