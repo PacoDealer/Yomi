@@ -10,13 +10,19 @@ struct MangaCoverCell: View {
             MangaDetailView(manga: manga)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                AsyncImage(url: manga.coverURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(2 / 3, contentMode: .fill)
-                } placeholder: {
-                    ShimmerView()
-                        .aspectRatio(2 / 3, contentMode: .fit)
+                AsyncImage(url: manga.coverURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    case .failure:
+                        SkeletonView(showIcon: true)
+                            .aspectRatio(2 / 3, contentMode: .fit)
+                    default:
+                        SkeletonView(showIcon: false)
+                            .aspectRatio(2 / 3, contentMode: .fit)
+                    }
                 }
                 .cornerRadius(8)
                 .clipped()
@@ -31,30 +37,37 @@ struct MangaCoverCell: View {
     }
 }
 
-// MARK: - ShimmerView
+// MARK: - SkeletonView
 
-private struct ShimmerView: View {
-    @State private var phase: CGFloat = -1
+private struct SkeletonView: View {
+    let showIcon: Bool
+
+    @State private var shimmerPhase: CGFloat = 0
 
     var body: some View {
-        GeometryReader { geo in
-            let _ = geo.size.width
-            Rectangle()
+        ZStack {
+            RoundedRectangle(cornerRadius: 0)
                 .fill(
                     LinearGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: Color.secondary.opacity(0.15), location: 0),
-                            .init(color: Color.secondary.opacity(0.35), location: 0.3 + phase * 0.3),
-                            .init(color: Color.secondary.opacity(0.15), location: 0.6 + phase * 0.3),
-                        ]),
-                        startPoint: .leading,
-                        endPoint: .trailing
+                        colors: [
+                            Color.secondary.opacity(0.15),
+                            Color.secondary.opacity(0.35),
+                            Color.secondary.opacity(0.15)
+                        ],
+                        startPoint: UnitPoint(x: shimmerPhase - 0.5, y: 0),
+                        endPoint:   UnitPoint(x: shimmerPhase + 0.5, y: 0)
                     )
                 )
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-                phase = 1
+                .onAppear {
+                    withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                        shimmerPhase = 1
+                    }
+                }
+
+            if showIcon {
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(.secondary.opacity(0.6))
             }
         }
     }
