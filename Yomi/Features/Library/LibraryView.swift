@@ -14,18 +14,18 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.filteredMangas.isEmpty && viewModel.searchText.isEmpty {
+                if viewModel.displayedManga.isEmpty && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
                     ContentUnavailableView(
                         "Your library is empty",
                         systemImage: "books.vertical",
                         description: Text("Browse sources and add titles to see them here.")
                     )
-                } else if viewModel.filteredMangas.isEmpty {
+                } else if viewModel.displayedManga.isEmpty {
                     ContentUnavailableView.search(text: viewModel.searchText)
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(viewModel.filteredMangas) { manga in
+                            ForEach(viewModel.displayedManga) { manga in
                                 MangaCoverCell(manga: manga)
                             }
                         }
@@ -35,6 +35,9 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Library")
+            .safeAreaInset(edge: .top, spacing: 0) {
+                categoryFilterBar
+            }
             .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -49,6 +52,63 @@ struct LibraryView: View {
                 await viewModel.loadLibrary()
             }
         }
+    }
+
+    // MARK: - Category Filter Bar
+
+    @ViewBuilder
+    private var categoryFilterBar: some View {
+        if !viewModel.categories.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    // "All" chip
+                    CategoryChip(
+                        label: "All",
+                        isSelected: viewModel.selectedCategoryId == nil
+                    ) {
+                        viewModel.selectedCategoryId = nil
+                    }
+
+                    ForEach(viewModel.categories) { category in
+                        CategoryChip(
+                            label: category.name,
+                            isSelected: viewModel.selectedCategoryId == category.id
+                        ) {
+                            viewModel.selectedCategoryId = category.id
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .background(.bar)
+        }
+    }
+}
+
+// MARK: - CategoryChip
+
+private struct CategoryChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                .background {
+                    if isSelected {
+                        Capsule().fill(Color.accentColor)
+                    } else {
+                        Capsule().stroke(Color.secondary, lineWidth: 1)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
     }
 }
 

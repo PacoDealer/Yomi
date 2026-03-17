@@ -477,6 +477,21 @@ final class JSBridge {
         return result?.toArray() as? [String] ?? []
     }
 
+    // MARK: - Search
+
+    nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {
+        if isLNReaderPlugin {
+            // Format B: novels only — signal empty; caller can use searchNovels instead
+            return []
+        }
+        guard
+            let fn = context.objectForKeyedSubscript("searchManga"),
+            !fn.isUndefined, !fn.isNull
+        else { return [] }
+        let result = fn.call(withArguments: [query, page])
+        return JSBridge.parseMangaArray(result, sourceId: sourceId)
+    }
+
     // MARK: - Plugin API — Novel (Format B)
 
     nonisolated func popularNovels(page: Int) -> [NovelItem] {
