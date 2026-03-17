@@ -12,28 +12,28 @@ Yomi/
 │   ├── Chapter.swift        # Capítulo de una obra
 │   ├── Category.swift       # Categorías de biblioteca
 │   ├── Source.swift         # Metadatos de fuente (legacy, reemplazado por Extension)
-│   └── Extension.swift      # Plugin JS instalado
+│   └── Extension.swift      # Plugin JS instalado — Identifiable, Codable, Hashable
 ├── Database/
 │   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchRecentlyRead, insert, update, upsert, touchLastRead, delete
-│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(mangaId:), upsert, markRead, addReadingTime, delete
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensiones
 ├── Features/
 │   ├── Library/
 │   │   ├── LibraryView.swift        # Grid de manga guardados
-│   │   ├── LibraryViewModel.swift   # Estado y filtrado
-│   │   ├── MangaCoverCell.swift     # Celda de portada
-│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button + DB merge
+│   │   ├── LibraryViewModel.swift   # Estado, filtrado, sort por lastReadAt DESC NULLS LAST
+│   │   ├── MangaCoverCell.swift     # Celda de portada + ShimmerView skeleton animado
+│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button (upsert) + DB merge
 │   ├── Browse/
-│   │   ├── BrowseView.swift         # Sources tab + SourceBrowseView (dual manga/novel)
+│   │   ├── BrowseView.swift         # Sources tab + SearchView (client-side filter) + SourceBrowseView (dual manga/novel)
 │   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter, timer lectura, MAL tracking
 │   │   └── TextReaderView.swift     # Lector HTML para novelas (WKWebView, font size, dark/light)
 │   ├── History/
-│   │   └── HistoryView.swift        # Historial por lastReadAt desc, clear button
+│   │   └── HistoryView.swift        # Datos reales GRDB (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
 │   │   ├── MoreView.swift           # Root tab More (App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter

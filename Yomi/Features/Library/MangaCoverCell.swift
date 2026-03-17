@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - MangaCoverCell
+
 struct MangaCoverCell: View {
     let manga: Manga
 
@@ -13,8 +15,7 @@ struct MangaCoverCell: View {
                         .resizable()
                         .aspectRatio(2 / 3, contentMode: .fill)
                 } placeholder: {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
+                    ShimmerView()
                         .aspectRatio(2 / 3, contentMode: .fit)
                 }
                 .cornerRadius(8)
@@ -29,6 +30,37 @@ struct MangaCoverCell: View {
         .buttonStyle(.plain)
     }
 }
+
+// MARK: - ShimmerView
+
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = -1
+
+    var body: some View {
+        GeometryReader { geo in
+            let _ = geo.size.width
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: Color.secondary.opacity(0.15), location: 0),
+                            .init(color: Color.secondary.opacity(0.35), location: 0.3 + phase * 0.3),
+                            .init(color: Color.secondary.opacity(0.15), location: 0.6 + phase * 0.3),
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                phase = 1
+            }
+        }
+    }
+}
+
+// MARK: - Preview
 
 #Preview {
     MangaCoverCell(manga: Manga(

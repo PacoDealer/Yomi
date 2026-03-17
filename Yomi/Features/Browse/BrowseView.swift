@@ -25,7 +25,7 @@ struct BrowseView: View {
 
                 switch selectedTab {
                 case .sources: sourcesTab
-                case .search:  searchTab
+                case .search:  SearchView()
                 }
             }
             .navigationTitle("Browse")
@@ -53,15 +53,93 @@ struct BrowseView: View {
             }
         }
     }
+}
 
-    // MARK: Search tab
+// MARK: - SearchView
 
-    private var searchTab: some View {
-        ContentUnavailableView(
-            "Global search coming soon",
-            systemImage: "magnifyingglass",
-            description: Text("Search across all installed sources will be available in a future update.")
-        )
+private struct SearchView: View {
+    @State private var extensionManager = ExtensionManager.shared
+    @State private var globalSearch = ""
+    @State private var searchResults: [Manga] = []
+    @State private var isSearching = false
+    @State private var selectedSource: Extension? = nil
+    @State private var hasSearched = false
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
+    ]
+
+    var body: some View {
+        Group {
+            if extensionManager.installed.isEmpty {
+                ContentUnavailableView(
+                    "No sources installed",
+                    systemImage: "puzzlepiece.extension",
+                    description: Text("Install a source from More → Plugins before searching.")
+                )
+            } else if isSearching {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if hasSearched && searchResults.isEmpty {
+                ContentUnavailableView.search(text: globalSearch)
+            } else if searchResults.isEmpty {
+                ContentUnavailableView(
+                    "Search titles",
+                    systemImage: "magnifyingglass",
+                    description: Text("Results from your installed sources will appear here.")
+                )
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(searchResults) { manga in
+                            MangaCoverCell(manga: manga)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                }
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if extensionManager.installed.count > 1 {
+                Picker("Source", selection: $selectedSource) {
+                    Text("All").tag(Optional<Extension>.none)
+                    ForEach(extensionManager.installed) { ext in
+                        Text(ext.name).tag(Optional(ext))
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+        }
+        .searchable(text: $globalSearch, prompt: "Search titles")
+        .onSubmit(of: .search) { Task { await performSearch() } }
+    }
+
+    // MARK: Perform Search
+
+    private func performSearch() async {
+        guard !globalSearch.trimmingCharacters(in: .whitespaces).isEmpty else {
+            searchResults = []
+            hasSearched = false
+            return
+        }
+        isSearching = true
+        hasSearched = true
+        let query = globalSearch
+        let sources = selectedSource.map { [$0] } ?? extensionManager.installed
+        let results = await Task.detached {
+            sources.flatMap { ext in
+                JSBridge(scriptURL: ext.sourceListURL)?
+                    .getMangaList(page: 1, sourceId: ext.id)
+                    .filter { $0.title.localizedStandardContains(query) }
+                ?? []
+            }
+        }.value
+        searchResults = results
+        isSearching = false
     }
 }
 
