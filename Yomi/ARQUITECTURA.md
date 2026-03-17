@@ -30,7 +30,7 @@ Yomi/
 │   │   ├── BrowseView.swift         # Sources tab + SearchView (client-side filter) + SourceBrowseView (dual manga/novel)
 │   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
 │   ├── Reader/
-│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter, timer lectura, MAL tracking
+│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, timer lectura, MAL tracking; acepta chapters:[Chapter] para navegación
 │   │   └── TextReaderView.swift     # Lector HTML para novelas (WKWebView, font size, dark/light)
 │   ├── History/
 │   │   └── HistoryView.swift        # Datos reales GRDB (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
@@ -48,7 +48,8 @@ Yomi/
 │       └── ExtensionManager.swift   # Instalar/remover plugins
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 6 propiedades
 ├── Resources/
-│   ├── mangadex.js                  # Plugin MangaDex (Formato A)
+│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON)
+│   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML)
 │   └── test-source.js               # Plugin de prueba (Formato A)
 ├── ContentView.swift                # TabView raíz
 ├── YomiApp.swift                    # Entry point, setup DB
@@ -240,6 +241,19 @@ YomiApp / MALView.onOpenURL
 - Resultado se entrega a la UI via `await MainActor.run { state = result }`
 - `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
 - `appDatabase.read` tiene overload async: desde contexto @MainActor requiere `try await appDatabase.read { ... }`
+
+## Workflow de desarrollo
+
+1. **Claude Code** — `find Yomi -name "*.swift" | sort` + `cat Yomi/ROADMAP.md`
+2. Pegar output en **Claude.ai** → análisis del estado real del codebase
+3. Claude.ai propone scope de la sesión → usuario confirma
+4. Claude.ai genera prompts en orden de dependencias
+5. **Claude Code** ejecuta un prompt por vez → Xcode compila → reportar errores exactos
+6. Commit por bloque funcional, no por archivo
+7. Fin de sesión: actualizar ROADMAP.md + METODOLOGIA.md + ARQUITECTURA.md
+
+> ⚠️ No generar prompts hasta confirmar el estado real. Los prompts generados contra
+> documentación desactualizada causan reescritura de trabajo existente (lección S9).
 
 ## Decisiones de diseño
 | Decisión | Alternativa descartada | Motivo |

@@ -1,5 +1,4 @@
 import SwiftUI
-import GRDB
 
 // MARK: - HistoryView
 
@@ -22,7 +21,7 @@ struct HistoryView: View {
                     ContentUnavailableView(
                         "No history",
                         systemImage: "clock",
-                        description: Text("Titles you've read will appear here.")
+                        description: Text("Manga you read will appear here.")
                     )
                 } else {
                     List {
@@ -38,6 +37,7 @@ struct HistoryView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .refreshable { await loadHistory() }
                 }
             }
             .navigationTitle("History")
@@ -55,15 +55,12 @@ struct HistoryView: View {
     private func loadHistory() async {
         isLoading = true
         let result = await Task.detached {
-            (try? appDatabase.read { db in
-                try Manga
-                    .filter(sql: "lastReadAt IS NOT NULL")
-                    .order(sql: "lastReadAt DESC")
-                    .fetchAll(db)
-            }) ?? []
+            (try? MangaQueries.fetchHistory()) ?? []
         }.value
-        mangas = result
-        isLoading = false
+        await MainActor.run {
+            mangas = result
+            isLoading = false
+        }
     }
 }
 
@@ -72,38 +69,44 @@ struct HistoryView: View {
 private struct HistoryRow: View {
     let manga: Manga
 
+    private static let relativeFmt: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full
+        return f
+    }()
+
     var body: some View {
         HStack(spacing: 12) {
             AsyncImage(url: manga.coverURL) { image in
                 image
                     .resizable()
-                    .aspectRatio(2 / 3, contentMode: .fill)
+                    .aspectRatio(contentMode: .fill)
             } placeholder: {
                 Rectangle()
                     .fill(Color.secondary.opacity(0.3))
-                    .aspectRatio(2 / 3, contentMode: .fit)
             }
-            .frame(width: 52, height: 78)
+            .frame(width: 40, height: 40)
             .cornerRadius(6)
             .clipped()
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(manga.title)
                     .font(.headline)
                     .lineLimit(1)
                 if let d = manga.lastReadAt {
-                    Text("\(Text(d, style: .relative)) ago")
+                    Text(Self.relativeFmt.localizedString(for: d, relativeTo: Date()))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                Text(manga.sourceId)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
 
             Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.tertiary)
-                .font(.caption)
         }
+        .padding(.vertical, 2)
     }
 }
 

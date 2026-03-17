@@ -55,16 +55,18 @@ UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marc
 ## Sesión 9 — Polish & Real Data ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | ✅ **Save to library** — heart → GRDB upsert + fetchOne, UIImpactFeedbackGenerator | MangaDetailView, MangaQueries |
+| 1 | ✅ **Save to library** — heart → MangaQueries.toggleLibrary (upsert + lastUpdatedAt), @State var manga mutable | MangaDetailView, MangaQueries |
 | 2 | ✅ **Mark chapter as read** — última página + onDisappear si currentPage > 0 | ChapterReaderView, ChapterQueries.markRead |
-| 3 | ✅ **ChapterQueries CRUD completo** — fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll | ChapterQueries |
-| 4 | ✅ **History tab datos reales** — GRDB filter lastReadAt IS NOT NULL, orden DESC, swipe-to-delete local | HistoryView |
-| 5 | ✅ **LibraryViewModel sort** — lastReadAt DESC NULLS LAST, luego title ASC en Swift | LibraryViewModel |
-| 6 | ✅ **Search within source** — BrowseView Search tab, filtro client-side sobre getMangaList, source picker (Hashable) | BrowseView, SearchView |
-| 7 | ✅ **Cover skeleton shimmer** — LinearGradient animado con phase @State, GeometryReader | MangaCoverCell, ShimmerView |
-| 8 | ✅ **Double-tap zoom reset** — simultaneousGesture(TapGesture(count:2)) + spring animation | MangaPageView |
-| 9 | ✅ **Fix Extension+Hashable** — Picker requiere Hashable en tipo de selección | Extension.swift |
-| 10 | ✅ **Fix Text+Text iOS 26** — Text("\(Text(date, style:.relative)) ago") reemplaza operador + | HistoryView |
+| 3 | ✅ **ChapterQueries CRUD completo** — fetchAll, fetchOne, fetchByManga, fetchUnread, insert, upsert, upsertAll, markRead(id:), markRead(id:mangaId:), markAllRead, updateProgress, addReadingTime, delete, deleteAll | ChapterQueries |
+| 4 | ✅ **MangaQueries toggleLibrary + fetchHistory** — toggleLibrary atómico, fetchHistory sin límite | MangaQueries |
+| 5 | ✅ **History tab datos reales** — MangaQueries.fetchHistory(), RelativeDateTimeFormatter, sourceId caption, refreshable | HistoryView |
+| 6 | ✅ **LibraryViewModel sort** — lastReadAt DESC NULLS LAST, luego title ASC en Swift | LibraryViewModel |
+| 7 | ✅ **Search within source** — BrowseView Search tab, filtro client-side sobre getMangaList, source picker | BrowseView, SearchView |
+| 8 | ✅ **Cover skeleton shimmer** — LinearGradient animado startPoint/endPoint sweep, showIcon en .failure | MangaCoverCell, SkeletonView |
+| 9 | ✅ **Double-tap zoom reset** — simultaneousGesture(TapGesture(count:2)) + spring animation | MangaPageView |
+| 10 | ✅ **asurascans.js** — plugin Formato A, scraping HTML con indexOf/split/substring, sin cheerio | asurascans.js |
+| 11 | ✅ **Fix Extension+Hashable** — Picker requiere Hashable en tipo de selección | Extension.swift |
+| 12 | ✅ **Fix Text+Text iOS 26** — Text("\(Text(date, style:.relative)) ago") reemplaza operador + | HistoryView |
 
 ## Sesión 10 — Server-side search & categories
 | # | Feature | Detalle |
@@ -89,7 +91,9 @@ UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marc
 | Fuente | Formato | Estado |
 |--------|---------|--------|
 | MangaDex | Formato A (API JSON) | ✅ Implementado |
-| Asura Scans | Formato A (scraping) | Backlog |
+| Asura Scans | Formato A (scraping) | ✅ Implementado |
 | Aqua Manga | Formato A (scraping) | Backlog |
 | Royal Road | Formato B (LNReader) | Sesión 6+ |
 | NovelUpdates | Formato B (LNReader) | Sesión 6+ |
+
+⚠️ Verificar siempre el HTML actual de cada fuente — los selectores pueden cambiar sin aviso.

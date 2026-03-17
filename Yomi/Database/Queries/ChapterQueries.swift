@@ -23,6 +23,27 @@ enum ChapterQueries {
         }
     }
 
+    /// Devuelve todos los capítulos de un manga ordenados por chapterNumber ASC, nulos al final
+    nonisolated static func fetchByManga(mangaId: String) throws -> [Chapter] {
+        try appDatabase.read { db in
+            try Chapter
+                .filter(Column("mangaId") == mangaId)
+                .order(Column("chapterNumber").ascNullsLast)
+                .fetchAll(db)
+        }
+    }
+
+    /// Devuelve los capítulos no leídos de un manga ordenados por chapterNumber ASC, nulos al final
+    nonisolated static func fetchUnread(mangaId: String) throws -> [Chapter] {
+        try appDatabase.read { db in
+            try Chapter
+                .filter(Column("mangaId") == mangaId)
+                .filter(Column("isRead") == false)
+                .order(Column("chapterNumber").ascNullsLast)
+                .fetchAll(db)
+        }
+    }
+
     // MARK: - Write
 
     /// Inserta un nuevo capítulo; falla si ya existe un registro con el mismo id
@@ -49,6 +70,16 @@ enum ChapterQueries {
     }
 
     // MARK: - Progress
+
+    /// Marca un capítulo como leído con isRead=true, readAt=ahora y progress=1.0 (UPDATE directo, sin fetch previo)
+    nonisolated static func markRead(id: String) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE chapter SET isRead = 1, readAt = ?, progress = 1.0 WHERE id = ?",
+                arguments: [Date(), id]
+            )
+        }
+    }
 
     /// Marca un capítulo como leído con isRead=true y readAt=ahora (UPDATE directo, sin fetch previo)
     nonisolated static func markRead(id: String, mangaId: String) throws {

@@ -51,7 +51,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 | 5 | 2026-03-15 | Save to library (heart button → MangaQueries.update, inLibrary toggle + haptics). ChapterQueries (markRead: isRead=true, readAt=now, progress=1.0, touchLastRead en manga padre). mangadex.js pagination loop (offset hasta json.total, limit=500, cap 20 iteraciones). HistoryView real con MangaQueries.fetchHistory() (lastReadAt != nil, desc). Prev/next chapter en ReaderOverlayView (displayedChapter state, loadPages() extraído). Dedup plugin install con SHA256(URL).prefix(8) via CryptoKit. |
 | 7 | 2026-03-15 | UX audit (visual + code). NSFW filter default off en PluginsView, BrowseView picker bajo el título. AppSettings singleton (@Observable + UserDefaults, 6 propiedades). SettingsView (General / Reader manga / Reader novel / Appearance / About). InsightsView (total reading time + per-manga list). DB migration v4_reading_insights (readingSeconds INTEGER en manga + novel). ChapterReaderView: time tracking en onDisappear, keepScreenOn via isIdleTimerDisabled, readerMode desde AppSettings. MoreView restructurada: Settings + Plugins + Insights + About. |
 | 8 | 2026-03-15 | BackupManager + BackupView (JSON export/import a Files.app). MALService + MALView (OAuth PKCE plain, yomi:// callback, tracking automático). ChapterReaderView: refactor a currentChapterIndex + activeChapter, navigateToChapter, Timer 1s → addReadingTime. DB migration v4_reading_time (readingSeconds en chapter). HistoryView: reescritura sin ViewModel, Task.detached + MainActor.run, clear button. SettingsView + InsightsView movidos a Features/More. MangaDetailView: upsert/insert en heart button, merge isRead+readingSeconds desde DB. MangaQueries: fetchRecentlyRead, upsert, eliminado fetchHistory. PluginsView: SHA256 id a 32 chars. mangadex.js: limit=100, offset loop, cap 2000. MoreView: 6 secciones (App / Sources / Reading / Tracking / Data / Info). |
-| 9 | 2026-03-16 | Save to library (heart → GRDB upsert + UIImpactFeedbackGenerator). Mark chapter read on last page + onDisappear. ChapterQueries CRUD completo (fetchAll, fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll). MangaQueries.fetchOne/upsert. HistoryView datos reales desde GRDB ordenados por lastReadAt DESC con swipe-to-delete. Prev/next chapter via navigateToChapter en-lugar (in-place state mutation). BrowseView Search tab funcional con filtro client-side sobre getMangaList + source picker. MangaCoverCell shimmer skeleton animado. Double-tap zoom reset en MangaPageView con simultaneousGesture. Fix: Extension+Hashable para Picker. Fix: Text interpolación iOS 26 (reemplazó Text+Text). |
+| 9 | 2026-03-16 | Save to library (heart → GRDB upsert + UIImpactFeedbackGenerator). Mark chapter read on last page + onDisappear. ChapterQueries CRUD completo (fetchAll, fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll). MangaQueries.fetchOne/upsert. HistoryView datos reales desde GRDB ordenados por lastReadAt DESC con swipe-to-delete. Prev/next chapter via navigateToChapter en-lugar (in-place state mutation). BrowseView Search tab funcional con filtro client-side sobre getMangaList + source picker. MangaCoverCell shimmer skeleton animado. Double-tap zoom reset en MangaPageView con simultaneousGesture. Fix: Extension+Hashable para Picker. Fix: Text interpolación iOS 26 (reemplazó Text+Text). ChapterQueries.markRead(id:) overload sin mangaId, fetchByManga, fetchUnread. MangaQueries.toggleLibrary+fetchHistory. MangaDetailView @State var manga (mutable). HistoryView RelativeDateTimeFormatter + sourceId caption + refreshable. MangaCoverCell shimmer rewrite (startPoint/endPoint sweep). asurascans.js plugin (Format A, scraping HTML con indexOf/split). |
 
 ## Aprendizajes técnicos
 - **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` — la API vieja `.tabItem {}` no renderiza nada
@@ -79,6 +79,23 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **Text + Text deprecado en iOS 26**: el operador `+` sobre `Text` fue removido. Old: `Text(date, style: .relative) + Text(" ago")`. New: `Text("\(Text(date, style: .relative)) ago")`. SwiftUI `Text` soporta interpolar otros `Text` (incluidos los con formatters especiales como `.relative`) dentro de string interpolation — el comportamiento live-updating de `.relative` se preserva
 - **simultaneousGesture para multi-tap**: double-tap + single-tap sobre el mismo view requiere `.simultaneousGesture` en el gesto de doble tap; sin él SwiftUI rutea todos los taps al handler de single tap
 - **Shimmer con GeometryReader + LinearGradient animado**: animar una variable `@State private var phase: CGFloat` de -1 a 1 con `.linear(duration:).repeatForever(autoreverses: false)`, usarla como offset en los `location` de los `Gradient.Stop` — crea un efecto de barrido horizontal sin dependencias externas
+
+## S9 — Lecciones aprendidas
+
+**Problema:** Los prompts de S9 se generaron contra el estado S7 del codebase, no contra el estado real. Esto causó que ~60% de la sesión reescribiera trabajo que ya existía desde S8.
+
+**Causa raíz:** Claude.ai no tenía acceso a los archivos reales del repo. Planificó contra el system prompt (que describía S7) en lugar del codebase actual.
+
+**Solución — Protocolo de inicio de sesión:**
+Antes de pedir prompts a Claude.ai, siempre correr en Claude Code:
+```
+find Yomi -name "*.swift" | sort
+find Yomi -name "*.js" | sort
+cat Yomi/ROADMAP.md
+```
+Pegar el output completo en Claude.ai y pedir análisis ANTES de generar prompts. No generar prompts hasta confirmar el scope.
+
+**Regla:** Claude.ai analiza → propone → usuario confirma → recién entonces genera prompts. Nunca al revés.
 
 ## Decisiones de arquitectura
 - GRDB sobre SwiftData: control total del esquema, más maduro, compatible con migraciones incrementales

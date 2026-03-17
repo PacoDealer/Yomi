@@ -29,6 +29,16 @@ enum MangaQueries {
         }
     }
 
+    /// Devuelve todos los manga con lastReadAt != nil, ordenados por fecha de lectura descendente
+    nonisolated static func fetchHistory() throws -> [Manga] {
+        try appDatabase.read { db in
+            try Manga
+                .filter(Column("lastReadAt") != nil)
+                .order(Column("lastReadAt").desc)
+                .fetchAll(db)
+        }
+    }
+
     /// Devuelve manga con lastReadAt != nil, ordenados por fecha de lectura descendente, con límite
     nonisolated static func fetchRecentlyRead(limit: Int = 50) throws -> [Manga] {
         try appDatabase.read { db in
@@ -41,6 +51,18 @@ enum MangaQueries {
     }
 
     // MARK: - Escritura
+
+    /// Alterna inLibrary, actualiza lastUpdatedAt y guarda; devuelve el manga actualizado
+    @discardableResult
+    nonisolated static func toggleLibrary(manga: Manga) throws -> Manga {
+        var updated = manga
+        updated.inLibrary = !manga.inLibrary
+        updated.lastUpdatedAt = Date()
+        _ = try appDatabase.write { db in
+            try updated.save(db)
+        }
+        return updated
+    }
 
     /// Inserta un nuevo manga; falla si ya existe un registro con el mismo id
     nonisolated static func insert(_ manga: Manga) throws {
