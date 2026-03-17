@@ -97,6 +97,31 @@ Pegar el output completo en Claude.ai y pedir análisis ANTES de generar prompts
 
 **Regla:** Claude.ai analiza → propone → usuario confirma → recién entonces genera prompts. Nunca al revés.
 
+## Compatibilidad de plataforma
+
+**Deployment target actual: iOS 26.2**
+
+El proyecto usa APIs exclusivas de iOS 26 que no existen en versiones anteriores:
+
+| API | Archivo(s) | Alternativa iOS 18 |
+|-----|-----------|-------------------|
+| `Tab("…", systemImage:) {}` | ContentView.swift | `.tabItem { Label(…) }` |
+| `ContentUnavailableView` | HistoryView, BrowseView, PluginsView | Vista vacía custom |
+| `.refreshable` | HistoryView | Pull-to-refresh manual |
+| `.searchable` | BrowseView, SourceBrowseView | Search bar custom |
+| `.ascNullsLast` (GRDB) | ChapterQueries | ORDER BY con SQL raw |
+| `Text("\(Text(…)) …")` interpolation | HistoryView | DateFormatter o .formatted |
+
+**Decisión: no bajar el deployment target.**
+Razones:
+- La app está diseñada intencionalmente para iOS 26 desde la sesión 1
+- Backportar requeriría mantener dos code paths (`#available`) en al menos 6 archivos
+- El iPhone de desarrollo puede actualizarse a iOS 26 cuando esté disponible
+- iOS 26 es el sistema operativo de shipping actual (2026)
+
+**Regla:** si en el futuro se necesita iOS 18 support, crear un branch separado
+`compat/ios18` y no mezclarlo con el desarrollo principal.
+
 ## Decisiones de arquitectura
 - GRDB sobre SwiftData: control total del esquema, más maduro, compatible con migraciones incrementales
 - JavaScriptCore sobre WKWebView: más liviano, no requiere UI, mejor para plugins headless

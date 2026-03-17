@@ -78,6 +78,16 @@ UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marc
 | 5 | **App icon** | Diseñar y configurar AppIcon en Assets.xcassets |
 | 6 | **Downloads** | Guardar capítulos offline, DownloadManager, badge en ChapterRow |
 
+## Compatibilidad iOS
+
+**Deployment target: iOS 26.2** — no se planea bajar a iOS 18.
+
+El dispositivo físico de desarrollo (iPhone de Martin, iOS 18.6.2) no puede correr
+la app hasta actualizar a iOS 26. La app depende de APIs exclusivas de iOS 26:
+`Tab()`, `ContentUnavailableView`, `.refreshable`, `.searchable`, `.ascNullsLast`.
+
+Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en main.
+
 ## Backlog (sin sesión asignada)
 - iPad layout (sidebar en lugar de tab bar)
 - Updates tab (background refresh de capítulos nuevos en biblioteca)
