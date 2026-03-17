@@ -19,6 +19,11 @@ struct ContentView: View {
             Tab("History", systemImage: "clock") {
                 HistoryView()
             }
+            Tab("Updates", systemImage: "arrow.clockwise") {
+                NavigationStack {
+                    UpdatesView()
+                }
+            }
             Tab("More", systemImage: "ellipsis.circle") {
                 MoreView()
             }

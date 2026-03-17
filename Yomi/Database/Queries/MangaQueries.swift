@@ -50,6 +50,18 @@ enum MangaQueries {
         }
     }
 
+    /// Devuelve los manga en biblioteca ordenados por lastUpdatedAt DESC.
+    /// Excluye los que tienen lastUpdatedAt nil.
+    nonisolated static func fetchLibraryByLastUpdated() throws -> [Manga] {
+        try appDatabase.read { db in
+            try Manga
+                .filter(Column("inLibrary") == true)
+                .filter(Column("lastUpdatedAt") != nil)
+                .order(Column("lastUpdatedAt").desc)
+                .fetchAll(db)
+        }
+    }
+
     // MARK: - Escritura
 
     /// Alterna inLibrary, actualiza lastUpdatedAt y guarda; devuelve el manga actualizado
@@ -91,6 +103,15 @@ enum MangaQueries {
             try Manga
                 .filter(Column("id") == mangaId)
                 .updateAll(db, [Column("lastReadAt").set(to: Date())])
+        }
+    }
+
+    /// Actualiza lastUpdatedAt a la fecha actual para el manga indicado
+    nonisolated static func touchLastUpdated(mangaId: String) throws {
+        _ = try appDatabase.write { db in
+            try Manga
+                .filter(Column("id") == mangaId)
+                .updateAll(db, [Column("lastUpdatedAt").set(to: Date())])
         }
     }
 
