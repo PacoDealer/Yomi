@@ -1,4 +1,5 @@
 import SwiftUI
+import GRDB
 
 // MARK: - HistoryView
 
@@ -21,7 +22,7 @@ struct HistoryView: View {
                     ContentUnavailableView(
                         "No history",
                         systemImage: "clock",
-                        description: Text("Manga you read will appear here.")
+                        description: Text("Titles you've read will appear here.")
                     )
                 } else {
                     List {
@@ -29,34 +30,11 @@ struct HistoryView: View {
                             NavigationLink {
                                 MangaDetailView(manga: manga)
                             } label: {
-                                HStack(spacing: 12) {
-                                    AsyncImage(url: manga.coverURL) { image in
-                                        image
-                                            .resizable()
-                                            .aspectRatio(2 / 3, contentMode: .fill)
-                                    } placeholder: {
-                                        Rectangle()
-                                            .fill(Color.secondary.opacity(0.3))
-                                            .aspectRatio(2 / 3, contentMode: .fit)
-                                    }
-                                    .frame(width: 48, height: 72)
-                                    .cornerRadius(6)
-                                    .clipped()
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(manga.title)
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                            .lineLimit(2)
-                                        if let date = manga.lastReadAt {
-                                            Text(date.formatted(.relative(presentation: .named)))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                                .padding(.vertical, 4)
+                                HistoryRow(manga: manga)
                             }
+                        }
+                        .onDelete { offsets in
+                            mangas.remove(atOffsets: offsets)
                         }
                     }
                     .listStyle(.plain)
@@ -65,10 +43,7 @@ struct HistoryView: View {
             .navigationTitle("History")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    if !mangas.isEmpty {
-                        Button("Clear") { clearHistory() }
-                            .foregroundStyle(.red)
-                    }
+                    EditButton()
                 }
             }
             .task { await loadHistory() }
@@ -80,23 +55,55 @@ struct HistoryView: View {
     private func loadHistory() async {
         isLoading = true
         let result = await Task.detached {
-            (try? MangaQueries.fetchRecentlyRead()) ?? []
+            (try? appDatabase.read { db in
+                try Manga
+                    .filter(sql: "lastReadAt IS NOT NULL")
+                    .order(sql: "lastReadAt DESC")
+                    .fetchAll(db)
+            }) ?? []
         }.value
-        await MainActor.run {
-            mangas = result
-            isLoading = false
-        }
+        mangas = result
+        isLoading = false
     }
+}
 
-    // MARK: - Clear
+// MARK: - HistoryRow
 
-    private func clearHistory() {
-        for manga in mangas {
-            var m = manga
-            m.lastReadAt = nil
-            Task.detached { try? MangaQueries.upsert(m) }
+private struct HistoryRow: View {
+    let manga: Manga
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AsyncImage(url: manga.coverURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(2 / 3, contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.3))
+                    .aspectRatio(2 / 3, contentMode: .fit)
+            }
+            .frame(width: 52, height: 78)
+            .cornerRadius(6)
+            .clipped()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(manga.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                if let d = manga.lastReadAt {
+                    (Text(d, style: .relative) + Text(" ago"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.tertiary)
+                .font(.caption)
         }
-        mangas = []
     }
 }
 
