@@ -10,6 +10,14 @@ struct MangaDetailView: View {
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
 
+    // Feature 1 — Category assignment
+    @State private var allCategories: [Category] = []
+    @State private var assignedCategoryIds: Set<String> = []
+    @State private var showCategorySheet = false
+
+    // Feature 2 — Chapter pagination
+    @State private var displayedChapterCount: Int = 50
+
     init(manga: Manga) {
         _manga = State(initialValue: manga)
     }
@@ -87,18 +95,28 @@ struct MangaDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(Array(chapters.enumerated()), id: \.element.id) { index, chapter in
+                    let visible = Array(chapters.prefix(displayedChapterCount).enumerated())
+                    ForEach(visible, id: \.element.id) { index, chapter in
                         NavigationLink {
                             ChapterReaderView(
                                 manga: manga,
                                 bridge: bridge!,
                                 chapters: chapters,
-                                chapterIndex: index
+                                chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? index
                             )
                         } label: {
                             ChapterRow(chapter: chapter)
                         }
                         .disabled(bridge == nil)
+                    }
+                    if chapters.count > displayedChapterCount {
+                        Button("Load \(min(50, chapters.count - displayedChapterCount)) more") {
+                            displayedChapterCount += 50
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.tint)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
                     }
                 }
             } header: {
@@ -117,6 +135,15 @@ struct MangaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    showCategorySheet = true
+                } label: {
+                    Image(systemName: "tag")
+                }
+                .disabled(!manga.inLibrary)
+                .opacity(manga.inLibrary ? 1.0 : 0.4)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
                     Task { await toggleLibrary() }
                 } label: {
                     Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
@@ -126,6 +153,36 @@ struct MangaDetailView: View {
         }
         .task { await loadChapters() }
         .task { await touchLastRead() }
+        .task { await loadCategories() }
+        .sheet(isPresented: $showCategorySheet) {
+            NavigationStack {
+                List {
+                    ForEach(allCategories) { cat in
+                        Button {
+                            Task { await toggleCategory(cat) }
+                        } label: {
+                            HStack {
+                                Text(cat.name)
+                                Spacer()
+                                if assignedCategoryIds.contains(cat.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .navigationTitle("Categories")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showCategorySheet = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Toggle Library
@@ -185,6 +242,40 @@ struct MangaDetailView: View {
         }
 
         isLoadingChapters = false
+    }
+
+    // MARK: - Load Categories
+
+    private func loadCategories() async {
+        let mangaId = manga.id
+        let (all, assigned) = await Task.detached(priority: .userInitiated) {
+            let all = (try? CategoryQueries.fetchAll()) ?? []
+            let assigned = (try? CategoryQueries.categoriesForManga(mangaId: mangaId)) ?? []
+            return (all, Set(assigned.map { $0.id }))
+        }.value
+        allCategories = all
+        assignedCategoryIds = assigned
+    }
+
+    // MARK: - Toggle Category
+
+    private func toggleCategory(_ category: Category) async {
+        let mangaId = manga.id
+        let catId = category.id
+        let isAssigned = assignedCategoryIds.contains(catId)
+        await Task.detached(priority: .userInitiated) {
+            if isAssigned {
+                try? CategoryQueries.unassign(mangaId: mangaId, categoryId: catId)
+            } else {
+                try? CategoryQueries.assign(mangaId: mangaId, categoryId: catId)
+            }
+        }.value
+        if isAssigned {
+            assignedCategoryIds.remove(catId)
+        } else {
+            assignedCategoryIds.insert(catId)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
 

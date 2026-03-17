@@ -90,7 +90,7 @@ struct CategoryView: View {
         let name = newCategoryName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         Task.detached {
-            try? CategoryQueries.insert(name: name)
+            _ = try? CategoryQueries.insert(name: name)
             let result = (try? CategoryQueries.fetchAll()) ?? []
             await MainActor.run { categories = result }
         }

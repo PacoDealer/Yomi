@@ -16,7 +16,7 @@ Yomi/
 ├── Database/
 │   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
 │   └── Queries/
-│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchRecentlyRead, insert, update, upsert, touchLastRead, delete
+│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, delete
 │       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
 │       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
@@ -27,7 +27,7 @@ Yomi/
 │   │   ├── LibraryViewModel.swift   # Estado, filtrado, sort por lastReadAt DESC NULLS LAST; selectedCategoryId + displayedManga
 │   │   ├── CategoryView.swift       # CRUD UI categorías (crear, renombrar, reordenar, eliminar)
 │   │   ├── MangaCoverCell.swift     # Celda de portada + ShimmerView skeleton animado
-│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button (upsert) + DB merge
+│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/página)
 │   ├── Browse/
 │   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search con debounce 500ms) + SourceBrowseView (dual manga/novel)
 │   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
@@ -44,7 +44,8 @@ Yomi/
 │   │   ├── BackupManager.swift      # Exportar/importar JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
-│   │   └── MALView.swift            # Login/disconnect UI + SafariView
+│   │   ├── MALView.swift            # Login/disconnect UI + SafariView
+│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates por plugin) + UpdatesRow
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real, searchManga)
 │       └── ExtensionManager.swift   # Instalar/remover plugins
@@ -63,7 +64,7 @@ Yomi/
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
 ├─────────────────────────────────────────┤
-│   ViewModels (@Observable) + AppSettings│  LibraryViewModel, BackupManager, MALService
+│   ViewModels (@Observable) + AppSettings│  LibraryViewModel, UpdatesViewModel, BackupManager, MALService
 ├─────────────────────────────────────────┤
 │    ExtensionManager + JSBridge          │  Features/Extensions/
 ├──────────────────┬──────────────────────┤
