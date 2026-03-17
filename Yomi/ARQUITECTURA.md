@@ -255,6 +255,29 @@ YomiApp / MALView.onOpenURL
 > ⚠️ No generar prompts hasta confirmar el estado real. Los prompts generados contra
 > documentación desactualizada causan reescritura de trabajo existente (lección S9).
 
+## Requisitos de plataforma
+
+**Deployment target: iOS 26.2**
+**Xcode:** 26+ (developer directory: `/Applications/Xcode.app`)
+**Build para simulador:** `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
+
+### APIs exclusivas de iOS 26 en uso
+
+| API | Archivo | Nota |
+|-----|---------|------|
+| `Tab("…", systemImage:) {}` | ContentView.swift | Nueva sintaxis TabView; `.tabItem {}` no funciona |
+| `ContentUnavailableView` | BrowseView, HistoryView, PluginsView | No existe en iOS 18 |
+| `.refreshable` | HistoryView | No existe en iOS 18 |
+| `.searchable` | BrowseView, SourceBrowseView | Existe desde iOS 15 pero el comportamiento difiere |
+| `.ascNullsLast` (GRDB) | ChapterQueries | Helper GRDB que genera `ASC NULLS LAST` |
+| `Text("\(Text(…)) …")` | HistoryView | Interpolación de Text en Text; `+` deprecado en iOS 26 |
+
+### Por qué iOS 26 y no iOS 18
+- El proyecto se inició sobre Xcode 26 beta desde la sesión 1
+- `Tab()` es la única sintaxis que renderiza tabs en iOS 26; `.tabItem {}` produce tabs vacíos
+- Bajar el target requeriría `#available(iOS 26, *)` en ≥6 archivos y mantener dos code paths
+- iOS 26 es el OS de shipping en 2026; el dispositivo de desarrollo puede actualizarse
+
 ## Decisiones de diseño
 | Decisión | Alternativa descartada | Motivo |
 |----------|----------------------|--------|
