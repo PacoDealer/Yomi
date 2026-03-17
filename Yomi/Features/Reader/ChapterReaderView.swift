@@ -68,12 +68,7 @@ struct ChapterReaderView: View {
                 case .verticalScroll:
                     WebtoonReaderView(pages: pages, showOverlay: $showOverlay)
                         .onAppear {
-                            Task {
-                                try? ChapterQueries.markRead(
-                                    id: activeChapter.id,
-                                    mangaId: activeChapter.mangaId
-                                )
-                            }
+                            markChapterRead()
                         }
                 }
             }
@@ -98,6 +93,7 @@ struct ChapterReaderView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
+            sessionStart = Date()
             readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 sessionSeconds += 1
             }
@@ -106,28 +102,29 @@ struct ChapterReaderView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             readingTimer?.invalidate()
             readingTimer = nil
-            let secs = sessionSeconds
-            let cid = activeChapter.id
-            let mangaId = manga.id
-            Task.detached {
-                try? ChapterQueries.addReadingTime(id: cid, seconds: secs)
+
+            if currentPage > 0 {
+                markChapterRead()
             }
-            guard !pages.isEmpty else { return }
-            let seconds = Int(Date().timeIntervalSince(sessionStart))
-            guard seconds > 3 else { return }
+
+            let elapsed = Int(Date().timeIntervalSince(sessionStart))
+            let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
+            let cid = activeChapter.id
+            Task.detached {
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed)
+            }
+
+            guard !pages.isEmpty, elapsed > 3 else { return }
+            let mangaId = manga.id
             Task.detached(priority: .background) {
                 guard var m = try? MangaQueries.fetchOne(id: mangaId) else { return }
-                m.readingSeconds += seconds
+                m.readingSeconds += elapsed
                 try? MangaQueries.update(m)
             }
         }
         .onChange(of: currentPage) { _, newPage in
             if pages.count > 0 && newPage == pages.count - 1 {
-                let cid = activeChapter.id
-                let mid = activeChapter.mangaId
-                Task.detached {
-                    try? ChapterQueries.markRead(id: cid, mangaId: mid)
-                }
+                markChapterRead()
                 if MALService.shared.isLoggedIn {
                     Task {
                         let mangaTitle = manga.title
@@ -142,24 +139,44 @@ struct ChapterReaderView: View {
         .task { await loadPages() }
     }
 
+    // MARK: - Mark as Read
+
+    private func markChapterRead() {
+        let cid = activeChapter.id
+        let mid = activeChapter.mangaId
+        Task.detached {
+            do {
+                try ChapterQueries.markRead(id: cid, mangaId: mid)
+            } catch {
+                print("markChapterRead error: \(error)")
+            }
+        }
+    }
+
     // MARK: - Navigation
 
     private func navigateToChapter(_ index: Int) {
         readingTimer?.invalidate()
         readingTimer = nil
-        let secs = sessionSeconds
+
+        let elapsed = Int(Date().timeIntervalSince(sessionStart))
+        let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
         Task.detached {
-            try? ChapterQueries.addReadingTime(id: cid, seconds: secs)
+            try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed)
         }
+
         currentChapterIndex = index
         pages = []
         isLoading = true
         errorMessage = nil
+        currentPage = 0
         sessionSeconds = 0
+        sessionStart = Date()
         readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             sessionSeconds += 1
         }
+
         let path = chapters[index].path
         let b = bridge
         Task.detached(priority: .userInitiated) {
@@ -167,7 +184,6 @@ struct ChapterReaderView: View {
             await MainActor.run {
                 pages = result
                 isLoading = false
-                currentPage = 0
                 if result.isEmpty { errorMessage = "No pages found." }
             }
         }
@@ -209,7 +225,7 @@ struct MangaReaderView: View {
     }
 }
 
-// MARK: - MangaPageView (single page with pinch-to-zoom)
+// MARK: - MangaPageView (single page with pinch-to-zoom + double-tap reset)
 
 private struct MangaPageView: View {
     let url: String
@@ -253,6 +269,15 @@ private struct MangaPageView: View {
                 showOverlay.toggle()
             }
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded {
+                    withAnimation(.spring()) {
+                        scale = 1.0
+                        lastScale = 1.0
+                    }
+                }
+        )
     }
 }
 
