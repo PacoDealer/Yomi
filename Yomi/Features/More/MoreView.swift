@@ -13,6 +13,13 @@ struct MoreView: View {
                     }
                 }
 
+                // MARK: Library
+                Section("Library") {
+                    NavigationLink { CategoryView() } label: {
+                        Label("Categories", systemImage: "folder")
+                    }
+                }
+
                 // MARK: Sources
                 Section("Sources") {
                     NavigationLink { PluginsView() } label: {

@@ -156,6 +156,16 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v5_categories") { db in
+            // Join table: manga ↔ category (many-to-many)
+            try db.create(table: "manga_category", ifNotExists: true) { t in
+                t.column("mangaId",    .text).notNull().references("manga",    onDelete: .cascade)
+                t.column("categoryId", .text).notNull().references("category", onDelete: .cascade)
+                t.primaryKey(["mangaId", "categoryId"])
+            }
+            // category.sort already exists from v1_initial — no ALTER needed
+        }
+
         try migrator.migrate(db)
     }
 }
