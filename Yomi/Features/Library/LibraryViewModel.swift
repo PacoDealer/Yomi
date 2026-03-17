@@ -26,7 +26,15 @@ final class LibraryViewModel {
         isLoading = true
         errorMessage = nil
         do {
-            mangas = try MangaQueries.fetchLibrary()
+            let fetched = try MangaQueries.fetchLibrary()
+            mangas = fetched.sorted {
+                switch ($0.lastReadAt, $1.lastReadAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return $0.title < $1.title
+                }
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

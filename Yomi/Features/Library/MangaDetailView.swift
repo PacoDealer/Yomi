@@ -9,11 +9,11 @@ struct MangaDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
-    @State private var isInLibrary: Bool
+    @State private var inLibrary: Bool
 
     init(manga: Manga) {
         self.manga = manga
-        _isInLibrary = State(initialValue: manga.inLibrary)
+        _inLibrary = State(initialValue: manga.inLibrary)
     }
 
     // MARK: - Body
@@ -119,23 +119,42 @@ struct MangaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    isInLibrary.toggle()
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    let newValue = isInLibrary
-                    let m = manga
-                    Task.detached {
-                        var updated = m
-                        updated.inLibrary = newValue
-                        do { try MangaQueries.update(updated) }
-                        catch { try? MangaQueries.insert(updated) }
-                    }
+                    Task { await toggleLibrary() }
                 } label: {
-                    Image(systemName: isInLibrary ? "heart.fill" : "heart")
-                        .foregroundStyle(isInLibrary ? .red : .primary)
+                    Image(systemName: inLibrary ? "heart.fill" : "heart")
+                        .foregroundStyle(inLibrary ? .red : .primary)
                 }
             }
         }
         .task { await loadChapters() }
+    }
+
+    // MARK: - Toggle Library
+
+    private func toggleLibrary() async {
+        let newValue = !inLibrary
+        inLibrary = newValue
+
+        do {
+            let mangaId = manga.id
+            let snapshot = manga
+            try await Task.detached {
+                if var stored = try MangaQueries.fetchOne(id: mangaId) {
+                    stored.inLibrary = newValue
+                    try MangaQueries.upsert(stored)
+                } else {
+                    var fresh = snapshot
+                    fresh.inLibrary = newValue
+                    try MangaQueries.upsert(fresh)
+                }
+            }.value
+            await MainActor.run {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
+        } catch {
+            print("toggleLibrary error: \(error)")
+            inLibrary = !newValue
+        }
     }
 
     // MARK: - Load Chapters
@@ -180,9 +199,16 @@ private struct ChapterRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(chapter.name)
-                .font(.subheadline)
-                .foregroundStyle(chapter.isRead ? .secondary : .primary)
+            HStack(spacing: 6) {
+                Text(chapter.name)
+                    .font(.subheadline)
+                    .foregroundStyle(chapter.isRead ? .secondary : .primary)
+                if chapter.isRead {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if let number = chapter.chapterNumber {
                 Text("Chapter \(number, specifier: "%.1f")")
                     .font(.caption)
