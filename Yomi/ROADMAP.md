@@ -1,7 +1,12 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 10)
-UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marcados como leídos al terminar. Historial real desde DB. Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights. Categorías con CRUD completo (sin assign UI aún).
+## Estado actual (post sesión 11)
+UX completa para uso real. Biblioteca con guardado real en GRDB.
+Capítulos marcados como leídos al terminar. Historial real desde DB.
+Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer
+en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights.
+Categorías con CRUD completo + assign UI en MangaDetailView.
+Updates tab con background refresh por plugin. Chapter pagination (50 por página).
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -81,18 +86,23 @@ UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marc
 | 8 | ✅ **CategoryView.swift** | CRUD UI: crear, renombrar, reordenar, eliminar categorías |
 | 9 | ✅ **MoreView sección Library** | NavigationLink → CategoryView |
 
-## Sesión 11 — pendiente (scope a confirmar)
+## Sesión 11 — Polish & Updates ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Assign manga to category** | Sheet en MangaDetailView con checkboxes — sin esto categories es decorativa |
-| 2 | **Plugin dedup en install** | Verificar sourceListURL duplicada en PluginsView antes de instalar |
-| 3 | **Chapter load more** | Paginación real en MangaDetailView — botón "Load more" |
-| 4 | **Updates tab** | Background refresh de capítulos nuevos en biblioteca |
+| 1 | ✅ **Assign manga to category** | Sheet en MangaDetailView con checkboxes, tag button en toolbar (disabled si !inLibrary) |
+| 2 | ✅ **Chapter load more** | displayedChapterCount=50, botón "Load N more", índice real via firstIndex(where:) |
+| 3 | ✅ **Updates tab** | UpdatesViewModel con withTaskGroup, checkUpdates por plugin, touchLastUpdated si hasNew |
+
+## Sesión 12 — pendiente
+| # | Feature | Detalle |
+|---|---------|---------|
+| 1 | **Aqua Manga plugin** | Formato A scraping |
+| 2 | **Downloads offline** | Guardar páginas en Documents/, leer offline |
+| 3 | **App icon** | Icono definitivo para TestFlight |
 
 ## Deuda técnica
 | Item | Descripción | Prioridad |
 |------|-------------|-----------|
-| Categories sin assign UI | MangaDetailView sin sheet de asignación — feature incompleto para el usuario | Alta |
 | Source.swift dead code | Modelo sin queries, sin vistas, tabla vacía en DB. Legacy desde S1. | Baja |
 
 ## Compatibilidad iOS
