@@ -1,7 +1,7 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 9)
-UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marcados como leídos al terminar. Historial real desde DB. Búsqueda dentro de fuentes (client-side). Skeleton shimmer en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights.
+## Estado actual (post sesión 10)
+UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marcados como leídos al terminar. Historial real desde DB. Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights. Categorías con CRUD completo (sin assign UI aún).
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -68,15 +68,32 @@ UX completa para uso real. Biblioteca con guardado real en GRDB. Capítulos marc
 | 11 | ✅ **Fix Extension+Hashable** — Picker requiere Hashable en tipo de selección | Extension.swift |
 | 12 | ✅ **Fix Text+Text iOS 26** — Text("\(Text(date, style:.relative)) ago") reemplaza operador + | HistoryView |
 
-## Sesión 10 — Server-side search & categories
+## Sesión 10 — Server-side search & categories ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Server-side search por plugin** | Agregar searchManga(query:page:) a JSBridge + plugins Formato A (mangadex.js usa /manga?title=...) |
-| 2 | **Categories** | LibraryView category filter tabs, CategoryView CRUD, tabla join manga↔category (migración v5_) |
-| 3 | **Chapter pagination** | mangadex.js offset loop, botón "load more" en MangaDetailView |
-| 4 | **Plugin dedup en install** | Verificar si ya existe extensión con mismo sourceListURL antes de instalar |
-| 5 | **App icon** | Diseñar y configurar AppIcon en Assets.xcassets |
-| 6 | **Downloads** | Guardar capítulos offline, DownloadManager, badge en ChapterRow |
+| 1 | ✅ **searchManga en plugins** | mangadex.js + asurascans.js — función searchManga(query, page) con endpoints reales |
+| 2 | ✅ **JSBridge.searchManga** | searchManga(query:page:sourceId:) — Format A server-side, Format B retorna [] |
+| 3 | ✅ **BrowseView server-side search** | Reemplaza filtro client-side por debounce 500ms + Task.detached + bridge.searchManga |
+| 4 | ✅ **Migración v5_categories** | Tabla manga_category (mangaId + categoryId, PK compuesta, ON DELETE CASCADE) |
+| 5 | ✅ **CategoryQueries.swift** | CRUD completo: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:) |
+| 6 | ✅ **LibraryViewModel categories** | selectedCategoryId, filteredIds (Set<String>), displayedManga, loadCategories() |
+| 7 | ✅ **LibraryView category chips** | ScrollView horizontal, chip "All" + por categoría, .safeAreaInset, oculto si no hay categorías |
+| 8 | ✅ **CategoryView.swift** | CRUD UI: crear, renombrar, reordenar, eliminar categorías |
+| 9 | ✅ **MoreView sección Library** | NavigationLink → CategoryView |
+
+## Sesión 11 — pendiente (scope a confirmar)
+| # | Feature | Detalle |
+|---|---------|---------|
+| 1 | **Assign manga to category** | Sheet en MangaDetailView con checkboxes — sin esto categories es decorativa |
+| 2 | **Plugin dedup en install** | Verificar sourceListURL duplicada en PluginsView antes de instalar |
+| 3 | **Chapter load more** | Paginación real en MangaDetailView — botón "Load more" |
+| 4 | **Updates tab** | Background refresh de capítulos nuevos en biblioteca |
+
+## Deuda técnica
+| Item | Descripción | Prioridad |
+|------|-------------|-----------|
+| Categories sin assign UI | MangaDetailView sin sheet de asignación — feature incompleto para el usuario | Alta |
+| Source.swift dead code | Modelo sin queries, sin vistas, tabla vacía en DB. Legacy desde S1. | Baja |
 
 ## Compatibilidad iOS
 
@@ -90,11 +107,12 @@ Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en m
 
 ## Backlog (sin sesión asignada)
 - iPad layout (sidebar en lugar de tab bar)
-- Updates tab (background refresh de capítulos nuevos en biblioteca)
 - AniList tracking (alternativa a MAL)
 - Gestos personalizables en el reader
 - Plugin marketplace propio (index.json hosteado)
 - Notificaciones de nuevos capítulos
+- Downloads offline (DownloadManager, badge en ChapterRow)
+- App icon
 - TestFlight / App Store distribution
 
 ## Fuentes de plugins objetivo

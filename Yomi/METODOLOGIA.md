@@ -12,6 +12,9 @@
 - Reportar errores exactos de Xcode a Claude.ai antes de continuar
 - Claude.ai genera el prompt → se pega en Claude Code → Claude Code escribe el archivo
 - Commits después de cada bloque funcional completo (no después de cada archivo)
+- El template de prompt para Claude Code incluye sección DO NOT TOUCH explícita y resumen ADDED/MODIFIED/UNTOUCHED/LINES al final
+- Al inicio de sesión: pegar solo `find` + ROADMAP. METODOLOGIA y ARQUITECTURA viven en project knowledge de Claude.ai.
+- Al cierre de sesión: prompt explícito de Claude Code actualiza los tres docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Excepción válida a "un archivo por prompt": son docs, no código Swift.
 
 ## Stack técnico
 - Swift + SwiftUI (iOS 26)
@@ -26,6 +29,7 @@ Yomi soporta dos formatos de plugins:
   getMangaList(page) → [{id, path, title, coverURL, summary, author, artist, status, genres}]
   getChapterList(mangaPath) → [{id, path, name, chapterNumber}]
   getPageList(chapterPath) → [urlString]
+  searchManga(query, page) → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 
 **Formato B — LNReader/Novel** (clase exportada en global `plugin`):
   plugin.popularNovels(pageNo, options) → [{name, path, cover}]
@@ -37,7 +41,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 
 ## Shims inyectados por JSBridge
 - SOURCE.fetch(url, options) → HTTP GET sincrónico via DispatchSemaphore
-- cheerio.load(html) → stub (pendiente implementación real)
+- cheerio.load(html) → parser HTML recursivo + motor CSS selectores en JS puro (funcional desde S6)
 - localStorage / sessionStorage → in-memory JS objects
 - console.log/warn/error → Swift print()
 
@@ -52,6 +56,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 | 7 | 2026-03-15 | UX audit (visual + code). NSFW filter default off en PluginsView, BrowseView picker bajo el título. AppSettings singleton (@Observable + UserDefaults, 6 propiedades). SettingsView (General / Reader manga / Reader novel / Appearance / About). InsightsView (total reading time + per-manga list). DB migration v4_reading_insights (readingSeconds INTEGER en manga + novel). ChapterReaderView: time tracking en onDisappear, keepScreenOn via isIdleTimerDisabled, readerMode desde AppSettings. MoreView restructurada: Settings + Plugins + Insights + About. |
 | 8 | 2026-03-15 | BackupManager + BackupView (JSON export/import a Files.app). MALService + MALView (OAuth PKCE plain, yomi:// callback, tracking automático). ChapterReaderView: refactor a currentChapterIndex + activeChapter, navigateToChapter, Timer 1s → addReadingTime. DB migration v4_reading_time (readingSeconds en chapter). HistoryView: reescritura sin ViewModel, Task.detached + MainActor.run, clear button. SettingsView + InsightsView movidos a Features/More. MangaDetailView: upsert/insert en heart button, merge isRead+readingSeconds desde DB. MangaQueries: fetchRecentlyRead, upsert, eliminado fetchHistory. PluginsView: SHA256 id a 32 chars. mangadex.js: limit=100, offset loop, cap 2000. MoreView: 6 secciones (App / Sources / Reading / Tracking / Data / Info). |
 | 9 | 2026-03-16 | Save to library (heart → GRDB upsert + UIImpactFeedbackGenerator). Mark chapter read on last page + onDisappear. ChapterQueries CRUD completo (fetchAll, fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll). MangaQueries.fetchOne/upsert. HistoryView datos reales desde GRDB ordenados por lastReadAt DESC con swipe-to-delete. Prev/next chapter via navigateToChapter en-lugar (in-place state mutation). BrowseView Search tab funcional con filtro client-side sobre getMangaList + source picker. MangaCoverCell shimmer skeleton animado. Double-tap zoom reset en MangaPageView con simultaneousGesture. Fix: Extension+Hashable para Picker. Fix: Text interpolación iOS 26 (reemplazó Text+Text). ChapterQueries.markRead(id:) overload sin mangaId, fetchByManga, fetchUnread. MangaQueries.toggleLibrary+fetchHistory. MangaDetailView @State var manga (mutable). HistoryView RelativeDateTimeFormatter + sourceId caption + refreshable. MangaCoverCell shimmer rewrite (startPoint/endPoint sweep). asurascans.js plugin (Format A, scraping HTML con indexOf/split). |
+| 10 | 2026-03-16 | searchManga(query,page) en mangadex.js y asurascans.js. JSBridge.searchManga(query:page:sourceId:). BrowseView: reemplazado filtro client-side por server-side con debounce 500ms via Task.sleep + cancel. Migración v5_categories (manga_category join table, ON DELETE CASCADE). CategoryQueries CRUD completo. LibraryViewModel: selectedCategoryId + filteredIds + displayedManga. LibraryView: category chips horizontales en .safeAreaInset. CategoryView CRUD UI. MoreView: sección Library → CategoryView. |
 
 ## Aprendizajes técnicos
 - **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` — la API vieja `.tabItem {}` no renderiza nada
@@ -61,7 +66,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **JSBridge async**: JSContext es síncrono; SOURCE.fetch bloquea con DispatchSemaphore; llamar siempre desde Task.detached, nunca desde MainActor
 - **Keiyoushi plugins**: son .apk Android, no corren en iOS; se muestran como catálogo de referencia únicamente
 - **LNReader plugins**: son TypeScript compilado a JS — compatibles con JavaScriptCore si se implementan los shims correctos (fetch, cheerio, storage)
-- **Cheerio**: los plugins LNReader usan cheerio para parsear HTML; el shim actual es un stub vacío — implementación real pendiente
+- **Cheerio shim**: parser HTML recursivo completo + motor CSS selectores implementado en JS puro; funcional desde S6. No es un stub.
 - **db.write unused result**: GRDB db.write retorna el valor del closure — usar `_ = try appDatabase.write { ... }` para silenciar el warning "Result of call to 'write' is unused"
 - **GRDB bulk column update**: usar `Model.filter(Column("id") == id).updateAll(db, [Column("field").set(to: value)])` en lugar de fetch-mutate-save para updates parciales
 - **SHA256 stable IDs**: `CryptoKit.SHA256.hash(data: Data(url.utf8)).compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased()` — genera IDs de 32 chars reproducibles desde una URL
@@ -70,7 +75,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **UIApplication.isIdleTimerDisabled**: siempre resetear a `false` en `.onDisappear` — de lo contrario la pantalla queda encendida globalmente aunque el usuario salga del reader. Debe ser `true` en `.onAppear`
 - **GRDB + Swift 6 strict concurrency**: exponer DatabaseQueue como un `nonisolated(unsafe) var appDatabase: DatabaseQueue!` a nivel de módulo. Patrón oficial GRDB para `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`. Todos los métodos de `*Queries` acceden a `appDatabase` directamente — sin actor hop
 - **\*Queries enums**: todos los métodos static deben ser `nonisolated` o el compilador infiere aislamiento MainActor y bloquea las llamadas desde `Task.detached`
-- **Dos migraciones v4\_ coexisten**: GRDB trackea migraciones por nombre de string, no por prefijo numérico. `v4_reading_insights` y `v4_reading_time` son independientes y coexisten sin conflicto. La próxima migración debe usar prefijo `v5_`
+- **Dos migraciones v4\_ coexisten**: GRDB trackea migraciones por nombre de string, no por prefijo numérico. `v4_reading_insights` y `v4_reading_time` son independientes y coexisten sin conflicto. La próxima migración debe usar prefijo `v6_`
 - **appDatabase.read async overload**: desde un contexto `@MainActor` (como `exportBackup()` en `BackupManager`), `appDatabase.read` resuelve al overload async. Requiere `try await appDatabase.read { ... }`
 - **MAL OAuth PKCE plain**: MAL no soporta S256, solo el método `plain` (code_challenge == code_verifier). El verifier es una cadena aleatoria de 43-128 chars
 - **Timer en SwiftUI**: `@State private var readingTimer: Timer?` iniciado en `.onAppear` y siempre invalidado en `.onDisappear` + en toda función de navegación antes de crear el siguiente timer
@@ -79,6 +84,10 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **Text + Text deprecado en iOS 26**: el operador `+` sobre `Text` fue removido. Old: `Text(date, style: .relative) + Text(" ago")`. New: `Text("\(Text(date, style: .relative)) ago")`. SwiftUI `Text` soporta interpolar otros `Text` (incluidos los con formatters especiales como `.relative`) dentro de string interpolation — el comportamiento live-updating de `.relative` se preserva
 - **simultaneousGesture para multi-tap**: double-tap + single-tap sobre el mismo view requiere `.simultaneousGesture` en el gesto de doble tap; sin él SwiftUI rutea todos los taps al handler de single tap
 - **Shimmer con GeometryReader + LinearGradient animado**: animar una variable `@State private var phase: CGFloat` de -1 a 1 con `.linear(duration:).repeatForever(autoreverses: false)`, usarla como offset en los `location` de los `Gradient.Stop` — crea un efecto de barrido horizontal sin dependencias externas
+- **debounceTask pattern**: `@State private var debounceTask: Task<Void, Never>?` — cancelar en cada keystroke antes de crear nueva `Task.sleep(500ms)`. Más limpio que Combine para debounce simple en SwiftUI.
+- **didSet en @Observable**: propiedades con `didSet` en clases `@Observable` funcionan correctamente para disparar efectos secundarios (ej: `selectedCategoryId { didSet { updateFilteredIds() } }`).
+- **INSERT OR IGNORE**: para join tables donde la PK compuesta garantiza unicidad, usar `INSERT OR IGNORE` en lugar de `save()` — evita errores si el par ya existe.
+- **CategoryView + MoreView en un prompt**: se violó la regla "un archivo por prompt" porque CategoryView requería un entry point en MoreView. Compiló sin errores, pero el patrón correcto es dividirlos en dos prompts. Excepción aceptable solo cuando el segundo cambio es una sola línea NavigationLink.
 
 ## S9 — Lecciones aprendidas
 

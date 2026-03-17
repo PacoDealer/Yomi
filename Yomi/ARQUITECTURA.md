@@ -18,16 +18,18 @@ Yomi/
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchRecentlyRead, insert, update, upsert, touchLastRead, delete
 │       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
+│       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensiones
 ├── Features/
 │   ├── Library/
-│   │   ├── LibraryView.swift        # Grid de manga guardados
-│   │   ├── LibraryViewModel.swift   # Estado, filtrado, sort por lastReadAt DESC NULLS LAST
+│   │   ├── LibraryView.swift        # Grid de manga guardados + category filter chips horizontal
+│   │   ├── LibraryViewModel.swift   # Estado, filtrado, sort por lastReadAt DESC NULLS LAST; selectedCategoryId + displayedManga
+│   │   ├── CategoryView.swift       # CRUD UI categorías (crear, renombrar, reordenar, eliminar)
 │   │   ├── MangaCoverCell.swift     # Celda de portada + ShimmerView skeleton animado
 │   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button (upsert) + DB merge
 │   ├── Browse/
-│   │   ├── BrowseView.swift         # Sources tab + SearchView (client-side filter) + SourceBrowseView (dual manga/novel)
+│   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search con debounce 500ms) + SourceBrowseView (dual manga/novel)
 │   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, timer lectura, MAL tracking; acepta chapters:[Chapter] para navegación
@@ -35,7 +37,7 @@ Yomi/
 │   ├── History/
 │   │   └── HistoryView.swift        # Datos reales GRDB (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
-│   │   ├── MoreView.swift           # Root tab More (App / Sources / Reading / Tracking / Data / Info)
+│   │   ├── MoreView.swift           # Root tab More (Library / App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About
 │   │   ├── InsightsView.swift       # Tiempo de lectura total y por manga
@@ -44,12 +46,12 @@ Yomi/
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   └── MALView.swift            # Login/disconnect UI + SafariView
 │   └── Extensions/
-│       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real)
+│       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real, searchManga)
 │       └── ExtensionManager.swift   # Instalar/remover plugins
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 6 propiedades
 ├── Resources/
-│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON)
-│   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML)
+│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON, searchManga)
+│   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML, searchManga)
 │   └── test-source.js               # Plugin de prueba (Formato A)
 ├── ContentView.swift                # TabView raíz
 ├── YomiApp.swift                    # Entry point, setup DB
@@ -72,7 +74,7 @@ Yomi/
 
 ## Base de datos (SQLite via GRDB)
 
-### Tablas actuales (migración v4)
+### Tablas actuales (migración v5)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status, genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
@@ -83,6 +85,10 @@ chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
               readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 category     (id, name, sort)
+
+manga_category (mangaId TEXT NOT NULL FK→manga ON DELETE CASCADE,
+                categoryId TEXT NOT NULL FK→category ON DELETE CASCADE,
+                PRIMARY KEY (mangaId, categoryId))
 
 source       (id, name, language, version, iconURL, baseURL, isInstalled, isNSFW)
 
@@ -103,8 +109,9 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - **v3_novels**: novel, novel_chapter
 - **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds` / `ALTER TABLE novel ADD COLUMN readingSeconds`
 - **v4_reading_time**: `ALTER TABLE chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
+- **v5_categories**: manga_category join table (mangaId + categoryId, PK compuesta, ON DELETE CASCADE)
 
-> Nota: dos migraciones con prefijo v4_ coexisten sin conflicto — GRDB las trackea por nombre string, no por número. La siguiente migración debe usar prefijo `v5_`.
+> Nota: dos migraciones con prefijo v4_ coexisten sin conflicto — GRDB las trackea por nombre string, no por número. La siguiente migración debe usar prefijo `v6_`.
 
 ### Por qué GRDB y no SwiftData
 - Control total del esquema SQL y migraciones incrementales
@@ -142,6 +149,7 @@ Funciones globales. Usado para manga, manhwa, manhua.
 getMangaList(page)        → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 getChapterList(mangaPath) → [{id, path, name, chapterNumber}]
 getPageList(chapterPath)  → [urlString]
+searchManga(query, page)  → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 ```
 
 ### Formato B — LNReader/Novel
@@ -168,7 +176,7 @@ var isLNReaderPlugin: Bool {
 | `SOURCE.fetch(url, opts)` | URLSession + DispatchSemaphore (blocking, 30s timeout) | ✅ Funcional |
 | `console.log/warn/error` | Swift print() | ✅ Funcional |
 | `localStorage` / `sessionStorage` | In-memory JS object con get/set/removeItem | ✅ Funcional |
-| `cheerio.load(html)` | Parser HTML recursivo + motor CSS selectores en JS puro | ✅ Funcional |
+| `cheerio.load(html)` | Parser HTML recursivo + motor CSS selectores en JS puro | ✅ Funcional (desde S6) |
 
 ## Flujo de datos — Browse → Reader
 BrowseView
@@ -184,6 +192,14 @@ BrowseView
 → Task.detached { bridge.getPageList(chapterPath:) }
 → MangaReaderView (RTL TabView)  o
    WebtoonReaderView (ScrollView LazyVStack)
+
+## Flujo de búsqueda server-side
+SearchView (BrowseView)
+→ .onChange(of: searchQuery) con debounce 500ms (Task.sleep)
+→ debounceTask?.cancel() en cada keystroke
+→ Task.detached { bridge.searchManga(query:page:sourceId:) }
+→ await MainActor.run { searchResults = results }
+→ LazyVGrid → MangaCoverCell
 
 ## Flujo mark-as-read + tracking
 ChapterReaderView
@@ -242,18 +258,31 @@ YomiApp / MALView.onOpenURL
 - `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
 - `appDatabase.read` tiene overload async: desde contexto @MainActor requiere `try await appDatabase.read { ... }`
 
-## Workflow de desarrollo
+## Workflow y prompts
 
-1. **Claude Code** — `find Yomi -name "*.swift" | sort` + `cat Yomi/ROADMAP.md`
-2. Pegar output en **Claude.ai** → análisis del estado real del codebase
-3. Claude.ai propone scope de la sesión → usuario confirma
-4. Claude.ai genera prompts en orden de dependencias
-5. **Claude Code** ejecuta un prompt por vez → Xcode compila → reportar errores exactos
-6. Commit por bloque funcional, no por archivo
-7. Fin de sesión: actualizar ROADMAP.md + METODOLOGIA.md + ARQUITECTURA.md
+### Template de prompt para Claude Code
+Cada prompt sigue esta estructura:
+1. Header: stack técnico + build setting
+2. REGLAS ABSOLUTAS (nonisolated, Task.detached, sin parciales)
+3. TAREA: [Crear/Editar] archivo + descripción en una oración
+4. Si es editar: "Read [archivo] first" — obligatorio
+5. REQUISITOS: lista específica de qué agregar/cambiar
+6. NO TOCAR: lista explícita de métodos/secciones intactos
+7. OUTPUT: archivo completo + resumen ADDED/MODIFIED/UNTOUCHED/LINES
 
-> ⚠️ No generar prompts hasta confirmar el estado real. Los prompts generados contra
-> documentación desactualizada causan reescritura de trabajo existente (lección S9).
+### Inicio de sesión
+Pegar en Claude.ai:
+```
+find Yomi -name "*.swift" | sort
+find Yomi -name "*.js" | sort
+cat Yomi/ROADMAP.md
+```
+METODOLOGIA.md y ARQUITECTURA.md NO se pegan — viven en project knowledge de Claude.ai.
+
+### Cierre de sesión
+Claude.ai genera prompt de actualización de docs → Claude Code escribe
+los tres archivos (ROADMAP + METODOLOGIA + ARQUITECTURA) en un solo prompt.
+Excepción válida a "un archivo por prompt": son docs, no código Swift.
 
 ## Requisitos de plataforma
 
@@ -291,3 +320,4 @@ YomiApp / MALView.onOpenURL
 | Token MAL en UserDefaults | Keychain | Suficiente para MVP; migrar a Keychain antes de App Store |
 | Backup JSON manual | CloudKit / iCloud Drive sync | Sin dependencia de servicios Apple; portátil entre plataformas |
 | MAL PKCE plain | PKCE S256 | MAL API solo soporta el método plain |
+| debounceTask (Task.sleep) | Combine debounce | Menos código, sin dependencia de Combine, suficiente para un TextField |
