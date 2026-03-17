@@ -1,19 +1,17 @@
 import SwiftUI
 
 struct MangaDetailView: View {
-    let manga: Manga
 
     // MARK: - State
 
+    @State private var manga: Manga
     @State private var synopsisExpanded = false
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
-    @State private var inLibrary: Bool
 
     init(manga: Manga) {
-        self.manga = manga
-        _inLibrary = State(initialValue: manga.inLibrary)
+        _manga = State(initialValue: manga)
     }
 
     // MARK: - Body
@@ -121,39 +119,37 @@ struct MangaDetailView: View {
                 Button {
                     Task { await toggleLibrary() }
                 } label: {
-                    Image(systemName: inLibrary ? "heart.fill" : "heart")
-                        .foregroundStyle(inLibrary ? .red : .primary)
+                    Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
+                        .foregroundStyle(manga.inLibrary ? .red : .primary)
                 }
             }
         }
         .task { await loadChapters() }
+        .task { await touchLastRead() }
     }
 
     // MARK: - Toggle Library
 
     private func toggleLibrary() async {
-        let newValue = !inLibrary
-        inLibrary = newValue
-
         do {
-            let mangaId = manga.id
             let snapshot = manga
-            try await Task.detached {
-                if var stored = try MangaQueries.fetchOne(id: mangaId) {
-                    stored.inLibrary = newValue
-                    try MangaQueries.upsert(stored)
-                } else {
-                    var fresh = snapshot
-                    fresh.inLibrary = newValue
-                    try MangaQueries.upsert(fresh)
-                }
+            let updated = try await Task.detached {
+                try MangaQueries.toggleLibrary(manga: snapshot)
             }.value
-            await MainActor.run {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            }
+            manga = updated
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         } catch {
             print("toggleLibrary error: \(error)")
-            inLibrary = !newValue
+        }
+    }
+
+    // MARK: - Touch Last Read
+
+    private func touchLastRead() async {
+        guard manga.inLibrary else { return }
+        let mangaId = manga.id
+        Task.detached {
+            try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
     }
 
