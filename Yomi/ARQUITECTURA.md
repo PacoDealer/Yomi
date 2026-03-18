@@ -51,8 +51,9 @@ Yomi/
 │       └── ExtensionManager.swift   # Instalar/remover plugins
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 6 propiedades
 ├── Resources/
-│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON, searchManga)
+│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON, searchManga, multi-idioma)
 │   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML, searchManga)
+│   ├── aquamanga.js                 # Plugin Aqua Manga (Formato A, scraping HTML + cheerio)
 │   └── test-source.js               # Plugin de prueba (Formato A)
 ├── ContentView.swift                # TabView raíz
 ├── YomiApp.swift                    # Entry point, setup DB

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Manages installing, listing, and removing extensions (JS plugins)
 @Observable
@@ -9,6 +10,7 @@ final class ExtensionManager {
     static let shared = ExtensionManager()
     private init() {
         loadInstalled()
+        seedBundledPlugins()
     }
 
     // MARK: - State
@@ -34,6 +36,49 @@ final class ExtensionManager {
         installed = (try? ExtensionQueries.fetchInstalled()) ?? []
     }
 
+    // MARK: - Seed Bundled Plugins
+
+    /// Copies bundled JS plugins from the app bundle into Documents/Extensions/ on every launch
+    /// (skips copy if the file is already on disk) and upserts the DB record.
+    func seedBundledPlugins() {
+        let plugins: [(filename: String, name: String, isNSFW: Bool)] = [
+            ("mangadex",   "MangaDex",    false),
+            ("asurascans", "Asura Scans", true),
+            ("aquamanga",  "Aqua Manga",  false)
+        ]
+
+        for plugin in plugins {
+            guard let bundleURL = Bundle.main.url(forResource: plugin.filename, withExtension: "js")
+            else { continue }
+
+            let id = sha256id(plugin.filename)
+            let destURL = extensionsDirectory.appendingPathComponent("\(id).js")
+
+            // Only copy if the file is not already on disk
+            if !FileManager.default.fileExists(atPath: destURL.path) {
+                guard (try? FileManager.default.copyItem(at: bundleURL, to: destURL)) != nil
+                else { continue }
+            }
+
+            let ext = Extension(
+                id:            id,
+                name:          plugin.name,
+                version:       "1.0.0",
+                language:      "en",
+                iconURL:       nil,
+                sourceListURL: destURL,
+                isInstalled:   true,
+                isNSFW:        plugin.isNSFW,
+                sourceIds:     []
+            )
+            try? ExtensionQueries.upsert(ext)
+
+            if !installed.contains(where: { $0.id == id }) {
+                installed.append(ext)
+            }
+        }
+    }
+
     // MARK: - Install
 
     /// Downloads the JS file from sourceListURL and registers the extension
@@ -51,8 +96,7 @@ final class ExtensionManager {
             try data.write(to: localURL)
 
             // Persist to database
-            var installed = ext
-            installed = Extension(
+            let updated = Extension(
                 id:            ext.id,
                 name:          ext.name,
                 version:       ext.version,
@@ -63,7 +107,7 @@ final class ExtensionManager {
                 isNSFW:        ext.isNSFW,
                 sourceIds:     ext.sourceIds
             )
-            try ExtensionQueries.upsert(installed)
+            try ExtensionQueries.upsert(updated)
             loadInstalled()
         } catch {
             errorMessage = error.localizedDescription
@@ -84,6 +128,14 @@ final class ExtensionManager {
 
     /// Returns a JSBridge instance for the given installed extension
     func bridge(for ext: Extension) -> JSBridge? {
-        JSBridge(scriptURL: ext.sourceListURL)
+        let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
+        return JSBridge(scriptURL: localURL)
+    }
+
+    // MARK: - Helpers
+
+    private func sha256id(_ string: String) -> String {
+        let hash = SHA256.hash(data: Data(string.utf8))
+        return String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32))
     }
 }

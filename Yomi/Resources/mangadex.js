@@ -92,6 +92,10 @@ function getChapterList(mangaPath) {
                 + "?limit=" + limit
                 + "&offset=" + offset
                 + "&translatedLanguage[]=en"
+                + "&translatedLanguage[]=es"
+                + "&translatedLanguage[]=es-la"
+                + "&translatedLanguage[]=pt-br"
+                + "&translatedLanguage[]=pt"
                 + "&order[chapter]=asc";
 
             var body = SOURCE.fetch(url);
@@ -103,7 +107,8 @@ function getChapterList(mangaPath) {
                 var chapter = json.data[i];
                 var attrs = chapter.attributes || {};
                 var chapterNum = attrs.chapter ? parseFloat(attrs.chapter) : null;
-                var name = attrs.title
+                if (chapterNum !== null && isNaN(chapterNum)) { chapterNum = null; }
+                var name = attrs.title && attrs.title.trim().length > 0
                     ? attrs.title
                     : (attrs.chapter ? "Chapter " + attrs.chapter : "Chapter");
 

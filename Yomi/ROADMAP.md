@@ -1,6 +1,6 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 12)
+## Estado actual (post sesión 13)
 UX completa para uso real. Biblioteca con guardado real en GRDB.
 Capítulos marcados como leídos al terminar. Historial real desde DB.
 Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer
@@ -9,6 +9,8 @@ Categorías con CRUD completo + assign UI en MangaDetailView.
 Updates tab con background refresh por plugin. Chapter pagination (50 por página).
 Downloads offline (DownloadManager, cola secuencial, páginas en paralelo x3,
 archivos locales en Documents/Downloads/). Aqua Manga plugin (Formato A, scraping).
+Plugins bundled (mangadex, asurascans, aquamanga) auto-instalados al arrancar.
+SOURCE.fetch con User-Agent iPhone Safari por defecto. MangaDex multi-idioma.
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -102,12 +104,13 @@ archivos locales en Documents/Downloads/). Aqua Manga plugin (Formato A, scrapin
 | 2 | ✅ **Downloads offline** | DownloadManager singleton @Observable, cola secuencial, páginas paralelas x3, Documents/Downloads/{mangaId}/{chapterId}/, DownloadQueries, DownloadsView en More, badge + swipe en MangaDetailView, fallback local en ChapterReaderView |
 | 3 | ⏭ **App icon** | Pendiente — el usuario lo agrega manualmente cuando tenga el diseño |
 
-## Sesión 13 — pendiente
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | **TestFlight prep** | Bundle ID, signing, capabilities, build para distribución |
-| 2 | **AniList tracking** | Alternativa a MAL, OAuth, tracking automático |
-| 3 | **Updates tab background refresh** | BGAppRefreshTask, notificaciones locales de nuevos capítulos |
+## Sesión 13 — Auditoría y arreglos ✅ Completa
+| # | Feature | Archivos afectados |
+|---|---------|-------------------|
+| 1 | ✅ **seedBundledPlugins** — mangadex, asurascans y aquamanga se copian desde el bundle a Documents/Extensions/ al arrancar; SHA256(filename) como ID estable; upsert en DB; skip si el archivo ya existe en disco | ExtensionManager.swift, YomiApp.swift |
+| 2 | ✅ **bridge(for:) URL fix** — reconstruye la URL desde `extensionsDirectory + id` en lugar de usar `ext.sourceListURL` almacenada en DB (que queda stale tras reinstalación) | ExtensionManager.swift |
+| 3 | ✅ **mangadex.js multi-idioma** — getChapterList incluye es/es-la/pt-br/pt en translatedLanguage[]; guard NaN en chapterNumber; fix título vacío | mangadex.js |
+| 4 | ✅ **SOURCE.fetch User-Agent** — headers por defecto: User-Agent iPhone Safari + Accept + Accept-Language; plugins pueden sobrescribir con sus propios headers | JSBridge.swift |
 
 ## Deuda técnica
 | Item | Descripción | Prioridad |
