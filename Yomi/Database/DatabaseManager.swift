@@ -166,6 +166,12 @@ final class DatabaseManager {
             // category.sort already exists from v1_initial — no ALTER needed
         }
 
+        migrator.registerMigration("v6_downloads") { db in
+            try db.alter(table: "chapter") { t in
+                t.add(column: "downloadedAt", .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -229,6 +235,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         chapterNumber = row["chapterNumber"]
         isRead          = row["isRead"]
         isDownloaded    = row["isDownloaded"]
+        downloadedAt    = row["downloadedAt"]
         readAt          = row["readAt"]
         progress        = row["progress"]
         readingSeconds  = row["readingSeconds"] ?? 0
@@ -242,6 +249,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         container["chapterNumber"]  = chapterNumber
         container["isRead"]         = isRead
         container["isDownloaded"]   = isDownloaded
+        container["downloadedAt"]   = downloadedAt
         container["readAt"]         = readAt
         container["progress"]       = progress
         container["readingSeconds"] = readingSeconds

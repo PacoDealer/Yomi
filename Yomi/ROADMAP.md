@@ -1,12 +1,14 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 11)
+## Estado actual (post sesión 12)
 UX completa para uso real. Biblioteca con guardado real en GRDB.
 Capítulos marcados como leídos al terminar. Historial real desde DB.
 Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer
 en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights.
 Categorías con CRUD completo + assign UI en MangaDetailView.
 Updates tab con background refresh por plugin. Chapter pagination (50 por página).
+Downloads offline (DownloadManager, cola secuencial, páginas en paralelo x3,
+archivos locales en Documents/Downloads/). Aqua Manga plugin (Formato A, scraping).
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -93,12 +95,19 @@ Updates tab con background refresh por plugin. Chapter pagination (50 por págin
 | 2 | ✅ **Chapter load more** | displayedChapterCount=50, botón "Load N more", índice real via firstIndex(where:) |
 | 3 | ✅ **Updates tab** | UpdatesViewModel con withTaskGroup, checkUpdates por plugin, touchLastUpdated si hasNew |
 
-## Sesión 12 — pendiente
+## Sesión 12 — Downloads & Plugins ✅ Completa
 | # | Feature | Detalle |
 |---|---------|---------|
-| 1 | **Aqua Manga plugin** | Formato A scraping |
-| 2 | **Downloads offline** | Guardar páginas en Documents/, leer offline |
-| 3 | **App icon** | Icono definitivo para TestFlight |
+| 1 | ✅ **Aqua Manga plugin** | Formato A scraping, cheerio, getMangaList/getChapterList/getPageList/searchManga |
+| 2 | ✅ **Downloads offline** | DownloadManager singleton @Observable, cola secuencial, páginas paralelas x3, Documents/Downloads/{mangaId}/{chapterId}/, DownloadQueries, DownloadsView en More, badge + swipe en MangaDetailView, fallback local en ChapterReaderView |
+| 3 | ⏭ **App icon** | Pendiente — el usuario lo agrega manualmente cuando tenga el diseño |
+
+## Sesión 13 — pendiente
+| # | Feature | Detalle |
+|---|---------|---------|
+| 1 | **TestFlight prep** | Bundle ID, signing, capabilities, build para distribución |
+| 2 | **AniList tracking** | Alternativa a MAL, OAuth, tracking automático |
+| 3 | **Updates tab background refresh** | BGAppRefreshTask, notificaciones locales de nuevos capítulos |
 
 ## Deuda técnica
 | Item | Descripción | Prioridad |
@@ -121,8 +130,6 @@ Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en m
 - Gestos personalizables en el reader
 - Plugin marketplace propio (index.json hosteado)
 - Notificaciones de nuevos capítulos
-- Downloads offline (DownloadManager, badge en ChapterRow)
-- App icon
 - TestFlight / App Store distribution
 
 ## Fuentes de plugins objetivo
@@ -130,7 +137,7 @@ Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en m
 |--------|---------|--------|
 | MangaDex | Formato A (API JSON) | ✅ Implementado |
 | Asura Scans | Formato A (scraping) | ✅ Implementado |
-| Aqua Manga | Formato A (scraping) | Backlog |
+| Aqua Manga | Formato A (scraping) | ✅ Implementado |
 | Royal Road | Formato B (LNReader) | Sesión 6+ |
 | NovelUpdates | Formato B (LNReader) | Sesión 6+ |
 

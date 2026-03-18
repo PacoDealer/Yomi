@@ -16,6 +16,8 @@ struct Chapter: Identifiable, Codable {
     var isRead: Bool
     /// Indica si el capítulo está descargado para lectura sin conexión
     var isDownloaded: Bool
+    /// Fecha y hora en que se completó la descarga del capítulo (nil si no está descargado)
+    var downloadedAt: Date?
     /// Fecha y hora en que el usuario terminó o marcó como leído el capítulo
     var readAt: Date?
     /// Progreso de lectura entre 0.0 (sin leer) y 1.0 (completado)
