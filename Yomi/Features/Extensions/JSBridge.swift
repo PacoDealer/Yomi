@@ -112,7 +112,14 @@ final class JSBridge {
         let fetch: @convention(block) (String, JSValue?) -> String = { urlString, options in
             guard let url = URL(string: urlString) else { return "" }
             var request = URLRequest(url: url, timeoutInterval: 30)
-            // Apply optional headers: { headers: { "X-Key": "value" } }
+            // Default headers — prevents Cloudflare/CDN blocks
+            request.setValue(
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+                forHTTPHeaderField: "User-Agent"
+            )
+            request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+            request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+            // Apply optional headers from plugin (can override defaults)
             if let opts = options, !opts.isUndefined, !opts.isNull,
                let headers = opts.objectForKeyedSubscript("headers"),
                !headers.isUndefined, !headers.isNull,

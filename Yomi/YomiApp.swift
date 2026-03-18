@@ -10,11 +10,8 @@ import SwiftUI
 @main
 struct YomiApp: App {
     init() {
-        do {
-            try DatabaseManager.shared.setup()
-        } catch {
-            print("❌ DatabaseManager setup failed: \(error)")
-        }
+        try? DatabaseManager.shared.setup()
+        ExtensionManager.shared.seedBundledPlugins()
     }
 
     var body: some Scene {
