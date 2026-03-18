@@ -43,6 +43,9 @@ struct MoreView: View {
 
                 // MARK: Data
                 Section("Data") {
+                    NavigationLink(destination: DownloadsView()) {
+                        Label("Downloads", systemImage: "arrow.down.circle")
+                    }
                     NavigationLink { BackupView() } label: {
                         Label("Backup", systemImage: "externaldrive")
                     }

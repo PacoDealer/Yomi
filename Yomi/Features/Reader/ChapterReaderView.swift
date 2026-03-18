@@ -193,6 +193,15 @@ struct ChapterReaderView: View {
 
     private func loadPages() async {
         sessionStart = Date()
+
+        // Si el capítulo está descargado, usar archivos locales
+        if activeChapter.isDownloaded,
+           let localURLs = DownloadManager.shared.localURLs(for: activeChapter) {
+            pages = localURLs.map { $0.absoluteString }
+            isLoading = false
+            return
+        }
+
         let path = activeChapter.path
         let result = await Task.detached(priority: .userInitiated) {
             bridge.getPageList(chapterPath: path)
