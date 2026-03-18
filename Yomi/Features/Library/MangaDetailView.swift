@@ -9,6 +9,7 @@ struct MangaDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
+    @State private var downloadManager = DownloadManager.shared
 
     // Feature 1 — Category assignment
     @State private var allCategories: [Category] = []
@@ -105,7 +106,7 @@ struct MangaDetailView: View {
                                 chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? index
                             )
                         } label: {
-                            ChapterRow(chapter: chapter)
+                            ChapterRow(chapter: chapter, manga: manga, bridge: bridge)
                         }
                         .disabled(bridge == nil)
                     }
@@ -283,6 +284,10 @@ struct MangaDetailView: View {
 
 private struct ChapterRow: View {
     let chapter: Chapter
+    let manga: Manga
+    let bridge: JSBridge?
+
+    private var dm: DownloadManager { DownloadManager.shared }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -295,6 +300,18 @@ private struct ChapterRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if chapter.isDownloaded {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.tint)
+                } else if dm.activeChapterId == chapter.id {
+                    ProgressView(value: dm.progress[chapter.id] ?? 0)
+                        .frame(width: 20)
+                } else if dm.queue.contains(where: { $0.id == chapter.id }) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             if let number = chapter.chapterNumber {
                 Text("Chapter \(number, specifier: "%.1f")")
@@ -303,6 +320,23 @@ private struct ChapterRow: View {
             }
         }
         .padding(.vertical, 2)
+        .swipeActions(edge: .leading) {
+            if chapter.isDownloaded {
+                Button(role: .destructive) {
+                    DownloadManager.shared.deleteDownload(chapter: chapter)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            } else {
+                Button {
+                    guard let b = bridge else { return }
+                    DownloadManager.shared.enqueue(chapter, manga: manga, bridge: b)
+                } label: {
+                    Label("Download", systemImage: "arrow.down.circle")
+                }
+                .tint(.blue)
+            }
+        }
     }
 }
 
