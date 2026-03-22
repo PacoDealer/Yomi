@@ -15,6 +15,8 @@
 - El template de prompt para Claude Code incluye sección DO NOT TOUCH explícita y resumen ADDED/MODIFIED/UNTOUCHED/LINES al final
 - Al inicio de sesión: pegar solo `find` + ROADMAP. METODOLOGIA y ARQUITECTURA viven en project knowledge de Claude.ai.
 - Al cierre de sesión: prompt explícito de Claude Code actualiza los tres docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Excepción válida a "un archivo por prompt": son docs, no código Swift.
+- Al inicio de sesión, pegar también el contenido de los archivos que se van a modificar (además de `find` + ROADMAP.md) — evita que Claude.ai planifique sobre el archivo equivocado
+- Cuando un prompt crea una prop/callback en una vista hija, el mismo prompt debe conectarla en la vista padre, o registrarla como deuda en ROADMAP antes de cerrar la sesión
 
 ## Stack técnico
 - Swift + SwiftUI (iOS 26)
@@ -60,7 +62,7 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 | 11 | 2026-03-17 | MangaDetailView: category assignment sheet (tag toolbar button, disabled+opacity si !inLibrary, loadCategories/toggleCategory via Task.detached, Set<String> local para feedback inmediato). Chapter pagination: displayedChapterCount=50, botón "Load N more", chapterIndex via firstIndex(where:). MangaQueries.fetchLibraryByLastUpdated + touchLastUpdated. UpdatesViewModel (@Observable, withTaskGroup, checkUpdates por plugin). UpdatesView + UpdatesRow. Tab "Updates" en ContentView entre History y More. |
 | 12 | 2026-03-18 | aquamanga.js (Formato A, cheerio). DownloadManager singleton (@Observable, cola secuencial, páginas paralelas x3 con withTaskGroup). DB migración v6_downloads (downloadedAt en chapter). DownloadQueries. DownloadsView en More. Badge + swipe-to-delete en MangaDetailView. ChapterReaderView fallback a archivos locales. |
 | 13 | 2026-03-18 | Auditoría y arreglos. seedBundledPlugins en ExtensionManager (mangadex/asurascans/aquamanga copiados desde bundle al arrancar, SHA256(filename) como ID, upsert DB, skip si existe en disco). bridge(for:) reconstruye URL desde extensionsDirectory+id (fix sandbox stale). mangadex.js: multi-idioma (es/es-la/pt-br/pt), guard NaN chapterNumber, fix título vacío. JSBridge SOURCE.fetch: User-Agent iPhone Safari + Accept + Accept-Language como defaults. |
-| 14 | 2026-03-22 | Plugins & Fixes. Fix "Failed to load source plugin": BrowseView + UpdatesViewModel usan ExtensionManager.bridge(for:) en todos los puntos. Breakpoint MangaQueries.fetchAll desactivado. Nuevos plugins: royalroad.js (Formato B), scribblehub.js (Formato B, AJAX TOC), novelfire.js (Formato B, paginación chapters), comick.js (Formato A, API JSON). Library empty state con botón "Browse sources" (onBrowseTap callback). Updates empty state ícono bell.badge. Settings decimal fix en_US locale. Source.swift eliminado (dead code S1). |
+| 14 | 2026-03-23 | Plugins & Fixes. Fix "Failed to load source plugin": BrowseView + UpdatesViewModel usan ExtensionManager.bridge(for:) en todos los puntos. Breakpoint MangaQueries.fetchAll desactivado. Nuevos plugins: royalroad.js (Formato B), scribblehub.js (Formato B, AJAX TOC), novelfire.js (Formato B, paginación chapters), comick.js (Formato A, API JSON). Library empty state con botón "Browse sources" (onBrowseTap callback). Updates empty state ícono bell.badge. Settings decimal fix en_US locale. Source.swift eliminado (dead code S1). ExtensionManager.shared nonisolated fix: @Observable es Sendable, no usar nonisolated(unsafe); bridgeFn closure local para Task.detached. |
 
 ## Aprendizajes técnicos
 - **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` — la API vieja `.tabItem {}` no renderiza nada
@@ -97,6 +99,41 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
 - **Updates tab / background refresh pattern**: `withTaskGroup` para refrescar múltiples manga en paralelo desde background; cada task crea su propio `JSBridge` (no compartir instancias). Comparar remote IDs vs local IDs con `Set` para detectar capítulos nuevos sin guardarlos todos — solo actualizar `lastUpdatedAt` si `hasNew`. `ProgressView` en toolbar reemplaza al botón durante `isRefreshing`; `guard !isRefreshing` al inicio del método para evitar ejecuciones concurrentes.
 - **Dedup por URL → ID (confirmado desde S8)**: `SHA256(url).prefix(32)` como plugin id garantiza que la misma URL nunca produce dos entradas distintas — dedup por id es suficiente, no hace falta comparar `sourceListURL` por separado.
 
+## S14 — Aprendizajes técnicos
+- **@Observable final class es Sendable automáticamente**: cuando una clase conforma `@Observable`, Swift la hace `Sendable` implícitamente. Por eso `nonisolated(unsafe)` en `static let shared` de un singleton `@Observable` es innecesario — Xcode lo rechaza con warning "consider removing it". No agregar `nonisolated(unsafe)` a singletons `@Observable`.
+
+- **ExtensionManager.shared desde Task.detached — patrón correcto**: `ExtensionManager.shared` es MainActor-isolated y no es accesible desde `Task.detached`. La solución es capturar un closure local ANTES de entrar al Task, en el contexto MainActor donde `shared` sí es accesible:
+```swift
+  let bridgeFn: (Extension) -> JSBridge? = { ext in
+      let docs = FileManager.default.urls(
+          for: .documentDirectory, in: .userDomainMask)[0]
+      return JSBridge(scriptURL: docs
+          .appendingPathComponent("Extensions", isDirectory: true)
+          .appendingPathComponent("\(ext.id).js"))
+  }
+  // Dentro del Task.detached usar bridgeFn(ext) en lugar de
+  // ExtensionManager.shared.bridge(for: ext)
+```
+  Si el contexto que llama ya es `@MainActor` (ej: `loadContent()` en `SourceBrowseView`), el closure se puede usar directamente sin `Task.detached`.
+
+- **bridge(for:) nonisolated**: el método `bridge(for:)` en `ExtensionManager` debe ser `nonisolated` y reconstruir la URL directamente con `FileManager.default.urls(for:in:)` — no puede acceder a propiedades MainActor-isolated como `self.extensionsDirectory`.
+
+- **Xcode breakpoint como falso crash**: un breakpoint activo en una función llamada frecuentemente (ej: `MangaQueries.fetchAll`) pausa la ejecución simulando un crash o deadlock. Antes de diagnosticar problemas de concurrencia o GRDB, revisar Xcode → Breakpoints que no haya breakpoints activos inesperados. El archivo `Breakpoints_v2.xcbkptlist` en xcuserdata es la fuente de verdad — `shouldBeEnabled = "Yes"` activa el breakpoint.
+
+- **sourceListURL stale — regla definitiva**: NUNCA construir `JSBridge(scriptURL: ext.sourceListURL)` directamente en ningún lugar de la app. La URL guardada en DB queda stale tras reinstalación del sandbox. El único patrón válido es reconstruir la ruta desde `FileManager` + `ext.id` en runtime. Esto aplica en BrowseView, UpdatesViewModel, y cualquier futuro punto que necesite acceder a un plugin.
+
+- **Claude.ai genera prompt sobre archivo incorrecto**: sin ver el código real, Claude.ai puede indicar que el fix va en `BrowseView.swift` cuando está en `UpdatesView.swift`. Claude Code lo detecta al leer el archivo, pero cuesta un prompt extra. Protocolo mejorado: al inicio de sesión pegar el contenido de los archivos que se van a tocar, no solo el `find` + ROADMAP.
+
+- **Plugins JS — selectores sin verificar en sesión**: los plugins escritos durante una sesión (royalroad, scribblehub, novelfire, comick) usan selectores CSS/API inferidos en la fecha de escritura. Los selectores HTML cambian sin aviso. Al debuggear un plugin roto, verificar primero el selector raíz de la lista (`.fiction-list-item`, `.search_main_box`, `.novel-item`, endpoint de la API). Cada plugin tiene un comentario `// Selectores verificados: {fecha}` en su cabecera.
+
+- **ScribbleHub requiere POST en SOURCE.fetch**: ScribbleHub carga el TOC via POST a `wp-admin/admin-ajax.php` con `action=wi_gettocchp`. Si `JSBridge.swift` solo soporta GET, el TOC quedará vacío y `parseNovel` devolverá cero capítulos. Antes de testear `scribblehub.js`, verificar que `SOURCE.fetch` soporte `method: "POST"` y `options.body`.
+
+- **Firebase Hosting como plugin repo**: Firebase Hosting gratuito es la opción óptima para hostear un repositorio de plugins propio (`index.json` + archivos `.js`). Permite URLs estables tipo `https://yomi-plugins.web.app/index.json`. El flujo de PluginsView puede apuntar a esta URL para descubrir e instalar plugins sin necesidad de conocer la URL directa de cada `.js`. Implementación pendiente en S15.
+
+- **Google Drive como backup automático**: la Google Drive API permite subir y restaurar el archivo JSON de backup directamente desde la app, sin pasar por Files.app. Requiere OAuth Google (similar al flujo MAL). Alternativa más accesible que iCloud Drive para usuarios que ya tienen cuenta Google. Implementación pendiente en S15.
+
+- **Retención de usuarios — hallazgos de investigación S14**: las features de mayor ROI para retención, por orden de impacto: (1) acción clave en primeros 3 minutos = 2x retención — el botón "Browse sources" en LibraryView empty state va en esta dirección; (2) push notifications de nuevos capítulos — pedir permiso DESPUÉS de que el usuario guarde su primer manga (iOS opt-in rate 43.9%); (3) "Continuar leyendo" row en LibraryView top — reduce fricción máxima; (4) gamificación ligera sin presión (racha de días, hitos sin puntos/badges/leaderboards); (5) typography óptima en TextReaderView: 18pt mínimo, line-height 1.5x, color `#E8E8E8` en dark mode (no blanco puro).
+
 ## S13 — Aprendizajes técnicos
 - **iOS sandbox path invalidation**: rutas absolutas almacenadas en GRDB quedan stale tras reinstalación o update del sandbox. La regla es: nunca persistir una ruta absoluta y usarla directamente — siempre reconstruir la ruta en runtime desde un directorio de referencia (ej: `extensionsDirectory`) + ID estable. Aplica a cualquier `URL` en DB que apunte a `Documents/`.
 - **seedBundledPlugins skip logic**: basar el skip en `FileManager.fileExists(atPath:)`, no en si el ID ya está en DB. La DB puede tener el registro pero el archivo puede faltar (reinstalación). Siempre hacer upsert DB aunque el archivo ya exista — garantiza que los metadatos estén sincronizados.
@@ -127,6 +164,7 @@ find Yomi -name "*.js" | sort
 cat Yomi/ROADMAP.md
 ```
 Pegar el output completo en Claude.ai y pedir análisis ANTES de generar prompts. No generar prompts hasta confirmar el scope.
+Adicionalmente: pegar el contenido de los archivos que se van a modificar en esa sesión. Evita que Claude.ai genere prompts sobre el archivo equivocado.
 
 **Regla:** Claude.ai analiza → propone → usuario confirma → recién entonces genera prompts. Nunca al revés.
 

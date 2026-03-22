@@ -131,7 +131,8 @@ NovelFire, Comick. Library empty state con CTA "Browse sources". Source.swift el
 ## Deuda técnica
 | Item | Descripción | Prioridad |
 |------|-------------|-----------|
-| ContentView.swift onBrowseTap | LibraryView.onBrowseTap definido pero ContentView aún no pasa el callback — botón visible pero sin efecto hasta que se conecte el TabView selection | Media |
+| ContentView.swift onBrowseTap | LibraryView.onBrowseTap definido pero ContentView no pasa el callback — botón visible pero sin efecto. Fix: TabView(selection: $selectedTab) con .tag(Int) en cada Tab, pasar { selectedTab = 1 } a LibraryView | Media |
+| SOURCE.fetch POST support | ScribbleHub requiere POST. JSBridge.swift actualmente solo hace GET. Necesario para que scribblehub.js funcione al 100% | Media |
 
 ## Compatibilidad iOS
 
@@ -150,6 +151,11 @@ Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en m
 - Plugin marketplace propio (index.json hosteado)
 - Notificaciones de nuevos capítulos
 - TestFlight / App Store distribution
+- "Continuar leyendo" row en LibraryView top — retención alta ROI
+- Push notifications nuevos capítulos — pedir permiso post primer manga guardado (iOS opt-in 43.9%)
+- TextReaderView typography: font 18pt mínimo, line-height 1.5x, color #E8E8E8 dark mode, modo sepia
+- Firebase Hosting plugin repo — index.json + .js en yomi-plugins.web.app para descubrimiento de plugins
+- Google Drive backup automático — OAuth Google, subir/restaurar JSON sin Files.app
 
 ## Fuentes de plugins objetivo
 | Fuente | Formato | Estado |

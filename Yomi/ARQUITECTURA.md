@@ -262,6 +262,7 @@ YomiApp / MALView.onOpenURL
 - Resultado se entrega a la UI via `await MainActor.run { state = result }`
 - `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
 - `appDatabase.read` tiene overload async: desde contexto @MainActor requiere `try await appDatabase.read { ... }`
+- `ExtensionManager` es `@Observable final class` — conforma `Sendable` automáticamente. `nonisolated(unsafe)` en `static let shared` es innecesario y genera warning. Para acceder a `bridge(for:)` desde `Task.detached`, capturar un closure `bridgeFn` local en el contexto `@MainActor` antes de entrar al Task.
 
 ## Workflow y prompts
 
@@ -326,3 +327,5 @@ Excepción válida a "un archivo por prompt": son docs, no código Swift.
 | Backup JSON manual | CloudKit / iCloud Drive sync | Sin dependencia de servicios Apple; portátil entre plataformas |
 | MAL PKCE plain | PKCE S256 | MAL API solo soporta el método plain |
 | debounceTask (Task.sleep) | Combine debounce | Menos código, sin dependencia de Combine, suficiente para un TextField |
+| Firebase Hosting para plugin repo | Servidor propio / CDN de pago | Gratuito, URLs estables, sin backend — suficiente para index.json + archivos .js |
+| Google Drive para backup | iCloud Drive / CloudKit | OAuth similar a MAL, más universal para usuarios con cuenta Google, no requiere Apple ID |
