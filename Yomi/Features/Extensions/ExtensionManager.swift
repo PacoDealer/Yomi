@@ -44,7 +44,11 @@ final class ExtensionManager {
         let plugins: [(filename: String, name: String, isNSFW: Bool)] = [
             ("mangadex",   "MangaDex",    false),
             ("asurascans", "Asura Scans", true),
-            ("aquamanga",  "Aqua Manga",  false)
+            ("aquamanga",  "Aqua Manga",  false),
+            ("royalroad",  "Royal Road",  false),
+            ("scribblehub","ScribbleHub", false),
+            ("novelfire",  "NovelFire",   false),
+            ("comick",     "Comick",      false)
         ]
 
         for plugin in plugins {

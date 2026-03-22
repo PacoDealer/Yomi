@@ -47,7 +47,7 @@ import SwiftUI
         guard let ext else { return }
 
         let remoteChapters = await Task.detached(priority: .background) {
-            let bridge = JSBridge(scriptURL: ext.sourceListURL)
+            let bridge = ExtensionManager.shared.bridge(for: ext)
             return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
 
@@ -74,7 +74,7 @@ struct UpdatesView: View {
             if vm.items.isEmpty && !vm.isRefreshing {
                 ContentUnavailableView(
                     "No updates yet",
-                    systemImage: "arrow.clockwise",
+                    systemImage: "bell.badge",
                     description: Text("Add manga to your library to track updates.")
                 )
             } else {
