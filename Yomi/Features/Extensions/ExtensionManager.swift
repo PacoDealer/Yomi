@@ -39,7 +39,7 @@ final class ExtensionManager {
     // MARK: - Seed Bundled Plugins
 
     /// Copies bundled JS plugins from the app bundle into Documents/Extensions/ on every launch
-    /// (skips copy if the file is already on disk) and upserts the DB record.
+    /// (skips copy if the file is already on disk) and upserts the DB record.#imageLiteral(resourceName: "Screenshot 2026-03-23 at 12.37.05 AM.png")
     func seedBundledPlugins() {
         let plugins: [(filename: String, name: String, isNSFW: Bool)] = [
             ("mangadex",   "MangaDex",    false),
@@ -130,9 +130,13 @@ final class ExtensionManager {
 
     // MARK: - Bridge
 
-    /// Returns a JSBridge instance for the given installed extension
-    func bridge(for ext: Extension) -> JSBridge? {
-        let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
+    /// Returns a JSBridge instance for the given installed extension.
+    /// nonisolated so it can be called from Task.detached without actor hopping.
+    nonisolated func bridge(for ext: Extension) -> JSBridge? {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let localURL = docs
+            .appendingPathComponent("Extensions", isDirectory: true)
+            .appendingPathComponent("\(ext.id).js")
         return JSBridge(scriptURL: localURL)
     }
 
