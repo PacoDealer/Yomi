@@ -131,7 +131,7 @@ private struct SearchView: View {
                 guard !Task.isCancelled else { return }
                 let results = await Task.detached(priority: .userInitiated) {
                     sources.flatMap { ext in
-                        JSBridge(scriptURL: ext.sourceListURL)?
+                        ExtensionManager.shared.bridge(for: ext)?
                             .searchManga(query: query, page: 1, sourceId: ext.id)
                         ?? []
                     }
@@ -300,11 +300,10 @@ struct SourceBrowseView: View {
     private func loadContent() async {
         isLoading = true
         errorMessage = nil
-        let sourceId  = ext.id
-        let scriptURL = ext.sourceListURL
+        let sourceId = ext.id
 
         let loadedBridge = await Task.detached(priority: .userInitiated) {
-            JSBridge(scriptURL: scriptURL)
+            ExtensionManager.shared.bridge(for: ext)
         }.value
 
         guard let b = loadedBridge else {

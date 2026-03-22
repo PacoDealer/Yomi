@@ -11,7 +11,6 @@ Yomi/
 │   ├── Manga.swift          # Manga/manhwa/manhua — modelo principal
 │   ├── Chapter.swift        # Capítulo de una obra
 │   ├── Category.swift       # Categorías de biblioteca
-│   ├── Source.swift         # Metadatos de fuente (legacy, reemplazado por Extension)
 │   └── Extension.swift      # Plugin JS instalado — Identifiable, Codable, Hashable
 ├── Database/
 │   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
@@ -54,6 +53,10 @@ Yomi/
 │   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON, searchManga, multi-idioma)
 │   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML, searchManga)
 │   ├── aquamanga.js                 # Plugin Aqua Manga (Formato A, scraping HTML + cheerio)
+│   ├── comick.js                    # Plugin Comick (Formato A, API JSON pública, CDN fix)
+│   ├── royalroad.js                 # Plugin Royal Road (Formato B, JSON embebido + fallback HTML)
+│   ├── scribblehub.js               # Plugin ScribbleHub (Formato B, AJAX POST TOC)
+│   ├── novelfire.js                 # Plugin NovelFire (Formato B, paginación chapters)
 │   └── test-source.js               # Plugin de prueba (Formato A)
 ├── ContentView.swift                # TabView raíz
 ├── YomiApp.swift                    # Entry point, setup DB

@@ -49,7 +49,7 @@ struct SettingsView: View {
                 step: 2
             )
             Stepper(
-                "Line spacing: \(settings.lineSpacing, specifier: "%.1f")",
+                "Line spacing: \(String(format: "%0.1f", locale: Locale(identifier: "en_US"), settings.lineSpacing))",
                 value: $settings.lineSpacing,
                 in: 1.0...2.5,
                 step: 0.25
