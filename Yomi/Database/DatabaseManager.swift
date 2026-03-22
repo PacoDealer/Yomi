@@ -274,34 +274,6 @@ extension Category: FetchableRecord, PersistableRecord {
     }
 }
 
-// MARK: - GRDB: Source
-
-extension Source: FetchableRecord, PersistableRecord {
-    static let databaseTableName = "source"
-
-    nonisolated init(row: Row) throws {
-        id          = row["id"]
-        name        = row["name"]
-        language    = row["language"]
-        version     = row["version"]
-        iconURL     = (row["iconURL"] as String?).flatMap { URL(string: $0) }
-        baseURL     = URL(string: row["baseURL"])!
-        isInstalled = row["isInstalled"]
-        isNSFW      = row["isNSFW"]
-    }
-
-    nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]          = id
-        container["name"]        = name
-        container["language"]    = language
-        container["version"]     = version
-        container["iconURL"]     = iconURL?.absoluteString
-        container["baseURL"]     = baseURL.absoluteString
-        container["isInstalled"] = isInstalled
-        container["isNSFW"]      = isNSFW
-    }
-}
-
 // MARK: - GRDB: Extension
 
 extension Extension: FetchableRecord, PersistableRecord {

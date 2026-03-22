@@ -2,9 +2,11 @@ import SwiftUI
 
 struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
+    var onBrowseTap: (() -> Void)? = nil
 
-    init(viewModel: LibraryViewModel = LibraryViewModel()) {
+    init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
         _viewModel = State(initialValue: viewModel)
+        self.onBrowseTap = onBrowseTap
     }
 
     private let columns = [
@@ -15,11 +17,17 @@ struct LibraryView: View {
         NavigationStack {
             Group {
                 if viewModel.displayedManga.isEmpty && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
-                    ContentUnavailableView(
-                        "Your library is empty",
-                        systemImage: "books.vertical",
-                        description: Text("Browse sources and add titles to see them here.")
-                    )
+                    VStack(spacing: 16) {
+                        ContentUnavailableView(
+                            "Your library is empty",
+                            systemImage: "books.vertical",
+                            description: Text("Browse sources and add titles to see them here.")
+                        )
+                        Button("Browse sources") {
+                            onBrowseTap?()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 } else if viewModel.displayedManga.isEmpty {
                     ContentUnavailableView.search(text: viewModel.searchText)
                 } else {

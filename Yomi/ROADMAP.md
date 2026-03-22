@@ -1,6 +1,6 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 13)
+## Estado actual (post sesión 14)
 UX completa para uso real. Biblioteca con guardado real en GRDB.
 Capítulos marcados como leídos al terminar. Historial real desde DB.
 Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer
@@ -11,6 +11,8 @@ Downloads offline (DownloadManager, cola secuencial, páginas en paralelo x3,
 archivos locales en Documents/Downloads/). Aqua Manga plugin (Formato A, scraping).
 Plugins bundled (mangadex, asurascans, aquamanga) auto-instalados al arrancar.
 SOURCE.fetch con User-Agent iPhone Safari por defecto. MangaDex multi-idioma.
+7 plugins bundled: MangaDex, Asura Scans, Aqua Manga, Royal Road, ScribbleHub,
+NovelFire, Comick. Library empty state con CTA "Browse sources". Source.swift eliminado.
 
 ## Sesión 5 — Core UX ✅ Completa
 | # | Feature | Archivos afectados |
@@ -112,10 +114,24 @@ SOURCE.fetch con User-Agent iPhone Safari por defecto. MangaDex multi-idioma.
 | 3 | ✅ **mangadex.js multi-idioma** — getChapterList incluye es/es-la/pt-br/pt en translatedLanguage[]; guard NaN en chapterNumber; fix título vacío | mangadex.js |
 | 4 | ✅ **SOURCE.fetch User-Agent** — headers por defecto: User-Agent iPhone Safari + Accept + Accept-Language; plugins pueden sobrescribir con sus propios headers | JSBridge.swift |
 
+## Sesión 14 — Plugins & Fixes ✅ Completa
+| # | Feature | Archivos afectados |
+|---|---------|-------------------|
+| 1 | ✅ **Fix "Failed to load source plugin"** — BrowseView y UpdatesViewModel usan `ExtensionManager.shared.bridge(for:)` en todos los puntos; eliminado `JSBridge(scriptURL: ext.sourceListURL)` directo | BrowseView.swift, UpdatesView.swift |
+| 2 | ✅ **Fix InsightsView breakpoint** — desactivado breakpoint activo en MangaQueries.fetchAll() que pausaba la ejecución simulando un crash | Breakpoints_v2.xcbkptlist |
+| 3 | ✅ **royalroad.js** — plugin Formato B; popularNovels, parseNovel (JSON embebido + fallback HTML), parseChapter, searchNovels | royalroad.js |
+| 4 | ✅ **scribblehub.js** — plugin Formato B; AJAX POST para TOC (`admin-ajax.php`), extracción de nonce y seriesId | scribblehub.js |
+| 5 | ✅ **novelfire.js** — plugin Formato B; paginación de capítulos con detección de `pagination .next` | novelfire.js |
+| 6 | ✅ **comick.js** — plugin Formato A; API JSON pública, paginación de capítulos, CDN fix para covers | comick.js |
+| 7 | ✅ **Library empty state CTA** — botón "Browse sources" en LibraryView empty state; `onBrowseTap` callback prop | LibraryView.swift |
+| 8 | ✅ **Updates empty state ícono** — `arrow.clockwise` → `bell.badge` para no confundir con botón refresh | UpdatesView.swift |
+| 9 | ✅ **Settings decimal fix** — `specifier: "%.1f"` → `String(format:locale:en_US)` para forzar punto decimal en locale español | SettingsView.swift |
+| 10 | ✅ **Source.swift eliminado** — dead code desde S1; `extension Source: FetchableRecord` removido de DatabaseManager | Source.swift ✗, DatabaseManager.swift |
+
 ## Deuda técnica
 | Item | Descripción | Prioridad |
 |------|-------------|-----------|
-| Source.swift dead code | Modelo sin queries, sin vistas, tabla vacía en DB. Legacy desde S1. | Baja |
+| ContentView.swift onBrowseTap | LibraryView.onBrowseTap definido pero ContentView aún no pasa el callback — botón visible pero sin efecto hasta que se conecte el TabView selection | Media |
 
 ## Compatibilidad iOS
 
@@ -141,7 +157,10 @@ Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en m
 | MangaDex | Formato A (API JSON) | ✅ Implementado |
 | Asura Scans | Formato A (scraping) | ✅ Implementado |
 | Aqua Manga | Formato A (scraping) | ✅ Implementado |
-| Royal Road | Formato B (LNReader) | Sesión 6+ |
-| NovelUpdates | Formato B (LNReader) | Sesión 6+ |
+| Royal Road | Formato B (LNReader) | ✅ Implementado |
+| ScribbleHub | Formato B (LNReader) | ✅ Implementado |
+| NovelFire | Formato B (LNReader) | ✅ Implementado |
+| Comick | Formato A (API JSON) | ✅ Implementado |
+| NovelUpdates | Formato B (LNReader) | Backlog |
 
 ⚠️ Verificar siempre el HTML actual de cada fuente — los selectores pueden cambiar sin aviso.
