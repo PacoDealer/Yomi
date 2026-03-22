@@ -126,12 +126,20 @@ private struct SearchView: View {
             isSearching = true
             let query = newValue
             let sources = selectedSource.map { [$0] } ?? extensionManager.installed
+            let bridgeFn: (Extension) -> JSBridge? = { ext in
+                let docs = FileManager.default.urls(
+                    for: .documentDirectory, in: .userDomainMask)[0]
+                let url = docs
+                    .appendingPathComponent("Extensions", isDirectory: true)
+                    .appendingPathComponent("\(ext.id).js")
+                return JSBridge(scriptURL: url)
+            }
             debounceTask = Task {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled else { return }
                 let results = await Task.detached(priority: .userInitiated) {
                     sources.flatMap { ext in
-                        ExtensionManager.shared.bridge(for: ext)?
+                        bridgeFn(ext)?
                             .searchManga(query: query, page: 1, sourceId: ext.id)
                         ?? []
                     }
@@ -302,9 +310,15 @@ struct SourceBrowseView: View {
         errorMessage = nil
         let sourceId = ext.id
 
-        let loadedBridge = await Task.detached(priority: .userInitiated) {
-            ExtensionManager.shared.bridge(for: ext)
-        }.value
+        let bridgeFn: (Extension) -> JSBridge? = { ext in
+            let docs = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs
+                .appendingPathComponent("Extensions", isDirectory: true)
+                .appendingPathComponent("\(ext.id).js")
+            return JSBridge(scriptURL: url)
+        }
+        let loadedBridge = bridgeFn(ext)
 
         guard let b = loadedBridge else {
             errorMessage = "Failed to load source plugin."

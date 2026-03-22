@@ -43,7 +43,8 @@ import SwiftUI
         let mangaPath = manga.path
         let mangaId   = manga.id
 
-        let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId })
+        let allInstalled = await ExtensionManager.shared.installed
+        let ext = allInstalled.first(where: { $0.id == sourceId })
         guard let ext else { return }
 
         let remoteChapters = await Task.detached(priority: .background) {
