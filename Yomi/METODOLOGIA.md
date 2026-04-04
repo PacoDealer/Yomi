@@ -1,108 +1,125 @@
-# Metodología de trabajo — Yomi
+# Working methodology — Yomi
 
 ## Workflow
-- **Claude.ai (Desktop app)** → arquitectura, planificación, generación de prompts optimizados para Claude Code
-- **Claude Code (terminal)** → ejecuta los prompts, escribe archivos Swift/JS, hace git commit/push
-- **Xcode** → compilar, correr en simulador, ver errores exactos
-- **GitHub Desktop** → revisar diffs, push manual cuando se requiere
+- **Claude.ai (Desktop app)** → architecture, planning, generating optimized prompts for Claude Code
+- **Claude Code (terminal)** → executes prompts, writes Swift/JS files, makes git commit/push
+- **Xcode** → compile, run on simulator, see exact errors
+- **GitHub Desktop** → review diffs, manual push when required
 
-## Reglas del workflow
-- Un archivo a la vez, compilación después de cada archivo nuevo
-- Nunca crear múltiples archivos simultáneamente
-- Reportar errores exactos de Xcode a Claude.ai antes de continuar
-- Claude.ai genera el prompt → se pega en Claude Code → Claude Code escribe el archivo
-- Commits después de cada bloque funcional completo (no después de cada archivo)
-- El template de prompt para Claude Code incluye sección DO NOT TOUCH explícita y resumen ADDED/MODIFIED/UNTOUCHED/LINES al final
-- Al inicio de sesión: pegar solo `find` + ROADMAP. METODOLOGIA y ARQUITECTURA viven en project knowledge de Claude.ai.
-- Al cierre de sesión: prompt explícito de Claude Code actualiza los tres docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Excepción válida a "un archivo por prompt": son docs, no código Swift.
-- Al inicio de sesión, pegar también el contenido de los archivos que se van a modificar (además de `find` + ROADMAP.md) — evita que Claude.ai planifique sobre el archivo equivocado
-- Cuando un prompt crea una prop/callback en una vista hija, el mismo prompt debe conectarla en la vista padre, o registrarla como deuda en ROADMAP antes de cerrar la sesión
+## Workflow rules
+- One file at a time, compile after each new file
+- Never create multiple files simultaneously
+- Report exact Xcode errors to Claude.ai before continuing
+- Claude.ai generates the prompt → paste into Claude Code → Claude Code writes the file
+- Commits after each complete functional block (not after each file)
+- Prompt template for Claude Code includes an explicit DO NOT TOUCH section and ADDED/MODIFIED/UNTOUCHED/LINES summary at the end
+- At session start: paste only `find` + ROADMAP. METODOLOGIA and ARQUITECTURA live in Claude.ai project knowledge.
+- At session close: explicit Claude Code prompt updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Valid exception to "one file per prompt": they are docs, not Swift code.
+- At session start, also paste the content of files that will be modified (in addition to `find` + ROADMAP.md) — prevents Claude.ai from planning against the wrong file
+- When a prompt creates a prop/callback in a child view, the same prompt must wire it in the parent view, or register it as debt in ROADMAP before closing the session
+- Debug prompts always end with an explicit numbered cleanup prompt
+- "DO NOT modify any file" only in pure diagnostic prompts — never in edit prompts
+- When chaining independent fixes: run all without compiling, compile once at the end
+- All planning and communication is in English from Session 15 onward
+- Claude Code also operates in English for all prompts, commits, and responses
 
-## Stack técnico
+## Tech stack
 - Swift + SwiftUI (iOS 26)
-- GRDB para base de datos SQLite local
-- JavaScriptCore para ejecutar plugins JS (formato Yomi y formato LNReader)
-- Arquitectura inspirada en LNReader (Android, plugins TypeScript) y Mihon (Android)
+- GRDB for local SQLite database
+- JavaScriptCore for executing JS plugins (Yomi format and LNReader format)
+- Architecture inspired by LNReader (Android, TypeScript plugins) and Mihon (Android)
 
-## Estructura de plugins JS
-Yomi soporta dos formatos de plugins:
+## JS plugin structure
+Yomi supports two plugin formats:
 
-**Formato A — Yomi/Manga** (funciones globales):
+**Format A — Yomi/Manga** (global functions):
   getMangaList(page) → [{id, path, title, coverURL, summary, author, artist, status, genres}]
   getChapterList(mangaPath) → [{id, path, name, chapterNumber}]
   getPageList(chapterPath) → [urlString]
   searchManga(query, page) → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 
-**Formato B — LNReader/Novel** (clase exportada en global `plugin`):
+**Format B — LNReader/Novel** (class exported on global `plugin`):
   plugin.popularNovels(pageNo, options) → [{name, path, cover}]
   plugin.parseNovel(novelPath) → {path, name, cover, author, summary, status, chapters}
   plugin.parseChapter(chapterPath) → String (HTML)
   plugin.searchNovels(searchTerm, pageNo) → [{name, path, cover}]
 
-JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` → Formato B, si no → Formato A.
+JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B, otherwise → Format A.
 
-## Shims inyectados por JSBridge
-- SOURCE.fetch(url, options) → HTTP GET sincrónico via DispatchSemaphore
-- cheerio.load(html) → parser HTML recursivo + motor CSS selectores en JS puro (funcional desde S6)
+## Shims injected by JSBridge
+- SOURCE.fetch(url, options) → synchronous HTTP GET or POST via DispatchSemaphore
+    options: { method, body, headers } — defaults to GET, POST if method="POST"
+- cheerio.load(html) → recursive HTML parser + CSS selector engine in pure JS (functional since S6)
 - localStorage / sessionStorage → in-memory JS objects
 - console.log/warn/error → Swift print()
 
-## Sesiones
-| # | Fecha | Qué se hizo |
-|---|-------|-------------|
-| 1 | 2026-03-13 | Setup completo: Homebrew, Node, Claude Code, estructura carpetas, 4 modelos (Manga, Chapter, Category, Source), GRDB, tab bar 4 tabs funcionando en simulador |
-| 2 | 2026-03-14 | LibraryView grid adaptativo + ViewModel + MangaCoverCell + MangaDetailView básico + navegación grid→detail + DatabaseManager inicializado en launch |
-| 3 | 2026-03-14 | Sistema de extensiones JS: Extension model, ExtensionQueries, DatabaseManager migración v2, JSBridge v1 (JavaScriptCore), ExtensionManager, test-source.js, BrowseView con CTA + lista de extensiones instaladas, AdaptiveGrid en LibraryView |
-| 4 | 2026-03-15 | JSBridge v2 (dual format Yomi+LNReader, SOURCE.fetch semaphore, cheerio stub, localStorage shim), mangadex.js plugin real (API MangaDex), BrowseView end-to-end con SourceBrowseView, PluginsView (install from URL + catálogo Keiyoushi de referencia), ChapterReaderView (RTL manga + webtoon scroll, pinch zoom 1-4x, overlay inmersivo), MangaDetailView con lista de capítulos real |
-| 5 | 2026-03-15 | Save to library (heart button → MangaQueries.update, inLibrary toggle + haptics). ChapterQueries (markRead: isRead=true, readAt=now, progress=1.0, touchLastRead en manga padre). mangadex.js pagination loop (offset hasta json.total, limit=500, cap 20 iteraciones). HistoryView real con MangaQueries.fetchHistory() (lastReadAt != nil, desc). Prev/next chapter en ReaderOverlayView (displayedChapter state, loadPages() extraído). Dedup plugin install con SHA256(URL).prefix(8) via CryptoKit. |
-| 7 | 2026-03-15 | UX audit (visual + code). NSFW filter default off en PluginsView, BrowseView picker bajo el título. AppSettings singleton (@Observable + UserDefaults, 6 propiedades). SettingsView (General / Reader manga / Reader novel / Appearance / About). InsightsView (total reading time + per-manga list). DB migration v4_reading_insights (readingSeconds INTEGER en manga + novel). ChapterReaderView: time tracking en onDisappear, keepScreenOn via isIdleTimerDisabled, readerMode desde AppSettings. MoreView restructurada: Settings + Plugins + Insights + About. |
-| 8 | 2026-03-15 | BackupManager + BackupView (JSON export/import a Files.app). MALService + MALView (OAuth PKCE plain, yomi:// callback, tracking automático). ChapterReaderView: refactor a currentChapterIndex + activeChapter, navigateToChapter, Timer 1s → addReadingTime. DB migration v4_reading_time (readingSeconds en chapter). HistoryView: reescritura sin ViewModel, Task.detached + MainActor.run, clear button. SettingsView + InsightsView movidos a Features/More. MangaDetailView: upsert/insert en heart button, merge isRead+readingSeconds desde DB. MangaQueries: fetchRecentlyRead, upsert, eliminado fetchHistory. PluginsView: SHA256 id a 32 chars. mangadex.js: limit=100, offset loop, cap 2000. MoreView: 6 secciones (App / Sources / Reading / Tracking / Data / Info). |
-| 9 | 2026-03-16 | Save to library (heart → GRDB upsert + UIImpactFeedbackGenerator). Mark chapter read on last page + onDisappear. ChapterQueries CRUD completo (fetchAll, fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll). MangaQueries.fetchOne/upsert. HistoryView datos reales desde GRDB ordenados por lastReadAt DESC con swipe-to-delete. Prev/next chapter via navigateToChapter en-lugar (in-place state mutation). BrowseView Search tab funcional con filtro client-side sobre getMangaList + source picker. MangaCoverCell shimmer skeleton animado. Double-tap zoom reset en MangaPageView con simultaneousGesture. Fix: Extension+Hashable para Picker. Fix: Text interpolación iOS 26 (reemplazó Text+Text). ChapterQueries.markRead(id:) overload sin mangaId, fetchByManga, fetchUnread. MangaQueries.toggleLibrary+fetchHistory. MangaDetailView @State var manga (mutable). HistoryView RelativeDateTimeFormatter + sourceId caption + refreshable. MangaCoverCell shimmer rewrite (startPoint/endPoint sweep). asurascans.js plugin (Format A, scraping HTML con indexOf/split). |
-| 10 | 2026-03-16 | searchManga(query,page) en mangadex.js y asurascans.js. JSBridge.searchManga(query:page:sourceId:). BrowseView: reemplazado filtro client-side por server-side con debounce 500ms via Task.sleep + cancel. Migración v5_categories (manga_category join table, ON DELETE CASCADE). CategoryQueries CRUD completo. LibraryViewModel: selectedCategoryId + filteredIds + displayedManga. LibraryView: category chips horizontales en .safeAreaInset. CategoryView CRUD UI. MoreView: sección Library → CategoryView. |
-| 11 | 2026-03-17 | MangaDetailView: category assignment sheet (tag toolbar button, disabled+opacity si !inLibrary, loadCategories/toggleCategory via Task.detached, Set<String> local para feedback inmediato). Chapter pagination: displayedChapterCount=50, botón "Load N more", chapterIndex via firstIndex(where:). MangaQueries.fetchLibraryByLastUpdated + touchLastUpdated. UpdatesViewModel (@Observable, withTaskGroup, checkUpdates por plugin). UpdatesView + UpdatesRow. Tab "Updates" en ContentView entre History y More. |
-| 12 | 2026-03-18 | aquamanga.js (Formato A, cheerio). DownloadManager singleton (@Observable, cola secuencial, páginas paralelas x3 con withTaskGroup). DB migración v6_downloads (downloadedAt en chapter). DownloadQueries. DownloadsView en More. Badge + swipe-to-delete en MangaDetailView. ChapterReaderView fallback a archivos locales. |
-| 13 | 2026-03-18 | Auditoría y arreglos. seedBundledPlugins en ExtensionManager (mangadex/asurascans/aquamanga copiados desde bundle al arrancar, SHA256(filename) como ID, upsert DB, skip si existe en disco). bridge(for:) reconstruye URL desde extensionsDirectory+id (fix sandbox stale). mangadex.js: multi-idioma (es/es-la/pt-br/pt), guard NaN chapterNumber, fix título vacío. JSBridge SOURCE.fetch: User-Agent iPhone Safari + Accept + Accept-Language como defaults. |
-| 14 | 2026-03-23 | Plugins & Fixes. Fix "Failed to load source plugin": BrowseView + UpdatesViewModel usan ExtensionManager.bridge(for:) en todos los puntos. Breakpoint MangaQueries.fetchAll desactivado. Nuevos plugins: royalroad.js (Formato B), scribblehub.js (Formato B, AJAX TOC), novelfire.js (Formato B, paginación chapters), comick.js (Formato A, API JSON). Library empty state con botón "Browse sources" (onBrowseTap callback). Updates empty state ícono bell.badge. Settings decimal fix en_US locale. Source.swift eliminado (dead code S1). ExtensionManager.shared nonisolated fix: @Observable es Sendable, no usar nonisolated(unsafe); bridgeFn closure local para Task.detached. |
+## File path rules
+- Before generating any edit prompt, Claude.ai must cite the confirmed exact file path
+- If path is uncertain, the prompt includes a `find Yomi -name "*.swift"` step before editing
+- Frequently referenced paths:
+  - JSBridge: Yomi/Features/Extensions/JSBridge.swift
+  - ExtensionManager: Yomi/Features/Extensions/ExtensionManager.swift
+  - UpdatesView+ViewModel: Yomi/Features/More/UpdatesView.swift (ViewModel embedded in same file)
+  - AppSettings: Yomi/AppSettings.swift (project root, not in Core/)
+  - ContentView: Yomi/ContentView.swift (project root)
 
-## Aprendizajes técnicos
-- **iOS 26 TabView**: nueva API `Tab("título", systemImage:) {}` — la API vieja `.tabItem {}` no renderiza nada
-- **Xcode PBXFileSystemSynchronizedRootGroup**: todos los archivos de la carpeta se incluyen automáticamente — nunca usar `.gitkeep` o `.gitignore` dentro del target
-- **Swift 6 + GRDB**: `init(row:)` y `encode(to:)` de FetchableRecord/PersistableRecord requieren `nonisolated` con `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
-- **DerivedData stale**: limpiar con `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*` y ⇧⌘K en Xcode
-- **JSBridge async**: JSContext es síncrono; SOURCE.fetch bloquea con DispatchSemaphore; llamar siempre desde Task.detached, nunca desde MainActor
-- **Keiyoushi plugins**: son .apk Android, no corren en iOS; se muestran como catálogo de referencia únicamente
-- **LNReader plugins**: son TypeScript compilado a JS — compatibles con JavaScriptCore si se implementan los shims correctos (fetch, cheerio, storage)
-- **Cheerio shim**: parser HTML recursivo completo + motor CSS selectores implementado en JS puro; funcional desde S6. No es un stub.
-- **db.write unused result**: GRDB db.write retorna el valor del closure — usar `_ = try appDatabase.write { ... }` para silenciar el warning "Result of call to 'write' is unused"
-- **GRDB bulk column update**: usar `Model.filter(Column("id") == id).updateAll(db, [Column("field").set(to: value)])` en lugar de fetch-mutate-save para updates parciales
-- **SHA256 stable IDs**: `CryptoKit.SHA256.hash(data: Data(url.utf8)).compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased()` — genera IDs de 32 chars reproducibles desde una URL
-- **MangaDex pagination**: usar limit=100 con offset loop; capear en 2000 para evitar loops infinitos en series con muchos capítulos
-- **@Observable + UserDefaults**: usar `@ObservationIgnored` en el ivar `defaults`; las computed properties con get/set a UserDefaults funcionan correctamente como bindings
-- **UIApplication.isIdleTimerDisabled**: siempre resetear a `false` en `.onDisappear` — de lo contrario la pantalla queda encendida globalmente aunque el usuario salga del reader. Debe ser `true` en `.onAppear`
-- **GRDB + Swift 6 strict concurrency**: exponer DatabaseQueue como un `nonisolated(unsafe) var appDatabase: DatabaseQueue!` a nivel de módulo. Patrón oficial GRDB para `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`. Todos los métodos de `*Queries` acceden a `appDatabase` directamente — sin actor hop
-- **\*Queries enums**: todos los métodos static deben ser `nonisolated` o el compilador infiere aislamiento MainActor y bloquea las llamadas desde `Task.detached`
-- **Dos migraciones v4\_ coexisten**: GRDB trackea migraciones por nombre de string, no por prefijo numérico. `v4_reading_insights` y `v4_reading_time` son independientes y coexisten sin conflicto. La próxima migración debe usar prefijo `v6_`
-- **appDatabase.read async overload**: desde un contexto `@MainActor` (como `exportBackup()` en `BackupManager`), `appDatabase.read` resuelve al overload async. Requiere `try await appDatabase.read { ... }`
-- **MAL OAuth PKCE plain**: MAL no soporta S256, solo el método `plain` (code_challenge == code_verifier). El verifier es una cadena aleatoria de 43-128 chars
-- **Timer en SwiftUI**: `@State private var readingTimer: Timer?` iniciado en `.onAppear` y siempre invalidado en `.onDisappear` + en toda función de navegación antes de crear el siguiente timer
-- **ChapterReaderView activeChapter pattern**: usar `currentChapterIndex: Int` como `@State` + `var activeChapter: Chapter { chapters[currentChapterIndex] }` como computed property, en lugar de almacenar el capítulo directamente — permite navegación prev/next sin re-init de la vista
-- **Extension debe ser Hashable para Picker + .tag()**: iOS 26 `Picker` requiere que el tipo de selección conforme a `Hashable`. `Extension` solo tenía `Identifiable + Codable` — agregar `Hashable` a la lista de conformances es suficiente; el compilador lo sintetiza automáticamente porque todas las stored properties (`String`, `URL?`, `Bool`, `[String]`) ya conforman
-- **Text + Text deprecado en iOS 26**: el operador `+` sobre `Text` fue removido. Old: `Text(date, style: .relative) + Text(" ago")`. New: `Text("\(Text(date, style: .relative)) ago")`. SwiftUI `Text` soporta interpolar otros `Text` (incluidos los con formatters especiales como `.relative`) dentro de string interpolation — el comportamiento live-updating de `.relative` se preserva
-- **simultaneousGesture para multi-tap**: double-tap + single-tap sobre el mismo view requiere `.simultaneousGesture` en el gesto de doble tap; sin él SwiftUI rutea todos los taps al handler de single tap
-- **Shimmer con GeometryReader + LinearGradient animado**: animar una variable `@State private var phase: CGFloat` de -1 a 1 con `.linear(duration:).repeatForever(autoreverses: false)`, usarla como offset en los `location` de los `Gradient.Stop` — crea un efecto de barrido horizontal sin dependencias externas
-- **debounceTask pattern**: `@State private var debounceTask: Task<Void, Never>?` — cancelar en cada keystroke antes de crear nueva `Task.sleep(500ms)`. Más limpio que Combine para debounce simple en SwiftUI.
-- **didSet en @Observable**: propiedades con `didSet` en clases `@Observable` funcionan correctamente para disparar efectos secundarios (ej: `selectedCategoryId { didSet { updateFilteredIds() } }`).
-- **INSERT OR IGNORE**: para join tables donde la PK compuesta garantiza unicidad, usar `INSERT OR IGNORE` en lugar de `save()` — evita errores si el par ya existe.
-- **CategoryView + MoreView en un prompt**: se violó la regla "un archivo por prompt" porque CategoryView requería un entry point en MoreView. Compiló sin errores, pero el patrón correcto es dividirlos en dos prompts. Excepción aceptable solo cuando el segundo cambio es una sola línea NavigationLink.
-- **Category assignment pattern**: sheet de asignación en DetailView carga `allCategories` + `assignedIds` en `.task` separado via `Task.detached`; toggle llama `assign`/`unassign` individualmente y actualiza `Set<String>` local para feedback inmediato sin recargar toda la lista desde DB. Botón de categorías en toolbar: `disabled` + `opacity(0.4)` cuando `!manga.inLibrary` — solo tiene sentido asignar si está en biblioteca.
-- **Chapter pagination pattern**: `@State displayedChapterCount: Int = 50`; array completo en memoria; solo el slice `.prefix(count)` se renderiza en List. El índice pasado a ChapterReaderView debe ser el índice real en el array completo: `chapters.firstIndex(where: { $0.id == chapter.id })` — no el índice en el slice visible, o la navegación prev/next se rompe.
-- **Updates tab / background refresh pattern**: `withTaskGroup` para refrescar múltiples manga en paralelo desde background; cada task crea su propio `JSBridge` (no compartir instancias). Comparar remote IDs vs local IDs con `Set` para detectar capítulos nuevos sin guardarlos todos — solo actualizar `lastUpdatedAt` si `hasNew`. `ProgressView` en toolbar reemplaza al botón durante `isRefreshing`; `guard !isRefreshing` al inicio del método para evitar ejecuciones concurrentes.
-- **Dedup por URL → ID (confirmado desde S8)**: `SHA256(url).prefix(32)` como plugin id garantiza que la misma URL nunca produce dos entradas distintas — dedup por id es suficiente, no hace falta comparar `sourceListURL` por separado.
+## Sessions
+| # | Date | What was done |
+|---|------|---------------|
+| 1 | 2026-03-13 | Full setup: Homebrew, Node, Claude Code, folder structure, 4 models (Manga, Chapter, Category, Source), GRDB, 4-tab bar working in simulator |
+| 2 | 2026-03-14 | Adaptive LibraryView grid + ViewModel + MangaCoverCell + basic MangaDetailView + grid→detail navigation + DatabaseManager initialized on launch |
+| 3 | 2026-03-14 | JS extension system: Extension model, ExtensionQueries, DatabaseManager migration v2, JSBridge v1 (JavaScriptCore), ExtensionManager, test-source.js, BrowseView with CTA + installed extensions list, AdaptiveGrid in LibraryView |
+| 4 | 2026-03-15 | JSBridge v2 (dual format Yomi+LNReader, SOURCE.fetch semaphore, cheerio stub, localStorage shim), real mangadex.js plugin (MangaDex API), end-to-end BrowseView with SourceBrowseView, PluginsView (install from URL + Keiyoushi reference catalog), ChapterReaderView (RTL manga + webtoon scroll, pinch zoom 1-4x, immersive overlay), MangaDetailView with real chapter list |
+| 5 | 2026-03-15 | Save to library (heart button → MangaQueries.update, inLibrary toggle + haptics). ChapterQueries (markRead: isRead=true, readAt=now, progress=1.0, touchLastRead on parent manga). mangadex.js pagination loop (offset to json.total, limit=500, cap 20 iterations). Real HistoryView with MangaQueries.fetchHistory() (lastReadAt != nil, desc). Prev/next chapter in ReaderOverlayView (displayedChapter state, extracted loadPages()). Dedup plugin install with SHA256(URL).prefix(8) via CryptoKit. |
+| 7 | 2026-03-15 | UX audit (visual + code). NSFW filter default off in PluginsView, BrowseView picker below title. AppSettings singleton (@Observable + UserDefaults, 6 properties). SettingsView (General / Reader manga / Reader novel / Appearance / About). InsightsView (total reading time + per-manga list). DB migration v4_reading_insights (readingSeconds INTEGER on manga + novel). ChapterReaderView: time tracking in onDisappear, keepScreenOn via isIdleTimerDisabled, readerMode from AppSettings. MoreView restructured: Settings + Plugins + Insights + About. |
+| 8 | 2026-03-15 | BackupManager + BackupView (JSON export/import to Files.app). MALService + MALView (OAuth PKCE plain, yomi:// callback, automatic tracking). ChapterReaderView: refactor to currentChapterIndex + activeChapter, navigateToChapter, Timer 1s → addReadingTime. DB migration v4_reading_time (readingSeconds on chapter). HistoryView: rewrite without ViewModel, Task.detached + MainActor.run, clear button. SettingsView + InsightsView moved to Features/More. MangaDetailView: upsert/insert on heart button, merge isRead+readingSeconds from DB. MangaQueries: fetchRecentlyRead, upsert, removed fetchHistory. PluginsView: SHA256 id to 32 chars. mangadex.js: limit=100, offset loop, cap 2000. MoreView: 6 sections (App / Sources / Reading / Tracking / Data / Info). |
+| 9 | 2026-03-16 | Save to library (heart → GRDB upsert + UIImpactFeedbackGenerator). Mark chapter read on last page + onDisappear. ChapterQueries full CRUD (fetchAll, fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll). MangaQueries.fetchOne/upsert. Real HistoryView data from GRDB sorted by lastReadAt DESC with swipe-to-delete. Prev/next chapter via navigateToChapter in-place state mutation. BrowseView Search tab functional with client-side filter over getMangaList + source picker. Animated MangaCoverCell shimmer skeleton. Double-tap zoom reset in MangaPageView with simultaneousGesture. Fix: Extension+Hashable for Picker. Fix: Text interpolation iOS 26 (replaced Text+Text). |
+| 10 | 2026-03-16 | searchManga(query,page) in mangadex.js and asurascans.js. JSBridge.searchManga(query:page:sourceId:). BrowseView: replaced client-side filter with server-side with debounce 500ms via Task.sleep + cancel. Migration v5_categories (manga_category join table, ON DELETE CASCADE). Full CategoryQueries CRUD. LibraryViewModel: selectedCategoryId + filteredIds + displayedManga. LibraryView: horizontal category chips in .safeAreaInset. CategoryView CRUD UI. MoreView: Library section → CategoryView. |
+| 11 | 2026-03-17 | MangaDetailView: category assignment sheet (tag toolbar button, disabled+opacity if !inLibrary, loadCategories/toggleCategory via Task.detached, local Set<String> for immediate feedback). Chapter pagination: displayedChapterCount=50, "Load N more" button, chapterIndex via firstIndex(where:). MangaQueries.fetchLibraryByLastUpdated + touchLastUpdated. UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin). UpdatesView + UpdatesRow. "Updates" tab in ContentView between History and More. |
+| 12 | 2026-03-18 | aquamanga.js (Format A, cheerio). DownloadManager singleton (@Observable, sequential queue, parallel pages x3 with withTaskGroup). DB migration v6_downloads (downloadedAt on chapter). DownloadQueries. DownloadsView in More. Badge + swipe-to-delete in MangaDetailView. ChapterReaderView fallback to local files. |
+| 13 | 2026-03-18 | Audit and fixes. seedBundledPlugins in ExtensionManager (mangadex/asurascans/aquamanga copied from bundle on launch, SHA256(filename) as ID, DB upsert, skip if exists on disk). bridge(for:) reconstructs URL from extensionsDirectory+id (fix sandbox stale). mangadex.js: multi-language (es/es-la/pt-br/pt), guard NaN chapterNumber, fix empty title. JSBridge SOURCE.fetch: User-Agent iPhone Safari + Accept + Accept-Language as defaults. |
+| 14 | 2026-03-22 | Fix InsightsView (active breakpoint, not a real deadlock). Fix "Failed to load source plugin" (bridge(for:) in BrowseView+UpdatesView). New plugins: royalroad.js (Fmt B), scribblehub.js (Fmt B, POST), novelfire.js (Fmt B), comick.js (Fmt A). UX: LibraryView empty state Browse button, Source.swift removed, UpdatesView bell.badge icon, AppSettings decimal locale fix. |
+| 15 | 2026-04-04 | AppRouter singleton (@Observable, module-level, Tab(value:) iOS 26). LibraryView empty state navigates to Browse. JSBridge POST support (SOURCE.fetch method/body/headers, _fetchSync 4 args). ContinueReadingRow horizontal in LibraryView. NotificationManager + local push on first library save. TextReaderView: #E8E8E8, line-height 1.5, 18pt min, sepia mode. Fix MangaDetailView loadChapters (bridge(for:)). Fix ContinueReadingRow duplicate .task. Fix comick.js domain (comick.fun). Plugin diagnosis: HTML arrives OK for RoyalRoad/ScribbleHub/NovelFire but selectors incorrect; Asura=React SSR; AquaManga=domain unreachable. |
 
-## S14 — Aprendizajes técnicos
-- **@Observable final class es Sendable automáticamente**: cuando una clase conforma `@Observable`, Swift la hace `Sendable` implícitamente. Por eso `nonisolated(unsafe)` en `static let shared` de un singleton `@Observable` es innecesario — Xcode lo rechaza con warning "consider removing it". No agregar `nonisolated(unsafe)` a singletons `@Observable`.
+## Technical learnings
+- **iOS 26 TabView**: new API `Tab("title", systemImage:) {}` — old `.tabItem {}` renders nothing
+- **Xcode PBXFileSystemSynchronizedRootGroup**: all files in the folder are included automatically — never use `.gitkeep` or `.gitignore` inside the target
+- **Swift 6 + GRDB**: `init(row:)` and `encode(to:)` from FetchableRecord/PersistableRecord require `nonisolated` with `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
+- **DerivedData stale**: clean with `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*` and ⇧⌘K in Xcode
+- **JSBridge async**: JSContext is synchronous; SOURCE.fetch blocks with DispatchSemaphore; always call from Task.detached, never from MainActor
+- **Keiyoushi plugins**: they are Android .apk, do not run on iOS; shown as reference catalog only
+- **LNReader plugins**: TypeScript compiled to JS — compatible with JavaScriptCore if correct shims are implemented (fetch, cheerio, storage)
+- **Cheerio shim**: full recursive HTML parser + CSS selector engine implemented in pure JS; functional since S6. Not a stub.
+- **db.write unused result**: GRDB db.write returns the closure value — use `_ = try appDatabase.write { ... }` to silence the "Result of call to 'write' is unused" warning
+- **GRDB bulk column update**: use `Model.filter(Column("id") == id).updateAll(db, [Column("field").set(to: value)])` instead of fetch-mutate-save for partial updates
+- **SHA256 stable IDs**: `CryptoKit.SHA256.hash(data: Data(url.utf8)).compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased()` — generates reproducible 32-char IDs from a URL
+- **MangaDex pagination**: use limit=100 with offset loop; cap at 2000 to avoid infinite loops on series with many chapters
+- **@Observable + UserDefaults**: use `@ObservationIgnored` on the `defaults` ivar; computed properties with get/set to UserDefaults work correctly as bindings
+- **UIApplication.isIdleTimerDisabled**: always reset to `false` in `.onDisappear` — otherwise the screen stays on globally even after the user leaves the reader. Must be `true` in `.onAppear`
+- **GRDB + Swift 6 strict concurrency**: expose DatabaseQueue as a `nonisolated(unsafe) var appDatabase: DatabaseQueue!` at module level. Official GRDB pattern for `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`. All `*Queries` methods access `appDatabase` directly — no actor hop
+- **\*Queries enums**: all static methods must be `nonisolated` or the compiler infers MainActor isolation and blocks calls from `Task.detached`
+- **Two v4_ migrations coexist**: GRDB tracks migrations by string name, not numeric prefix. `v4_reading_insights` and `v4_reading_time` are independent and coexist without conflict. Next migration must use prefix `v6_`
+- **appDatabase.read async overload**: from a `@MainActor` context (like `exportBackup()` in `BackupManager`), `appDatabase.read` resolves to the async overload. Requires `try await appDatabase.read { ... }`
+- **MAL OAuth PKCE plain**: MAL does not support S256, only the `plain` method (code_challenge == code_verifier). The verifier is a random string of 43-128 chars
+- **Timer in SwiftUI**: `@State private var readingTimer: Timer?` started in `.onAppear` and always invalidated in `.onDisappear` + in every navigation function before creating the next timer
+- **ChapterReaderView activeChapter pattern**: use `currentChapterIndex: Int` as `@State` + `var activeChapter: Chapter { chapters[currentChapterIndex] }` as computed property, instead of storing the chapter directly — enables prev/next navigation without re-init of the view
+- **Extension must be Hashable for Picker + .tag()**: iOS 26 `Picker` requires the selection type to conform to `Hashable`. `Extension` only had `Identifiable + Codable` — adding `Hashable` to the conformance list is sufficient; the compiler synthesizes it automatically because all stored properties (`String`, `URL?`, `Bool`, `[String]`) already conform
+- **Text + Text deprecated in iOS 26**: the `+` operator on `Text` was removed. Old: `Text(date, style: .relative) + Text(" ago")`. New: `Text("\(Text(date, style: .relative)) ago")`. SwiftUI `Text` supports interpolating other `Text` values (including those with special formatters like `.relative`) — the live-updating behavior of `.relative` is preserved
+- **simultaneousGesture for multi-tap**: double-tap + single-tap on the same view requires `.simultaneousGesture` on the double-tap gesture; without it SwiftUI routes all taps to the single-tap handler
+- **Shimmer with GeometryReader + animated LinearGradient**: animate a `@State private var phase: CGFloat` from -1 to 1 with `.linear(duration:).repeatForever(autoreverses: false)`, use it as offset in `Gradient.Stop` locations — creates a horizontal sweep effect with no external dependencies
+- **debounceTask pattern**: `@State private var debounceTask: Task<Void, Never>?` — cancel on each keystroke before creating a new `Task.sleep(500ms)`. Cleaner than Combine for simple debounce in SwiftUI
+- **didSet in @Observable**: properties with `didSet` in `@Observable` classes work correctly for side effects (e.g.: `selectedCategoryId { didSet { updateFilteredIds() } }`)
+- **INSERT OR IGNORE**: for join tables where the composite PK guarantees uniqueness, use `INSERT OR IGNORE` instead of `save()` — avoids errors if the pair already exists
+- **CategoryView + MoreView in one prompt**: violated the "one file per prompt" rule because CategoryView required an entry point in MoreView. Compiled without errors, but the correct pattern is to split into two prompts. Acceptable exception only when the second change is a single-line NavigationLink
+- **Category assignment pattern**: assignment sheet in DetailView loads `allCategories` + `assignedIds` in a separate `.task` via `Task.detached`; toggle calls `assign`/`unassign` individually and updates local `Set<String>` for immediate feedback without reloading the entire list from DB. Category button in toolbar: `disabled` + `opacity(0.4)` when `!manga.inLibrary` — only makes sense to assign if in library
+- **Chapter pagination pattern**: `@State displayedChapterCount: Int = 50`; full array in memory; only the `.prefix(count)` slice is rendered in List. The index passed to ChapterReaderView must be the real index in the full array: `chapters.firstIndex(where: { $0.id == chapter.id })` — not the index in the visible slice, or prev/next navigation breaks
+- **Updates tab / background refresh pattern**: `withTaskGroup` to refresh multiple manga in parallel from background; each task creates its own `JSBridge` (don't share instances). Compare remote IDs vs local IDs with `Set` to detect new chapters without saving all of them — only update `lastUpdatedAt` if `hasNew`. `ProgressView` in toolbar replaces button during `isRefreshing`; `guard !isRefreshing` at start of method to avoid concurrent executions
+- **Dedup by URL → ID (confirmed since S8)**: `SHA256(url).prefix(32)` as plugin id guarantees the same URL never produces two different entries — dedup by id is sufficient, no need to compare `sourceListURL` separately
 
-- **ExtensionManager.shared desde Task.detached — patrón correcto**: `ExtensionManager.shared` es MainActor-isolated y no es accesible desde `Task.detached`. La solución es capturar un closure local ANTES de entrar al Task, en el contexto MainActor donde `shared` sí es accesible:
+## S14 — Technical learnings
+- **@Observable final class is automatically Sendable**: when a class conforms to `@Observable`, Swift makes it `Sendable` implicitly. Therefore `nonisolated(unsafe)` on `static let shared` of an `@Observable` singleton is unnecessary — Xcode rejects it with a "consider removing it" warning. Do not add `nonisolated(unsafe)` to `@Observable` singletons.
+
+- **ExtensionManager.shared from Task.detached — correct pattern**: `ExtensionManager.shared` is MainActor-isolated and not accessible from `Task.detached`. The solution is to capture a local closure BEFORE entering the Task, in the MainActor context where `shared` is accessible:
 ```swift
   let bridgeFn: (Extension) -> JSBridge? = { ext in
       let docs = FileManager.default.urls(
@@ -111,91 +128,89 @@ JSBridge detecta el formato automáticamente: si existe `plugin.popularNovels` �
           .appendingPathComponent("Extensions", isDirectory: true)
           .appendingPathComponent("\(ext.id).js"))
   }
-  // Dentro del Task.detached usar bridgeFn(ext) en lugar de
+  // Inside Task.detached use bridgeFn(ext) instead of
   // ExtensionManager.shared.bridge(for: ext)
 ```
-  Si el contexto que llama ya es `@MainActor` (ej: `loadContent()` en `SourceBrowseView`), el closure se puede usar directamente sin `Task.detached`.
+  If the calling context is already `@MainActor` (e.g.: `loadContent()` in `SourceBrowseView`), the closure can be used directly without `Task.detached`.
 
-- **bridge(for:) nonisolated**: el método `bridge(for:)` en `ExtensionManager` debe ser `nonisolated` y reconstruir la URL directamente con `FileManager.default.urls(for:in:)` — no puede acceder a propiedades MainActor-isolated como `self.extensionsDirectory`.
+- **bridge(for:) nonisolated**: the `bridge(for:)` method in `ExtensionManager` must be `nonisolated` and reconstruct the URL directly with `FileManager.default.urls(for:in:)` — it cannot access MainActor-isolated properties like `self.extensionsDirectory`.
 
-- **Xcode breakpoint como falso crash**: un breakpoint activo en una función llamada frecuentemente (ej: `MangaQueries.fetchAll`) pausa la ejecución simulando un crash o deadlock. Antes de diagnosticar problemas de concurrencia o GRDB, revisar Xcode → Breakpoints que no haya breakpoints activos inesperados. El archivo `Breakpoints_v2.xcbkptlist` en xcuserdata es la fuente de verdad — `shouldBeEnabled = "Yes"` activa el breakpoint.
+- **Xcode breakpoint as false crash**: an active breakpoint in a frequently called function (e.g.: `MangaQueries.fetchAll`) pauses execution simulating a crash or deadlock. Before diagnosing concurrency or GRDB issues, check Xcode → Breakpoints for unexpected active breakpoints. The `Breakpoints_v2.xcbkptlist` file in xcuserdata is the source of truth — `shouldBeEnabled = "Yes"` activates the breakpoint.
 
-- **sourceListURL stale — regla definitiva**: NUNCA construir `JSBridge(scriptURL: ext.sourceListURL)` directamente en ningún lugar de la app. La URL guardada en DB queda stale tras reinstalación del sandbox. El único patrón válido es reconstruir la ruta desde `FileManager` + `ext.id` en runtime. Esto aplica en BrowseView, UpdatesViewModel, y cualquier futuro punto que necesite acceder a un plugin.
+- **sourceListURL stale — definitive rule**: NEVER build `JSBridge(scriptURL: ext.sourceListURL)` directly anywhere in the app. The URL stored in DB becomes stale after sandbox reinstallation. The only valid pattern is to reconstruct the path from `FileManager` + `ext.id` at runtime. This applies in BrowseView, UpdatesView, MangaDetailView, and any future point that needs to access a plugin.
 
-- **Claude.ai genera prompt sobre archivo incorrecto**: sin ver el código real, Claude.ai puede indicar que el fix va en `BrowseView.swift` cuando está en `UpdatesView.swift`. Claude Code lo detecta al leer el archivo, pero cuesta un prompt extra. Protocolo mejorado: al inicio de sesión pegar el contenido de los archivos que se van a tocar, no solo el `find` + ROADMAP.
+- **Claude.ai generates prompt against wrong file**: without seeing the real code, Claude.ai may indicate a fix goes in `BrowseView.swift` when it's actually in `UpdatesView.swift`. Claude Code detects this when reading the file, but it costs an extra prompt. Improved protocol: at session start, paste the content of files that will be touched, not just `find` + ROADMAP.
 
-- **Plugins JS — selectores sin verificar en sesión**: los plugins escritos durante una sesión (royalroad, scribblehub, novelfire, comick) usan selectores CSS/API inferidos en la fecha de escritura. Los selectores HTML cambian sin aviso. Al debuggear un plugin roto, verificar primero el selector raíz de la lista (`.fiction-list-item`, `.search_main_box`, `.novel-item`, endpoint de la API). Cada plugin tiene un comentario `// Selectores verificados: {fecha}` en su cabecera.
+- **JS plugins — selectors unverified in session**: plugins written during a session (royalroad, scribblehub, novelfire, comick) use CSS selectors/API endpoints inferred at the time of writing. HTML selectors change without notice. When debugging a broken plugin, first verify the root list selector (`.fiction-list-item`, `.search_main_box`, `.novel-item`, API endpoint). Each plugin has a `// Selectors verified: {date}` comment in its header.
 
-- **ScribbleHub requiere POST en SOURCE.fetch**: ScribbleHub carga el TOC via POST a `wp-admin/admin-ajax.php` con `action=wi_gettocchp`. Si `JSBridge.swift` solo soporta GET, el TOC quedará vacío y `parseNovel` devolverá cero capítulos. Antes de testear `scribblehub.js`, verificar que `SOURCE.fetch` soporte `method: "POST"` y `options.body`.
+- **ScribbleHub requires POST in SOURCE.fetch**: ScribbleHub loads the TOC via POST to `wp-admin/admin-ajax.php` with `action=wi_gettocchp`. If `JSBridge.swift` only supports GET, the TOC will be empty and `parseNovel` will return zero chapters. Before testing `scribblehub.js`, verify that `SOURCE.fetch` supports `method: "POST"` and `options.body`.
 
-- **Firebase Hosting como plugin repo**: Firebase Hosting gratuito es la opción óptima para hostear un repositorio de plugins propio (`index.json` + archivos `.js`). Permite URLs estables tipo `https://yomi-plugins.web.app/index.json`. El flujo de PluginsView puede apuntar a esta URL para descubrir e instalar plugins sin necesidad de conocer la URL directa de cada `.js`. Implementación pendiente en S15.
+- **Firebase Hosting as plugin repo**: Firebase Hosting (free tier) is the optimal option for hosting a custom plugin repository (`index.json` + `.js` files). Enables stable URLs like `https://yomi-plugins.web.app/index.json`. PluginsView can point to this URL to discover and install plugins without knowing each `.js` URL directly. Implementation pending.
 
-- **Google Drive como backup automático**: la Google Drive API permite subir y restaurar el archivo JSON de backup directamente desde la app, sin pasar por Files.app. Requiere OAuth Google (similar al flujo MAL). Alternativa más accesible que iCloud Drive para usuarios que ya tienen cuenta Google. Implementación pendiente en S15.
+- **User retention findings from S14 research**: highest ROI retention features, ordered by impact: (1) key action in first 3 minutes = 2x retention — the "Browse sources" button in LibraryView empty state goes in this direction; (2) push notifications for new chapters — request permission AFTER user saves their first manga (iOS opt-in rate 43.9%); (3) "Continue reading" row at LibraryView top — maximum friction reduction; (4) light gamification without pressure (streaks, milestones without points/badges/leaderboards); (5) optimal typography in TextReaderView: 18pt minimum, line-height 1.5x, color `#E8E8E8` in dark mode (not pure white).
 
-- **Retención de usuarios — hallazgos de investigación S14**: las features de mayor ROI para retención, por orden de impacto: (1) acción clave en primeros 3 minutos = 2x retención — el botón "Browse sources" en LibraryView empty state va en esta dirección; (2) push notifications de nuevos capítulos — pedir permiso DESPUÉS de que el usuario guarde su primer manga (iOS opt-in rate 43.9%); (3) "Continuar leyendo" row en LibraryView top — reduce fricción máxima; (4) gamificación ligera sin presión (racha de días, hitos sin puntos/badges/leaderboards); (5) typography óptima en TextReaderView: 18pt mínimo, line-height 1.5x, color `#E8E8E8` en dark mode (no blanco puro).
+## S13 — Technical learnings
+- **iOS sandbox path invalidation**: absolute paths stored in GRDB become stale after reinstallation or sandbox update. Rule: never persist an absolute path and use it directly — always reconstruct the path at runtime from a reference directory (e.g.: `extensionsDirectory`) + stable ID. Applies to any `URL` in DB pointing to `Documents/`.
+- **seedBundledPlugins skip logic**: base the skip on `FileManager.fileExists(atPath:)`, not on whether the ID is already in DB. The DB may have the record but the file may be missing (reinstallation). Always DB upsert even if the file already exists — guarantees metadata is in sync.
+- **SOURCE.fetch User-Agent**: many scrapers block requests without User-Agent (Cloudflare, CDN). Inject realistic UA (iPhone Safari) + Accept + Accept-Language as defaults in the URLRequest of SOURCE.fetch. Plugins can override with their own headers if needed.
+- **SHA256(filename) for bundled plugins**: use the JS file name (without extension) as the SHA256 id seed, not the URL. Bundled plugins have no network URL — the ID must be derivable from the name at compile time to perform idempotent upserts on every launch.
+- **Bundled plugins vs network plugins**: bundled plugins are copied from `Bundle.main` to `Documents/Extensions/` on every launch (skip if already on disk). Network plugins are downloaded from URL. Both use the same `extension` table format and the same `bridge(for:)` flow.
 
-## S13 — Aprendizajes técnicos
-- **iOS sandbox path invalidation**: rutas absolutas almacenadas en GRDB quedan stale tras reinstalación o update del sandbox. La regla es: nunca persistir una ruta absoluta y usarla directamente — siempre reconstruir la ruta en runtime desde un directorio de referencia (ej: `extensionsDirectory`) + ID estable. Aplica a cualquier `URL` en DB que apunte a `Documents/`.
-- **seedBundledPlugins skip logic**: basar el skip en `FileManager.fileExists(atPath:)`, no en si el ID ya está en DB. La DB puede tener el registro pero el archivo puede faltar (reinstalación). Siempre hacer upsert DB aunque el archivo ya exista — garantiza que los metadatos estén sincronizados.
-- **SOURCE.fetch User-Agent**: muchos scrapers bloquean requests sin User-Agent (Cloudflare, CDN). Inyectar UA realista (iPhone Safari) + Accept + Accept-Language como defaults en el URLRequest de SOURCE.fetch. Los plugins pueden sobrescribir con sus propios headers si lo necesitan.
-- **SHA256(filename) para plugins bundled**: usar el nombre del archivo JS (sin extensión) como seed del SHA256 id, no la URL. Los plugins bundled no tienen URL de red — el ID debe ser derivable del nombre en tiempo de compilación para poder hacer upsert idempotente en cada arranque.
-- **Bundled plugins vs network plugins**: los plugins bundled se copian de `Bundle.main` a `Documents/Extensions/` en cada arranque (skip si ya existe en disco). Los network plugins se descargan desde URL. Ambos usan el mismo formato de tabla `extension` y el mismo flujo de `bridge(for:)`.
+## S12 — Technical learnings
+- **cheerio `.each` callback**: receives raw DOM node, not cheerio object. Always wrap: `$(el).find(...)` — never `el.find(...)`. Without the wrap, `.find` is `undefined` and everything fails silently.
+- **`attr()` helper in plugins**: must receive a cheerio object `$el`, not raw HTML. Define it as: `function attr($el, name) { return $el.attr("data-src") || $el.attr(name) || "" }`.
+- **`DownloadManager.queue` does not contain the active chapter**: when `processQueue()` starts a download, it removes the item from `queue` immediately. The UI cannot depend on `queue` to show the in-progress chapter — use `activeChapter: Chapter?` exposed as a separate property.
+- **In UI prompts about singletons**: specify the state of each property and its invariants before describing the UI. E.g.: "activeChapter was already removed from queue when it starts downloading — show it separately with `dm.activeChapter`".
+- **async/sync signatures in prompts**: always explicitly specify whether a singleton method is `async` or not. The compiler may infer differently and generate hard-to-trace errors.
+- **`ForEach` over reactive state**: before describing a `ForEach`, confirm what the collection contains in each possible state. Don't assume the active element is still in the list.
+- **For new ViewModels**: explicitly list the Queries it uses in the prompt. E.g.: "`load()` uses `DownloadQueries.fetchAllDownloaded()` + `MangaQueries.fetchOne(id:)`". Prevents Claude Code from inferring incorrect names.
 
-## S12 — Aprendizajes técnicos
-- **cheerio `.each` callback**: recibe DOM node crudo, no objeto cheerio. Siempre wrappear: `$(el).find(...)` — nunca `el.find(...)`. Sin el wrap, `.find` es `undefined` y todo falla silenciosamente.
-- **`attr()` helper en plugins**: debe recibir un objeto cheerio `$el`, no HTML crudo. Definirlo como: `function attr($el, name) { return $el.attr("data-src") || $el.attr(name) || "" }`.
-- **`DownloadManager.queue` no contiene el capítulo activo**: cuando `processQueue()` inicia una descarga, remueve el item de `queue` inmediatamente. La UI no puede depender de `queue` para mostrar el capítulo en curso — usar `activeChapter: Chapter?` expuesto como propiedad separada.
-- **En prompts de UI sobre singletons**: especificar el estado de cada propiedad y sus invariantes antes de describir la UI. Ej: "activeChapter ya fue removido de queue cuando empieza a descargarse — mostrarlo aparte con `dm.activeChapter`".
-- **Firmas async/sync en prompts**: siempre especificar explícitamente si un método del singleton es `async` o no. El compilador puede inferir diferente y generar errores difíciles de rastrear.
-- **`ForEach` sobre estado reactivo**: antes de describir un `ForEach`, confirmar qué contiene la colección en cada estado posible. No asumir que el elemento activo todavía está en la lista.
-- **Para nuevos ViewModels**: listar explícitamente los Queries que usa en el prompt. Ej: "`load()` usa `DownloadQueries.fetchAllDownloaded()` + `MangaQueries.fetchOne(id:)`". Evita que Claude Code infiera nombres incorrectos.
+## S9 — Lessons learned
 
-## S9 — Lecciones aprendidas
+**Problem:** S9 prompts were generated against the S7 codebase state, not the real state. This caused ~60% of the session to rewrite work that already existed since S8.
 
-**Problema:** Los prompts de S9 se generaron contra el estado S7 del codebase, no contra el estado real. Esto causó que ~60% de la sesión reescribiera trabajo que ya existía desde S8.
+**Root cause:** Claude.ai didn't have access to the real repo files. It planned against the system prompt (which described S7) instead of the current codebase.
 
-**Causa raíz:** Claude.ai no tenía acceso a los archivos reales del repo. Planificó contra el system prompt (que describía S7) en lugar del codebase actual.
-
-**Solución — Protocolo de inicio de sesión:**
-Antes de pedir prompts a Claude.ai, siempre correr en Claude Code:
+**Solution — Session start protocol:**
+Before asking Claude.ai for prompts, always run in Claude Code:
 ```
 find Yomi -name "*.swift" | sort
 find Yomi -name "*.js" | sort
 cat Yomi/ROADMAP.md
 ```
-Pegar el output completo en Claude.ai y pedir análisis ANTES de generar prompts. No generar prompts hasta confirmar el scope.
-Adicionalmente: pegar el contenido de los archivos que se van a modificar en esa sesión. Evita que Claude.ai genere prompts sobre el archivo equivocado.
+Paste the complete output into Claude.ai and ask for analysis BEFORE generating prompts. Don't generate prompts until confirming the scope.
+Additionally: paste the content of files that will be modified in that session. Prevents Claude.ai from generating prompts against the wrong file.
 
-**Regla:** Claude.ai analiza → propone → usuario confirma → recién entonces genera prompts. Nunca al revés.
+**Rule:** Claude.ai analyzes → proposes → user confirms → only then generates prompts. Never the other way around.
 
-## Compatibilidad de plataforma
+## Platform compatibility
 
-**Deployment target actual: iOS 26.2**
+**Current deployment target: iOS 26.2**
 
-El proyecto usa APIs exclusivas de iOS 26 que no existen en versiones anteriores:
+The project uses iOS 26-exclusive APIs that don't exist in earlier versions:
 
-| API | Archivo(s) | Alternativa iOS 18 |
-|-----|-----------|-------------------|
+| API | File(s) | iOS 18 alternative |
+|-----|---------|-------------------|
 | `Tab("…", systemImage:) {}` | ContentView.swift | `.tabItem { Label(…) }` |
-| `ContentUnavailableView` | HistoryView, BrowseView, PluginsView | Vista vacía custom |
-| `.refreshable` | HistoryView | Pull-to-refresh manual |
-| `.searchable` | BrowseView, SourceBrowseView | Search bar custom |
-| `.ascNullsLast` (GRDB) | ChapterQueries | ORDER BY con SQL raw |
-| `Text("\(Text(…)) …")` interpolation | HistoryView | DateFormatter o .formatted |
+| `ContentUnavailableView` | HistoryView, BrowseView, PluginsView | Custom empty view |
+| `.refreshable` | HistoryView | Manual pull-to-refresh |
+| `.searchable` | BrowseView, SourceBrowseView | Custom search bar |
+| `.ascNullsLast` (GRDB) | ChapterQueries | Raw SQL ORDER BY |
+| `Text("\(Text(…)) …")` interpolation | HistoryView | DateFormatter or .formatted |
 
-**Decisión: no bajar el deployment target.**
-Razones:
-- La app está diseñada intencionalmente para iOS 26 desde la sesión 1
-- Backportar requeriría mantener dos code paths (`#available`) en al menos 6 archivos
-- El iPhone de desarrollo puede actualizarse a iOS 26 cuando esté disponible
-- iOS 26 es el sistema operativo de shipping actual (2026)
+**Decision: do not lower the deployment target.**
+Reasons:
+- The app was intentionally designed for iOS 26 from session 1
+- Backporting would require maintaining two code paths (`#available`) in at least 6 files
+- The development iPhone can be updated to iOS 26 when available
+- iOS 26 is the current shipping OS (2026)
 
-**Regla:** si en el futuro se necesita iOS 18 support, crear un branch separado
-`compat/ios18` y no mezclarlo con el desarrollo principal.
+**Rule:** if iOS 18 support is needed in the future, create a separate branch
+`compat/ios18` and never mix it with main development.
 
-## Decisiones de arquitectura
-- GRDB sobre SwiftData: control total del esquema, más maduro, compatible con migraciones incrementales
-- JavaScriptCore sobre WKWebView: más liviano, no requiere UI, mejor para plugins headless
-- Formato de plugins propio (Formato A) + compatibilidad LNReader (Formato B): máxima flexibilidad sin depender de ecosistema Android
-- Plugins instalados en Documents/Extensions/ como archivos .js locales
-- Token MAL en UserDefaults (no Keychain): suficiente para MVP; migrar a Keychain antes de App Store
+## Architecture decisions
+- GRDB over SwiftData: full schema control, more mature, compatible with incremental migrations
+- JavaScriptCore over WKWebView: lighter, no UI required, better for headless plugins
+- Own plugin format (Format A) + LNReader compatibility (Format B): maximum flexibility without depending on Android ecosystem
+- Plugins installed in Documents/Extensions/ as local .js files
+- MAL token in UserDefaults (not Keychain): sufficient for MVP; migrate to Keychain before App Store

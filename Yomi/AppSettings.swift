@@ -59,4 +59,16 @@ import Observation
         get { defaults.object(forKey: "showNSFW") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "showNSFW") }
     }
+
+    /// Whether the app has already prompted the user for notification permission
+    var hasRequestedNotifications: Bool {
+        get { defaults.bool(forKey: "hasRequestedNotifications") }
+        set { defaults.set(newValue, forKey: "hasRequestedNotifications") }
+    }
+
+    /// Whether the novel reader uses sepia background (#F4ECD8) and text (#5C4033)
+    var novelSepia: Bool {
+        get { defaults.bool(forKey: "novelSepia") }
+        set { defaults.set(newValue, forKey: "novelSepia") }
+    }
 }

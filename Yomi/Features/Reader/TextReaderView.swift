@@ -15,17 +15,26 @@ struct TextReaderView: View {
     @State private var errorMessage: String? = nil
     @State private var fontSize: Double = 18
     @State private var isDarkMode: Bool = true
+    @State private var isSepia: Bool = AppSettings.shared.novelSepia
     @State private var showOverlay = true
 
     // MARK: - Computed
 
     private var styledHTML: String {
-        let bg   = isDarkMode ? "#111111" : "#ffffff"
-        let fg   = isDarkMode ? "#e8e8e8" : "#1a1a1a"
+        let effectiveFontSize = max(18, Int(fontSize))
+        let bg: String
+        let fg: String
+        if isSepia {
+            bg = "#F4ECD8"
+            fg = "#5C4033"
+        } else {
+            bg = isDarkMode ? "#111111" : "#ffffff"
+            fg = isDarkMode ? "#e8e8e8" : "#1a1a1a"
+        }
         let style = """
         <style>
-        body { font-family: -apple-system; font-size: \(Int(fontSize))px;
-               line-height: 1.8; padding: 20px 16px;
+        body { font-family: -apple-system; font-size: \(effectiveFontSize)px;
+               line-height: 1.5; padding: 20px 16px;
                background: \(bg); color: \(fg); max-width: 680px; margin: 0 auto; }
         img  { max-width: 100%; }
         a    { color: #4a9eff; }
@@ -63,6 +72,7 @@ struct TextReaderView: View {
                 chapter:      chapter,
                 fontSize:     $fontSize,
                 isDarkMode:   $isDarkMode,
+                isSepia:      $isSepia,
                 showOverlay:  $showOverlay,
                 onDismiss:    { dismiss() }
             )
@@ -151,6 +161,7 @@ private struct TextReaderOverlayView: View {
     let chapter: NovelChapter
     @Binding var fontSize: Double
     @Binding var isDarkMode: Bool
+    @Binding var isSepia: Bool
     @Binding var showOverlay: Bool
     let onDismiss: () -> Void
 
@@ -218,18 +229,30 @@ private struct TextReaderOverlayView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Dark / light toggle
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isDarkMode.toggle()
+                    HStack(spacing: 20) {
+                        // Dark / light toggle
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isDarkMode.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: isDarkMode ? "sun.max" : "moon")
+                                Text(isDarkMode ? "Light mode" : "Dark mode")
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.white.opacity(0.85))
                         }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: isDarkMode ? "sun.max" : "moon")
-                            Text(isDarkMode ? "Light mode" : "Dark mode")
-                                .font(.caption)
+
+                        // Sepia mode toggle
+                        Button {
+                            isSepia.toggle()
+                            AppSettings.shared.novelSepia = isSepia
+                        } label: {
+                            Image(systemName: isSepia ? "s.circle.fill" : "s.circle")
+                                .font(.title3)
+                                .foregroundStyle(.white.opacity(isSepia ? 1.0 : 0.6))
                         }
-                        .foregroundStyle(.white.opacity(0.85))
                     }
                 }
                 .padding(.top, 14)

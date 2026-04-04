@@ -8,23 +8,25 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Bindable var router = appRouter
+
     var body: some View {
-        TabView {
-            Tab("Library", systemImage: "books.vertical") {
+        TabView(selection: $router.selectedTab) {
+            Tab("Library", systemImage: "books.vertical", value: 0) {
                 LibraryView()
             }
-            Tab("Browse", systemImage: "safari") {
+            Tab("Browse", systemImage: "safari", value: 1) {
                 BrowseView()
             }
-            Tab("History", systemImage: "clock") {
+            Tab("History", systemImage: "clock", value: 2) {
                 HistoryView()
             }
-            Tab("Updates", systemImage: "arrow.clockwise") {
+            Tab("Updates", systemImage: "arrow.clockwise", value: 3) {
                 NavigationStack {
                     UpdatesView()
                 }
             }
-            Tab("More", systemImage: "ellipsis.circle") {
+            Tab("More", systemImage: "ellipsis.circle", value: 4) {
                 MoreView()
             }
         }

@@ -196,6 +196,13 @@ struct MangaDetailView: View {
             }.value
             manga = updated
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            // Request notification permission on first library save
+            if manga.inLibrary && !AppSettings.shared.hasRequestedNotifications {
+                AppSettings.shared.hasRequestedNotifications = true
+                Task {
+                    await NotificationManager.shared.requestPermission()
+                }
+            }
         } catch {
             print("toggleLibrary error: \(error)")
         }
@@ -223,10 +230,9 @@ struct MangaDetailView: View {
 
         isLoadingChapters = true
 
-        let (loadedBridge, loadedChapters) = await Task.detached(priority: .userInitiated) {
-            let b = JSBridge(scriptURL: ext.sourceListURL)
-            let chapters = b?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
-            return (b, chapters)
+        let loadedBridge = ExtensionManager.shared.bridge(for: ext)
+        let loadedChapters = await Task.detached(priority: .userInitiated) {
+            loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
 
         bridge = loadedBridge
