@@ -43,12 +43,12 @@ import SwiftUI
         let mangaPath = manga.path
         let mangaId   = manga.id
 
-        let allInstalled = await ExtensionManager.shared.installed
+        let allInstalled = await MainActor.run { ExtensionManager.shared.installed }
         let ext = allInstalled.first(where: { $0.id == sourceId })
         guard let ext else { return }
 
+        let bridge = ExtensionManager.shared.bridge(for: ext)
         let remoteChapters = await Task.detached(priority: .background) {
-            let bridge = ExtensionManager.shared.bridge(for: ext)
             return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
 
