@@ -1,85 +1,91 @@
-# Arquitectura — Yomi
+# Architecture — Yomi
 
-## Visión general
-Yomi es un lector de manga, manhwa, manhua y novelas ligeras para iOS.
-Arquitectura inspirada en Mihon (Android) y LNReader (Android).
-Contenido obtenido via plugins JavaScript ejecutados en JavaScriptCore.
+## Overview
+Yomi is a manga, manhwa, manhua, and light novel reader for iOS.
+Architecture inspired by Mihon (Android) and LNReader (Android).
+Content fetched via JavaScript plugins executed in JavaScriptCore.
 
-## Estructura de carpetas
+## Folder structure
 Yomi/
 ├── Models/
-│   ├── Manga.swift          # Manga/manhwa/manhua — modelo principal
-│   ├── Chapter.swift        # Capítulo de una obra
-│   ├── Category.swift       # Categorías de biblioteca
-│   └── Extension.swift      # Plugin JS instalado — Identifiable, Codable, Hashable
+│   ├── Manga.swift          # Manga/manhwa/manhua — main model
+│   ├── Chapter.swift        # Chapter of a work
+│   ├── Category.swift       # Library categories
+│   └── Extension.swift      # Installed JS plugin — Identifiable, Codable, Hashable
 ├── Database/
-│   ├── DatabaseManager.swift        # Setup GRDB, migraciones, conformances FetchableRecord; appDatabase módulo-level var
+│   ├── DatabaseManager.swift        # GRDB setup, migrations, FetchableRecord conformances; module-level appDatabase var
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, delete
 │       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
 │       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
-│       └── ExtensionQueries.swift   # CRUD extensiones
+│       └── ExtensionQueries.swift   # CRUD extensions
+├── Core/
+│   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation
+│   └── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 ├── Features/
 │   ├── Library/
-│   │   ├── LibraryView.swift        # Grid de manga guardados + category filter chips horizontal
-│   │   ├── LibraryViewModel.swift   # Estado, filtrado, sort por lastReadAt DESC NULLS LAST; selectedCategoryId + displayedManga
-│   │   ├── CategoryView.swift       # CRUD UI categorías (crear, renombrar, reordenar, eliminar)
-│   │   ├── MangaCoverCell.swift     # Celda de portada + ShimmerView skeleton animado
-│   │   └── MangaDetailView.swift    # Detalle + lista de capítulos + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/página)
+│   │   ├── LibraryView.swift        # Saved manga grid + horizontal category filter chips + ContinueReadingRow
+│   │   ├── LibraryViewModel.swift   # State, filtering, sort by lastReadAt DESC NULLS LAST; selectedCategoryId + displayedManga
+│   │   ├── CategoryView.swift       # Category CRUD UI (create, rename, reorder, delete)
+│   │   ├── ContinueReadingRow.swift # Horizontal scrollable row of recently read manga
+│   │   ├── MangaCoverCell.swift     # Cover cell + animated ShimmerView skeleton
+│   │   └── MangaDetailView.swift    # Detail + chapter list + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/page)
 │   ├── Browse/
-│   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search con debounce 500ms) + SourceBrowseView (dual manga/novel)
-│   │   └── NovelDetailView.swift    # Detalle de novela + lista de capítulos
+│   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search with debounce 500ms) + SourceBrowseView (dual manga/novel)
+│   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
-│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, timer lectura, MAL tracking; acepta chapters:[Chapter] para navegación
-│   │   └── TextReaderView.swift     # Lector HTML para novelas (WKWebView, font size, dark/light)
+│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking; accepts chapters:[Chapter] for navigation
+│   │   └── TextReaderView.swift     # HTML reader for novels (WKWebView, font size, dark/light/sepia)
 │   ├── History/
-│   │   └── HistoryView.swift        # Datos reales GRDB (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
+│   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
-│   │   ├── MoreView.swift           # Root tab More (Library / App / Sources / Reading / Tracking / Data / Info)
-│   │   ├── PluginsView.swift        # Instalar plugins + catálogo Keiyoushi + NSFW filter
+│   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
+│   │   ├── PluginsView.swift        # Install plugins + Keiyoushi catalog + NSFW filter
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About
-│   │   ├── InsightsView.swift       # Tiempo de lectura total y por manga
-│   │   ├── BackupManager.swift      # Exportar/importar JSON (manga + chapters)
+│   │   ├── InsightsView.swift       # Total and per-manga reading time
+│   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView
-│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates por plugin) + UpdatesRow
+│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdatesRow
 │   └── Extensions/
-│       ├── JSBridge.swift           # JavaScriptCore bridge (Formato A + B, cheerio shim real, searchManga)
-│       └── ExtensionManager.swift   # Instalar/remover plugins
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 6 propiedades
+│       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, searchManga, POST support)
+│       └── ExtensionManager.swift   # Install/remove plugins, seedBundledPlugins
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 8 properties
+├── ContentView.swift                # Root TabView with AppRouter selection binding
+├── YomiApp.swift                    # Entry point, DB setup
 ├── Resources/
-│   ├── mangadex.js                  # Plugin MangaDex (Formato A, API JSON, searchManga, multi-idioma)
-│   ├── asurascans.js                # Plugin Asura Scans (Formato A, scraping HTML, searchManga)
-│   ├── aquamanga.js                 # Plugin Aqua Manga (Formato A, scraping HTML + cheerio)
-│   ├── comick.js                    # Plugin Comick (Formato A, API JSON pública, CDN fix)
-│   ├── royalroad.js                 # Plugin Royal Road (Formato B, JSON embebido + fallback HTML)
-│   ├── scribblehub.js               # Plugin ScribbleHub (Formato B, AJAX POST TOC)
-│   ├── novelfire.js                 # Plugin NovelFire (Formato B, paginación chapters)
-│   └── test-source.js               # Plugin de prueba (Formato A)
-├── ContentView.swift                # TabView raíz
-├── YomiApp.swift                    # Entry point, setup DB
+│   ├── mangadex.js                  # MangaDex plugin (Format A, JSON API, searchManga, multi-language)
+│   ├── asurascans.js                # Asura Scans plugin (Format A, HTML scraping, searchManga)
+│   ├── aquamanga.js                 # Aqua Manga plugin (Format A, HTML scraping + cheerio)
+│   ├── comick.js                    # Comick plugin (Format A, public JSON API, comick.fun domain)
+│   ├── royalroad.js                 # Royal Road plugin (Format B, embedded JSON + HTML fallback)
+│   ├── scribblehub.js               # ScribbleHub plugin (Format B, AJAX POST TOC)
+│   ├── novelfire.js                 # NovelFire plugin (Format B, chapter pagination)
+│   └── test-source.js               # Test plugin (Format A)
 ├── ARQUITECTURA.md
 ├── METODOLOGIA.md
 └── ROADMAP.md
 
-## Capas de la arquitectura
+## Architecture layers
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
 ├─────────────────────────────────────────┤
 │   ViewModels (@Observable) + AppSettings│  LibraryViewModel, UpdatesViewModel, BackupManager, MALService
 ├─────────────────────────────────────────┤
+│  AppRouter + NotificationManager        │  Core/
+├─────────────────────────────────────────┤
 │    ExtensionManager + JSBridge          │  Features/Extensions/
 ├──────────────────┬──────────────────────┤
 │   GRDB (SQLite)  │  JavaScriptCore      │
-│   appDatabase    │  Plugins JS          │
+│   appDatabase    │  JS Plugins          │
 │   *Queries       │  (mangadex.js, etc.) │
 └──────────────────┴──────────────────────┘
 
-## Base de datos (SQLite via GRDB)
+## Database (SQLite via GRDB)
 
-### Tablas actuales (migración v5)
+### Current tables (migration v5)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status, genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
@@ -108,48 +114,74 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
                readAt, releaseTime)
 ```
 
-### Migraciones
+### Migrations
 - **v1_initial**: manga, chapter, category, source
 - **v2_extensions**: extension
 - **v3_novels**: novel, novel_chapter
 - **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds` / `ALTER TABLE novel ADD COLUMN readingSeconds`
 - **v4_reading_time**: `ALTER TABLE chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
-- **v5_categories**: manga_category join table (mangaId + categoryId, PK compuesta, ON DELETE CASCADE)
+- **v5_categories**: manga_category join table (mangaId + categoryId, composite PK, ON DELETE CASCADE)
 
-> Nota: dos migraciones con prefijo v4_ coexisten sin conflicto — GRDB las trackea por nombre string, no por número. La siguiente migración debe usar prefijo `v6_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks them by string name, not number. Next migration must use prefix `v6_`.
 
-### Por qué GRDB y no SwiftData
-- Control total del esquema SQL y migraciones incrementales
-- Más maduro y estable
-- Compatible con esquemas inspirados en LNReader/Mihon
+### Why GRDB and not SwiftData
+- Full SQL schema and incremental migration control
+- More mature and stable
+- Compatible with schemas inspired by LNReader/Mihon
 
-## Sistema de plugins JS
+## Singletons / core state
 
-### Ciclo de vida
-Usuario ingresa URL del .js
+### AppSettings (Yomi/AppSettings.swift)
+`@Observable final class`, accessed via `AppSettings.shared`
+- `readerMode: String` — "Manga (RTL)" or "Webtoon"
+- `fontSize: Double` — novel reader font size (points)
+- `lineSpacing: Double` — novel reader line spacing multiplier
+- `theme: String` — "System", "Light", or "Dark"
+- `useSystemFont: Bool` — system font vs built-in reader font
+- `showNSFW: Bool` — show NSFW sources and catalog entries
+- `hasRequestedNotifications: Bool` — flag to request permission only once
+- `novelSepia: Bool` — sepia mode toggle for TextReaderView
+
+### AppRouter (Yomi/Core/AppRouter.swift)
+`@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
+- `selectedTab: Int` — active tab index in ContentView TabView
+- Constants: `tabLibrary=0`, `tabBrowse=1`, `tabHistory=2`, `tabUpdates=3`, `tabMore=4`
+- Used from LibraryView empty state and any view needing programmatic navigation
+- `init()` is internal (not private) so the module-level var can call it
+
+### NotificationManager (Yomi/Core/NotificationManager.swift)
+`@Observable singleton`, accessed via `NotificationManager.shared`
+- `requestPermission() async` — requests `.alert + .badge + .sound`
+- `scheduleChapterNotification(mangaTitle:newCount:)` — immediate local notification
+- Trigger: MangaDetailView, first library save, only if `!hasRequestedNotifications`
+
+## JS plugin system
+
+### Lifecycle
+User enters .js URL
 ↓
 ExtensionManager.install(_:)
-→ descarga el archivo via URLSession
-→ guarda en Documents/Extensions/{id}.js
-→ persiste metadatos en tabla extension (GRDB)
+→ downloads file via URLSession
+→ saves to Documents/Extensions/{id}.js
+→ persists metadata in extension table (GRDB)
 ↓
 ExtensionManager.bridge(for: ext)
 → JSBridge(scriptURL: localURL)
 ↓
 JSBridge.init
-→ crea JSContext
-→ inyecta shims (SOURCE.fetch, cheerio, localStorage, console)
-→ evalúa el script JS
-→ detecta formato (A o B)
+→ creates JSContext
+→ injects shims (SOURCE.fetch, cheerio, localStorage, console)
+→ evaluates the JS script
+→ detects format (A or B)
 ↓
-Vista llama bridge.getMangaList() / bridge.popularNovels()
-→ JSBridge llama función JS via JSContext
-→ JS llama SOURCE.fetch → Swift hace HTTP → devuelve String al JS
-→ JS parsea y devuelve objeto
-→ JSBridge mapea a structs Swift
+View calls bridge.getMangaList() / bridge.popularNovels()
+→ JSBridge calls JS function via JSContext
+→ JS calls SOURCE.fetch → Swift makes HTTP → returns String to JS
+→ JS parses and returns object
+→ JSBridge maps to Swift structs
 
-### Formato A — Yomi/Manga
-Funciones globales. Usado para manga, manhwa, manhua.
+### Format A — Yomi/Manga
+Global functions. Used for manga, manhwa, manhua.
 ```javascript
 getMangaList(page)        → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 getChapterList(mangaPath) → [{id, path, name, chapterNumber}]
@@ -157,16 +189,16 @@ getPageList(chapterPath)  → [urlString]
 searchManga(query, page)  → [{id, path, title, coverURL, summary, author, artist, status, genres}]
 ```
 
-### Formato B — LNReader/Novel
-Clase exportada en global `plugin`. Compatible con plugins del ecosistema LNReader.
+### Format B — LNReader/Novel
+Class exported on global `plugin`. Compatible with LNReader ecosystem plugins.
 ```javascript
 plugin.popularNovels(pageNo, options) → [{name, path, cover}]
 plugin.parseNovel(novelPath)          → {path, name, cover, author, summary, status, chapters}
-plugin.parseChapter(chapterPath)      → String (HTML del capítulo)
+plugin.parseChapter(chapterPath)      → String (chapter HTML)
 plugin.searchNovels(searchTerm, page) → [{name, path, cover}]
 ```
 
-### Detección automática de formato
+### Automatic format detection
 ```swift
 var isLNReaderPlugin: Bool {
     context.objectForKeyedSubscript("plugin")
@@ -175,15 +207,26 @@ var isLNReaderPlugin: Bool {
 }
 ```
 
-### Shims inyectados por JSBridge
-| Shim | Implementación | Estado |
+### Shims injected by JSBridge
+| Shim | Implementation | Status |
 |------|---------------|--------|
-| `SOURCE.fetch(url, opts)` | URLSession + DispatchSemaphore (blocking, 30s timeout) | ✅ Funcional |
-| `console.log/warn/error` | Swift print() | ✅ Funcional |
-| `localStorage` / `sessionStorage` | In-memory JS object con get/set/removeItem | ✅ Funcional |
-| `cheerio.load(html)` | Parser HTML recursivo + motor CSS selectores en JS puro | ✅ Funcional (desde S6) |
+| `SOURCE.fetch(url, opts)` | URLSession + DispatchSemaphore (blocking, 30s timeout) | ✅ Functional |
+| `console.log/warn/error` | Swift print() | ✅ Functional |
+| `localStorage` / `sessionStorage` | In-memory JS object with get/set/removeItem | ✅ Functional |
+| `cheerio.load(html)` | Recursive HTML parser + CSS selector engine in pure JS | ✅ Functional (since S6) |
 
-## Flujo de datos — Browse → Reader
+SOURCE.fetch supports GET and POST:
+```javascript
+SOURCE.fetch(url)  // GET by default
+SOURCE.fetch(url, { method: "POST", body: "...", headers: {...} })  // POST
+```
+`_fetchSync` receives 4 parameters: `(url, method, body, headersJSON)`
+Swift handler merges default headers (iPhone Safari User-Agent) with plugin headers.
+Plugin headers take precedence over defaults.
+
+## Data flows
+
+### Browse → Reader
 BrowseView
 → SourceBrowseView(ext)
 → Task.detached { bridge.getMangaList(page:1) }  // background
@@ -191,22 +234,22 @@ BrowseView
 → LazyVGrid → MangaCoverCell → NavigationLink
 → MangaDetailView(manga)
 → Task.detached { bridge.getChapterList(mangaPath:) }
-→ merge con DB (isRead, readingSeconds por capítulo)
+→ merge with DB (isRead, readingSeconds per chapter)
 → List → ChapterRow → NavigationLink
 → ChapterReaderView(manga:bridge:chapters:chapterIndex:)
 → Task.detached { bridge.getPageList(chapterPath:) }
-→ MangaReaderView (RTL TabView)  o
+→ MangaReaderView (RTL TabView)  or
    WebtoonReaderView (ScrollView LazyVStack)
 
-## Flujo de búsqueda server-side
+### Server-side search
 SearchView (BrowseView)
-→ .onChange(of: searchQuery) con debounce 500ms (Task.sleep)
-→ debounceTask?.cancel() en cada keystroke
+→ .onChange(of: searchQuery) with debounce 500ms (Task.sleep)
+→ debounceTask?.cancel() on each keystroke
 → Task.detached { bridge.searchManga(query:page:sourceId:) }
 → await MainActor.run { searchResults = results }
 → LazyVGrid → MangaCoverCell
 
-## Flujo mark-as-read + tracking
+### Mark-as-read + tracking
 ChapterReaderView
 → .onChange(of: currentPage) { if newPage == pages.count - 1 }
 → Task { ChapterQueries.markRead(id:mangaId:) }
@@ -217,7 +260,7 @@ ChapterReaderView
    → MALService.searchManga(title:)
    → MALService.updateMangaProgress(malId:chaptersRead:)
 
-## Flujo de lectura + tiempo
+### Reading time tracking
 ChapterReaderView.onAppear
 → isIdleTimerDisabled = true
 → readingTimer = Timer(1s) { sessionSeconds += 1 }
@@ -226,106 +269,120 @@ ChapterReaderView.onDisappear / navigateToChapter
 → readingTimer.invalidate()
 → Task.detached { ChapterQueries.addReadingTime(id:seconds:) }
    → UPDATE chapter SET readingSeconds += seconds
-→ Task.detached { MangaQueries.update(manga con readingSeconds acumulado) }
+→ Task.detached { MangaQueries.update(manga with accumulated readingSeconds) }
 → isIdleTimerDisabled = false
 
-## Flujo Backup
+### Backup
 BackupManager.exportBackup()
 → MangaQueries.fetchAll() + await appDatabase.read { Chapter.fetchAll }
 → JSONSerialization → Data
 → FileManager.temporaryDirectory → URL
-→ BackupView lo presenta via ShareLink
+→ BackupView presents via ShareLink
 
 BackupManager.importBackup(from:)
 → Data(contentsOf:) → JSONSerialization
 → decodeManga / decodeChapter
-→ MangaQueries.upsert + ChapterQueries.upsert (merge, no reemplaza)
+→ MangaQueries.upsert + ChapterQueries.upsert (merge, does not replace)
 
-## Flujo MAL OAuth
+### MAL OAuth
 MALService.authorizationURL()
-→ genera code_verifier aleatorio (plain PKCE)
-→ construye URL authorize MAL
+→ generates random code_verifier (plain PKCE)
+→ builds MAL authorize URL
 
 BackupView / MALView → SFSafariViewController
-→ usuario autoriza → MAL redirige a yomi://callback?code=...
+→ user authorizes → MAL redirects to yomi://callback?code=...
 
 YomiApp / MALView.onOpenURL
 → MALService.handleCallback(url:)
 → POST /oauth2/token (code + code_verifier)
 → GET /users/@me (username)
-→ guarda accessToken en UserDefaults
+→ saves accessToken in UserDefaults
 
-## Concurrencia
-- Todas las llamadas a JSBridge se hacen desde `Task.detached(priority: .userInitiated)`
-- JSBridge y sus métodos son `nonisolated` para satisfacer Swift 6 con `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
-- SOURCE.fetch bloquea el thread con `DispatchSemaphore` — nunca llamar desde MainActor
-- Resultado se entrega a la UI via `await MainActor.run { state = result }`
-- `appDatabase` es un `nonisolated(unsafe) var` a nivel de módulo — accesible desde cualquier contexto sin actor hop
-- `appDatabase.read` tiene overload async: desde contexto @MainActor requiere `try await appDatabase.read { ... }`
-- `ExtensionManager` es `@Observable final class` — conforma `Sendable` automáticamente. `nonisolated(unsafe)` en `static let shared` es innecesario y genera warning. Para acceder a `bridge(for:)` desde `Task.detached`, capturar un closure `bridgeFn` local en el contexto `@MainActor` antes de entrar al Task.
+## Components
 
-## Workflow y prompts
+### ContinueReadingRow (Yomi/Features/Library/ContinueReadingRow.swift)
+- Horizontal scrollable row at the top of LibraryView
+- Data: `MangaQueries.fetchRecentlyRead(limit: 10)`
+- Automatically hidden when no reading history exists
+- Cell: 2:3 ratio cover, title (2 lines max), NavigationLink → MangaDetailView
+- Single `.task` on `Group` container loads data once on appear
 
-### Template de prompt para Claude Code
-Cada prompt sigue esta estructura:
-1. Header: stack técnico + build setting
-2. REGLAS ABSOLUTAS (nonisolated, Task.detached, sin parciales)
-3. TAREA: [Crear/Editar] archivo + descripción en una oración
-4. Si es editar: "Read [archivo] first" — obligatorio
-5. REQUISITOS: lista específica de qué agregar/cambiar
-6. NO TOCAR: lista explícita de métodos/secciones intactos
-7. OUTPUT: archivo completo + resumen ADDED/MODIFIED/UNTOUCHED/LINES
+## Concurrency
+- All JSBridge calls are made from `Task.detached(priority: .userInitiated)`
+- JSBridge and its methods are `nonisolated` to satisfy Swift 6 with `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
+- SOURCE.fetch blocks the thread with `DispatchSemaphore` — never call from MainActor
+- Result delivered to UI via `await MainActor.run { state = result }`
+- `appDatabase` is a `nonisolated(unsafe) var` at module level — accessible from any context without actor hop
+- `appDatabase.read` has async overload: from `@MainActor` context requires `try await appDatabase.read { ... }`
+- `ExtensionManager` is `@Observable final class` — automatically conforms to `Sendable`. `nonisolated(unsafe)` on `static let shared` is unnecessary and generates a warning. To access `bridge(for:)` from `Task.detached`, capture a local `bridgeFn` closure in the `@MainActor` context before entering the Task.
+- `AppRouter` uses module-level `nonisolated(unsafe) var appRouter = AppRouter()` — same pattern as `appDatabase`. Access via `appRouter.selectedTab` from any context.
 
-### Inicio de sesión
-Pegar en Claude.ai:
+## Workflow and prompts
+
+### Prompt template for Claude Code
+Each prompt follows this structure:
+1. Header: tech stack + build setting
+2. ABSOLUTE RULES (nonisolated, Task.detached, no partials)
+3. TASK: [Create/Edit] file + one-sentence description
+4. If editing: "Read [file] first" — mandatory
+5. REQUIREMENTS: specific list of what to add/change
+6. DO NOT TOUCH: explicit list of intact methods/sections
+7. OUTPUT: complete file + ADDED/MODIFIED/UNTOUCHED/LINES summary
+
+### Session start
+Paste into Claude.ai:
 ```
 find Yomi -name "*.swift" | sort
 find Yomi -name "*.js" | sort
 cat Yomi/ROADMAP.md
 ```
-METODOLOGIA.md y ARQUITECTURA.md NO se pegan — viven en project knowledge de Claude.ai.
+METODOLOGIA.md and ARQUITECTURA.md are NOT pasted — they live in Claude.ai project knowledge.
 
-### Cierre de sesión
-Claude.ai genera prompt de actualización de docs → Claude Code escribe
-los tres archivos (ROADMAP + METODOLOGIA + ARQUITECTURA) en un solo prompt.
-Excepción válida a "un archivo por prompt": son docs, no código Swift.
+### Session close
+Claude.ai generates doc update prompt → Claude Code writes
+all three files (ROADMAP + METODOLOGIA + ARQUITECTURA) in a single prompt.
+Valid exception to "one file per prompt": they are docs, not Swift code.
 
-## Requisitos de plataforma
+## Platform requirements
 
 **Deployment target: iOS 26.2**
 **Xcode:** 26+ (developer directory: `/Applications/Xcode.app`)
-**Build para simulador:** `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
+**Build for simulator:** `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 
-### APIs exclusivas de iOS 26 en uso
+### iOS 26-exclusive APIs in use
 
-| API | Archivo | Nota |
-|-----|---------|------|
-| `Tab("…", systemImage:) {}` | ContentView.swift | Nueva sintaxis TabView; `.tabItem {}` no funciona |
-| `ContentUnavailableView` | BrowseView, HistoryView, PluginsView | No existe en iOS 18 |
-| `.refreshable` | HistoryView | No existe en iOS 18 |
-| `.searchable` | BrowseView, SourceBrowseView | Existe desde iOS 15 pero el comportamiento difiere |
-| `.ascNullsLast` (GRDB) | ChapterQueries | Helper GRDB que genera `ASC NULLS LAST` |
-| `Text("\(Text(…)) …")` | HistoryView | Interpolación de Text en Text; `+` deprecado en iOS 26 |
+| API | File | Note |
+|-----|------|------|
+| `Tab("…", systemImage:, value:) {}` | ContentView.swift | New TabView syntax; `.tabItem {}` does not work; `.tag()` not available on iOS 26 Tab |
+| `ContentUnavailableView` | BrowseView, HistoryView, PluginsView | Does not exist in iOS 18 |
+| `.refreshable` | HistoryView | Does not exist in iOS 18 |
+| `.searchable` | BrowseView, SourceBrowseView | Exists since iOS 15 but behavior differs |
+| `.ascNullsLast` (GRDB) | ChapterQueries | GRDB helper that generates `ASC NULLS LAST` |
+| `Text("\(Text(…)) …")` | HistoryView | Text interpolation in Text; `+` deprecated in iOS 26 |
 
-### Por qué iOS 26 y no iOS 18
-- El proyecto se inició sobre Xcode 26 beta desde la sesión 1
-- `Tab()` es la única sintaxis que renderiza tabs en iOS 26; `.tabItem {}` produce tabs vacíos
-- Bajar el target requeriría `#available(iOS 26, *)` en ≥6 archivos y mantener dos code paths
-- iOS 26 es el OS de shipping en 2026; el dispositivo de desarrollo puede actualizarse
+### Why iOS 26 and not iOS 18
+- The project was started on Xcode 26 beta from session 1
+- `Tab()` with `value:` is the only syntax that renders tabs in iOS 26; `.tabItem {}` produces empty tabs
+- Lowering the target would require `#available(iOS 26, *)` in ≥6 files and maintaining two code paths
+- iOS 26 is the shipping OS in 2026; the development device can be updated
 
-## Decisiones de diseño
-| Decisión | Alternativa descartada | Motivo |
+## Design decisions
+| Decision | Discarded alternative | Reason |
 |----------|----------------------|--------|
-| JavaScriptCore | WKWebView | Headless, sin UI, más liviano para plugins |
-| GRDB | SwiftData | Control de esquema, migraciones, madurez |
-| Plugins .js locales | API remota propia | Sin servidor, funciona offline |
-| Formato A propio | Solo LNReader | LNReader no tiene plugins de manga, solo novelas |
-| Keiyoushi como referencia | Intentar correr .apk | .apk Android no corren en iOS |
-| GRDB acceso nonisolated | Propiedad en singleton MainActor | Module-level `nonisolated(unsafe) var appDatabase` es el patrón oficial GRDB para Swift 6 — evita actor hops en *Queries |
-| UserDefaults para settings | CoreData / archivo JSON | Settings simples no necesitan DB |
-| Token MAL en UserDefaults | Keychain | Suficiente para MVP; migrar a Keychain antes de App Store |
-| Backup JSON manual | CloudKit / iCloud Drive sync | Sin dependencia de servicios Apple; portátil entre plataformas |
-| MAL PKCE plain | PKCE S256 | MAL API solo soporta el método plain |
-| debounceTask (Task.sleep) | Combine debounce | Menos código, sin dependencia de Combine, suficiente para un TextField |
-| Firebase Hosting para plugin repo | Servidor propio / CDN de pago | Gratuito, URLs estables, sin backend — suficiente para index.json + archivos .js |
-| Google Drive para backup | iCloud Drive / CloudKit | OAuth similar a MAL, más universal para usuarios con cuenta Google, no requiere Apple ID |
+| JavaScriptCore | WKWebView | Headless, no UI, lighter for plugins |
+| GRDB | SwiftData | Schema control, migrations, maturity |
+| Local .js plugins | Own remote API | No server, works offline |
+| Own Format A | LNReader only | LNReader has no manga plugins, only novels |
+| Keiyoushi as reference | Try to run .apk | Android .apk don't run on iOS |
+| nonisolated GRDB access | Singleton property on MainActor | Module-level `nonisolated(unsafe) var appDatabase` is the official GRDB pattern for Swift 6 — avoids actor hops in *Queries |
+| UserDefaults for settings | CoreData / JSON file | Simple settings don't need a DB |
+| MAL token in UserDefaults | Keychain | Sufficient for MVP; migrate to Keychain before App Store |
+| Manual JSON backup | CloudKit / iCloud Drive sync | No dependency on Apple services; portable across platforms |
+| MAL PKCE plain | PKCE S256 | MAL API only supports the plain method |
+| debounceTask (Task.sleep) | Combine debounce | Less code, no Combine dependency, sufficient for a TextField |
+| Firebase Hosting for plugin repo | Own server / paid CDN | Free, stable URLs, no backend — sufficient for index.json + .js files |
+| module-level appRouter | AppRouter.shared singleton | Consistent with appDatabase pattern; nonisolated(unsafe) at module level is the established pattern in this project |
+
+## Language
+All code, commits, documentation, prompts, and communication between
+Claude.ai, Claude Code, and the developer are in English from Session 15 onward.

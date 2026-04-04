@@ -107,9 +107,10 @@ final class JSBridge {
         """)
     }
 
-    /// SOURCE.fetch(url, options?) — synchronous HTTP GET via DispatchSemaphore
+    /// SOURCE.fetch(url, options?) — synchronous HTTP via DispatchSemaphore (GET and POST).
+    /// JS wrapper routes through SOURCE._fetchSync(url, method, body, headersJSON).
     nonisolated private static func injectSourceFetch(into ctx: JSContext) {
-        let fetch: @convention(block) (String, JSValue?) -> String = { urlString, options in
+        let fetchSync: @convention(block) (String, String, String?, String?) -> String = { urlString, method, body, headersJSON in
             guard let url = URL(string: urlString) else { return "" }
             var request = URLRequest(url: url, timeoutInterval: 30)
             // Default headers — prevents Cloudflare/CDN blocks
@@ -119,27 +120,41 @@ final class JSBridge {
             )
             request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
             request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
-            // Apply optional headers from plugin (can override defaults)
-            if let opts = options, !opts.isUndefined, !opts.isNull,
-               let headers = opts.objectForKeyedSubscript("headers"),
-               !headers.isUndefined, !headers.isNull,
-               let dict = headers.toDictionary() as? [String: Any] {
+            // Plugin headers override defaults
+            if let json = headersJSON,
+               let data = json.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 for (key, value) in dict {
                     request.setValue("\(value)", forHTTPHeaderField: key)
                 }
             }
-            var body = ""
+            // Method + optional body
+            request.httpMethod = method
+            if method == "POST", let bodyStr = body {
+                request.httpBody = bodyStr.data(using: .utf8)
+            }
+            var result = ""
             let sem = DispatchSemaphore(value: 0)
             URLSession.shared.dataTask(with: request) { data, _, _ in
-                if let data = data { body = String(data: data, encoding: .utf8) ?? "" }
+                if let data = data { result = String(data: data, encoding: .utf8) ?? "" }
                 sem.signal()
             }.resume()
             sem.wait()
-            return body
+            return result
         }
         let source = JSValue(newObjectIn: ctx)
-        source?.setObject(fetch, forKeyedSubscript: "fetch" as NSString)
+        source?.setObject(fetchSync, forKeyedSubscript: "_fetchSync" as NSString)
         ctx.setObject(source, forKeyedSubscript: "SOURCE" as NSString)
+        // JS wrapper: reads options, delegates to Swift _fetchSync
+        ctx.evaluateScript("""
+        SOURCE.fetch = function(url, options) {
+            options = options || {};
+            var method  = (options.method || 'GET').toUpperCase();
+            var body    = options.body    || null;
+            var headers = options.headers || {};
+            return SOURCE._fetchSync(url, method, body, JSON.stringify(headers));
+        };
+        """)
     }
 
     /// Full cheerio shim — hand-written recursive descent HTML parser + CSS selector engine.

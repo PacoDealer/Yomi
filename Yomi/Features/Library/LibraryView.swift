@@ -24,7 +24,7 @@ struct LibraryView: View {
                             description: Text("Browse sources and add titles to see them here.")
                         )
                         Button("Browse sources") {
-                            onBrowseTap?()
+                            appRouter.selectedTab = AppRouter.tabBrowse
                         }
                         .buttonStyle(.borderedProminent)
                     }
@@ -32,13 +32,16 @@ struct LibraryView: View {
                     ContentUnavailableView.search(text: viewModel.searchText)
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(viewModel.displayedManga) { manga in
-                                MangaCoverCell(manga: manga)
+                        VStack(spacing: 0) {
+                            ContinueReadingRow()
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(viewModel.displayedManga) { manga in
+                                    MangaCoverCell(manga: manga)
+                                }
                             }
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
                     }
                 }
             }

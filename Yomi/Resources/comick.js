@@ -49,7 +49,7 @@ function mapComic(comic) {
 function getMangaList(page) {
     try {
         var p   = page || 1;
-        var url = "https://api.comick.io/v1.0/comics?type=manga&trending=true&page=" + p + "&limit=20";
+        var url = "https://api.comick.fun/v1.0/comics?type=manga&trending=true&page=" + p + "&limit=20";
         var raw = SOURCE.fetch(url);
         var json = JSON.parse(raw);
 
@@ -85,7 +85,7 @@ function getChapterList(mangaPath, mangaId) {
         var maxPages    = 50; // cap at 5000 chapters
 
         while (page <= maxPages) {
-            var url = "https://api.comick.io/comic/" + hid
+            var url = "https://api.comick.fun/comic/" + hid
                     + "/chapters?lang=en&page=" + page + "&limit=100";
             var raw  = SOURCE.fetch(url);
             var json = JSON.parse(raw);
@@ -148,7 +148,7 @@ function getPageList(chapterPath) {
         var chid  = parts[parts.length - 1];
         if (!chid) { return []; }
 
-        var url  = "https://api.comick.io/chapter/" + chid;
+        var url  = "https://api.comick.fun/chapter/" + chid;
         var raw  = SOURCE.fetch(url);
         var json = JSON.parse(raw);
 
@@ -175,7 +175,7 @@ function getPageList(chapterPath) {
 function searchManga(query, page) {
     try {
         var p   = page || 1;
-        var url = "https://api.comick.io/v1.0/comics?q="
+        var url = "https://api.comick.fun/v1.0/comics?q="
                 + encodeURIComponent(query || "")
                 + "&page=" + p + "&limit=20";
         var raw  = SOURCE.fetch(url);

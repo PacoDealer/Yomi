@@ -1,172 +1,188 @@
 # Roadmap — Yomi
 
-## Estado actual (post sesión 14)
-UX completa para uso real. Biblioteca con guardado real en GRDB.
-Capítulos marcados como leídos al terminar. Historial real desde DB.
-Búsqueda server-side dentro de fuentes (debounce 500ms). Skeleton shimmer
-en portadas. Double-tap zoom reset. Backup JSON, MAL tracking, insights.
-Categorías con CRUD completo + assign UI en MangaDetailView.
-Updates tab con background refresh por plugin. Chapter pagination (50 por página).
-Downloads offline (DownloadManager, cola secuencial, páginas en paralelo x3,
-archivos locales en Documents/Downloads/). Aqua Manga plugin (Formato A, scraping).
-Plugins bundled (mangadex, asurascans, aquamanga) auto-instalados al arrancar.
-SOURCE.fetch con User-Agent iPhone Safari por defecto. MangaDex multi-idioma.
-7 plugins bundled: MangaDex, Asura Scans, Aqua Manga, Royal Road, ScribbleHub,
-NovelFire, Comick. Library empty state con CTA "Browse sources". Source.swift eliminado.
+## Current state (post session 15)
+AppRouter singleton for programmatic tab navigation.
+LibraryView empty state navigates to Browse tab.
+JSBridge supports HTTP POST (unblocks ScribbleHub and others).
+ContinueReadingRow horizontal row in LibraryView showing recently read manga.
+Local push notifications with permission requested on first library save.
+TextReaderView: improved typography (#E8E8E8, line-height 1.5, 18pt minimum, sepia mode).
+Bundled plugins: mangadex (✅ working), comick (domain fix applied),
+royalroad/scribblehub/novelfire (HTML arrives OK but selectors need DevTools verification),
+asurascans (React SSR, needs alternative approach), aquamanga (domain unreachable).
 
-## Sesión 5 — Core UX ✅ Completa
-| # | Feature | Archivos afectados |
-|---|---------|-------------------|
-| 1 | ✅ **Save to library** — heart button guarda/quita manga de biblioteca. LibraryView carga desde DB en lugar de datos hardcodeados | MangaDetailView, LibraryView, LibraryViewModel, MangaQueries |
-| 2 | ✅ **Mark chapter as read** — al llegar a la última página se marca isRead=true en DB | ChapterReaderView, nuevo ChapterQueries.markRead() |
-| 3 | ✅ **Chapter pagination** — mangadex.js trae todos los capítulos con offset loop (limit=500, cap 20 iter) | mangadex.js |
-| 4 | ✅ **History tab** — lista de manga con lastReadAt != nil, ordenado por fecha desc | HistoryView (reescritura), MangaQueries |
-| 5 | ✅ **Prev/next chapter** — botones en overlay del reader para navegar entre capítulos | ChapterReaderView, ReaderOverlayView |
-| 6 | ✅ **Dedup plugin install** — SHA256(URL).prefix(8) via CryptoKit como id estable | PluginsView |
+## Session 5 — Core UX ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Save to library | Heart button saves/removes manga from library. LibraryView loads from DB instead of hardcoded data |
+| 2 | ✅ Mark chapter as read | On reaching the last page, isRead=true is set in DB |
+| 3 | ✅ Chapter pagination | mangadex.js fetches all chapters with offset loop (limit=500, cap 20 iterations) |
+| 4 | ✅ History tab | List of manga with lastReadAt != nil, sorted by date desc |
+| 5 | ✅ Prev/next chapter | Buttons in reader overlay to navigate between chapters |
+| 6 | ✅ Dedup plugin install | SHA256(URL).prefix(8) via CryptoKit as stable id |
 
-## Sesión 6 — LNReader compatibility ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **Cheerio shim real** — parser HTML recursivo + motor CSS en JS puro | JSBridge (injectCheerio) |
-| 2 | ✅ **Novel model** — NovelItem, SourceNovel, JSNovelChapter + tablas novel y novel_chapter | DatabaseManager migración v3, nuevos modelos |
-| 3 | ✅ **NovelDetailView** — cover, author, status, lista de capítulos | nuevo archivo |
-| 4 | ✅ **TextReaderView** — WKWebView con font size slider, dark/light toggle, overlay inmersivo | nuevo archivo |
-| 5 | ✅ **BrowseView dual-format** — detecta isLNReaderPlugin, muestra manga o novelas | BrowseView, NovelCoverCell |
+## Session 6 — LNReader Compatibility ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Real cheerio shim | Recursive HTML parser + CSS selector engine in pure JS |
+| 2 | ✅ Novel model | NovelItem, SourceNovel, JSNovelChapter + novel and novel_chapter tables |
+| 3 | ✅ NovelDetailView | Cover, author, status, chapter list |
+| 4 | ✅ TextReaderView | WKWebView with font size slider, dark/light toggle, immersive overlay |
+| 5 | ✅ BrowseView dual-format | Detects isLNReaderPlugin, shows manga or novels |
 
-## Sesión 7 — Settings & Insights ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **NSFW filter** — toggle en PluginsView oculta entradas nsfw==1 del catálogo Keiyoushi | PluginsView |
-| 2 | ✅ **Browse picker fix** — segmented picker movido bajo nav bar con .inline para evitar superposición | BrowseView |
-| 3 | ✅ **AppSettings** — @Observable singleton con UserDefaults, 6 settings | nuevo AppSettings.swift |
-| 4 | ✅ **SettingsView** — General / Reader manga / Reader novel / Appearance | nuevo SettingsView.swift |
-| 5 | ✅ **InsightsView** — tiempo total y por título (readingSeconds), formatTime helper | nuevo InsightsView.swift |
-| 6 | ✅ **DB v4 migration** — readingSeconds INTEGER en manga y novel | DatabaseManager |
-| 7 | ✅ **Time tracking en reader** — onDisappear acumula segundos en manga.readingSeconds | ChapterReaderView |
-| 8 | ✅ **keepScreenOn + readerMode** — AppSettings aplicados en reader | ChapterReaderView |
-| 9 | ✅ **MoreView restructurada** — Settings, Plugins, Insights, About (con LicensesView) | MoreView |
+## Session 7 — Settings & Insights ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ NSFW filter | Toggle in PluginsView hides nsfw==1 entries from Keiyoushi catalog |
+| 2 | ✅ Browse picker fix | Segmented picker moved under nav bar with .inline to avoid overlap |
+| 3 | ✅ AppSettings | @Observable singleton with UserDefaults, 6 settings |
+| 4 | ✅ SettingsView | General / Reader manga / Reader novel / Appearance |
+| 5 | ✅ InsightsView | Total reading time and per-title (readingSeconds), formatTime helper |
+| 6 | ✅ DB v4 migration | readingSeconds INTEGER on manga and novel |
+| 7 | ✅ Time tracking in reader | onDisappear accumulates seconds in manga.readingSeconds |
+| 8 | ✅ keepScreenOn + readerMode | AppSettings applied in reader |
+| 9 | ✅ MoreView restructured | Settings, Plugins, Insights, About (with LicensesView) |
 
-## Sesión 8 — Sync, Tracking & Polish ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **Backup & Restore** — exportar manga + capítulos a JSON, importar con upsert merge | BackupManager, BackupView |
-| 2 | ✅ **MyAnimeList OAuth** — login PKCE plain, yomi:// callback, tracking automático al terminar capítulo | MALService, MALView |
-| 3 | ✅ **Navegación prev/next chapter (refactor)** — currentChapterIndex + activeChapter, navigateToChapter, hasPrev/hasNext | ChapterReaderView |
-| 4 | ✅ **Timer de lectura por capítulo** — Timer 1s, ChapterQueries.addReadingTime en disappear/nav | ChapterReaderView, ChapterQueries |
-| 5 | ✅ **DB v4_reading_time** — readingSeconds INTEGER en chapter | DatabaseManager |
-| 6 | ✅ **HistoryView reescritura** — Task.detached + MainActor.run, clear button | HistoryView |
-| 7 | ✅ **InsightsView** — movido a Features/More, usa readingSeconds acumulado por capítulo | InsightsView |
-| 8 | ✅ **SettingsView** — movido a Features/More, usa 6 propiedades reales de AppSettings | SettingsView |
-| 9 | ✅ **MangaDetailView** — heart con upsert/insert, merge isRead+readingSeconds desde DB | MangaDetailView |
-| 10 | ✅ **MangaQueries** — fetchRecentlyRead, upsert; eliminado fetchHistory (dead code) | MangaQueries |
-| 11 | ✅ **PluginsView** — SHA256 id a 32 chars (prefix(32)) | PluginsView |
-| 12 | ✅ **mangadex.js** — getChapterList con limit=100, offset loop, cap 2000 | mangadex.js |
-| 13 | ✅ **MoreView** — secciones: App / Sources / Reading / Tracking / Data / Info | MoreView |
+## Session 8 — Sync, Tracking & Polish ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Backup & Restore | Export manga + chapters to JSON, import with upsert merge |
+| 2 | ✅ MyAnimeList OAuth | PKCE plain login, yomi:// callback, automatic tracking on chapter finish |
+| 3 | ✅ Prev/next chapter (refactor) | currentChapterIndex + activeChapter, navigateToChapter, hasPrev/hasNext |
+| 4 | ✅ Per-chapter reading timer | Timer 1s, ChapterQueries.addReadingTime on disappear/nav |
+| 5 | ✅ DB v4_reading_time | readingSeconds INTEGER on chapter |
+| 6 | ✅ HistoryView rewrite | Task.detached + MainActor.run, clear button |
+| 7 | ✅ InsightsView | Moved to Features/More, uses accumulated readingSeconds per chapter |
+| 8 | ✅ SettingsView | Moved to Features/More, uses 6 real AppSettings properties |
+| 9 | ✅ MangaDetailView | Heart with upsert/insert, merge isRead+readingSeconds from DB |
+| 10 | ✅ MangaQueries | fetchRecentlyRead, upsert; removed fetchHistory (dead code) |
+| 11 | ✅ PluginsView | SHA256 id to 32 chars (prefix(32)) |
+| 12 | ✅ mangadex.js | getChapterList with limit=100, offset loop, cap 2000 |
+| 13 | ✅ MoreView | Sections: App / Sources / Reading / Tracking / Data / Info |
 
-## Sesión 9 — Polish & Real Data ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **Save to library** — heart → MangaQueries.toggleLibrary (upsert + lastUpdatedAt), @State var manga mutable | MangaDetailView, MangaQueries |
-| 2 | ✅ **Mark chapter as read** — última página + onDisappear si currentPage > 0 | ChapterReaderView, ChapterQueries.markRead |
-| 3 | ✅ **ChapterQueries CRUD completo** — fetchAll, fetchOne, fetchByManga, fetchUnread, insert, upsert, upsertAll, markRead(id:), markRead(id:mangaId:), markAllRead, updateProgress, addReadingTime, delete, deleteAll | ChapterQueries |
-| 4 | ✅ **MangaQueries toggleLibrary + fetchHistory** — toggleLibrary atómico, fetchHistory sin límite | MangaQueries |
-| 5 | ✅ **History tab datos reales** — MangaQueries.fetchHistory(), RelativeDateTimeFormatter, sourceId caption, refreshable | HistoryView |
-| 6 | ✅ **LibraryViewModel sort** — lastReadAt DESC NULLS LAST, luego title ASC en Swift | LibraryViewModel |
-| 7 | ✅ **Search within source** — BrowseView Search tab, filtro client-side sobre getMangaList, source picker | BrowseView, SearchView |
-| 8 | ✅ **Cover skeleton shimmer** — LinearGradient animado startPoint/endPoint sweep, showIcon en .failure | MangaCoverCell, SkeletonView |
-| 9 | ✅ **Double-tap zoom reset** — simultaneousGesture(TapGesture(count:2)) + spring animation | MangaPageView |
-| 10 | ✅ **asurascans.js** — plugin Formato A, scraping HTML con indexOf/split/substring, sin cheerio | asurascans.js |
-| 11 | ✅ **Fix Extension+Hashable** — Picker requiere Hashable en tipo de selección | Extension.swift |
-| 12 | ✅ **Fix Text+Text iOS 26** — Text("\(Text(date, style:.relative)) ago") reemplaza operador + | HistoryView |
+## Session 9 — Polish & Real Data ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Save to library | Heart → MangaQueries.toggleLibrary (upsert + lastUpdatedAt), @State var manga mutable |
+| 2 | ✅ Mark chapter as read | Last page + onDisappear if currentPage > 0 |
+| 3 | ✅ ChapterQueries complete CRUD | fetchAll, fetchOne, fetchByManga, fetchUnread, insert, upsert, upsertAll, markRead(id:), markRead(id:mangaId:), markAllRead, updateProgress, addReadingTime, delete, deleteAll |
+| 4 | ✅ MangaQueries toggleLibrary + fetchHistory | Atomic toggleLibrary, fetchHistory without limit |
+| 5 | ✅ History tab real data | MangaQueries.fetchHistory(), RelativeDateTimeFormatter, sourceId caption, refreshable |
+| 6 | ✅ LibraryViewModel sort | lastReadAt DESC NULLS LAST, then title ASC in Swift |
+| 7 | ✅ Search within source | BrowseView Search tab, client-side filter over getMangaList, source picker |
+| 8 | ✅ Cover skeleton shimmer | Animated LinearGradient startPoint/endPoint sweep, showIcon on .failure |
+| 9 | ✅ Double-tap zoom reset | simultaneousGesture(TapGesture(count:2)) + spring animation |
+| 10 | ✅ asurascans.js | Format A plugin, HTML scraping with indexOf/split/substring, no cheerio |
+| 11 | ✅ Fix Extension+Hashable | Picker requires Hashable on selection type |
+| 12 | ✅ Fix Text+Text iOS 26 | Text("\(Text(date, style:.relative)) ago") replaces + operator |
 
-## Sesión 10 — Server-side search & categories ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **searchManga en plugins** | mangadex.js + asurascans.js — función searchManga(query, page) con endpoints reales |
-| 2 | ✅ **JSBridge.searchManga** | searchManga(query:page:sourceId:) — Format A server-side, Format B retorna [] |
-| 3 | ✅ **BrowseView server-side search** | Reemplaza filtro client-side por debounce 500ms + Task.detached + bridge.searchManga |
-| 4 | ✅ **Migración v5_categories** | Tabla manga_category (mangaId + categoryId, PK compuesta, ON DELETE CASCADE) |
-| 5 | ✅ **CategoryQueries.swift** | CRUD completo: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:) |
-| 6 | ✅ **LibraryViewModel categories** | selectedCategoryId, filteredIds (Set<String>), displayedManga, loadCategories() |
-| 7 | ✅ **LibraryView category chips** | ScrollView horizontal, chip "All" + por categoría, .safeAreaInset, oculto si no hay categorías |
-| 8 | ✅ **CategoryView.swift** | CRUD UI: crear, renombrar, reordenar, eliminar categorías |
-| 9 | ✅ **MoreView sección Library** | NavigationLink → CategoryView |
+## Session 10 — Server-side Search & Categories ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ searchManga in plugins | mangadex.js + asurascans.js — searchManga(query, page) with real endpoints |
+| 2 | ✅ JSBridge.searchManga | searchManga(query:page:sourceId:) — Format A server-side, Format B returns [] |
+| 3 | ✅ BrowseView server-side search | Replaces client-side filter with debounce 500ms + Task.detached + bridge.searchManga |
+| 4 | ✅ Migration v5_categories | manga_category table (mangaId + categoryId, composite PK, ON DELETE CASCADE) |
+| 5 | ✅ CategoryQueries.swift | Full CRUD: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:) |
+| 6 | ✅ LibraryViewModel categories | selectedCategoryId, filteredIds (Set<String>), displayedManga, loadCategories() |
+| 7 | ✅ LibraryView category chips | Horizontal ScrollView, "All" chip + per category, .safeAreaInset, hidden when no categories |
+| 8 | ✅ CategoryView.swift | CRUD UI: create, rename, reorder, delete categories |
+| 9 | ✅ MoreView Library section | NavigationLink → CategoryView |
 
-## Sesión 11 — Polish & Updates ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **Assign manga to category** | Sheet en MangaDetailView con checkboxes, tag button en toolbar (disabled si !inLibrary) |
-| 2 | ✅ **Chapter load more** | displayedChapterCount=50, botón "Load N more", índice real via firstIndex(where:) |
-| 3 | ✅ **Updates tab** | UpdatesViewModel con withTaskGroup, checkUpdates por plugin, touchLastUpdated si hasNew |
+## Session 11 — Polish & Updates ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Assign manga to category | Sheet in MangaDetailView with checkboxes, tag button in toolbar (disabled if !inLibrary) |
+| 2 | ✅ Chapter load more | displayedChapterCount=50, "Load N more" button, real index via firstIndex(where:) |
+| 3 | ✅ Updates tab | UpdatesViewModel with withTaskGroup, checkUpdates per plugin, touchLastUpdated if hasNew |
 
-## Sesión 12 — Downloads & Plugins ✅ Completa
-| # | Feature | Detalle |
-|---|---------|---------|
-| 1 | ✅ **Aqua Manga plugin** | Formato A scraping, cheerio, getMangaList/getChapterList/getPageList/searchManga |
-| 2 | ✅ **Downloads offline** | DownloadManager singleton @Observable, cola secuencial, páginas paralelas x3, Documents/Downloads/{mangaId}/{chapterId}/, DownloadQueries, DownloadsView en More, badge + swipe en MangaDetailView, fallback local en ChapterReaderView |
-| 3 | ⏭ **App icon** | Pendiente — el usuario lo agrega manualmente cuando tenga el diseño |
+## Session 12 — Downloads & Plugins ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Aqua Manga plugin | Format A scraping, cheerio, getMangaList/getChapterList/getPageList/searchManga |
+| 2 | ✅ Offline downloads | DownloadManager singleton @Observable, sequential queue, parallel pages x3, Documents/Downloads/{mangaId}/{chapterId}/, DownloadQueries, DownloadsView in More, badge + swipe in MangaDetailView, local fallback in ChapterReaderView |
+| 3 | ⏭ App icon | Pending — user adds manually when design is ready |
 
-## Sesión 13 — Auditoría y arreglos ✅ Completa
-| # | Feature | Archivos afectados |
-|---|---------|-------------------|
-| 1 | ✅ **seedBundledPlugins** — mangadex, asurascans y aquamanga se copian desde el bundle a Documents/Extensions/ al arrancar; SHA256(filename) como ID estable; upsert en DB; skip si el archivo ya existe en disco | ExtensionManager.swift, YomiApp.swift |
-| 2 | ✅ **bridge(for:) URL fix** — reconstruye la URL desde `extensionsDirectory + id` en lugar de usar `ext.sourceListURL` almacenada en DB (que queda stale tras reinstalación) | ExtensionManager.swift |
-| 3 | ✅ **mangadex.js multi-idioma** — getChapterList incluye es/es-la/pt-br/pt en translatedLanguage[]; guard NaN en chapterNumber; fix título vacío | mangadex.js |
-| 4 | ✅ **SOURCE.fetch User-Agent** — headers por defecto: User-Agent iPhone Safari + Accept + Accept-Language; plugins pueden sobrescribir con sus propios headers | JSBridge.swift |
+## Session 13 — Audit & Fixes ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ seedBundledPlugins | mangadex, asurascans, aquamanga copied from bundle to Documents/Extensions/ on launch; SHA256(filename) as stable ID; DB upsert; skip if file already exists on disk |
+| 2 | ✅ bridge(for:) URL fix | Reconstructs URL from extensionsDirectory + id instead of using stale ext.sourceListURL stored in DB |
+| 3 | ✅ mangadex.js multi-language | getChapterList includes es/es-la/pt-br/pt in translatedLanguage[]; guard NaN on chapterNumber; fix empty title |
+| 4 | ✅ SOURCE.fetch User-Agent | Default headers: User-Agent iPhone Safari + Accept + Accept-Language; plugins can override with their own headers |
 
-## Sesión 14 — Plugins & Fixes ✅ Completa
-| # | Feature | Archivos afectados |
-|---|---------|-------------------|
-| 1 | ✅ **Fix "Failed to load source plugin"** — BrowseView y UpdatesViewModel usan `ExtensionManager.shared.bridge(for:)` en todos los puntos; eliminado `JSBridge(scriptURL: ext.sourceListURL)` directo | BrowseView.swift, UpdatesView.swift |
-| 2 | ✅ **Fix InsightsView breakpoint** — desactivado breakpoint activo en MangaQueries.fetchAll() que pausaba la ejecución simulando un crash | Breakpoints_v2.xcbkptlist |
-| 3 | ✅ **royalroad.js** — plugin Formato B; popularNovels, parseNovel (JSON embebido + fallback HTML), parseChapter, searchNovels | royalroad.js |
-| 4 | ✅ **scribblehub.js** — plugin Formato B; AJAX POST para TOC (`admin-ajax.php`), extracción de nonce y seriesId | scribblehub.js |
-| 5 | ✅ **novelfire.js** — plugin Formato B; paginación de capítulos con detección de `pagination .next` | novelfire.js |
-| 6 | ✅ **comick.js** — plugin Formato A; API JSON pública, paginación de capítulos, CDN fix para covers | comick.js |
-| 7 | ✅ **Library empty state CTA** — botón "Browse sources" en LibraryView empty state; `onBrowseTap` callback prop | LibraryView.swift |
-| 8 | ✅ **Updates empty state ícono** — `arrow.clockwise` → `bell.badge` para no confundir con botón refresh | UpdatesView.swift |
-| 9 | ✅ **Settings decimal fix** — `specifier: "%.1f"` → `String(format:locale:en_US)` para forzar punto decimal en locale español | SettingsView.swift |
-| 10 | ✅ **Source.swift eliminado** — dead code desde S1; `extension Source: FetchableRecord` removido de DatabaseManager | Source.swift ✗, DatabaseManager.swift |
+## Session 14 — Plugins & UX fixes ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Fix InsightsView crash | Active breakpoint disabled — not a real deadlock |
+| 2 | ✅ Fix "Failed to load source plugin" | BrowseView + UpdatesView: bridge(for:) instead of ext.sourceListURL |
+| 3 | ✅ royalroad.js | Format B, embedded JSON + HTML fallback |
+| 4 | ✅ scribblehub.js | Format B, AJAX POST TOC |
+| 5 | ✅ novelfire.js | Format B, chapter pagination |
+| 6 | ✅ comick.js | Format A, public JSON API |
+| 7 | ✅ LibraryView empty state | "Browse sources" button created (callback pending S15) |
+| 8 | ✅ Source.swift removed | + FetchableRecord conformance removed from DatabaseManager |
+| 9 | ✅ UpdatesView empty state icon | arrow.clockwise → bell.badge |
+| 10 | ✅ AppSettings decimal locale | specifier: "%.1f" → String(format:locale:en_US) |
 
-## Deuda técnica
-| Item | Descripción | Prioridad |
-|------|-------------|-----------|
-| ContentView.swift onBrowseTap | LibraryView.onBrowseTap definido pero ContentView no pasa el callback — botón visible pero sin efecto. Fix: TabView(selection: $selectedTab) con .tag(Int) en cada Tab, pasar { selectedTab = 1 } a LibraryView | Media |
-| SOURCE.fetch POST support | ScribbleHub requiere POST. JSBridge.swift actualmente solo hace GET. Necesario para que scribblehub.js funcione al 100% | Media |
+## Session 15 — Navigation, retention & infrastructure ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ AppRouter | @Observable module-level singleton, selectedTab: Int, tab index constants |
+| 2 | ✅ ContentView TabView selection | Tab(value:) with AppRouter.selectedTab, @Bindable var router |
+| 3 | ✅ LibraryView empty state navigation | appRouter.selectedTab = AppRouter.tabBrowse functional |
+| 4 | ✅ JSBridge HTTP POST | SOURCE.fetch supports method/body/headers; _fetchSync receives 4 args |
+| 5 | ✅ ContinueReadingRow | Horizontal scroll row in LibraryView, MangaQueries.fetchRecentlyRead, hides when empty |
+| 6 | ✅ NotificationManager | @Observable singleton, UNUserNotificationCenter, requestPermission async, scheduleChapterNotification |
+| 7 | ✅ AppSettings.hasRequestedNotifications | UserDefaults flag to request permission only once |
+| 8 | ✅ Push notification trigger | MangaDetailView: requestPermission on first library save |
+| 9 | ✅ TextReaderView typography | #E8E8E8, line-height 1.5, 18pt minimum font, sepia mode toggle |
+| 10 | ✅ AppSettings.novelSepia | UserDefaults flag for sepia mode |
+| 11 | ✅ Fix MangaDetailView loadChapters | bridge(for:) instead of stale ext.sourceListURL |
+| 12 | ✅ Fix ContinueReadingRow .task | Single .task on Group container, removes duplicate |
+| 13 | ✅ Fix Comick domain | comick.io → comick.fun |
+| 14 | ✅ Debug prints cleanup | JSBridge.swift + ExtensionManager.swift |
 
-## Compatibilidad iOS
+## Technical debt
+| Item | Description | Priority |
+|------|-------------|----------|
+| Plugin selectors | royalroad.js, scribblehub.js, novelfire.js need DevTools verification of selectors | High |
+| Asura Scans | React SSR — HTML shell has no content. Needs internal API via Network tab DevTools | Medium |
+| AquaManga | aquamanga.com domain unreachable or changed | Low |
+| LNReader v2.x compat | require() shim ~50 lines + esbuild script to compile TS plugins | Medium |
+| Firebase Hosting | index.json + .js plugins as CDN for OTA updates without App Store releases | Medium |
+| iCloud Drive backup | Replaces export to Files.app, native with no extra OAuth | Low |
+| InsightsView stats | Reading streak + chapters read — cut from S15 scope | Medium |
+| UpdatesViewModel notifications | scheduleChapterNotification after checkUpdates | Low |
 
-**Deployment target: iOS 26.2** — no se planea bajar a iOS 18.
+## iOS compatibility
 
-El dispositivo físico de desarrollo (iPhone de Martin, iOS 18.6.2) no puede correr
-la app hasta actualizar a iOS 26. La app depende de APIs exclusivas de iOS 26:
+**Deployment target: iOS 26.2** — no plan to lower to iOS 18.
+
+The physical development device (Martin's iPhone, iOS 18.6.2) cannot run
+the app until updating to iOS 26. The app depends on iOS 26-exclusive APIs:
 `Tab()`, `ContentUnavailableView`, `.refreshable`, `.searchable`, `.ascNullsLast`.
 
-Si en el futuro se requiere iOS 18 support → branch `compat/ios18`, nunca en main.
+If iOS 18 support is required in the future → branch `compat/ios18`, never on main.
 
-## Backlog (sin sesión asignada)
-- iPad layout (sidebar en lugar de tab bar)
-- AniList tracking (alternativa a MAL)
-- Gestos personalizables en el reader
-- Plugin marketplace propio (index.json hosteado)
-- Notificaciones de nuevos capítulos
+## Backlog (no session assigned)
+- Plugin marketplace UI (PluginsView "Browse catalog" fetches index.json from Firebase)
+- esbuild script to compile LNReader v2.x TypeScript plugins to vanilla JS
+- AniList tracking (alternative to MAL)
+- Custom reader gestures
 - TestFlight / App Store distribution
-- "Continuar leyendo" row en LibraryView top — retención alta ROI
-- Push notifications nuevos capítulos — pedir permiso post primer manga guardado (iOS opt-in 43.9%)
-- TextReaderView typography: font 18pt mínimo, line-height 1.5x, color #E8E8E8 dark mode, modo sepia
-- Firebase Hosting plugin repo — index.json + .js en yomi-plugins.web.app para descubrimiento de plugins
-- Google Drive backup automático — OAuth Google, subir/restaurar JSON sin Files.app
+- iPad layout (sidebar instead of tab bar)
 
-## Fuentes de plugins objetivo
-| Fuente | Formato | Estado |
-|--------|---------|--------|
-| MangaDex | Formato A (API JSON) | ✅ Implementado |
-| Asura Scans | Formato A (scraping) | ✅ Implementado |
-| Aqua Manga | Formato A (scraping) | ✅ Implementado |
-| Royal Road | Formato B (LNReader) | ✅ Implementado |
-| ScribbleHub | Formato B (LNReader) | ✅ Implementado |
-| NovelFire | Formato B (LNReader) | ✅ Implementado |
-| Comick | Formato A (API JSON) | ✅ Implementado |
-| NovelUpdates | Formato B (LNReader) | Backlog |
+## Target plugin sources
+| Source | Format | Status |
+|--------|--------|--------|
+| MangaDex | Format A (JSON API) | ✅ Implemented |
+| Asura Scans | Format A (scraping) | ✅ Implemented |
+| Aqua Manga | Format A (scraping) | ✅ Implemented |
+| Royal Road | Format B (LNReader) | ✅ Implemented |
+| ScribbleHub | Format B (LNReader) | ✅ Implemented |
+| NovelFire | Format B (LNReader) | ✅ Implemented |
+| Comick | Format A (JSON API) | ✅ Implemented |
+| NovelUpdates | Format B (LNReader) | Backlog |
 
-⚠️ Verificar siempre el HTML actual de cada fuente — los selectores pueden cambiar sin aviso.
+⚠️ Always verify current HTML of each source — selectors can change without notice.
