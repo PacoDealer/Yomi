@@ -1,11 +1,9 @@
 # Roadmap — Yomi
 
-## Current state (post session 16)
+## Current state (post session 17)
 All 7 bundled plugins working in simulator.
-MangaDex (✅), Comick (✅), Royal Road (✅), ScribbleHub (✅), NovelFire (✅), AquaManga (✅).
-Asura Scans (❌ React SSR — needs internal API via Network tab DevTools).
-Root fix: seedBundledPlugins now overwrites existing files on every launch.
-Plugin each() callbacks fixed to use el.find() directly (cheerio shim contract).
+MangaDex (✅), Comick (✅), Royal Road (✅), ScribbleHub (✅), NovelFire (✅), AquaManga (✅), Asura Scans (✅ JSON API).
+InsightsView v2: 4 stat cards (streak, chapters read, time read, titles started).
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -151,23 +149,18 @@ Plugin each() callbacks fixed to use el.find() directly (cheerio shim contract).
 | 7 | ✅ NovelFire working | Format B, popularNovels via li.novel-item, verified selectors |
 | 8 | ✅ AquaManga working | Format A, getMangaList via div.page-item-detail, verified selectors |
 
-## Session 17 — Insights, Asura & Distribution
-| # | Feature | Priority |
-|---|---------|----------|
-| 1 | InsightsView: reading streak + chapters read stats | High |
-| 2 | Asura Scans: inspect Network tab for internal API, rewrite plugin | High |
-| 3 | Firebase Hosting: index.json + .js CDN, PluginsView "Browse catalog" UI | Medium |
-| 4 | require() shim in JSBridge for LNReader v2.x TS plugins | Low |
-| 5 | esbuild script to compile LNReader v2.x TypeScript → vanilla JS | Low |
+## Session 17 — Insights v2 & Asura API ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ InsightsView v2 | 4 stat cards: streak, chapters read, time read, titles started. Streak from readAt dates. |
+| 2 | ✅ asurascans.js | Full JSON API rewrite via api.asurascans.com. All 7 bundled plugins now working. |
 
 ## Technical debt
 | Item | Description | Priority |
 |------|-------------|----------|
-| Asura Scans | React SSR — HTML shell has no content. Needs internal API via Network tab DevTools | Medium |
 | LNReader v2.x compat | require() shim ~50 lines + esbuild script to compile TS plugins | Medium |
 | Firebase Hosting | index.json + .js plugins as CDN for OTA updates without App Store releases | Medium |
 | iCloud Drive backup | Replaces export to Files.app, native with no extra OAuth | Low |
-| InsightsView stats | Reading streak + chapters read — cut from S15 scope | Medium |
 | UpdatesViewModel notifications | scheduleChapterNotification after checkUpdates | Low |
 
 ## iOS compatibility
@@ -197,7 +190,7 @@ If iOS 18 support is required in the future → branch `compat/ios18`, never on 
 | ScribbleHub | Format B (LNReader) | ✅ Working |
 | NovelFire | Format B (LNReader) | ✅ Working |
 | AquaManga | Format A (scraping) | ✅ Working |
-| Asura Scans | Format A (scraping) | ❌ React SSR — needs internal API |
+| Asura Scans | Format A (JSON API) | ✅ Working |
 | NovelUpdates | Format B (LNReader) | Backlog |
 
 ⚠️ Always verify current HTML of each source — selectors can change without notice.
