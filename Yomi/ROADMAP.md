@@ -1,15 +1,11 @@
 # Roadmap — Yomi
 
-## Current state (post session 15)
-AppRouter singleton for programmatic tab navigation.
-LibraryView empty state navigates to Browse tab.
-JSBridge supports HTTP POST (unblocks ScribbleHub and others).
-ContinueReadingRow horizontal row in LibraryView showing recently read manga.
-Local push notifications with permission requested on first library save.
-TextReaderView: improved typography (#E8E8E8, line-height 1.5, 18pt minimum, sepia mode).
-Bundled plugins: mangadex (✅ working), comick (domain fix applied),
-royalroad/scribblehub/novelfire (HTML arrives OK but selectors need DevTools verification),
-asurascans (React SSR, needs alternative approach), aquamanga (domain unreachable).
+## Current state (post session 16)
+All 7 bundled plugins working in simulator.
+MangaDex (✅), Comick (✅), Royal Road (✅), ScribbleHub (✅), NovelFire (✅), AquaManga (✅).
+Asura Scans (❌ React SSR — needs internal API via Network tab DevTools).
+Root fix: seedBundledPlugins now overwrites existing files on every launch.
+Plugin each() callbacks fixed to use el.find() directly (cheerio shim contract).
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -143,12 +139,22 @@ asurascans (React SSR, needs alternative approach), aquamanga (domain unreachabl
 | 13 | ✅ Fix Comick domain | comick.io → comick.fun |
 | 14 | ✅ Debug prints cleanup | JSBridge.swift + ExtensionManager.swift |
 
+## Session 16 — Plugin fixes ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Fix seedBundledPlugins | Always overwrite bundled JS on launch — skip logic prevented fixes from deploying to simulator |
+| 2 | ✅ Fix each() in all plugins | cheerio shim passes wrapped object to each() callback — use el.find() not $(el) |
+| 3 | ✅ Fix aquamanga domain | aquamanga.com → aquareader.net |
+| 4 | ✅ Fix aquamanga cover selector | div.item-thumb img → .item-thumb img (class is on container, not child div) |
+| 5 | ✅ Royal Road working | Format B, popularNovels via div.fiction-list-item, verified selectors |
+| 6 | ✅ ScribbleHub working | Format B, popularNovels via div.search_main_box, verified selectors |
+| 7 | ✅ NovelFire working | Format B, popularNovels via li.novel-item, verified selectors |
+| 8 | ✅ AquaManga working | Format A, getMangaList via div.page-item-detail, verified selectors |
+
 ## Technical debt
 | Item | Description | Priority |
 |------|-------------|----------|
-| Plugin selectors | royalroad.js, scribblehub.js, novelfire.js need DevTools verification of selectors | High |
 | Asura Scans | React SSR — HTML shell has no content. Needs internal API via Network tab DevTools | Medium |
-| AquaManga | aquamanga.com domain unreachable or changed | Low |
 | LNReader v2.x compat | require() shim ~50 lines + esbuild script to compile TS plugins | Medium |
 | Firebase Hosting | index.json + .js plugins as CDN for OTA updates without App Store releases | Medium |
 | iCloud Drive backup | Replaces export to Files.app, native with no extra OAuth | Low |
@@ -176,13 +182,13 @@ If iOS 18 support is required in the future → branch `compat/ios18`, never on 
 ## Target plugin sources
 | Source | Format | Status |
 |--------|--------|--------|
-| MangaDex | Format A (JSON API) | ✅ Implemented |
-| Asura Scans | Format A (scraping) | ✅ Implemented |
-| Aqua Manga | Format A (scraping) | ✅ Implemented |
-| Royal Road | Format B (LNReader) | ✅ Implemented |
-| ScribbleHub | Format B (LNReader) | ✅ Implemented |
-| NovelFire | Format B (LNReader) | ✅ Implemented |
-| Comick | Format A (JSON API) | ✅ Implemented |
+| MangaDex | Format A (JSON API) | ✅ Working |
+| Comick | Format A (JSON API) | ✅ Working |
+| Royal Road | Format B (LNReader) | ✅ Working |
+| ScribbleHub | Format B (LNReader) | ✅ Working |
+| NovelFire | Format B (LNReader) | ✅ Working |
+| AquaManga | Format A (scraping) | ✅ Working |
+| Asura Scans | Format A (scraping) | ❌ React SSR — needs internal API |
 | NovelUpdates | Format B (LNReader) | Backlog |
 
 ⚠️ Always verify current HTML of each source — selectors can change without notice.
