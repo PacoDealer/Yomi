@@ -174,7 +174,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - **Bundled plugins vs network plugins**: bundled plugins are copied from `Bundle.main` to `Documents/Extensions/` on every launch (skip if already on disk). Network plugins are downloaded from URL. Both use the same `extension` table format and the same `bridge(for:)` flow.
 
 ## S12 — Technical learnings
-- **cheerio `.each` callback**: receives raw DOM node, not cheerio object. Always wrap: `$(el).find(...)` — never `el.find(...)`. Without the wrap, `.find` is `undefined` and everything fails silently.
+- **cheerio `.each` callback (Yomi shim contract)**: the Yomi shim passes `(index, wrappedCheerioObject)` to `.each()` callbacks — NOT a raw DOM node. Use `el.find()`, `el.attr()`, `el.text()` directly. Never do `$(el)` inside `.each()` — `$(wrappedObject)` fails silently and returns empty results. ⚠️ This is the opposite of what real cheerio does — the shim wraps before calling the callback.
 - **`attr()` helper in plugins**: must receive a cheerio object `$el`, not raw HTML. Define it as: `function attr($el, name) { return $el.attr("data-src") || $el.attr(name) || "" }`.
 - **`DownloadManager.queue` does not contain the active chapter**: when `processQueue()` starts a download, it removes the item from `queue` immediately. The UI cannot depend on `queue` to show the in-progress chapter — use `activeChapter: Chapter?` exposed as a separate property.
 - **In UI prompts about singletons**: specify the state of each property and its invariants before describing the UI. E.g.: "activeChapter was already removed from queue when it starts downloading — show it separately with `dm.activeChapter`".

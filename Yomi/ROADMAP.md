@@ -151,6 +151,15 @@ Plugin each() callbacks fixed to use el.find() directly (cheerio shim contract).
 | 7 | ✅ NovelFire working | Format B, popularNovels via li.novel-item, verified selectors |
 | 8 | ✅ AquaManga working | Format A, getMangaList via div.page-item-detail, verified selectors |
 
+## Session 17 — Insights, Asura & Distribution
+| # | Feature | Priority |
+|---|---------|----------|
+| 1 | InsightsView: reading streak + chapters read stats | High |
+| 2 | Asura Scans: inspect Network tab for internal API, rewrite plugin | High |
+| 3 | Firebase Hosting: index.json + .js CDN, PluginsView "Browse catalog" UI | Medium |
+| 4 | require() shim in JSBridge for LNReader v2.x TS plugins | Low |
+| 5 | esbuild script to compile LNReader v2.x TypeScript → vanilla JS | Low |
+
 ## Technical debt
 | Item | Description | Priority |
 |------|-------------|----------|
