@@ -1,200 +1,130 @@
-// Last verified: 2026-03-18
-// Aqua Manga uses WordPress Madara theme — update selectors if broken.
-// Site: https://aquamanga.com
+// Verified live 2026-04-05 against aquareader.net (new domain for AquaManga)
+// Madara WordPress theme — same structure as before, new base URL.
 
-var BASE_URL = "https://aquamanga.com";
+const BASE_URL = "https://aquareader.net";
 
-// MARK: - String helpers
-
-function between(str, open, close) {
-    var start = str.indexOf(open);
-    if (start === -1) return "";
-    start += open.length;
-    var end = str.indexOf(close, start);
-    if (end === -1) return "";
-    return str.substring(start, end);
-}
-
-// Works on cheerio elements: data-src first, fallback to named attr
-function attr($el, name) {
-    var val = $el.attr("data-src");
-    if (val && val.trim()) return val.trim();
-    return ($el.attr(name) || "").trim();
-}
-
-function stripTags(html) {
-    var result = "";
-    var inTag = false;
-    for (var i = 0; i < html.length; i++) {
-        if (html[i] === "<") { inTag = true; continue; }
-        if (html[i] === ">") { inTag = false; continue; }
-        if (!inTag) result += html[i];
-    }
-    return result.trim();
-}
-
-// MARK: - getMangaList
-
+// ── getMangaList ──────────────────────────────────────────────────────────────
+// Popular list: /manga/?page=N&order=popular
+// Card container: div.page-item-detail
+// Title + path: div.post-title.font-title h3.h5 > a  (text + href)
+// Cover: div.item-thumb img.img-responsive[src]  (absolute URL, 350px variant)
+// Chapter list on card: NOT used — fetched in getChapterList
 function getMangaList(page) {
-    try {
-        var url = BASE_URL + "/manga/?page=" + page + "&order=update";
-        var html = SOURCE.fetch(url, {});
-        var $ = cheerio.load(html);
-        var results = [];
+  var url = BASE_URL + "/manga/?page=" + page + "&order=popular";
+  var html = SOURCE.fetch(url);
+  var $ = cheerio.load(html);
+  var results = [];
 
-        $("div.page-item-detail").each(function(i, el) {
-            var $el = $(el);
-            var $a = $el.find("a").first();
-            var path = ($a.attr("href") || "").trim();
-            if (!path) return;
-
-            // id = last non-empty path segment (slug)
-            var parts = path.replace(/\/$/, "").split("/");
-            var id = parts[parts.length - 1];
-            if (!id) return;
-
-            var $img = $el.find("img").first();
-            var coverURL = attr($img, "src");
-            var title = ($img.attr("alt") || "").trim() ||
-                        $el.find(".post-title a").first().text().trim();
-            if (!title) return;
-
-            results.push({
-                id:       id,
-                path:     path,
-                title:    title,
-                coverURL: coverURL,
-                summary:  "",
-                author:   "",
-                artist:   "",
-                status:   "ongoing",
-                genres:   []
-            });
-        });
-
-        return JSON.stringify(results);
-    } catch (e) {
-        console.log("aquamanga getMangaList error: " + e);
-        return JSON.stringify([]);
+  $("div.page-item-detail").each(function(i, el) {
+    var $titleLink = el.find("div.post-title h3 a, div.post-title.font-title h3 a").first();
+    var title = $titleLink.text().trim();
+    var href = $titleLink.attr("href") || "";
+    // href = "https://aquareader.net/manga/absolute-regression/"
+    var path = href.replace(BASE_URL, "");
+    var cover = el.find("div.item-thumb img").attr("src") || "";
+    if (title && path) {
+      results.push({
+        id: path,
+        path: path,
+        title: title,
+        coverURL: cover,
+        summary: "",
+        author: "",
+        artist: "",
+        status: "Ongoing",
+        genres: []
+      });
     }
+  });
+
+  return results;
 }
 
-// MARK: - getChapterList
-
+// ── getChapterList ────────────────────────────────────────────────────────────
+// Detail page: /manga/{slug}/
+// Chapter list: li.wp-manga-chapter > a[href]
+// Chapter name: a text (trimmed)
+// Chapter number: parse float from name, fallback to index
+// NOTE: chapter href = full URL like
+//   https://aquareader.net/manga/absolute-regression/absolute-regression/chapter-94/
+//   path = strip BASE_URL
 function getChapterList(mangaPath) {
-    try {
-        var html = SOURCE.fetch(mangaPath, {});
-        var $ = cheerio.load(html);
-        var results = [];
+  var url = BASE_URL + mangaPath;
+  var html = SOURCE.fetch(url);
+  var $ = cheerio.load(html);
+  var chapters = [];
 
-        $("ul.version-chap li.wp-manga-chapter").each(function(i, el) {
-            var $el = $(el);
-            var $a = $el.find("a").first();
-            var path = ($a.attr("href") || "").trim();
-            if (!path) return;
-
-            var name = $a.text().trim();
-            if (!name) return;
-
-            var parts = path.replace(/\/$/, "").split("/");
-            var id = parts[parts.length - 1];
-            if (!id) return;
-
-            var m = name.match(/[\d.]+/);
-            var chapterNumber = m ? parseFloat(m[0]) : null;
-
-            results.push({
-                id:            id,
-                path:          path,
-                name:          name,
-                chapterNumber: chapterNumber
-            });
-        });
-
-        // Deduplicate by path
-        var seen = {};
-        var deduped = [];
-        for (var i = 0; i < results.length; i++) {
-            if (!seen[results[i].path]) {
-                seen[results[i].path] = true;
-                deduped.push(results[i]);
-            }
-        }
-
-        return JSON.stringify(deduped);
-    } catch (e) {
-        console.log("aquamanga getChapterList error: " + e);
-        return JSON.stringify([]);
+  $("li.wp-manga-chapter").each(function(i, el) {
+    var $a = el.find("a").first();
+    var name = $a.text().trim();
+    var href = $a.attr("href") || "";
+    var path = href.replace(BASE_URL, "");
+    var numMatch = name.match(/[\d]+\.?[\d]*/);
+    var chapterNumber = numMatch ? parseFloat(numMatch[0]) : (i + 1);
+    if (name && path) {
+      chapters.push({
+        id: path,
+        path: path,
+        name: name,
+        chapterNumber: chapterNumber
+      });
     }
+  });
+
+  // Site lists newest-first; reverse for ascending order
+  chapters.reverse();
+  return chapters;
 }
 
-// MARK: - getPageList
-
+// ── getPageList ───────────────────────────────────────────────────────────────
+// Chapter reader: /manga/{slug}/{slug}/chapter-N/
+// Page images: div.page-break img.wp-manga-chapter-img
+// Cover loaded via src (no lazy src here — server-side rendered)
 function getPageList(chapterPath) {
-    try {
-        var html = SOURCE.fetch(chapterPath, {});
-        var $ = cheerio.load(html);
-        var urls = [];
-        var seen = {};
+  var url = BASE_URL + chapterPath;
+  var html = SOURCE.fetch(url);
+  var $ = cheerio.load(html);
+  var pages = [];
 
-        $("div.reading-content img").each(function(i, el) {
-            var $img = $(el);
-            var src = attr($img, "src");
-            if (src && !seen[src]) {
-                seen[src] = true;
-                urls.push(src);
-            }
-        });
+  $("div.page-break img").each(function(i, el) {
+    var src = el.attr("src") || el.attr("data-src") || el.attr("data-lazy-src") || "";
+    src = src.trim();
+    if (src && src.startsWith("http")) pages.push(src);
+  });
 
-        return JSON.stringify(urls);
-    } catch (e) {
-        console.log("aquamanga getPageList error: " + e);
-        return JSON.stringify([]);
-    }
+  return pages;
 }
 
-// MARK: - searchManga
-
+// ── searchManga ───────────────────────────────────────────────────────────────
+// Search: GET /?s={query}&post_type=wp-manga
+// Results: same page-item-detail structure (search results page)
+// Cover: img.img-responsive[src]
 function searchManga(query, page) {
-    try {
-        var url = BASE_URL + "/?s=" + encodeURIComponent(query) +
-                  "&post_type=wp-manga&paged=" + page;
-        var html = SOURCE.fetch(url, {});
-        var $ = cheerio.load(html);
-        var results = [];
+  var url = BASE_URL + "/?s=" + encodeURIComponent(query) + "&post_type=wp-manga&paged=" + page;
+  var html = SOURCE.fetch(url);
+  var $ = cheerio.load(html);
+  var results = [];
 
-        $("div.page-item-detail").each(function(i, el) {
-            var $el = $(el);
-            var $a = $el.find("a").first();
-            var path = ($a.attr("href") || "").trim();
-            if (!path) return;
-
-            var parts = path.replace(/\/$/, "").split("/");
-            var id = parts[parts.length - 1];
-            if (!id) return;
-
-            var $img = $el.find("img").first();
-            var coverURL = attr($img, "src");
-            var title = ($img.attr("alt") || "").trim() ||
-                        $el.find(".post-title a").first().text().trim();
-            if (!title) return;
-
-            results.push({
-                id:       id,
-                path:     path,
-                title:    title,
-                coverURL: coverURL,
-                summary:  "",
-                author:   "",
-                artist:   "",
-                status:   "ongoing",
-                genres:   []
-            });
-        });
-
-        return JSON.stringify(results);
-    } catch (e) {
-        console.log("aquamanga searchManga error: " + e);
-        return JSON.stringify([]);
+  $("div.page-item-detail, div.c-tabs-item").each(function(i, el) {
+    var $titleLink = el.find("div.post-title a, .post-title a").first();
+    var title = $titleLink.text().trim();
+    var href = $titleLink.attr("href") || "";
+    var path = href.replace(BASE_URL, "");
+    var cover = el.find("img.img-responsive").attr("src") || "";
+    if (title && path) {
+      results.push({
+        id: path,
+        path: path,
+        title: title,
+        coverURL: cover,
+        summary: "",
+        author: "",
+        artist: "",
+        status: "Ongoing",
+        genres: []
+      });
     }
+  });
+
+  return results;
 }
