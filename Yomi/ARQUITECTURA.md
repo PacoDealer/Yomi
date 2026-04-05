@@ -58,7 +58,7 @@ Yomi/
 ├── Resources/
 │   ├── mangadex.js                  # MangaDex plugin (Format A, JSON API, searchManga, multi-language)
 │   ├── asurascans.js                # Asura Scans plugin (Format A, HTML scraping, searchManga)
-│   ├── aquamanga.js                 # Aqua Manga plugin (Format A, HTML scraping + cheerio)
+│   ├── aquamanga.js                 # Aqua Manga plugin (Format A, aquareader.net, cheerio, el.find() each() pattern)
 │   ├── comick.js                    # Comick plugin (Format A, public JSON API, comick.fun domain)
 │   ├── royalroad.js                 # Royal Road plugin (Format B, embedded JSON + HTML fallback)
 │   ├── scribblehub.js               # ScribbleHub plugin (Format B, AJAX POST TOC)

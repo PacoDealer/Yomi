@@ -80,6 +80,23 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 13 | 2026-03-18 | Audit and fixes. seedBundledPlugins in ExtensionManager (mangadex/asurascans/aquamanga copied from bundle on launch, SHA256(filename) as ID, DB upsert, skip if exists on disk). bridge(for:) reconstructs URL from extensionsDirectory+id (fix sandbox stale). mangadex.js: multi-language (es/es-la/pt-br/pt), guard NaN chapterNumber, fix empty title. JSBridge SOURCE.fetch: User-Agent iPhone Safari + Accept + Accept-Language as defaults. |
 | 14 | 2026-03-22 | Fix InsightsView (active breakpoint, not a real deadlock). Fix "Failed to load source plugin" (bridge(for:) in BrowseView+UpdatesView). New plugins: royalroad.js (Fmt B), scribblehub.js (Fmt B, POST), novelfire.js (Fmt B), comick.js (Fmt A). UX: LibraryView empty state Browse button, Source.swift removed, UpdatesView bell.badge icon, AppSettings decimal locale fix. |
 | 15 | 2026-04-04 | AppRouter singleton (@Observable, module-level, Tab(value:) iOS 26). LibraryView empty state navigates to Browse. JSBridge POST support (SOURCE.fetch method/body/headers, _fetchSync 4 args). ContinueReadingRow horizontal in LibraryView. NotificationManager + local push on first library save. TextReaderView: #E8E8E8, line-height 1.5, 18pt min, sepia mode. Fix MangaDetailView loadChapters (bridge(for:)). Fix ContinueReadingRow duplicate .task. Fix comick.js domain (comick.fun). Plugin diagnosis: HTML arrives OK for RoyalRoad/ScribbleHub/NovelFire but selectors incorrect; Asura=React SSR; AquaManga=domain unreachable. |
+| 16 | 2026-04-05 | Plugin root cause analysis and fixes. seedBundledPlugins overwrite fix. each() callback pattern fix in royalroad/scribblehub/novelfire/aquamanga. aquamanga domain (aquareader.net) and cover selector fix. All 6 non-Asura plugins working. |
+
+## S16 — Technical learnings
+
+- **seedBundledPlugins skip logic is a deployment trap**: the `fileExists` check that skips copying bundled JS files means simulator never picks up JS fixes after the first install. Rule: bundled plugins must always be overwritten on launch (`removeItem` then `copyItem`). Safe because bundled plugins are read-only source-of-truth — only network-installed plugins should be preserved.
+
+- **cheerio shim each() contract**: the Yomi cheerio shim passes `(index, wrappedCheerioObject)` to `.each()` callbacks — NOT `(index, rawDOMElement)` as real cheerio does. Plugin code must use `el.find()`, `el.attr()`, `el.text()` directly. Never do `$(el)` inside an `.each()` callback — `$(wrappedObject)` fails silently and returns empty results.
+
+- **Debug prints are the fastest path to root cause**: when a plugin returns empty and the cause is unknown, add `print("🔍 ...")` to JSBridge before `parseMangaArray`/`parseNovelItems` to see the raw JS return value. This immediately distinguishes between: network failure (empty string), selector mismatch (JS array length 0), or type mismatch (JSValue not convertible to array).
+
+- **GitHub repo ≠ simulator disk**: Claude Code writes to disk but changes only reach the simulator after a build. The simulator runs files from the app bundle (built from disk), not from the git repo. Always push after a fix session — GitHub is the source of truth, not the simulator cache.
+
+- **Verify fixes in repo before diagnosing simulator**: after CC commits, confirm the actual file content via `curl https://raw.githubusercontent.com/PacoDealer/Yomi/main/...` before assuming the simulator is running the fixed code. Divergence between repo and disk is a common source of confusion.
+
+- **Claude.ai can read the GitHub repo directly**: use `curl https://raw.githubusercontent.com/PacoDealer/Yomi/main/{path}` to read any file without asking CC. This eliminates a full round-trip prompt for diagnostic reads and speeds up root cause analysis significantly.
+
+- **Workflow improvement — diagnose before prescribing**: when plugins return empty, the correct flow is: (1) read the actual file from GitHub, (2) read the shim implementation from GitHub, (3) identify the exact failure point, (4) write one targeted fix prompt. Do not write fix prompts based on assumptions — the each() bug was correctly identified only after reading the actual shim code.
 
 ## Technical learnings
 - **iOS 26 TabView**: new API `Tab("title", systemImage:) {}` — old `.tabItem {}` renders nothing
