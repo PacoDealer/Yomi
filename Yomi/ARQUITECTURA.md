@@ -43,7 +43,7 @@ Yomi/
 │   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Install plugins + Keiyoushi catalog + NSFW filter
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About
-│   │   ├── InsightsView.swift       # Total and per-manga reading time
+│   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + per-manga time list
 │   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
@@ -57,7 +57,7 @@ Yomi/
 ├── YomiApp.swift                    # Entry point, DB setup
 ├── Resources/
 │   ├── mangadex.js                  # MangaDex plugin (Format A, JSON API, searchManga, multi-language)
-│   ├── asurascans.js                # Asura Scans plugin (Format A, HTML scraping, searchManga)
+│   ├── asurascans.js                # Asura Scans plugin (Format A, api.asurascans.com JSON API, Origin+Referer headers required)
 │   ├── aquamanga.js                 # Aqua Manga plugin (Format A, aquareader.net, cheerio, el.find() each() pattern)
 │   ├── comick.js                    # Comick plugin (Format A, public JSON API, comick.fun domain)
 │   ├── royalroad.js                 # Royal Road plugin (Format B, embedded JSON + HTML fallback)
