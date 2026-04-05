@@ -58,11 +58,10 @@ final class ExtensionManager {
             let id = sha256id(plugin.filename)
             let destURL = extensionsDirectory.appendingPathComponent("\(id).js")
 
-            // Only copy if the file is not already on disk
-            if !FileManager.default.fileExists(atPath: destURL.path) {
-                guard (try? FileManager.default.copyItem(at: bundleURL, to: destURL)) != nil
-                else { continue }
-            }
+            // Always overwrite bundled plugins so fixes take effect on next launch
+            try? FileManager.default.removeItem(at: destURL)
+            guard (try? FileManager.default.copyItem(at: bundleURL, to: destURL)) != nil
+            else { continue }
 
             let ext = Extension(
                 id:            id,
