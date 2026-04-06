@@ -1,9 +1,11 @@
 # Roadmap — Yomi
 
-## Current state (post session 17)
-All 7 bundled plugins working in simulator.
-MangaDex (✅), Comick (✅), Royal Road (✅), ScribbleHub (✅), NovelFire (✅), AquaManga (✅), Asura Scans (✅ JSON API).
-InsightsView v2: 4 stat cards (streak, chapters read, time read, titles started).
+## Current state (post S18 + pre-session audit)
+All 7 bundled plugins working. Firebase Hosting live at
+https://yomi-plugins.web.app. Plugin catalog infrastructure complete.
+Pre-S19 audit identified critical issues: dark mode broken, readers not
+immersive, font settings not applying, bundled plugins must be removed
+for App Store compliance, History shows plugin ID instead of name.
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -155,13 +157,52 @@ InsightsView v2: 4 stat cards (streak, chapters read, time read, titles started)
 | 1 | ✅ InsightsView v2 | 4 stat cards: streak, chapters read, time read, titles started. Streak from readAt dates. |
 | 2 | ✅ asurascans.js | Full JSON API rewrite via api.asurascans.com. All 7 bundled plugins now working. |
 
-## Technical debt
-| Item | Description | Priority |
-|------|-------------|----------|
-| LNReader v2.x compat | require() shim ~50 lines + esbuild script to compile TS plugins | Medium |
-| Firebase Hosting | index.json + .js plugins as CDN for OTA updates without App Store releases | Medium |
-| iCloud Drive backup | Replaces export to Files.app, native with no extra OAuth | Low |
-| UpdatesViewModel notifications | scheduleChapterNotification after checkUpdates | Low |
+## Session 18 — Plugin Catalog Infrastructure ✅ Complete
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ AppSettings.pluginCatalogURL | UserDefaults, default https://yomi-plugins.web.app/index.json, overridable in Settings |
+| 2 | ✅ PluginCatalogService.swift | NEW @Observable singleton. PluginCatalogEntry Codable struct (id, name, version, language, description, iconURL, fileURL, isNSFW). fetchCatalog() async via URLSession. isInstalled(_:) checks ExtensionManager.shared.installed |
+| 3 | ✅ JSBridge require() shim | Functional shim injected before plugin eval. Handles: cheerio (routes to global), he (inline entity decoder: decode/encode, named + numeric + hex entities), node-fetch (stub routing to SOURCE._fetchSync, returns .text()/.json() promise-compatible), axios (get/post stubs), unknown modules (empty exports, no crash). Also injects: module, exports, process globals. Enables LNReader v2.x plugins without esbuild compilation. |
+| 4 | ✅ PluginsView Browse tab | Replaced old Keiyoushi Android reference catalog. PluginsView now shows Installed and Browse sections. Browse: fetches PluginCatalogService, List with AsyncImage icon (40x40 rounded, puzzle piece fallback), name, LanguageBadge, NSFWBadge, version, Install button. installEntry() downloads and registers via ExtensionManager. NSFW toggle writes to AppSettings.shared.showNSFW. |
+| 5 | ✅ SettingsView Developer section | TextField for pluginCatalogURL at bottom of form. Monospaced font. Caption + footer with default URL. |
+| 6 | ✅ scripts/build-plugins.mjs | Node.js ESM esbuild script. Reads scripts/plugins-src/*.ts, bundles each to IIFE ES6, writes to Yomi/Resources/ + Firebase public dir (~/Desktop/yomi-firebase/public/). Auto-generates index.json with SHA256 IDs from metadata comments (@name, @version, @lang, @description, @icon, @nsfw). |
+| 7 | ✅ scripts/catalog-output/index.json | Seeded catalog with all 7 plugins: MangaDex, Comick, Asura Scans, AquaManga, Royal Road, ScribbleHub (isNSFW:true), NovelFire. fileURL: https://yomi-plugins.web.app/{name}.js. SHA256(fileURL).prefix(32) as id. |
+
+## Session 19 — Critical fixes + Reader overhaul (NEXT)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | Dark mode fix | YomiApp.swift applies .preferredColorScheme(colorScheme?) at root WindowGroup level. AppSettings.theme: "system"/"light"/"dark". Fixes broken theme toggle. |
+| 2 | Remove bundled plugins + Onboarding | Remove all 7 .js files from Yomi/Resources/ and seedBundledPlugins from YomiApp.swift. New OnboardingView.swift: full-screen first-launch card "Add your first source" → PluginsView Browse tab. AppSettings.hasSeenOnboarding flag. App Store compliant: zero piracy sources in binary. |
+| 3 | ChapterReaderView immersive mode | @State showChrome = true. TapGesture toggles. Nav bar + bottom bar + page counter fade with .opacity + .animation(.easeInOut(0.2)). .statusBarHidden(!showChrome). .toolbar(showChrome ? .visible : .hidden, for: .tabBar). |
+| 4 | TextReaderView immersive mode + font fix | Same tap-to-hide pattern. Fix font size: re-inject CSS into WKWebView on every AppSettings.novelFontSize change (evaluateJavaScript). Fix line height to 1.6×. Dark: #E8E8E8 on #1C1C1E bg. Sepia: #2C1810 on #FFF8F0. Light: #1C1C1E on white. |
+| 5 | Webtoon as default reading mode | AppSettings.defaultReaderMode = "webtoon" (was "paginated"). |
+| 6 | Chapter sort toggle | MangaDetailView: sort button in toolbar toggles chaptersAscending: Bool. ChapterQueries returns sorted list. |
+| 7 | History view source name | HistoryView: look up ext name from ExtensionManager.shared.installed by sourceId instead of displaying raw ID. |
+| 8 | Chapter 0,0 display fix | MangaDetailView: filter chapters where chapterNumber == 0 and name is empty → display as "Prologue" or skip. |
+
+## Session 20 — Browse polish + Novel features (planned)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | Browse source chips full names | Replace truncated chip labels with scrollable full-name chips or a dropdown picker |
+| 2 | Popular + Latest sections | New Format A functions: getLatestManga(page) alongside getMangaList(page). BrowseView shows two horizontal rows per source. Requires plugin protocol update + all 7 Format A plugins updated. |
+| 3 | Settings typography live preview | TextReaderView-style preview paragraph in SettingsView that updates as user changes font size / line spacing |
+| 4 | Library filter fix | Debug and fix filter/sort button in LibraryView |
+| 5 | NovelUpdates plugin | Format B (LNReader), requires login or API key research |
+
+## Session 21 — Backend + Data (planned)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | UpdatesViewModel push notifications | scheduleChapterNotification(manga:newChapters:) after checkUpdates completes |
+| 2 | iCloud Drive backup | Native UIDocumentPickerViewController, export/import JSON, no OAuth |
+
+## App Store compliance
+Yomi is App Store compliant via the extension model:
+- App binary ships with ZERO plugin files
+- Users install plugins themselves from Firebase catalog (user action, not Apple's)
+- Legal precedent: Paperback, Aidoku use identical model and are on App Store
+- App Store description: "extensible reader with user-installed JavaScript plugins"
+- Never reference specific source sites in App Store listing or screenshots
+- Onboarding must make the install-a-source flow feel easy (under 60 seconds)
 
 ## iOS compatibility
 
@@ -173,24 +214,16 @@ the app until updating to iOS 26. The app depends on iOS 26-exclusive APIs:
 
 If iOS 18 support is required in the future → branch `compat/ios18`, never on main.
 
-## Backlog (no session assigned)
-- Plugin marketplace UI (PluginsView "Browse catalog" fetches index.json from Firebase)
-- esbuild script to compile LNReader v2.x TypeScript plugins to vanilla JS
-- AniList tracking (alternative to MAL)
-- Custom reader gestures
-- TestFlight / App Store distribution
-- iPad layout (sidebar instead of tab bar)
-
 ## Target plugin sources
 | Source | Format | Status |
 |--------|--------|--------|
-| MangaDex | Format A (JSON API) | ✅ Working |
-| Comick | Format A (JSON API) | ✅ Working |
-| Royal Road | Format B (LNReader) | ✅ Working |
-| ScribbleHub | Format B (LNReader) | ✅ Working |
-| NovelFire | Format B (LNReader) | ✅ Working |
-| AquaManga | Format A (scraping) | ✅ Working |
-| Asura Scans | Format A (JSON API) | ✅ Working |
-| NovelUpdates | Format B (LNReader) | Backlog |
+| MangaDex | Format A (JSON API) | ✅ Working — on Firebase |
+| Comick | Format A (JSON API) | ✅ Working — on Firebase |
+| Asura Scans | Format A (JSON API) | ✅ Working — on Firebase |
+| AquaManga | Format A (scraping) | ✅ Working — on Firebase |
+| Royal Road | Format B (LNReader) | ✅ Working — on Firebase |
+| ScribbleHub | Format B (LNReader) | ✅ Working — on Firebase |
+| NovelFire | Format B (LNReader) | ✅ Working — on Firebase |
+| NovelUpdates | Format B (LNReader) | S20 backlog |
 
 ⚠️ Always verify current HTML of each source — selectors can change without notice.

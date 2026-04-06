@@ -52,6 +52,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - cheerio.load(html) → recursive HTML parser + CSS selector engine in pure JS (functional since S6)
 - localStorage / sessionStorage → in-memory JS objects
 - console.log/warn/error → Swift print()
+- require(name) → module cache shim: routes cheerio/he/node-fetch/axios to native equivalents; injects module, exports, process globals (since S18)
 
 ## File path rules
 - Before generating any edit prompt, Claude.ai must cite the confirmed exact file path
@@ -59,6 +60,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - Frequently referenced paths:
   - JSBridge: Yomi/Features/Extensions/JSBridge.swift
   - ExtensionManager: Yomi/Features/Extensions/ExtensionManager.swift
+  - PluginCatalogService: Yomi/Features/Extensions/PluginCatalogService.swift
   - UpdatesView+ViewModel: Yomi/Features/More/UpdatesView.swift (ViewModel embedded in same file)
   - AppSettings: Yomi/AppSettings.swift (project root, not in Core/)
   - ContentView: Yomi/ContentView.swift (project root)
@@ -82,6 +84,56 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 15 | 2026-04-04 | AppRouter singleton (@Observable, module-level, Tab(value:) iOS 26). LibraryView empty state navigates to Browse. JSBridge POST support (SOURCE.fetch method/body/headers, _fetchSync 4 args). ContinueReadingRow horizontal in LibraryView. NotificationManager + local push on first library save. TextReaderView: #E8E8E8, line-height 1.5, 18pt min, sepia mode. Fix MangaDetailView loadChapters (bridge(for:)). Fix ContinueReadingRow duplicate .task. Fix comick.js domain (comick.fun). Plugin diagnosis: HTML arrives OK for RoyalRoad/ScribbleHub/NovelFire but selectors incorrect; Asura=React SSR; AquaManga=domain unreachable. |
 | 16 | 2026-04-05 | Plugin root cause analysis and fixes. seedBundledPlugins overwrite fix. each() callback pattern fix in royalroad/scribblehub/novelfire/aquamanga. aquamanga domain (aquareader.net) and cover selector fix. All 6 non-Asura plugins working. |
 | 17 | 2026-04-05 | InsightsView v2: 4 stat cards (reading streak, chapters read, time read, titles started), streak computed from readAt dates via Set<DateComponents>. asurascans.js full rewrite to api.asurascans.com JSON API (no HTML scraping). All 7 bundled plugins working. |
+| 18 | 2026-04-06 | PluginCatalogService (@Observable singleton, PluginCatalogEntry Codable, fetchCatalog async URLSession, isInstalled check). JSBridge require() shim (cheerio, he entity decoder, node-fetch→SOURCE._fetchSync, axios stubs, module/exports/process globals). PluginsView: Installed + Browse sections, Browse fetches remote catalog, installEntry via ExtensionManager, replaces Keiyoushi Android reference. AppSettings.pluginCatalogURL UserDefaults. SettingsView Developer section. scripts/build-plugins.mjs (esbuild IIFE bundler + index.json generator). scripts/catalog-output/index.json (7 plugins seeded). Firebase Hosting: https://yomi-plugins.web.app |
+
+## Pre-S19 Audit — Research findings
+
+### App Store compliance (confirmed)
+- Paperback and Aidoku are on the App Store using the identical extension model
+- The legal line: app binary must ship with ZERO piracy-adjacent plugin files
+- Users install plugins themselves = user action, not developer action
+- Bundled .js files in Yomi/Resources/ must be removed before App Store submission
+- seedBundledPlugins in YomiApp.swift must be removed with them
+- Onboarding replaces bundled plugins: first-launch screen → Browse catalog → install
+
+### Dark mode — correct SwiftUI pattern
+- `.preferredColorScheme()` must be applied in YomiApp.swift on ContentView inside WindowGroup, NOT on a child NavigationStack or individual views
+- AppSettings.theme stores "system"/"light"/"dark" as String
+- Computed var `colorScheme: ColorScheme?` — nil for system, .light or .dark otherwise
+- Pattern: `ContentView().preferredColorScheme(appSettings.colorScheme)`
+
+### Immersive reader — correct pattern
+- `@State var showChrome = true` toggled by TapGesture on scroll content
+- All chrome (nav, tab bar, controls) uses: `.opacity(showChrome ? 1 : 0).animation(.easeInOut(duration: 0.2), value: showChrome)`
+- System status bar: `.statusBarHidden(!showChrome)` on the root reader view
+- Tab bar: `.toolbar(showChrome ? .visible : .hidden, for: .tabBar)`
+- Never use `.hidden` directly — always opacity+animation for smooth transition
+
+### TextReaderView font size fix
+- WKWebView renders HTML once — changing AppSettings.novelFontSize after load has no effect
+- Fix: call `webView.evaluateJavaScript("document.body.style.fontSize = '\(size)px'")` on every font size change
+- Better fix: observe AppSettings changes via `.onChange(of:)` and re-inject the full CSS string
+- Line height should be 1.6× (not 1.5×) per research — more comfortable for long-form reading
+
+### Novel reader optimal settings (research-confirmed)
+- Font size default: 18pt, range 14–28pt
+- Line height: 1.6× font size
+- Dark text color: #E8E8E8 (not white — reduces glare)
+- Dark background: #1C1C1E (not pure black — easier on eyes)
+- Sepia text: #2C1810 on #FFF8F0 background
+- Light mode: #1C1C1E on white
+- Contrast ratios meet WCAG 4.5:1 in all three modes
+- Font: SF Pro (system) for default; Georgia acceptable for sepia mode
+
+## S18 — Technical learnings
+
+- **require() shim in JSBridge**: inject before plugin eval via `injectRequireShim(into:)`. Cache modules in `__moduleCache`. Route `cheerio` to global, `he` inline (named + numeric + hex entity decode/encode), `node-fetch`/`node-fetch/src/index.js` to `SOURCE._fetchSync`, `axios` get/post to `SOURCE._fetchSync`. Unknown modules return empty `{}` — never crash. Always inject `module`, `exports`, `process` globals. This enables LNReader v2.x plugins to run in JavaScriptCore without an esbuild compilation step.
+
+- **PluginCatalogService pattern**: `@Observable` singleton that owns remote catalog state (`entries`, `isLoading`, `errorMessage`). `fetchCatalog()` is a plain `async func` — call from `.task {}` in the View. Never call from `init()`. `isInstalled()` cross-references `ExtensionManager.shared.installed` by name.
+
+- **Firebase Hosting as plugin CDN**: project yomi-plugins, live at https://yomi-plugins.web.app. `index.json` + `.js` files in `~/Desktop/yomi-firebase/public/`. Deploy: `cd ~/Desktop/yomi-firebase && firebase deploy --only hosting`. Firebase folder lives outside the Xcode repo (`~/Desktop/yomi-firebase`) — not committed to git.
+
+- **esbuild IIFE for JSContext**: `format: 'iife'`, `bundle: true`, `platform: 'browser'`, `target: 'es6'`. Output is a self-contained JS file with no `import`/`require` statements — directly evaluatable by `JSContext.evaluateScript()`.
 
 ## S17 — Technical learnings
 
@@ -117,8 +169,8 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - **Swift 6 + GRDB**: `init(row:)` and `encode(to:)` from FetchableRecord/PersistableRecord require `nonisolated` with `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
 - **DerivedData stale**: clean with `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*` and ⇧⌘K in Xcode
 - **JSBridge async**: JSContext is synchronous; SOURCE.fetch blocks with DispatchSemaphore; always call from Task.detached, never from MainActor
-- **Keiyoushi plugins**: they are Android .apk, do not run on iOS; shown as reference catalog only
-- **LNReader plugins**: TypeScript compiled to JS — compatible with JavaScriptCore if correct shims are implemented (fetch, cheerio, storage)
+- **Keiyoushi plugins**: they are Android .apk, do not run on iOS; replaced in S18 by a real Yomi-native catalog on Firebase Hosting
+- **LNReader plugins**: TypeScript compiled to JS — compatible with JavaScriptCore if correct shims are implemented (fetch, cheerio, storage, require)
 - **Cheerio shim**: full recursive HTML parser + CSS selector engine implemented in pure JS; functional since S6. Not a stub.
 - **db.write unused result**: GRDB db.write returns the closure value — use `_ = try appDatabase.write { ... }` to silence the "Result of call to 'write' is unused" warning
 - **GRDB bulk column update**: use `Model.filter(Column("id") == id).updateAll(db, [Column("field").set(to: value)])` instead of fetch-mutate-save for partial updates
@@ -175,7 +227,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 
 - **ScribbleHub requires POST in SOURCE.fetch**: ScribbleHub loads the TOC via POST to `wp-admin/admin-ajax.php` with `action=wi_gettocchp`. If `JSBridge.swift` only supports GET, the TOC will be empty and `parseNovel` will return zero chapters. Before testing `scribblehub.js`, verify that `SOURCE.fetch` supports `method: "POST"` and `options.body`.
 
-- **Firebase Hosting as plugin repo**: Firebase Hosting (free tier) is the optimal option for hosting a custom plugin repository (`index.json` + `.js` files). Enables stable URLs like `https://yomi-plugins.web.app/index.json`. PluginsView can point to this URL to discover and install plugins without knowing each `.js` URL directly. Implementation pending.
+- **Firebase Hosting as plugin repo**: Firebase Hosting (free tier) hosts the Yomi plugin repository (`index.json` + `.js` files). Live at `https://yomi-plugins.web.app/index.json`. `PluginCatalogService` fetches from this URL; `PluginsView` Browse tab lists entries with real Install buttons. Implemented in S18.
 
 - **User retention findings from S14 research**: highest ROI retention features, ordered by impact: (1) key action in first 3 minutes = 2x retention — the "Browse sources" button in LibraryView empty state goes in this direction; (2) push notifications for new chapters — request permission AFTER user saves their first manga (iOS opt-in rate 43.9%); (3) "Continue reading" row at LibraryView top — maximum friction reduction; (4) light gamification without pressure (streaks, milestones without points/badges/leaderboards); (5) optimal typography in TextReaderView: 18pt minimum, line-height 1.5x, color `#E8E8E8` in dark mode (not pure white).
 

@@ -72,6 +72,7 @@ final class JSBridge {
         injectStorage(into: ctx)
         injectSourceFetch(into: ctx)
         injectCheerio(into: ctx)
+        injectRequireShim(into: ctx)
     }
 
     /// console.log / warn / error → Swift print()
@@ -474,6 +475,113 @@ final class JSBridge {
             };
         })(this);
         """#)
+    }
+
+    /// require() shim — supports: cheerio, he, node-fetch, axios. Unknown modules return {}.
+    /// Also injects: module, exports, process globals for LNReader v2.x TS-compiled plugins.
+    nonisolated private static func injectRequireShim(into ctx: JSContext) {
+        ctx.evaluateScript("""
+        (function(global) {
+            var __moduleCache = {};
+
+            function require(name) {
+                if (__moduleCache[name]) return __moduleCache[name];
+
+                var mod = { exports: {} };
+
+                if (name === 'cheerio') {
+                    mod.exports = global.cheerio || {};
+
+                } else if (name === 'he') {
+                    mod.exports = (function() {
+                        var entities = {
+                            'amp': '&', 'lt': '<', 'gt': '>', 'quot': '"',
+                            'apos': "'", 'nbsp': '\\u00A0', 'copy': '©',
+                            'reg': '®', 'trade': '™', 'mdash': '—',
+                            'ndash': '–', 'lsquo': '\\u2018', 'rsquo': '\\u2019',
+                            'ldquo': '\\u201C', 'rdquo': '\\u201D', 'hellip': '…',
+                            'euro': '€', 'pound': '£', 'yen': '¥',
+                            'cent': '¢', 'deg': '°', 'plusmn': '±',
+                            'times': '×', 'divide': '÷', 'frac12': '½',
+                            'frac14': '¼', 'frac34': '¾', 'acute': '´',
+                            'micro': 'µ', 'para': '¶', 'middot': '·',
+                            'iquest': '¿', 'iexcl': '¡', 'szlig': 'ß'
+                        };
+                        function decode(str) {
+                            if (typeof str !== 'string') return str;
+                            return str.replace(/&([^;]+);/g, function(match, code) {
+                                if (code.charAt(0) === '#') {
+                                    var num = code.charAt(1) === 'x'
+                                        ? parseInt(code.slice(2), 16)
+                                        : parseInt(code.slice(1), 10);
+                                    return isNaN(num) ? match : String.fromCharCode(num);
+                                }
+                                return entities[code] || match;
+                            });
+                        }
+                        function encode(str) {
+                            if (typeof str !== 'string') return str;
+                            return str
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#x27;');
+                        }
+                        return { decode: decode, encode: encode };
+                    })();
+
+                } else if (name === 'node-fetch' || name === 'node-fetch/src/index.js') {
+                    mod.exports = function nodeFetch(url, options) {
+                        var method = (options && options.method) ? options.method : 'GET';
+                        var body   = (options && options.body)   ? options.body   : '';
+                        var hdrs   = (options && options.headers)
+                            ? JSON.stringify(options.headers) : '{}';
+                        var responseText = SOURCE._fetchSync(url, method, body, hdrs);
+                        return {
+                            ok: true,
+                            status: 200,
+                            text:   function() { return Promise.resolve(responseText); },
+                            json:   function() {
+                                return Promise.resolve(JSON.parse(responseText));
+                            }
+                        };
+                    };
+
+                } else if (name === 'axios') {
+                    mod.exports = {
+                        get: function(url, config) {
+                            var hdrs = (config && config.headers)
+                                ? JSON.stringify(config.headers) : '{}';
+                            var text = SOURCE._fetchSync(url, 'GET', '', hdrs);
+                            return Promise.resolve({ data: text, status: 200 });
+                        },
+                        post: function(url, data, config) {
+                            var hdrs = (config && config.headers)
+                                ? JSON.stringify(config.headers) : '{}';
+                            var body = typeof data === 'string' ? data : JSON.stringify(data);
+                            var text = SOURCE._fetchSync(url, 'POST', body, hdrs);
+                            return Promise.resolve({ data: text, status: 200 });
+                        }
+                    };
+
+                } else {
+                    // Unknown module — return empty exports, do not crash
+                    mod.exports = {};
+                }
+
+                __moduleCache[name] = mod.exports;
+                return mod.exports;
+            }
+
+            global.require = require;
+            global.module  = { exports: {} };
+            global.exports = global.module.exports;
+            global.process = { env: { NODE_ENV: 'production' }, version: 'v18.0.0',
+                               platform: 'ios', versions: {} };
+
+        })(this);
+        """)
     }
 
     // MARK: - Plugin API — Manga (Format A)
