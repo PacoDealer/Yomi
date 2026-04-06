@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 // MARK: - AppSettings
 
@@ -46,6 +47,15 @@ import Observation
         set { defaults.set(newValue, forKey: "theme") }
     }
 
+    /// Resolved ColorScheme for .preferredColorScheme(). Nil = follow system.
+    var colorScheme: ColorScheme? {
+        switch theme {
+        case "Light": return .light
+        case "Dark":  return .dark
+        default:      return nil
+        }
+    }
+
     /// Whether to use the system font or the built-in reader font
     var useSystemFont: Bool {
         get { defaults.object(forKey: "useSystemFont") as? Bool ?? true }
@@ -70,6 +80,12 @@ import Observation
     var novelSepia: Bool {
         get { defaults.bool(forKey: "novelSepia") }
         set { defaults.set(newValue, forKey: "novelSepia") }
+    }
+
+    /// Whether the user has completed the first-launch onboarding flow
+    var hasSeenOnboarding: Bool {
+        get { defaults.bool(forKey: "hasSeenOnboarding") }
+        set { defaults.set(newValue, forKey: "hasSeenOnboarding") }
     }
 
     // MARK: - Plugins

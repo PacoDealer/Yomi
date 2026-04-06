@@ -25,16 +25,16 @@ struct TextReaderView: View {
         let bg: String
         let fg: String
         if isSepia {
-            bg = "#F4ECD8"
-            fg = "#5C4033"
+            bg = "#FFF8F0"
+            fg = "#2C1810"
         } else {
-            bg = isDarkMode ? "#111111" : "#ffffff"
-            fg = isDarkMode ? "#e8e8e8" : "#1a1a1a"
+            bg = isDarkMode ? "#1C1C1E" : "#FFFFFF"
+            fg = isDarkMode ? "#E8E8E8" : "#1C1C1E"
         }
         let style = """
         <style>
         body { font-family: -apple-system; font-size: \(effectiveFontSize)px;
-               line-height: 1.5; padding: 20px 16px;
+               line-height: 1.6; padding: 20px 16px;
                background: \(bg); color: \(fg); max-width: 680px; margin: 0 auto; }
         img  { max-width: 100%; }
         a    { color: #4a9eff; }
@@ -79,7 +79,6 @@ struct TextReaderView: View {
         }
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
-        .preferredColorScheme(.dark)
         .task { await loadContent() }
     }
 

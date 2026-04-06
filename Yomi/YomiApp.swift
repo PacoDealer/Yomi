@@ -9,14 +9,19 @@ import SwiftUI
 
 @main
 struct YomiApp: App {
+    @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding
+
     init() {
         try? DatabaseManager.shared.setup()
-        ExtensionManager.shared.seedBundledPlugins()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(AppSettings.shared.colorScheme)
+                .fullScreenCover(isPresented: $showOnboarding) {
+                    OnboardingView()
+                }
         }
     }
 }
