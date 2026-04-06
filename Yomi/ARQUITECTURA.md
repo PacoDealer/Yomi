@@ -55,18 +55,14 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins removed in S19 for App Store compliance
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 9 properties
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 10 properties
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
-├── YomiApp.swift                    # Entry point, DB setup
+├── YomiApp.swift                    # Entry point, DB setup, preferredColorScheme at root, onboarding gate via fullScreenCover
 ├── Resources/
-│   ├── mangadex.js                  # MangaDex plugin (Format A, JSON API, searchManga, multi-language)
-│   ├── asurascans.js                # Asura Scans plugin (Format A, api.asurascans.com JSON API, Origin+Referer headers required)
-│   ├── aquamanga.js                 # Aqua Manga plugin (Format A, aquareader.net, cheerio, el.find() each() pattern)
-│   ├── comick.js                    # Comick plugin (Format A, public JSON API, comick.fun domain)
-│   ├── royalroad.js                 # Royal Road plugin (Format B, embedded JSON + HTML fallback)
-│   ├── scribblehub.js               # ScribbleHub plugin (Format B, AJAX POST TOC)
-│   ├── novelfire.js                 # NovelFire plugin (Format B, chapter pagination)
-│   └── test-source.js               # Test plugin (Format A)
+│   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
+│   # Note: 7 production plugins (mangadex, asurascans, aquamanga, comick,
+│   # royalroad, scribblehub, novelfire) removed from binary in S19 for App Store
+│   # compliance. All plugins hosted on Firebase: https://yomi-plugins.web.app
 ├── ARQUITECTURA.md
 ├── METODOLOGIA.md
 └── ROADMAP.md
@@ -152,6 +148,7 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `hasRequestedNotifications: Bool` — flag to request permission only once
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
+- `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView; prevents re-showing on subsequent launches
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
