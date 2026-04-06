@@ -98,7 +98,8 @@ private struct HistoryRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Text(manga.sourceId)
+                Text(ExtensionManager.shared.installed
+                        .first { $0.id == manga.sourceId }?.name ?? manga.sourceId)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)

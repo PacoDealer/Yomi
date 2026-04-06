@@ -49,6 +49,12 @@ struct ChapterReaderView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            // Tap-to-hide chrome — sits behind all reader content so
+            // scroll/pinch gestures on the reader views still take priority.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { showOverlay.toggle() }
+
             if isLoading {
                 ProgressView()
                     .tint(.white)
