@@ -1,0 +1,72 @@
+[
+  {
+    "id": "30d4bce7ad3aad20d8ebe88e5ffc1874",
+    "name": "MangaDex",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read manga from MangaDex, the world's largest manga community.",
+    "iconURL": "https://mangadex.org/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/mangadex.js",
+    "isNSFW": false
+  },
+  {
+    "id": "ca4e5f30201b5f8000a0e909b307c6ed",
+    "name": "Comick",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read manga and manhwa from Comick via its public JSON API.",
+    "iconURL": "https://comick.fun/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/comick.js",
+    "isNSFW": false
+  },
+  {
+    "id": "4e1153701ab7a58a7b199ee8d3157c3c",
+    "name": "Asura Scans",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read manhwa from Asura Scans via its internal JSON API.",
+    "iconURL": "https://asuracomic.net/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/asurascans.js",
+    "isNSFW": false
+  },
+  {
+    "id": "6ae5929f122df341003fa265ca3b098c",
+    "name": "AquaManga",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read manga from AquaManga (aquareader.net) using the Madara WordPress theme.",
+    "iconURL": null,
+    "fileURL": "https://yomi-plugins.web.app/aquamanga.js",
+    "isNSFW": false
+  },
+  {
+    "id": "ad14b39be8681c8c3b5a4782c31a3e24",
+    "name": "Royal Road",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read original web novels and fiction from Royal Road.",
+    "iconURL": "https://www.royalroad.com/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/royalroad.js",
+    "isNSFW": false
+  },
+  {
+    "id": "866b1934a1e2e8560cc7d741a55197ca",
+    "name": "ScribbleHub",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read original web novels from ScribbleHub, including adult content.",
+    "iconURL": "https://www.scribblehub.com/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/scribblehub.js",
+    "isNSFW": true
+  },
+  {
+    "id": "722bfd7235e169c02e186705bda64fe3",
+    "name": "NovelFire",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Browse and read popular web novels from NovelFire.",
+    "iconURL": "https://novelfire.net/favicon.ico",
+    "fileURL": "https://yomi-plugins.web.app/novelfire.js",
+    "isNSFW": false
+  }
+]

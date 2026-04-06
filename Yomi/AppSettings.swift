@@ -71,4 +71,12 @@ import Observation
         get { defaults.bool(forKey: "novelSepia") }
         set { defaults.set(newValue, forKey: "novelSepia") }
     }
+
+    // MARK: - Plugins
+
+    /// URL of the plugin catalog index.json used by PluginsView "Browse catalog"
+    var pluginCatalogURL: String {
+        get { defaults.string(forKey: "pluginCatalogURL") ?? "https://yomi-plugins.web.app/index.json" }
+        set { defaults.set(newValue, forKey: "pluginCatalogURL") }
+    }
 }

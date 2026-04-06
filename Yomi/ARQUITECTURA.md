@@ -41,18 +41,21 @@ Yomi/
 │   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
 │   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
-│   │   ├── PluginsView.swift        # Install plugins + Keiyoushi catalog + NSFW filter
-│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About
+│   │   ├── PluginsView.swift        # Installed plugins + Browse catalog (PluginCatalogService, Install button per entry) + NSFW filter
+│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Developer (catalog URL)
 │   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + per-manga time list
 │   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView
 │   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdatesRow
+│   ├── Onboarding/
+│   │   └── OnboardingView.swift     # First-launch full-screen card (S19 — new); guides user to Browse catalog; gated by AppSettings.hasSeenOnboarding
 │   └── Extensions/
-│       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, searchManga, POST support)
-│       └── ExtensionManager.swift   # Install/remove plugins, seedBundledPlugins
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 8 properties
+│       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
+│       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins removed in S19 for App Store compliance
+│       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 9 properties
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point, DB setup
 ├── Resources/
@@ -68,6 +71,12 @@ Yomi/
 ├── METODOLOGIA.md
 └── ROADMAP.md
 
+scripts/
+├── build-plugins.mjs               # Node.js ESM esbuild bundler: reads plugins-src/*.ts → IIFE JS → Yomi/Resources/ + Firebase public/; generates index.json
+├── plugins-src/                    # LNReader v2.x TypeScript plugin sources (place .ts files here; built by build-plugins.mjs)
+└── catalog-output/
+    └── index.json                  # Seeded catalog (7 plugins) for Firebase Hosting deployment reference
+
 ## Architecture layers
 ┌─────────────────────────────────────────┐
 │            SwiftUI Views                │  Features/
@@ -76,7 +85,8 @@ Yomi/
 ├─────────────────────────────────────────┤
 │  AppRouter + NotificationManager        │  Core/
 ├─────────────────────────────────────────┤
-│    ExtensionManager + JSBridge          │  Features/Extensions/
+│  ExtensionManager + JSBridge            │  Features/Extensions/
+│  PluginCatalogService                   │
 ├──────────────────┬──────────────────────┤
 │   GRDB (SQLite)  │  JavaScriptCore      │
 │   appDatabase    │  JS Plugins          │
@@ -141,6 +151,7 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `showNSFW: Bool` — show NSFW sources and catalog entries
 - `hasRequestedNotifications: Bool` — flag to request permission only once
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
+- `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
@@ -154,6 +165,14 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `requestPermission() async` — requests `.alert + .badge + .sound`
 - `scheduleChapterNotification(mangaTitle:newCount:)` — immediate local notification
 - Trigger: MangaDetailView, first library save, only if `!hasRequestedNotifications`
+
+### PluginCatalogService (Yomi/Features/Extensions/PluginCatalogService.swift)
+`@Observable final class`, accessed via `PluginCatalogService.shared`
+- `entries: [PluginCatalogEntry]` — decoded catalog from remote index.json
+- `isLoading: Bool` / `errorMessage: String?` — fetch state
+- `fetchCatalog() async` — fetches `AppSettings.shared.pluginCatalogURL`, decodes `[PluginCatalogEntry]`
+- `isInstalled(_ entry:) -> Bool` — cross-references `ExtensionManager.shared.installed` by name
+- `PluginCatalogEntry`: `Codable + Identifiable`; fields: `id`, `name`, `version`, `language`, `description`, `iconURL: String?`, `fileURL`, `isNSFW`
 
 ## JS plugin system
 
@@ -170,7 +189,7 @@ ExtensionManager.bridge(for: ext)
 ↓
 JSBridge.init
 → creates JSContext
-→ injects shims (SOURCE.fetch, cheerio, localStorage, console)
+→ injects shims (SOURCE.fetch, cheerio, localStorage, console, require())
 → evaluates the JS script
 → detects format (A or B)
 ↓
@@ -214,6 +233,7 @@ var isLNReaderPlugin: Bool {
 | `console.log/warn/error` | Swift print() | ✅ Functional |
 | `localStorage` / `sessionStorage` | In-memory JS object with get/set/removeItem | ✅ Functional |
 | `cheerio.load(html)` | Recursive HTML parser + CSS selector engine in pure JS | ✅ Functional (since S6) |
+| `require(name)` | Module cache shim: cheerio→global, he inline, node-fetch/axios→SOURCE._fetchSync, unknown→{}; injects module/exports/process | ✅ Functional (since S18) |
 
 SOURCE.fetch supports GET and POST:
 ```javascript
@@ -223,6 +243,53 @@ SOURCE.fetch(url, { method: "POST", body: "...", headers: {...} })  // POST
 `_fetchSync` receives 4 parameters: `(url, method, body, headersJSON)`
 Swift handler merges default headers (iPhone Safari User-Agent) with plugin headers.
 Plugin headers take precedence over defaults.
+
+### require() shim detail
+Injected via `injectRequireShim(into: ctx)` as an IIFE before plugin evaluation.
+```javascript
+(function(global) {
+    var __moduleCache = {};
+    function require(name) {
+        if (__moduleCache[name]) return __moduleCache[name];
+        var mod = { exports: {} };
+        if      (name === 'cheerio')       { mod.exports = global.cheerio || {}; }
+        else if (name === 'he')            { /* inline entity decode/encode */ }
+        else if (name === 'node-fetch' || name === 'node-fetch/src/index.js') { /* SOURCE._fetchSync wrapper */ }
+        else if (name === 'axios')         { /* get/post via SOURCE._fetchSync */ }
+        else                              { mod.exports = {}; }
+        __moduleCache[name] = mod.exports;
+        return mod.exports;
+    }
+    global.require = require;
+    global.module  = { exports: {} };
+    global.exports = global.module.exports;
+    global.process = { env: { NODE_ENV: 'production' }, version: 'v18.0.0',
+                       platform: 'ios', versions: {} };
+})(this);
+```
+
+## Firebase Hosting
+
+**Project:** yomi-plugins
+**URL:** https://yomi-plugins.web.app
+**index.json:** https://yomi-plugins.web.app/index.json
+**Local folder:** `~/Desktop/yomi-firebase/` (outside Xcode repo, not committed to git)
+**Deploy:** `cd ~/Desktop/yomi-firebase && firebase deploy --only hosting`
+
+**Structure:**
+```
+public/
+  index.json     ← plugin catalog ([PluginCatalogEntry] JSON array)
+  mangadex.js
+  comick.js
+  asurascans.js
+  aquamanga.js
+  royalroad.js
+  scribblehub.js
+  novelfire.js
+```
+
+Plugin IDs in index.json are `SHA256(fileURL).prefix(32)` — consistent with the ID scheme used by `ExtensionManager` for network-installed plugins.
 
 ## Data flows
 
@@ -240,6 +307,15 @@ BrowseView
 → Task.detached { bridge.getPageList(chapterPath:) }
 → MangaReaderView (RTL TabView)  or
    WebtoonReaderView (ScrollView LazyVStack)
+
+### Plugin catalog install (OTA)
+PluginsView Browse tab
+→ .task { await PluginCatalogService.shared.fetchCatalog() }
+→ GET AppSettings.shared.pluginCatalogURL (index.json)
+→ [PluginCatalogEntry] listed with Install button
+→ installEntry(_:) builds Extension(id: entry.id, sourceListURL: URL(entry.fileURL))
+→ extensionManager.install(ext)
+→ URLSession downloads .js → Documents/Extensions/{id}.js → GRDB upsert
 
 ### Server-side search
 SearchView (BrowseView)
@@ -373,7 +449,9 @@ Valid exception to "one file per prompt": they are docs, not Swift code.
 | GRDB | SwiftData | Schema control, migrations, maturity |
 | Local .js plugins | Own remote API | No server, works offline |
 | Own Format A | LNReader only | LNReader has no manga plugins, only novels |
-| Keiyoushi as reference | Try to run .apk | Android .apk don't run on iOS |
+| Keiyoushi as reference (S4–S17) | Try to run .apk | Android .apk don't run on iOS; replaced in S18 by real Yomi-native catalog |
+| Yomi-native plugin catalog (S18) | Keiyoushi Android catalog | Keiyoushi plugins are Android .apk — incompatible with iOS. Yomi hosts its own index.json on Firebase Hosting with real installable .js plugins |
+| require() shim over esbuild-only | Require esbuild for all plugins | Shim enables LNReader v2.x plugins to run without a build step; esbuild script available for TS authoring |
 | nonisolated GRDB access | Singleton property on MainActor | Module-level `nonisolated(unsafe) var appDatabase` is the official GRDB pattern for Swift 6 — avoids actor hops in *Queries |
 | UserDefaults for settings | CoreData / JSON file | Simple settings don't need a DB |
 | MAL token in UserDefaults | Keychain | Sufficient for MVP; migrate to Keychain before App Store |
@@ -382,6 +460,18 @@ Valid exception to "one file per prompt": they are docs, not Swift code.
 | debounceTask (Task.sleep) | Combine debounce | Less code, no Combine dependency, sufficient for a TextField |
 | Firebase Hosting for plugin repo | Own server / paid CDN | Free, stable URLs, no backend — sufficient for index.json + .js files |
 | module-level appRouter | AppRouter.shared singleton | Consistent with appDatabase pattern; nonisolated(unsafe) at module level is the established pattern in this project |
+| Remove bundled plugins for App Store | Ship 7 .js files in binary | Binary with piracy-adjacent content risks rejection; user-installed model is legally sound and has App Store precedent |
+| OnboardingView on first launch | No onboarding, empty state only | Without onboarding, new users see an empty app and churn; Paperback users confirm the "setup moment" is critical |
+
+## App Store strategy
+Yomi uses the extension model for App Store compliance, identical to Paperback and Aidoku:
+- App binary ships with ZERO plugin .js files
+- All plugins hosted on Firebase Hosting (https://yomi-plugins.web.app)
+- Users install plugins themselves via PluginsView Browse tab
+- First-launch OnboardingView guides users to install their first source
+- App Store description frames Yomi as "an extensible reader with user-installed JavaScript plugins"
+- seedBundledPlugins removed from YomiApp.swift before App Store build (S19)
+- Legal precedent: Paperback (App Store), Aidoku (TestFlight) use identical model
 
 ## Language
 All code, commits, documentation, prompts, and communication between

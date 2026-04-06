@@ -1,62 +1,41 @@
 import SwiftUI
 import CryptoKit
 
-// MARK: - Keiyoushi catalog model
-
-private struct KeiyoushiEntry: Codable, Identifiable {
-    var id: String { pkg }
-    let name: String
-    let pkg: String
-    let lang: String
-    let version: String
-    let nsfw: Int
-}
-
 // MARK: - PluginsView
 
 struct PluginsView: View {
     @State private var extensionManager = ExtensionManager.shared
+    @State private var catalogService   = PluginCatalogService.shared
+    @State private var settings         = AppSettings.shared
 
-    // Catalog state
-    @State private var catalogItems: [KeiyoushiEntry] = []
-    @State private var isCatalogLoading = false
-    @State private var catalogError: String? = nil
-    @State private var searchText = ""
-
-    // NSFW filter
-    @State private var showNSFW: Bool = false
-
-    // Install sheet
+    @State private var searchText    = ""
     @State private var showInstallSheet = false
+    @State private var installingID: String? = nil
 
-    // Android info sheet
-    @State private var androidInfoEntry: KeiyoushiEntry? = nil
-
-    private var filteredCatalog: [KeiyoushiEntry] {
-        var base = searchText.isEmpty ? catalogItems : catalogItems.filter { $0.name.localizedStandardContains(searchText) }
-        if !showNSFW { base = base.filter { $0.nsfw == 0 } }
+    private var filteredCatalog: [PluginCatalogEntry] {
+        var base = searchText.isEmpty
+            ? catalogService.entries
+            : catalogService.entries.filter { $0.name.localizedStandardContains(searchText) }
+        if !settings.showNSFW { base = base.filter { !$0.isNSFW } }
         return base
     }
 
     var body: some View {
         List {
             installedSection
-            disclaimerBanner
             catalogSection
         }
         .navigationTitle("Plugins")
         .searchable(text: $searchText, prompt: "Search catalog")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button { showNSFW.toggle() } label: {
-                    Label("NSFW", systemImage: showNSFW ? "eye" : "eye.slash")
-                        .foregroundStyle(showNSFW ? .red : .secondary)
+                Button { settings.showNSFW.toggle() } label: {
+                    Label("NSFW", systemImage: settings.showNSFW ? "eye" : "eye.slash")
+                        .foregroundStyle(settings.showNSFW ? .red : .secondary)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showInstallSheet = true
-                } label: {
+                Button { showInstallSheet = true } label: {
                     Image(systemName: "plus")
                 }
             }
@@ -64,10 +43,7 @@ struct PluginsView: View {
         .sheet(isPresented: $showInstallSheet) {
             InstallFromURLSheet(extensionManager: extensionManager)
         }
-        .sheet(item: $androidInfoEntry) { entry in
-            AndroidExtensionInfoSheet(entry: entry)
-        }
-        .task { await loadCatalog() }
+        .task { await catalogService.fetchCatalog() }
     }
 
     // MARK: Installed section
@@ -93,68 +69,57 @@ struct PluginsView: View {
         }
     }
 
-    // MARK: Disclaimer banner
-
-    private var disclaimerBanner: some View {
-        Section {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.title3)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Android extensions — reference only")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Text("The catalog below lists Keiyoushi extensions for Android. They cannot run on iOS. Tap ⓘ on any entry to learn more.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
     // MARK: Catalog section
 
     @ViewBuilder
     private var catalogSection: some View {
         Section {
-            if isCatalogLoading {
+            if catalogService.isLoading {
                 HStack {
                     Spacer()
                     ProgressView()
                     Spacer()
                 }
                 .padding(.vertical, 8)
-            } else if let error = catalogError {
+            } else if let error = catalogService.errorMessage {
                 Text("Failed to load catalog: \(error)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(filteredCatalog) { entry in
-                    CatalogEntryRow(entry: entry) {
-                        androidInfoEntry = entry
+                    YomiCatalogEntryRow(
+                        entry:       entry,
+                        isInstalled: catalogService.isInstalled(entry),
+                        isInstalling: installingID == entry.id
+                    ) {
+                        Task { await installEntry(entry) }
                     }
                 }
             }
         } header: {
-            Text("Keiyoushi catalog (\(filteredCatalog.count))")
+            Text("Yomi catalog (\(filteredCatalog.count))")
         }
     }
 
-    // MARK: Load catalog
+    // MARK: Install from catalog
 
-    private func loadCatalog() async {
-        isCatalogLoading = true
-        catalogError = nil
-        do {
-            let url = URL(string: "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json")!
-            let (data, _) = try await URLSession.shared.data(from: url)
-            catalogItems = try JSONDecoder().decode([KeiyoushiEntry].self, from: data)
-        } catch {
-            catalogError = error.localizedDescription
-        }
-        isCatalogLoading = false
+    private func installEntry(_ entry: PluginCatalogEntry) async {
+        guard let fileURL = URL(string: entry.fileURL) else { return }
+        installingID = entry.id
+
+        let ext = Extension(
+            id:            entry.id,
+            name:          entry.name,
+            version:       entry.version,
+            language:      entry.language,
+            iconURL:       entry.iconURL.flatMap { URL(string: $0) },
+            sourceListURL: fileURL,
+            isInstalled:   true,
+            isNSFW:        entry.isNSFW,
+            sourceIds:     []
+        )
+        await extensionManager.install(ext)
+        installingID = nil
     }
 }
 
@@ -190,92 +155,53 @@ private struct InstalledExtensionRow: View {
     }
 }
 
-// MARK: - CatalogEntryRow
+// MARK: - YomiCatalogEntryRow
 
-private struct CatalogEntryRow: View {
-    let entry: KeiyoushiEntry
-    let onInfo: () -> Void
+private struct YomiCatalogEntryRow: View {
+    let entry:       PluginCatalogEntry
+    let isInstalled: Bool
+    let isInstalling: Bool
+    let onInstall:   () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            // Placeholder icon — Keiyoushi doesn't provide icon URLs in the index
-            Image(systemName: "puzzlepiece.extension")
-                .resizable()
-                .aspectRatio(1, contentMode: .fit)
-                .padding(8)
-                .foregroundStyle(.secondary)
-                .background(Color.secondary.opacity(0.12))
-                .frame(width: 40, height: 40)
-                .cornerRadius(8)
+            AsyncImage(url: entry.iconURL.flatMap { URL(string: $0) }) { image in
+                image.resizable().aspectRatio(1, contentMode: .fit)
+            } placeholder: {
+                Image(systemName: "puzzlepiece.extension")
+                    .resizable()
+                    .aspectRatio(1, contentMode: .fit)
+                    .padding(8)
+                    .foregroundStyle(.secondary)
+                    .background(Color.secondary.opacity(0.12))
+            }
+            .frame(width: 40, height: 40)
+            .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name).font(.headline)
                 HStack(spacing: 6) {
-                    LanguageBadge(language: entry.lang)
-                    if entry.nsfw == 1 {
-                        NSFWBadge()
-                    }
+                    LanguageBadge(language: entry.language)
+                    if entry.isNSFW { NSFWBadge() }
                     Text("v\(entry.version)").font(.caption).foregroundStyle(.secondary)
                 }
             }
 
             Spacer()
 
-            Button {
-                onInfo()
-            } label: {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.secondary)
+            if isInstalled {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else if isInstalling {
+                ProgressView()
+                    .scaleEffect(0.8)
+            } else {
+                Button("Install", action: onInstall)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 2)
-    }
-}
-
-// MARK: - AndroidExtensionInfoSheet
-
-private struct AndroidExtensionInfoSheet: View {
-    let entry: KeiyoushiEntry
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                            Text("Android-only extension")
-                                .fontWeight(.semibold)
-                        }
-                        Text("'\(entry.name)' is a Keiyoushi extension built as an Android .apk. It cannot be installed or run on iOS.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text("Yomi uses JS plugins (.js files) instead. This catalog is shown for reference so you can identify which sources exist and find or build a Yomi-compatible equivalent.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                Section("Details") {
-                    LabeledContent("Name",     value: entry.name)
-                    LabeledContent("Package",  value: entry.pkg)
-                    LabeledContent("Language", value: entry.lang.uppercased())
-                    LabeledContent("Version",  value: entry.version)
-                    LabeledContent("NSFW",     value: entry.nsfw == 1 ? "Yes" : "No")
-                }
-            }
-            .navigationTitle(entry.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
     }
 }
 
@@ -347,7 +273,6 @@ private struct InstallFromURLSheet: View {
         let urlString = pluginURL.trimmingCharacters(in: .whitespaces)
         guard let url = URL(string: urlString) else { return }
 
-        // Stable ID: first 32 chars of SHA256(url) as lowercase hex
         let hash = SHA256.hash(data: Data(urlString.utf8))
         let id = String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased())
 

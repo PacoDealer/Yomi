@@ -12,6 +12,7 @@ struct SettingsView: View {
             novelReaderSection
             appearanceSection
             aboutSection
+            developerSection
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Settings")
@@ -68,6 +69,26 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
             Toggle("Use system font", isOn: $settings.useSystemFont)
+        }
+    }
+
+    // MARK: - Developer
+
+    private var developerSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Catalog URL", text: $settings.pluginCatalogURL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .font(.system(.body, design: .monospaced))
+                Text("URL of the index.json plugin catalog. Changing this replaces the default Yomi plugin repository.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Developer")
+        } footer: {
+            Text("Default: https://yomi-plugins.web.app/index.json")
         }
     }
 
