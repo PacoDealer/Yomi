@@ -4,6 +4,7 @@ import SwiftUI
 
 enum ReaderMode: String, CaseIterable {
     case horizontalRTL  = "Manga (RTL)"
+    case horizontalLTR  = "Manhwa (LTR)"
     case verticalScroll = "Webtoon"
 }
 
@@ -69,7 +70,15 @@ struct ChapterReaderView: View {
                     MangaReaderView(
                         pages: pages,
                         currentPage: $currentPage,
-                        showOverlay: $showOverlay
+                        showOverlay: $showOverlay,
+                        isRTL: true
+                    )
+                case .horizontalLTR:
+                    MangaReaderView(
+                        pages: pages,
+                        currentPage: $currentPage,
+                        showOverlay: $showOverlay,
+                        isRTL: false
                     )
                 case .verticalScroll:
                     WebtoonReaderView(pages: pages, showOverlay: $showOverlay)
@@ -240,6 +249,7 @@ struct MangaReaderView: View {
     let pages: [String]
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
+    var isRTL: Bool = true
 
     var body: some View {
         TabView(selection: $currentPage) {
@@ -249,7 +259,7 @@ struct MangaReaderView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
         .ignoresSafeArea()
     }
 }
