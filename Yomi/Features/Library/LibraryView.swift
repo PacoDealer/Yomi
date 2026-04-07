@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
+    @State private var extensionManager = ExtensionManager.shared
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -17,16 +18,30 @@ struct LibraryView: View {
         NavigationStack {
             Group {
                 if viewModel.displayedManga.isEmpty && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
-                    VStack(spacing: 16) {
-                        ContentUnavailableView(
-                            "Your library is empty",
-                            systemImage: "books.vertical",
-                            description: Text("Browse sources and add titles to see them here.")
-                        )
-                        Button("Browse sources") {
-                            appRouter.selectedTab = AppRouter.tabBrowse
+                    if extensionManager.installed.isEmpty {
+                        VStack(spacing: 16) {
+                            ContentUnavailableView(
+                                "No plugins installed",
+                                systemImage: "puzzlepiece.extension",
+                                description: Text("Plugins connect Yomi to manga and novel sources. Install one to start reading.")
+                            )
+                            Button("Get plugins") {
+                                appRouter.selectedTab = AppRouter.tabMore
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                        .buttonStyle(.borderedProminent)
+                    } else {
+                        VStack(spacing: 16) {
+                            ContentUnavailableView(
+                                "Your library is empty",
+                                systemImage: "books.vertical",
+                                description: Text("Browse sources and add titles to see them here.")
+                            )
+                            Button("Browse sources") {
+                                appRouter.selectedTab = AppRouter.tabBrowse
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
                     }
                 } else if viewModel.displayedManga.isEmpty {
                     ContentUnavailableView.search(text: viewModel.searchText)
