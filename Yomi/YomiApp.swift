@@ -16,7 +16,10 @@ struct YomiApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(settings.colorScheme)
+                .preferredColorScheme(
+                    settings.theme == "Dark"  ? .dark  :
+                    settings.theme == "Light" ? .light : nil
+                )
                 .tint(Color(hex: settings.accentColor))
                 .fullScreenCover(isPresented: $showOnboarding) {
                     OnboardingView()
