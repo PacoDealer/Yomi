@@ -13,7 +13,7 @@ struct TextReaderView: View {
     @State private var rawContent: String = ""
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
-    @State private var fontSize: Double = 18
+    @State private var fontSize: Double = AppSettings.shared.fontSize
     @State private var isDarkMode: Bool = true
     @State private var isSepia: Bool = AppSettings.shared.novelSepia
     @State private var showOverlay = true
@@ -222,6 +222,9 @@ private struct TextReaderOverlayView: View {
                             .foregroundStyle(.white.opacity(0.7))
                         Slider(value: $fontSize, in: 14...26, step: 1)
                             .tint(.white)
+                            .onChange(of: fontSize) { _, newValue in
+                                AppSettings.shared.fontSize = newValue
+                            }
                         Text("Aa")
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))

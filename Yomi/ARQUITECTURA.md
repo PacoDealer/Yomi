@@ -59,9 +59,9 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 10 properties
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 11 properties
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
-├── YomiApp.swift                    # Entry point, DB setup, preferredColorScheme at root, onboarding gate via fullScreenCover
+├── YomiApp.swift                    # Entry point, DB setup. @State private var settings drives .preferredColorScheme + .tint at WindowGroup root. Onboarding gate via .fullScreenCover.
 ├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
@@ -154,7 +154,7 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
 - `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView; prevents re-showing on subsequent launches
-- `accentColor: String` — planned S20; 6-swatch picker; applied as tint at WindowGroup root
+- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; 6-swatch picker in SettingsView Appearance; applied via `.tint()` at WindowGroup root (S20)
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
@@ -313,7 +313,7 @@ BrowseView
 
 ### Plugin catalog install (OTA)
 PluginsView Browse tab
-→ .task { await PluginCatalogService.shared.fetchCatalog() }
+→ .onAppear { Task { await PluginCatalogService.shared.fetchCatalog() } }  // fires on every tab activation (S20)
 → GET AppSettings.shared.pluginCatalogURL (index.json)
 → [PluginCatalogEntry] listed with Install button
 → installEntry(_:) builds Extension(id: entry.id, sourceListURL: URL(entry.fileURL))

@@ -1,14 +1,8 @@
-//
-//  YomiApp.swift
-//  Yomi
-//
-//  Created by Martin Gamberg on 13/03/2026.
-//
-
 import SwiftUI
 
 @main
 struct YomiApp: App {
+    @State private var settings = AppSettings.shared
     @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding
 
     init() {
@@ -18,7 +12,8 @@ struct YomiApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(AppSettings.shared.colorScheme)
+                .preferredColorScheme(settings.colorScheme)
+                .tint(Color(hex: settings.accentColor))
                 .fullScreenCover(isPresented: $showOnboarding) {
                     OnboardingView()
                 }
