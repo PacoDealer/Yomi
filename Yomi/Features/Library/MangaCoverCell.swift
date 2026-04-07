@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MangaCoverCell: View {
     let manga: Manga
+    @State private var unreadCount: Int = 0
 
     var body: some View {
         NavigationLink {
@@ -26,6 +27,19 @@ struct MangaCoverCell: View {
                 }
                 .cornerRadius(8)
                 .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if unreadCount > 0 {
+                        Text("\(unreadCount)")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.accentColor)
+                            .clipShape(Capsule())
+                            .padding(6)
+                    }
+                }
 
                 Text(manga.title)
                     .font(.caption)
@@ -34,6 +48,9 @@ struct MangaCoverCell: View {
             }
         }
         .buttonStyle(.plain)
+        .task(id: manga.id) {
+            unreadCount = (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0
+        }
     }
 }
 
