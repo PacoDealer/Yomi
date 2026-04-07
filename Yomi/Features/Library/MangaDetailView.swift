@@ -19,6 +19,9 @@ struct MangaDetailView: View {
     // Feature 2 — Chapter pagination
     @State private var displayedChapterCount: Int = 50
 
+    // Feature 3 — Storage size
+    @State private var storageSizeLabel: String? = nil
+
     init(manga: Manga) {
         _manga = State(initialValue: manga)
     }
@@ -127,6 +130,10 @@ struct MangaDetailView: View {
                         Text("(\(chapters.count))")
                             .foregroundStyle(.secondary)
                     }
+                    if let size = storageSizeLabel {
+                        Text("· \(size)")
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     if let b = bridge, !chapters.isEmpty {
                         let undownloaded = chapters.filter { !$0.isDownloaded && !$0.isRead }
@@ -168,6 +175,7 @@ struct MangaDetailView: View {
         .task { await loadChapters() }
         .task { await touchLastRead() }
         .task { await loadCategories() }
+        .task { computeStorageSize() }
         .sheet(isPresented: $showCategorySheet) {
             NavigationStack {
                 List {
@@ -262,6 +270,35 @@ struct MangaDetailView: View {
         }
 
         isLoadingChapters = false
+    }
+
+    // MARK: - Storage size
+
+    private func computeStorageSize() {
+        let mangaDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Downloads/\(manga.id)", isDirectory: true)
+
+        guard FileManager.default.fileExists(atPath: mangaDir.path) else { return }
+
+        var totalBytes: Int64 = 0
+        if let enumerator = FileManager.default.enumerator(
+            at: mangaDir,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let url as URL in enumerator {
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                totalBytes += Int64(size)
+            }
+        }
+
+        if totalBytes > 0 {
+            storageSizeLabel = ByteCountFormatter.string(
+                fromByteCount: totalBytes,
+                countStyle: .file
+            )
+        }
     }
 
     // MARK: - Load Categories
