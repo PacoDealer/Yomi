@@ -61,13 +61,50 @@ struct SettingsView: View {
     // MARK: - Appearance
 
     private var appearanceSection: some View {
-        Section("Appearance") {
+        let accentColors: [(name: String, hex: String)] = [
+            ("Red",    "#FF6B6B"),
+            ("Blue",   "#4A9EFF"),
+            ("Green",  "#30D158"),
+            ("Orange", "#FF9F0A"),
+            ("Purple", "#BF5AF2"),
+            ("Pink",   "#FF375F")
+        ]
+
+        return Section("Appearance") {
             Picker("Theme", selection: $settings.theme) {
                 Text("System").tag("System")
                 Text("Light").tag("Light")
                 Text("Dark").tag("Dark")
             }
             .pickerStyle(.menu)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Accent color")
+                    .font(.body)
+                HStack(spacing: 12) {
+                    ForEach(accentColors, id: \.hex) { color in
+                        let isSelected = settings.accentColor == color.hex
+                        Button {
+                            settings.accentColor = color.hex
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: color.hex))
+                                    .frame(width: 32, height: 32)
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+
             Toggle("Use system font", isOn: $settings.useSystemFont)
         }
     }

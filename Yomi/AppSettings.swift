@@ -95,4 +95,26 @@ import SwiftUI
         get { defaults.string(forKey: "pluginCatalogURL") ?? "https://yomi-plugins.web.app/index.json" }
         set { defaults.set(newValue, forKey: "pluginCatalogURL") }
     }
+
+    // MARK: - Accent color
+
+    /// Hex string for the app accent/tint color. Default: red.
+    var accentColor: String {
+        get { defaults.string(forKey: "accentColor") ?? "#FF6B6B" }
+        set { defaults.set(newValue, forKey: "accentColor") }
+    }
+}
+
+// MARK: - Color(hex:)
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8)  & 0xFF) / 255
+        let b = Double(int         & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
+    }
 }
