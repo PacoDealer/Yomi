@@ -1,12 +1,14 @@
 # Roadmap — Yomi
 
-## Current state (post S22)
-App Store compliant: binary ships zero plugin files. All 7 plugins on Firebase CDN.
-Dark mode, accent color, font size all wired correctly from S21. OnboardingView restored (S22
-regression fix). PrivacyInfo.xcprivacy added — no longer a hard rejection risk. Reading
-resume functional: chapter.progress saved and restored. Pan-when-zoomed implemented in
-MangaPageView with clamped DragGesture. Browse pagination: SourceBrowseView has "Load more"
-for both Format A and Format B. All S22 planned items complete.
+## Current state (post S23 — 2026-04-07)
+AppSettings fully observable: all 11 settings are stored properties with didSet persisting to
+UserDefaults — dark mode and accent color now apply at runtime. Plugin UX: empty states explain
+what plugins are and guide first-time users. LTR reading mode added for manhwa/manhua.
+Unread badge on library covers. ContinueReading taps open ChapterReaderView directly at the
+last-read chapter (loads via JSBridge, merges progress from DB). Bulk download: "Download next N"
+button in manga detail chapters header. Storage size shown per manga. Page-jump slider in reader
+overlay (hidden in Webtoon mode). Accent color swatch row scrollable (fixed overflow). All 8
+implemented S23 items committed and pushed.
 
 ## Technical debt
 | Area | Issue | Priority |
@@ -220,25 +222,42 @@ for both Format A and Format B. All S22 planned items complete.
 | 5 | ✅ Pan when zoomed | MangaPageView: GeometryReader for dimensions, @State offset/lastOffset, DragGesture with clamping (maxX = (scale-1)*width/2). Guard scale > 1.0 to not intercept TabView swipes. Double-tap resets both scale and offset. |
 | 6 | ✅ Browse pagination | SourceBrowseView: currentPage, isLoadingMore, hasMoreContent state. "Load more" button below LazyVGrid. Appends results for Format A and B. Hidden during local search filter and when last page returns empty. |
 
-## Session 23 — UX overhaul + core fixes (planned)
+## Session 23 — UX overhaul + core fixes ✅ Complete (2026-04-07)
 Derived from deep UX research comparing Tachiyomi, Paperback, Aidoku, Moon+ Reader, MangaPlus,
 Webtoon, and community feedback from r/manga, r/manhwa, r/lightnovels, GitHub issue trackers.
 
+| # | Feature | Status | Detail |
+|---|---------|--------|--------|
+| 1 | Fix dark mode + accent color | ✅ Done | AppSettings: all 11 props converted from computed vars to stored properties with didSet. @Observable now tracks mutations. Changes apply instantly at runtime. |
+| 2 | Plugin UX overhaul | ✅ Done | LibraryView empty state: if no plugins installed → "No plugins installed" + "Get plugins" → More tab. PluginsView installed empty: title + explanation text. Catalog empty: distinguishes search-no-results vs truly-empty (no spurious Retry). |
+| 3 | LTR reading mode | ✅ Done | Added .horizontalLTR = "Manhwa (LTR)" to ReaderMode enum. MangaReaderView gains isRTL param (default true). LTR sets .environment(\.layoutDirection, .leftToRight). Picker in SettingsView updated. |
+| 4 | Unread badge on library covers | ✅ Done | MangaCoverCell loads unread count via ChapterQueries.fetchUnread on .task. Shows accent-colored Capsule badge top-right of cover when unread > 0. |
+| 5 | ContinueReading → open directly in reader | ✅ Done | ContinueReadingCell: tap → load chapters via JSBridge (Task.detached) → merge DB progress → find most-recently-touched chapter by readAt → navigationDestination(isPresented:) → ChapterReaderView. Spinner shown during load. |
+| 6 | Bulk download | ✅ Done | "Download next N" button (max 10) in Chapters section header. Only shown when bridge available and unread+undownloaded chapters exist. Enqueues via DownloadManager.shared. |
+| 7 | Storage size per manga | ✅ Done | MangaDetailView.computeStorageSize() enumerates Downloads/{mangaId}/ with FileManager, sums file sizes, formats via ByteCountFormatter. Displayed in Chapters header as "· X MB". |
+| 8 | Page-jump slider in reader overlay | ✅ Done | ReaderOverlayView bottom bar: replaced static page text with Slider + "X / N" label. currentPage promoted to @Binding. Slider hidden in Webtoon mode. White tint on dark overlay. |
+| 9 | Webtoon scroll position persistence | ⏭ S24 | WebtoonReaderView scroll not saved. ScrollViewReader + scrollTo on appear. |
+| 10 | Library sort options | ⏭ S24 | No sort controls in LibraryViewModel. Add: Alphabetical, Last Read, Last Updated, Unread Count. |
+| 11 | "Discuss" button in reader | ⏭ S24 | ReaderOverlayView → bottom sheet WKWebView → source's comment page. Plugin: optional getDiscussionURL(chapterPath). |
+| 12 | Paperback compatibility shim | ⏭ S24 | JSBridge shim for Paperback-format extensions. Large (2-3 days). ~100 new sources. |
+| 13 | App icon | ⏭ S24 | Coral-to-amber gradient + stylized 読 or kitsune. 1024×1024 PNG no alpha. App Store blocker. |
+
+**Bonus fix (S23):** Accent color swatch row was overflowing off-screen (HStack with 10+ items).
+Wrapped in ScrollView(.horizontal). Swatch size bumped 28→32pt. Custom picker button lost plain
+buttonStyle — fixed.
+
+## Session 24 — planned
 | # | Feature | Detail | Complexity |
 |---|---------|--------|------------|
-| 1 | Fix dark mode + accent color | AppSettings computed vars invisible to @Observable graph. Fix: access settings.theme directly in YomiApp.body instead of settings.colorScheme. Same pattern for accent. | Trivial |
-| 2 | Plugin UX overhaul | Better empty states in BrowseView explaining what a plugin is. Direct path to catalog from empty library. Onboarding page 2 clearer. | Small |
-| 3 | LTR reading mode | Manhwa/manhua are LTR. Add .horizontalLTR to ReaderMode enum. Remove .environment(\.layoutDirection, .rightToLeft) for LTR mode. | Trivial |
-| 4 | Unread badge on library covers | Blue capsule with unread chapter count on MangaCoverCell. Required in every top reader app. LibraryViewModel needs unread count per manga. | Small |
-| 5 | ContinueReading → open directly in reader | ContinueReadingRow currently links to MangaDetailView. Should open ChapterReaderView at last-read chapter + saved progress directly. | Medium |
-| 6 | Bulk download | "Download next N unread" button in MangaDetailView. #1 download feature request across all reader apps universally. | Medium |
-| 7 | Storage size per manga | FileManager directory size for Downloads/{mangaId}/. Show in MangaDetailView or DownloadsView. | Small |
-| 8 | Page-jump slider in reader overlay | Drag slider in ReaderOverlayView to jump to any page. Standard feature absent from Yomi. | Small |
-| 9 | Webtoon scroll position persistence | WebtoonReaderView ScrollView position not saved. Wrap in ScrollViewReader, scrollTo saved page index on appear. | Medium |
-| 10 | Library sort options | No sort controls in LibraryViewModel. Add: Alphabetical, Last Read, Last Updated, Date Added, Unread Count. | Small |
-| 11 | "Discuss" button in reader | Button in ReaderOverlayView → bottom sheet WKWebView → source's chapter comment page. Plugin format: optional getDiscussionURL(chapterPath). Zero App Store risk (no UGC). | Medium |
-| 12 | Paperback compatibility shim | JSBridge shim to run Paperback-format extensions (Source class + getHomePageSections/getSearchResults/getChapterDetails). Unlocks ~100 iOS-native sources. | Large (2-3 days) |
-| 13 | App icon | Coral-to-amber gradient. Symbol: stylized 読 kanji OR fox/kitsune mascot. 1024×1024 PNG no alpha. App Store blocker. | External/design |
+| 1 | Webtoon scroll persistence | ScrollViewReader, scrollTo saved anchor on appear. Progress saved as page ratio. | Medium |
+| 2 | Library sort options | Sort toolbar in LibraryView. LibraryViewModel: Alphabetical / Last Read / Last Updated / Unread Count. | Small |
+| 3 | "Discuss" button in reader | ReaderOverlayView → WKWebView bottom sheet → source's comment URL. Plugin: optional getDiscussionURL(chapterPath). | Medium |
+| 4 | Paperback compatibility shim | JSBridge shim: Source class, getHomePageSections, getSearchResults, getChapterDetails. ~100 new sources. | Large |
+| 5 | App icon | Design: coral-amber gradient + 読 or kitsune. 1024×1024 PNG, all Xcode Asset Catalog sizes. App Store blocker. | External |
+| 6 | MAL token → Keychain | Migrate from UserDefaults. SecItemAdd/SecItemCopyMatching. Required before App Store. | Small |
+| 7 | Privacy policy URL | Static page (GitHub Pages or Firebase). Required before App Store. | Trivial |
+| 8 | Novel read semantics | Mark read on scroll-to-end, not HTML load. WKWebView evaluateJavaScript scrollTop check. | Medium |
+| 9 | Downloads cleanup on delete | DownloadManager.deleteAll(mangaId:) called when manga removed from library. | Small |
 
 ## UX research findings (S23 basis)
 Research covered: Tachiyomi, Paperback, Aidoku, MangaPlus, Webtoon, INKR, Azuki, Moon+ Reader,

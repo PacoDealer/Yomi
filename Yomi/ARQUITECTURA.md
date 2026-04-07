@@ -145,7 +145,13 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 
 ### AppSettings (Yomi/AppSettings.swift)
 `@Observable final class`, accessed via `AppSettings.shared`
-- `readerMode: String` — "Manga (RTL)" or "Webtoon"
+
+**Pattern (fixed S23):** All 11 user-facing settings are **stored properties** with `didSet`
+that persists to `UserDefaults`. `@ObservationIgnored` on the `defaults` ivar. `private init()`
+reads all values from UserDefaults with fallback defaults. `colorScheme` remains computed
+(derived from `theme`) — correct because `theme` is stored and tracked.
+
+- `readerMode: String` — "Manga (RTL)", "Manhwa (LTR)", or "Webtoon"
 - `fontSize: Double` — novel reader font size (points)
 - `lineSpacing: Double` — novel reader line spacing multiplier
 - `theme: String` — "System", "Light", or "Dark"
@@ -154,9 +160,9 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `hasRequestedNotifications: Bool` — flag to request permission only once
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
-- `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView; prevents re-showing on subsequent launches
-- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; 10-swatch picker + custom ColorPicker in SettingsView Appearance; applied via `.tint(Color(hex:))` on ContentView (S21)
-- `colorScheme: ColorScheme?` — computed var derived from `theme`; nil = system, .light, or .dark; drives `.preferredColorScheme` at ContentView root (S21)
+- `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView
+- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; scrollable 10-swatch row + custom ColorPicker in SettingsView; applied via `.tint(Color(hex:))` on ContentView
+- `colorScheme: ColorScheme?` — computed; nil=system, .light, .dark; drives `.preferredColorScheme` at ContentView root
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
@@ -502,34 +508,11 @@ Covers 95%+ of LNReader sources. Sources using `crypto` module need a `require('
 
 ## Known architectural issues
 
-### @Observable computed property chain — theme/accent stuck (fixed in S23)
-`AppSettings` uses computed vars that read/write UserDefaults. `@Observable` only instruments
-**stored** properties. Computed properties are invisible to the observation graph.
-When `theme` or `accentColor` changes via a Picker binding, UserDefaults updates but no observer fires,
-so `YomiApp.body` never re-evaluates and `.preferredColorScheme` / `.tint` stay stuck.
-
-**Root cause:** `colorScheme` is a computed var derived from `theme`. Even though `@State private var settings`
-is in `YomiApp`, the observation tracking never fires because no stored property mutates.
-
-**Fix pattern (S23):** Access stored properties directly in the view, not through derived computed vars:
-```swift
-// Wrong — colorScheme is computed, @Observable can't track it
-.preferredColorScheme(settings.colorScheme)
-
-// Correct — theme is a stored property, @Observable tracks it
-.preferredColorScheme(
-    settings.theme == "Dark"  ? .dark  :
-    settings.theme == "Light" ? .light : nil
-)
-```
-
-**Long-term fix:** Restructure AppSettings to stored properties with didSet for UserDefaults:
-```swift
-var theme: String = UserDefaults.standard.string(forKey: "theme") ?? "System" {
-    didSet { UserDefaults.standard.set(theme, forKey: "theme") }
-}
-```
-This makes @Observable instrument the property correctly.
+### @Observable computed property chain — theme/accent ✅ Fixed S23
+All 11 AppSettings properties are now stored properties with `didSet`. `@Observable` correctly
+instruments them. `colorScheme` remains computed and is now reactive because `theme` (its source)
+is tracked. Dark mode and accent color apply instantly at runtime. See METODOLOGIA.md Technical
+learnings S23 for the full pattern explanation.
 
 ## Comments / Discussion architecture (planned S23)
 
