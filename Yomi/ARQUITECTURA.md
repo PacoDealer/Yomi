@@ -33,10 +33,14 @@ Yomi/
 │   │   └── MangaDetailView.swift    # Detail + chapter list + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/page)
 │   ├── Browse/
 │   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search with debounce 500ms) + SourceBrowseView (dual manga/novel)
+│   │   │                            # ⚠️ SourceBrowseView calls getMangaList(page: 1) once — no pagination, no "load more". Users see only first ~20 titles per source.
 │   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking; accepts chapters:[Chapter] for navigation
+│   │   │                            # ⚠️ chapter.progress IS saved on disappear but never restored on open — currentPage always starts at 0
+│   │   │                            # ⚠️ MangaPageView: .scaleEffect zoom works but no DragGesture offset — pan at zoom >1x is missing
 │   │   └── TextReaderView.swift     # HTML reader for novels (WKWebView, font size, dark/light/sepia)
+│   │                                # ⚠️ NovelQueries.markRead() called on chapter load, not on scroll-to-end — semantically incorrect
 │   ├── History/
 │   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
@@ -58,6 +62,7 @@ Yomi/
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 10 properties
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point, DB setup, preferredColorScheme at root, onboarding gate via fullScreenCover
+├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
 │   # Note: 7 production plugins (mangadex, asurascans, aquamanga, comick,
