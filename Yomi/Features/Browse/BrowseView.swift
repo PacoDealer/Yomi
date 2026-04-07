@@ -235,6 +235,9 @@ struct SourceBrowseView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText = ""
+    @State private var currentPage = 1
+    @State private var isLoadingMore = false
+    @State private var hasMoreContent = true
 
     private let columns = [
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
@@ -294,6 +297,28 @@ struct SourceBrowseView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
+
+                    if hasMoreContent && searchText.isEmpty {
+                        Button {
+                            Task { await loadMore() }
+                        } label: {
+                            Group {
+                                if isLoadingMore {
+                                    ProgressView()
+                                } else {
+                                    Text("Load more")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.bordered)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .disabled(isLoadingMore)
+                    }
                 }
             }
         }
@@ -308,6 +333,9 @@ struct SourceBrowseView: View {
     private func loadContent() async {
         isLoading = true
         errorMessage = nil
+        currentPage = 1
+        hasMoreContent = true
+        isLoadingMore = false
         let sourceId = ext.id
 
         let bridgeFn: (Extension) -> JSBridge? = { ext in
@@ -359,6 +387,55 @@ struct SourceBrowseView: View {
         }
 
         isLoading = false
+    }
+
+    // MARK: Load More
+
+    private func loadMore() async {
+        guard !isLoadingMore, hasMoreContent, let b = bridge else { return }
+        isLoadingMore = true
+        let nextPage = currentPage + 1
+        let sourceId = ext.id
+
+        if isNovelSource {
+            let items = await Task.detached(priority: .userInitiated) {
+                b.popularNovels(page: nextPage)
+            }.value
+            if items.isEmpty {
+                hasMoreContent = false
+            } else {
+                let newNovels = items.map { item in
+                    Novel(
+                        id:             UUID().uuidString,
+                        path:           item.path,
+                        sourceId:       sourceId,
+                        title:          item.name,
+                        coverURL:       URL(string: item.cover ?? ""),
+                        summary:        nil,
+                        author:         nil,
+                        status:         "unknown",
+                        genres:         [],
+                        inLibrary:      false,
+                        lastReadAt:     nil,
+                        lastUpdatedAt:  nil,
+                        readingSeconds: 0
+                    )
+                }
+                novels.append(contentsOf: newNovels)
+                currentPage = nextPage
+            }
+        } else {
+            let results = await Task.detached(priority: .userInitiated) {
+                b.getMangaList(page: nextPage, sourceId: sourceId)
+            }.value
+            if results.isEmpty {
+                hasMoreContent = false
+            } else {
+                mangas.append(contentsOf: results)
+                currentPage = nextPage
+            }
+        }
+        isLoadingMore = false
     }
 }
 
