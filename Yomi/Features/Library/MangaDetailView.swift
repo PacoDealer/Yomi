@@ -127,6 +127,19 @@ struct MangaDetailView: View {
                         Text("(\(chapters.count))")
                             .foregroundStyle(.secondary)
                     }
+                    Spacer()
+                    if let b = bridge, !chapters.isEmpty {
+                        let undownloaded = chapters.filter { !$0.isDownloaded && !$0.isRead }
+                        if !undownloaded.isEmpty {
+                            Button("Download next \(min(10, undownloaded.count))") {
+                                undownloaded.prefix(10).forEach { ch in
+                                    DownloadManager.shared.enqueue(ch, manga: manga, bridge: b)
+                                }
+                            }
+                            .font(.caption)
+                            .textCase(nil)
+                        }
+                    }
                 }
             }
         }
