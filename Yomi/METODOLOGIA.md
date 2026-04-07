@@ -138,6 +138,140 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 21 | 2026-04-07 | Color+Hex.swift (Yomi/Core/, 6+8-digit hex, hexString via UIColor sRGB). AppSettings: fontSize default 18.0, accentColor, colorScheme computed var, pluginCatalogURL kept. YomiApp: #if DEBUG seedBundledPlugins, .tint + .preferredColorScheme on ContentView (Scene has no .tint — WindowGroup build failure). SettingsView: Slider 14–28, 10 swatches + custom ColorPicker sheet. TextReaderView: CSS re-inject via evaluateJavaScript on every updateUIView cycle. Regressions introduced: OnboardingView fullScreenCover removed (not in prompt scope), NovelQueries.markRead() dropped in rewrite. |
 | 22 | 2026-04-07 | Restore S21 regressions: OnboardingView gate + NovelQueries.markRead(). PrivacyInfo.xcprivacy (NSPrivacyAccessedAPICategoryUserDefaults, reason CA92.1). Reading resume in ChapterReaderView (Task.detached DB read after loadPages, MainActor.run to set currentPage). Pan when zoomed in MangaPageView (GeometryReader, DragGesture with clamping, guard scale > 1.0). Browse pagination in SourceBrowseView (currentPage/isLoadingMore/hasMoreContent, "Load more" button, both Format A and B). Workflow change: Claude Code-first, no relay. MCP setup: XcodeBuildMCP, context7, apple-docs, github, mobile-mcp. CLAUDE.md created at project root. Memory system initialized. |
 
+## UX research — reading apps (S23 basis)
+
+This section records findings from a deep research pass comparing Tachiyomi (Android), Paperback (iOS),
+Aidoku (iOS), MangaPlus, Webtoon, INKR, Azuki, Moon+ Reader, ReadEra, and Shosetsu.
+Sources: App Store reviews, Reddit (r/manga, r/manhwa, r/lightnovels), GitHub issue trackers.
+Purpose: inform S23 priorities and serve as a permanent reference for product decisions.
+
+### Library UX — what the best apps do
+
+**Unread count badge on covers:**
+Every top reader app (Tachiyomi, Paperback, Aidoku) shows a blue capsule with unread chapter count
+on each cover cell. Users say "I can scan my whole library in 3 seconds." Without this, users must
+open each title to know if there's new content. This is the single most-cited UX improvement request
+for any library-based reading app.
+
+**Categories as tabs vs. chips:**
+Tachiyomi puts categories as tabs across the top of the screen (full navigation weight).
+Yomi uses horizontal chips in a safeAreaInset — a softer, less intrusive approach. Both are valid.
+Chips work better when categories are optional/additive; tabs work better when categories are primary
+navigation. Yomi's chip approach is correct for its use case.
+
+**Reading status (Reading/Completed/On Hold/Dropped/Plan to Read):**
+Aidoku and all MAL/AniList-integrated apps surface reading status as a first-class field, distinct from
+categories. Yomi tracks library (in/out) and connects to MAL for chapter tracking, but has no local
+reading status field. Consider adding a `status: String` field to the `manga` table in a future migration.
+
+**Multi-select long-press:**
+Tachiyomi: long-press any cover → multi-select mode → bulk download, mark read, delete, categorize.
+No other reader does this as well. This is a meaningful power-user feature Yomi doesn't have.
+Not prioritized for S23 but worth tracking as a future feature.
+
+**Sort options:**
+Tachiyomi: Alphabetical, Last Read, Last Updated, Unread Count, Date Added.
+Yomi: only Last Read DESC (hardcoded in LibraryViewModel).
+S23 adds sort options. Implementation: a sort enum in LibraryViewModel, Picker in LibraryView toolbar.
+
+### Reader UX — what the best apps do
+
+**Reading direction:**
+- RTL: manga (Japanese). Yomi has this.
+- LTR: manhwa (Korean), manhua (Chinese). Yomi does NOT have this. Major gap.
+- Webtoon scroll: Yomi has this.
+- Double-page spread: Tachiyomi supports side-by-side pages for wide displays. Complex, not S23.
+
+**Tap zones:**
+Left 1/3 → prev page, Right 1/3 → next page, Center → toggle overlay.
+Tachiyomi, Paperback, Aidoku all use this exact model. Yomi uses it for overlay toggle but RTL swipe
+handles prev/next. This is fine — the TabView swipe is more natural than tap-to-turn.
+
+**Page-jump slider:**
+All top apps have a bottom slider that scrubs through pages (e.g., "47 / 200").
+Yomi shows "Page X / Y" text but no slider. Add a `Slider` bound to `currentPage` in `ReaderOverlayView`.
+
+**Background color options:**
+Tachiyomi: White, Gray, Black presets for the reader background.
+Yomi: hardcoded `Color.black`. The reader should offer at minimum White and Black. Black is correct for
+AMOLED (most manga phones), White is needed for older scans with white borders.
+
+**Volume button page-turn:**
+Optional feature, beloved by power users. Requires UIApplication key event interception.
+Not in S23 but worth noting — Tachiyomi and Paperback both support it.
+
+**Webtoon scroll position:**
+Every webtoon reader (Naver, LINE, Tachiyomi) saves scroll position. Yomi's webtoon mode always
+restarts from the top. Fix: `ScrollViewReader` + `scrollTo` on appear using saved `chapter.progress`
+converted to a page anchor index.
+
+### Download UX — what users say
+
+Across 100+ Reddit threads and GitHub issue trackers, the consistent pattern:
+
+1. **Bulk download is #1.** "Why can't I download all unread at once?" appears verbatim in Paperback,
+   Tachiyomi, Aidoku issue trackers. All three have it tracked as a major feature request.
+   Implementation for Yomi: "Download next N unread" button → filter chapters for !isDownloaded && !isRead →
+   enqueue in DownloadManager.
+
+2. **Storage size is #2.** Users don't know how much space downloads are consuming. Show `FileManager`
+   directory size in `MangaDetailView` header or `DownloadsView`. One utility function.
+
+3. **Download while backgrounded is #3.** Background `URLSession` (`.background(withIdentifier:)`) lets
+   downloads continue when app is suspended. Significant architectural change. Not S23 but worth tracking.
+
+4. **Download discoverability.** Yomi's per-chapter download is a swipe action — users miss it.
+   Adding an explicit download button (or a long-press context menu) to chapter rows would help.
+
+### Comment sections — research conclusion and design decision
+
+**Decision: no native comments in Yomi.** Reasoning:
+- Apple requires moderation infrastructure for UGC → complex, ongoing operational burden
+- Privacy policy must be updated → legal work
+- Age gating required for NSFW content (Yomi supports NSFW plugins)
+- Tachiyomi tested a community tab and removed it for these exact reasons
+- Paperback has had a comments feature request open for 3+ years, never shipped
+
+**Correct path: "Discuss" button → WKWebView bottom sheet.**
+Button appears in reader overlay only when the active plugin declares `getDiscussionURL(chapterPath)`.
+Opens the source's own comment section in a contained WebView. Zero moderation burden.
+Future extension: Disqus API for read-only native comments on Disqus-powered sites.
+
+### Plugin ecosystem — definitive research findings
+
+**What's possible and what isn't:**
+
+| Ecosystem | Format | iOS compatible? | Path |
+|-----------|--------|-----------------|------|
+| Keiyoushi/Tachiyomi | Kotlin APK | ❌ Never | Use as source directory only |
+| Aidoku | Swift → WASM | ❌ Requires WasmSwift | Not worth pursuing |
+| Paperback | TypeScript → esbuild JS | ✅ With JSBridge shim | Highest-leverage unlock, ~100 sources |
+| LNReader | TypeScript → CommonJS JS | ✅ Already works (Format B) | Write more plugins |
+| Own Format A | Plain JS | ✅ Native | Expand source library |
+
+**Keiyoushi dead end explained:** Keiyoushi plugins are compiled Kotlin running inside Android APKs,
+communicating with Tachiyomi forks via Android's inter-process `PackageManager` API and `HttpSource`
+class reflection. No JavaScript, no WASM, no path to iOS. The correct mental model: Keiyoushi is
+a *catalog of what sites exist*, not code Yomi can run.
+
+**Paperback shim opportunity:** Paperback extensions are TypeScript bundled to a single IIFE `.js` file.
+They export a `Source` class with methods nearly identical to Yomi's Format A. A JSBridge preamble
+injecting a `Source` base class + post-eval `sources` object detection would enable running them
+directly. This is the single highest-leverage plugin ecosystem unlock available to Yomi.
+
+**LNReader sources available today:** LightNovelPub, WuxiaWorld, FreeWebNovel, NovelBin, ReadLightNovel,
+Webnovel (may need extra headers). These can be written as TypeScript plugins using the existing
+`scripts/build-plugins.mjs` pipeline and deployed to Firebase. No JSBridge changes needed.
+
+### App icon research
+
+- Mascot characters build brand recall. Tachiyomi's octopus is cited by name in App Store reviews.
+- Warm gradients (coral, amber, teal) outperform flat blue in App Store search grid.
+- "Yomi" (読み) = reading in Japanese. Also references Yomi-no-kuni (Japanese underworld mythology).
+- Kitsune (fox) mascot: culturally layered (Japanese folklore), soft, friendly, distinct from existing
+  reader app icons (octopus, book, P).
+- Minimum viable: 1024×1024 PNG, no alpha, coral-to-amber gradient, 読 kanji centered.
+
 ## S22 — Technical learnings
 
 - **PBXFileSystemSynchronizedRootGroup eliminates manual Xcode target membership**: Yomi uses this Xcode feature, which means any file dropped into the `Yomi/` directory is automatically included in the target. No "Add Files to Yomi" step needed. Confirmed by checking `project.pbxproj` for the `isa = PBXFileSystemSynchronizedRootGroup` entry. Applies to `PrivacyInfo.xcprivacy` and any new `.swift` or resource file. Never perform the manual Xcode add step without first verifying this setting.

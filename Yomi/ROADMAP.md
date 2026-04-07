@@ -220,6 +220,66 @@ for both Format A and Format B. All S22 planned items complete.
 | 5 | ✅ Pan when zoomed | MangaPageView: GeometryReader for dimensions, @State offset/lastOffset, DragGesture with clamping (maxX = (scale-1)*width/2). Guard scale > 1.0 to not intercept TabView swipes. Double-tap resets both scale and offset. |
 | 6 | ✅ Browse pagination | SourceBrowseView: currentPage, isLoadingMore, hasMoreContent state. "Load more" button below LazyVGrid. Appends results for Format A and B. Hidden during local search filter and when last page returns empty. |
 
+## Session 23 — UX overhaul + core fixes (planned)
+Derived from deep UX research comparing Tachiyomi, Paperback, Aidoku, Moon+ Reader, MangaPlus,
+Webtoon, and community feedback from r/manga, r/manhwa, r/lightnovels, GitHub issue trackers.
+
+| # | Feature | Detail | Complexity |
+|---|---------|--------|------------|
+| 1 | Fix dark mode + accent color | AppSettings computed vars invisible to @Observable graph. Fix: access settings.theme directly in YomiApp.body instead of settings.colorScheme. Same pattern for accent. | Trivial |
+| 2 | Plugin UX overhaul | Better empty states in BrowseView explaining what a plugin is. Direct path to catalog from empty library. Onboarding page 2 clearer. | Small |
+| 3 | LTR reading mode | Manhwa/manhua are LTR. Add .horizontalLTR to ReaderMode enum. Remove .environment(\.layoutDirection, .rightToLeft) for LTR mode. | Trivial |
+| 4 | Unread badge on library covers | Blue capsule with unread chapter count on MangaCoverCell. Required in every top reader app. LibraryViewModel needs unread count per manga. | Small |
+| 5 | ContinueReading → open directly in reader | ContinueReadingRow currently links to MangaDetailView. Should open ChapterReaderView at last-read chapter + saved progress directly. | Medium |
+| 6 | Bulk download | "Download next N unread" button in MangaDetailView. #1 download feature request across all reader apps universally. | Medium |
+| 7 | Storage size per manga | FileManager directory size for Downloads/{mangaId}/. Show in MangaDetailView or DownloadsView. | Small |
+| 8 | Page-jump slider in reader overlay | Drag slider in ReaderOverlayView to jump to any page. Standard feature absent from Yomi. | Small |
+| 9 | Webtoon scroll position persistence | WebtoonReaderView ScrollView position not saved. Wrap in ScrollViewReader, scrollTo saved page index on appear. | Medium |
+| 10 | Library sort options | No sort controls in LibraryViewModel. Add: Alphabetical, Last Read, Last Updated, Date Added, Unread Count. | Small |
+| 11 | "Discuss" button in reader | Button in ReaderOverlayView → bottom sheet WKWebView → source's chapter comment page. Plugin format: optional getDiscussionURL(chapterPath). Zero App Store risk (no UGC). | Medium |
+| 12 | Paperback compatibility shim | JSBridge shim to run Paperback-format extensions (Source class + getHomePageSections/getSearchResults/getChapterDetails). Unlocks ~100 iOS-native sources. | Large (2-3 days) |
+| 13 | App icon | Coral-to-amber gradient. Symbol: stylized 読 kanji OR fox/kitsune mascot. 1024×1024 PNG no alpha. App Store blocker. | External/design |
+
+## UX research findings (S23 basis)
+Research covered: Tachiyomi, Paperback, Aidoku, MangaPlus, Webtoon, INKR, Azuki, Moon+ Reader,
+ReadEra, Shosetsu. Sources: App Store reviews, Reddit (r/manga, r/manhwa, r/lightnovels),
+GitHub issue trackers across all major reader apps.
+
+### What users universally want (cross-app consensus)
+1. **Bulk download** — #1 feature request on Paperback GitHub, Tachiyomi issues, Reddit threads
+2. **Unread count badge** on library covers — visual scan without opening each title
+3. **Continue reading → direct to reader** — extra tap to detail view is friction everyone notices
+4. **Storage size indicator** — "how much space are my downloads using?"
+5. **LTR mode** — manhwa/manhua audience is large and vocal
+
+### What top apps do that Yomi doesn't yet
+- Tachiyomi: unread badge, bulk operations via long-press multi-select, categories as tabs
+- Paperback: unread badge, iOS-native feel, Collections
+- Aidoku: MAL/AniList tracking status surfaced in library, filter/sort toolbar
+- MangaPlus: smooth page-flip animation, haptic on page turn
+- Moon+ Reader: EPUB export per book, storage visible per title
+
+### Comment sections — research conclusion
+Native in-app comments require moderation infrastructure + privacy policy update + Apple age gating.
+Tachiyomi tested and removed a community tab. Paperback never shipped it.
+**Correct approach for Yomi:** "Discuss" button in reader overlay → WKWebView bottom sheet → source's comment page.
+For Disqus-powered sites (Flame Scans, MangaFire): Disqus API (`disqus.com/api/3.0/threads/listPosts.json`)
+can return read-only comments natively — future feature, not S23.
+
+### Plugin ecosystem — research conclusion
+- **Keiyoushi (Tachiyomi):** Android APK / compiled Kotlin. Zero iOS compatibility path. Not fixable.
+- **Aidoku:** Swift → WebAssembly (.aix). Requires WasmSwift runtime. Not compatible with Yomi.
+- **Paperback:** TypeScript → esbuild JS bundle. Source class export. ~95% compatible with Yomi's JSBridge with a thin shim. Highest-value unlock.
+- **LNReader:** Already works natively (Format B). ~20 more novel sources available today without any code changes — just need to write/deploy the plugins.
+- **Most-wanted sources not yet in Yomi:** Flame Scans, Bato.to, LightNovelPub, WuxiaWorld, FreeWebNovel, NovelBin
+
+### App icon research
+- Mascot characters get genuine user affection (Tachiyomi octopus is cited in reviews)
+- Warm colors (coral, amber, teal) outperform blue in App Store search differentiation
+- "Yomi" (読み) = reading in Japanese; also references Japanese mythology → kitsune mascot fits culturally
+- Recommendation: coral (#FF6B6B) to amber gradient + stylized 読 OR kitsune character
+- Technical: 1024×1024 PNG, no alpha channel, corner radius applied by OS
+
 ## App Store submission checklist
 These items must ALL be complete before submitting to App Store Connect:
 

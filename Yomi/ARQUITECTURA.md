@@ -472,6 +472,88 @@ Rule: SourceKit errors are noise. xcodebuild errors are signal.
 - Lowering the target would require `#available(iOS 26, *)` in ≥6 files and maintaining two code paths
 - iOS 26 is the shipping OS in 2026; the development device can be updated
 
+## Plugin format compatibility matrix
+
+| Format | Description | Compatibility | Sources |
+|--------|-------------|---------------|---------|
+| **Yomi Format A** | Global JS functions: getMangaList, getChapterList, getPageList, searchManga | Native | MangaDex, Comick, Asura, AquaManga |
+| **Yomi Format B (LNReader)** | `plugin` class: popularNovels, parseNovel, parseChapter, searchNovels | Native | Royal Road, ScribbleHub, NovelFire |
+| **Paperback** | TypeScript → esbuild JS. `Source` class export. getHomePageSections, getSearchResults, getChapterDetails | Needs JSBridge shim (S23 backlog) | ~100 iOS sources |
+| **Keiyoushi / Tachiyomi** | Kotlin → Android APK. Inter-process via PackageManager. | ❌ Impossible on iOS | N/A |
+| **Aidoku** | Swift → WebAssembly (.aix). WasmSwift runtime. | ❌ Requires WASM runtime | N/A |
+
+### Paperback shim design (planned S23)
+Paperback extensions export: `export const sources = { MySource }` where `MySource` extends `Source`.
+The JSBridge shim would inject before plugin eval:
+```javascript
+// Injected preamble
+class Source { constructor(s) { this.stateManager = s; } }
+var sources = {};
+```
+After eval, detect `Object.keys(sources).length > 0` → Paperback format.
+Map methods: `getHomePageSections` → `getMangaList`, `getSearchResults` → `searchManga`,
+`getChapterDetails` → `getChapterList` + `getPageList`.
+
+### LNReader sources available today (no new code needed)
+LightNovelPub, WuxiaWorld, FreeWebNovel, NovelBin, ReadLightNovel, WebNovelPub.
+Write `.ts` plugin in `scripts/plugins-src/`, build with `build-plugins.mjs`, deploy to Firebase.
+Constraint: JavaScriptCore has no event loop. Only microtask-chain Promises work (no setTimeout/setInterval).
+Covers 95%+ of LNReader sources. Sources using `crypto` module need a `require('crypto')` shim (CommonCrypto bridge).
+
+## Known architectural issues
+
+### @Observable computed property chain — theme/accent stuck (fixed in S23)
+`AppSettings` uses computed vars that read/write UserDefaults. `@Observable` only instruments
+**stored** properties. Computed properties are invisible to the observation graph.
+When `theme` or `accentColor` changes via a Picker binding, UserDefaults updates but no observer fires,
+so `YomiApp.body` never re-evaluates and `.preferredColorScheme` / `.tint` stay stuck.
+
+**Root cause:** `colorScheme` is a computed var derived from `theme`. Even though `@State private var settings`
+is in `YomiApp`, the observation tracking never fires because no stored property mutates.
+
+**Fix pattern (S23):** Access stored properties directly in the view, not through derived computed vars:
+```swift
+// Wrong — colorScheme is computed, @Observable can't track it
+.preferredColorScheme(settings.colorScheme)
+
+// Correct — theme is a stored property, @Observable tracks it
+.preferredColorScheme(
+    settings.theme == "Dark"  ? .dark  :
+    settings.theme == "Light" ? .light : nil
+)
+```
+
+**Long-term fix:** Restructure AppSettings to stored properties with didSet for UserDefaults:
+```swift
+var theme: String = UserDefaults.standard.string(forKey: "theme") ?? "System" {
+    didSet { UserDefaults.standard.set(theme, forKey: "theme") }
+}
+```
+This makes @Observable instrument the property correctly.
+
+## Comments / Discussion architecture (planned S23)
+
+### Approach: "Discuss" button → WKWebView bottom sheet
+Native UGC comments require moderation infrastructure, privacy policy update, and Apple age gating.
+The correct approach: plugin declares an optional `getDiscussionURL(chapterPath)` function.
+When present, a "Discuss" button appears in `ReaderOverlayView`.
+Tapping it opens a `.sheet` presenting a `WKWebView` pointing to the chapter's comment page.
+
+**Plugin format extension (optional):**
+```javascript
+// Format A — optional
+function getDiscussionURL(chapterPath) {
+    return "https://site.com/chapter/123#comments";
+}
+```
+JSBridge detects: `context.objectForKeyedSubscript("getDiscussionURL").isObject`.
+
+### Disqus read-only comments (future)
+Sites using Disqus (Flame Scans, MangaFire) can be queried via Disqus API:
+`GET https://disqus.com/api/3.0/threads/listPosts.json?forum={shortname}&thread=link:{url}&api_key={key}`
+Returns read-only comments natively — no moderation burden, no UGC risk.
+Plugin declares `disqusShortname` field. Future feature, not S23.
+
 ## Design decisions
 | Decision | Discarded alternative | Reason |
 |----------|----------------------|--------|
