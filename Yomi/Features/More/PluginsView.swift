@@ -52,9 +52,15 @@ struct PluginsView: View {
     private var installedSection: some View {
         Section {
             if extensionManager.installed.isEmpty {
-                Text("No plugins installed yet.")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No plugins installed")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Plugins connect Yomi to external manga and novel sources. Install one from the catalog below.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 6)
             } else {
                 ForEach(extensionManager.installed) { ext in
                     InstalledExtensionRow(ext: ext)
@@ -99,13 +105,19 @@ struct PluginsView: View {
                     Image(systemName: "puzzlepiece.extension")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
-                    Text("No plugins found")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Button("Retry") {
-                        Task { await catalogService.fetchCatalog() }
+                    if !searchText.isEmpty {
+                        Text("No results for \"\(searchText)\"")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Catalog is empty")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button("Retry") {
+                            Task { await catalogService.fetchCatalog() }
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
