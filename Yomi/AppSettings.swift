@@ -1,53 +1,47 @@
-import Foundation
-import Observation
 import SwiftUI
+import Observation
 
 // MARK: - AppSettings
+//
+// @Observable requires STORED properties for the observation graph to work.
+// Computed vars backed by UserDefaults are invisible to @Observable —
+// mutations write to UserDefaults but no notification fires, so views
+// depending on those properties never re-render.
+//
+// Pattern: stored property with didSet → persists to UserDefaults.
+// @Observable macro instruments the stored property → mutation fires → views update.
 
-/// Singleton settings store backed by UserDefaults.
-/// All properties are computed vars so reads always reflect the current
-/// persisted value; writes go straight to UserDefaults.
-/// Wrapped in @State in a SwiftUI view to get $bindings.
 @Observable final class AppSettings {
 
     // MARK: - Singleton
 
     static let shared = AppSettings()
-    private init() {}
 
     // MARK: - Private storage
 
-    private let defaults = UserDefaults.standard
+    @ObservationIgnored private let defaults = UserDefaults.standard
 
     // MARK: - Reader
 
-    /// Reading mode for manga. Values: "Manga (RTL)", "Webtoon"
     var readerMode: String {
-        get { defaults.string(forKey: "readerMode") ?? "Manga (RTL)" }
-        set { defaults.set(newValue, forKey: "readerMode") }
+        didSet { defaults.set(readerMode, forKey: "readerMode") }
     }
 
-    /// Font size for the novel reader (points)
     var fontSize: Double {
-        get { defaults.object(forKey: "fontSize") as? Double ?? 16.0 }
-        set { defaults.set(newValue, forKey: "fontSize") }
+        didSet { defaults.set(fontSize, forKey: "fontSize") }
     }
 
-    /// Line spacing multiplier for the novel reader
     var lineSpacing: Double {
-        get { defaults.object(forKey: "lineSpacing") as? Double ?? 1.5 }
-        set { defaults.set(newValue, forKey: "lineSpacing") }
+        didSet { defaults.set(lineSpacing, forKey: "lineSpacing") }
     }
 
     // MARK: - Appearance
 
-    /// App color scheme override. Values: "System", "Light", "Dark"
     var theme: String {
-        get { defaults.string(forKey: "theme") ?? "System" }
-        set { defaults.set(newValue, forKey: "theme") }
+        didSet { defaults.set(theme, forKey: "theme") }
     }
 
-    /// Resolved ColorScheme for .preferredColorScheme(). Nil = follow system.
+    /// Derived from theme — reactive because theme is now a stored property.
     var colorScheme: ColorScheme? {
         switch theme {
         case "Light": return .light
@@ -56,65 +50,58 @@ import SwiftUI
         }
     }
 
-    /// Whether to use the system font or the built-in reader font
+    var accentColor: String {
+        didSet { defaults.set(accentColor, forKey: "accentColor") }
+    }
+
     var useSystemFont: Bool {
-        get { defaults.object(forKey: "useSystemFont") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "useSystemFont") }
+        didSet { defaults.set(useSystemFont, forKey: "useSystemFont") }
     }
 
     // MARK: - Content
 
-    /// Whether to show NSFW sources and catalog entries
     var showNSFW: Bool {
-        get { defaults.object(forKey: "showNSFW") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "showNSFW") }
+        didSet { defaults.set(showNSFW, forKey: "showNSFW") }
     }
 
-    /// Whether the app has already prompted the user for notification permission
+    // MARK: - Notifications
+
     var hasRequestedNotifications: Bool {
-        get { defaults.bool(forKey: "hasRequestedNotifications") }
-        set { defaults.set(newValue, forKey: "hasRequestedNotifications") }
+        didSet { defaults.set(hasRequestedNotifications, forKey: "hasRequestedNotifications") }
     }
 
-    /// Whether the novel reader uses sepia background (#F4ECD8) and text (#5C4033)
+    // MARK: - Novel reader
+
     var novelSepia: Bool {
-        get { defaults.bool(forKey: "novelSepia") }
-        set { defaults.set(newValue, forKey: "novelSepia") }
+        didSet { defaults.set(novelSepia, forKey: "novelSepia") }
     }
 
-    /// Whether the user has completed the first-launch onboarding flow
+    // MARK: - Onboarding
+
     var hasSeenOnboarding: Bool {
-        get { defaults.bool(forKey: "hasSeenOnboarding") }
-        set { defaults.set(newValue, forKey: "hasSeenOnboarding") }
+        didSet { defaults.set(hasSeenOnboarding, forKey: "hasSeenOnboarding") }
     }
 
     // MARK: - Plugins
 
-    /// URL of the plugin catalog index.json used by PluginsView "Browse catalog"
     var pluginCatalogURL: String {
-        get { defaults.string(forKey: "pluginCatalogURL") ?? "https://yomi-plugins.web.app/index.json" }
-        set { defaults.set(newValue, forKey: "pluginCatalogURL") }
+        didSet { defaults.set(pluginCatalogURL, forKey: "pluginCatalogURL") }
     }
 
-    // MARK: - Accent color
+    // MARK: - Init
 
-    /// Hex string for the app accent/tint color. Default: red.
-    var accentColor: String {
-        get { defaults.string(forKey: "accentColor") ?? "#FF6B6B" }
-        set { defaults.set(newValue, forKey: "accentColor") }
-    }
-}
-
-// MARK: - Color(hex:)
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int         & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
+    private init() {
+        let d = UserDefaults.standard
+        readerMode              = d.string(forKey: "readerMode")             ?? "Manga (RTL)"
+        fontSize                = d.object(forKey: "fontSize")    as? Double ?? 18.0
+        lineSpacing             = d.object(forKey: "lineSpacing") as? Double ?? 1.6
+        theme                   = d.string(forKey: "theme")                  ?? "System"
+        accentColor             = d.string(forKey: "accentColor")            ?? "#FF6B6B"
+        useSystemFont           = d.object(forKey: "useSystemFont") as? Bool ?? true
+        showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
+        hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
+        novelSepia              = d.bool(forKey: "novelSepia")
+        hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
+        pluginCatalogURL        = d.string(forKey: "pluginCatalogURL")       ?? "https://yomi-plugins.web.app/index.json"
     }
 }
