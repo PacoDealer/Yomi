@@ -137,6 +137,41 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 20 | 2026-04-06 | Dark mode fixed: @State private var settings = AppSettings.shared in YomiApp, @Observable tracking fires on WindowGroup re-evaluation, .preferredColorScheme(settings.colorScheme) reactive. PluginsView catalog: .task → .onAppear { Task { ... } }, retry button, empty state, pull-to-refresh. TextReaderView fontSize: reads+writes AppSettings.shared.fontSize — single source of truth with SettingsView Stepper. Accent color: AppSettings.accentColor (String, default #FF6B6B), 6-swatch picker in SettingsView, Color(hex:) extension, .tint(Color(hex: settings.accentColor)) at WindowGroup root. |
 | 21 | 2026-04-07 | Color+Hex.swift (Yomi/Core/, 6+8-digit hex, hexString via UIColor sRGB). AppSettings: fontSize default 18.0, accentColor, colorScheme computed var, pluginCatalogURL kept. YomiApp: #if DEBUG seedBundledPlugins, .tint + .preferredColorScheme on ContentView (Scene has no .tint — WindowGroup build failure). SettingsView: Slider 14–28, 10 swatches + custom ColorPicker sheet. TextReaderView: CSS re-inject via evaluateJavaScript on every updateUIView cycle. Regressions introduced: OnboardingView fullScreenCover removed (not in prompt scope), NovelQueries.markRead() dropped in rewrite. |
 | 22 | 2026-04-07 | Restore S21 regressions: OnboardingView gate + NovelQueries.markRead(). PrivacyInfo.xcprivacy (NSPrivacyAccessedAPICategoryUserDefaults, reason CA92.1). Reading resume in ChapterReaderView (Task.detached DB read after loadPages, MainActor.run to set currentPage). Pan when zoomed in MangaPageView (GeometryReader, DragGesture with clamping, guard scale > 1.0). Browse pagination in SourceBrowseView (currentPage/isLoadingMore/hasMoreContent, "Load more" button, both Format A and B). Workflow change: Claude Code-first, no relay. MCP setup: XcodeBuildMCP, context7, apple-docs, github, mobile-mcp. CLAUDE.md created at project root. Memory system initialized. |
+| 23 | 2026-04-07 | Fix dark mode + accent color: AppSettings converted from computed vars to stored properties with didSet — @Observable graph now tracks all 11 settings. Plugin UX overhaul: LibraryView empty state branches on installed.isEmpty → "No plugins" + Get plugins → More tab. PluginsView installed section shows title+description. Catalog distinguishes search-no-results from truly-empty. LTR reading mode: .horizontalLTR added to ReaderMode enum, MangaReaderView gains isRTL param. Unread badge: MangaCoverCell loads unread count via .task, shows accent Capsule overlay. ContinueReading direct navigation: tapping cell loads chapters via JSBridge+Task.detached, merges DB progress, finds last-read by readAt, navigates directly to ChapterReaderView. Bulk download: "Download next N" button (max 10) in Chapters header. Storage size: FileManager enumerates Downloads/{mangaId}/, ByteCountFormatter, shown in header. Page-jump slider: ReaderOverlayView bottom bar, currentPage promoted to @Binding, Slider hidden in Webtoon mode. Bonus fix: accent swatch HStack → ScrollView(.horizontal), swatch 28→32pt. All 8 items committed + pushed. Items 9-13 deferred to S24. |
+
+## Technical learnings — S23
+
+### @Observable + external storage
+`@Observable` macro expansion only generates `access(keyPath:)` / `withMutation(keyPath:)`
+calls for **stored properties**. Computed properties backed by UserDefaults are invisible to
+the observation graph — mutations write to UserDefaults but no notification fires. The fix:
+store the value in a `var` with `didSet` that persists to UserDefaults. The singleton's
+`private init()` reads the current UserDefaults value into each stored property.
+`@ObservationIgnored` must be applied to the `defaults` ivar to prevent the macro from
+trying to observe it. `colorScheme` can remain computed because it derives from `theme`
+(a tracked stored property) — the observation chain propagates correctly.
+
+### navigationDestination(isPresented:) for dynamic navigation
+When the destination view requires reference-type state (like JSBridge) that doesn't conform
+to Hashable, use `navigationDestination(isPresented: $flag)` with separate `@State` vars for
+the data, rather than `navigationDestination(item:)` which requires Hashable. Set the data
+vars first, then set the Bool flag to trigger navigation.
+
+### Slider binding for Int page state
+SwiftUI Slider works with Double. To bind it to an `@Binding<Int>`:
+```swift
+Slider(
+    value: Binding(get: { Double(currentPage) }, set: { currentPage = Int($0.rounded()) }),
+    in: 0...Double(totalPages - 1),
+    step: 1
+)
+```
+The `.rounded()` prevents off-by-one drift from floating point.
+
+### ScrollView fixes overflow in List sections
+A plain `HStack` inside a `List` cell does not clip or scroll — items overflow off-screen
+silently. Wrap in `ScrollView(.horizontal, showsIndicators: false)` when the content count
+is variable or guaranteed to exceed screen width (e.g., color swatch rows).
 
 ## UX research — reading apps (S23 basis)
 

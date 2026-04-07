@@ -19,33 +19,22 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S22 — 2026-04-07, starting S23)
+## Current state (post S23 — 2026-04-07, starting S24)
 
-**Critical bug — dark mode + accent color stuck:**
-AppSettings uses computed vars. @Observable only tracks stored properties. Computed vars are
-invisible to the observation graph — theme/accentColor changes never re-evaluate YomiApp.body.
-Fix: access `settings.theme` directly in YomiApp.body, not `settings.colorScheme`.
-```swift
-// WRONG — computed, invisible to @Observable
-.preferredColorScheme(settings.colorScheme)
-// CORRECT — stored property, @Observable tracks it
-.preferredColorScheme(settings.theme == "Dark" ? .dark : settings.theme == "Light" ? .light : nil)
-```
+S23 complete. All 8 implemented items pushed. AppSettings fully observable (stored properties
+with didSet). Plugin UX, LTR mode, unread badge, direct ContinueReading, bulk download, storage
+size, page-jump slider all shipped. Items 9-13 deferred to S24.
 
-**S23 priority order:**
-1. Fix dark mode + accent color (YomiApp.swift)
-2. Plugin UX overhaul (empty states, concept explanation)
-3. LTR reading mode (manhwa/manhua)
-4. Unread badge on library covers (MangaCoverCell)
-5. ContinueReading → open directly in reader at saved progress
-6. Bulk download in MangaDetailView
-7. Storage size per manga
-8. Page-jump slider in reader overlay
-9. Webtoon scroll position persistence
-10. Library sort options
-11. "Discuss" button → WKWebView bottom sheet
-12. Paperback compatibility shim (~100 new sources)
-13. App icon (design — coral/amber + 読 or kitsune)
+**S24 priority order:**
+1. Webtoon scroll position persistence (ScrollViewReader + scrollTo saved anchor)
+2. Library sort options (Alphabetical / Last Read / Last Updated / Unread Count)
+3. "Discuss" button → WKWebView bottom sheet in reader overlay
+4. Paperback compatibility shim (~100 new sources — Large, 2-3 days)
+5. App icon (design — coral/amber + 読 or kitsune, 1024×1024 PNG, App Store blocker)
+6. MAL token → Keychain (required before App Store submission)
+7. Privacy policy URL (static page, required before App Store)
+8. Novel read semantics (mark read on scroll-to-end, not HTML load)
+9. Downloads cleanup on manga delete
 
 ## ABSOLUTE RULES — never violate
 
