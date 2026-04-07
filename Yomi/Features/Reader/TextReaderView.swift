@@ -20,8 +20,11 @@ struct TextReaderView: View {
 
     // MARK: - Computed
 
+    private var lineSpacing: Double { AppSettings.shared.lineSpacing }
+
     private var styledHTML: String {
-        let effectiveFontSize = max(18, Int(fontSize))
+        let fs = Int(fontSize)               // no clamp — use value directly
+        let ls = lineSpacing
         let bg: String
         let fg: String
         if isSepia {
@@ -33,11 +36,19 @@ struct TextReaderView: View {
         }
         let style = """
         <style>
-        body { font-family: -apple-system; font-size: \(effectiveFontSize)px;
-               line-height: 1.6; padding: 20px 16px;
-               background: \(bg); color: \(fg); max-width: 680px; margin: 0 auto; }
-        img  { max-width: 100%; }
-        a    { color: #4a9eff; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, sans-serif;
+            font-size: \(fs)px;
+            line-height: \(String(format: "%.2f", ls));
+            padding: 20px 16px 60px 16px;
+            background: \(bg);
+            color: \(fg);
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        img { max-width: 100%; }
+        a   { color: #4a9eff; }
         </style>
         """
         return style + rawContent
@@ -47,7 +58,7 @@ struct TextReaderView: View {
 
     var body: some View {
         ZStack {
-            Color(isDarkMode ? UIColor.black : UIColor.white)
+            Color(isDarkMode ? UIColor(named: "ReaderDark") ?? .black : .white)
                 .ignoresSafeArea()
 
             if isLoading {
@@ -68,18 +79,22 @@ struct TextReaderView: View {
             }
 
             TextReaderOverlayView(
-                novel:        novel,
-                chapter:      chapter,
-                fontSize:     $fontSize,
-                isDarkMode:   $isDarkMode,
-                isSepia:      $isSepia,
-                showOverlay:  $showOverlay,
-                onDismiss:    { dismiss() }
+                novel:       novel,
+                chapter:     chapter,
+                fontSize:    $fontSize,
+                isDarkMode:  $isDarkMode,
+                isSepia:     $isSepia,
+                showOverlay: $showOverlay,
+                onDismiss:   { dismiss() }
             )
         }
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
+        .preferredColorScheme(.dark)
         .task { await loadContent() }
+        .onChange(of: fontSize) { _, newValue in
+            AppSettings.shared.fontSize = newValue
+        }
     }
 
     // MARK: - Load Content
@@ -94,47 +109,28 @@ struct TextReaderView: View {
             errorMessage = "No content found for this chapter."
         } else {
             rawContent = html
+            Task { try? NovelQueries.markRead(chapterId: chapter.id) }
         }
         isLoading = false
-
-        // Mark as read — fire and forget
-        Task { try? NovelQueries.markRead(chapterId: chapter.id) }
     }
 }
 
 // MARK: - ReaderWebView
 
-/// WKWebView wrapped in UIViewRepresentable.
-/// Only reloads when the HTML string actually changes (tracked via Coordinator).
-/// Tap gesture forwarded to SwiftUI via onTap closure.
 struct ReaderWebView: UIViewRepresentable {
     let html: String
     let onTap: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    // MARK: Coordinator
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        var lastHTML: String = ""
-        var onTap: (() -> Void)?
-
-        @objc func handleTap() { onTap?() }
-
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-        ) -> Bool { true }
-    }
-
-    // MARK: UIViewRepresentable
+    func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap) }
 
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let config = WKWebViewConfiguration()
+        config.dataDetectorTypes = []
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.backgroundColor = .clear
         webView.isOpaque = false
         webView.scrollView.backgroundColor = .clear
-        webView.scrollView.contentInsetAdjustmentBehavior = .always
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
 
         let tap = UITapGestureRecognizer(
             target: context.coordinator,
@@ -142,125 +138,160 @@ struct ReaderWebView: UIViewRepresentable {
         )
         tap.delegate = context.coordinator
         webView.addGestureRecognizer(tap)
+
+        webView.loadHTMLString(html, baseURL: nil)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.onTap = onTap
-        guard html != context.coordinator.lastHTML else { return }
-        context.coordinator.lastHTML = html
-        webView.loadHTMLString(html, baseURL: nil)
+        // Re-inject style via JS to avoid a full page reload.
+        // Only the <style> block changes; rawContent is stable after first load.
+        guard !html.isEmpty else { return }
+
+        // Extract just the <style>...</style> portion and re-apply it.
+        if let styleStart = html.range(of: "<style>"),
+           let styleEnd   = html.range(of: "</style>") {
+            let styleContent = String(html[styleStart.lowerBound...styleEnd.upperBound])
+            // Escape for JS string injection
+            let escaped = styleContent
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "`",  with: "\\`")
+            let js = """
+            (function() {
+                var existing = document.querySelector('style');
+                if (existing) {
+                    existing.outerHTML = `\(escaped)`;
+                } else {
+                    document.head.insertAdjacentHTML('beforeend', `\(escaped)`);
+                }
+            })();
+            """
+            webView.evaluateJavaScript(js)
+        }
+    }
+
+    // MARK: - Coordinator
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        let onTap: () -> Void
+        init(onTap: @escaping () -> Void) { self.onTap = onTap }
+
+        @objc func handleTap() { onTap() }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
     }
 }
 
 // MARK: - TextReaderOverlayView
 
-private struct TextReaderOverlayView: View {
-    let novel: Novel
-    let chapter: NovelChapter
-    @Binding var fontSize: Double
+struct TextReaderOverlayView: View {
+    let novel:      Novel
+    let chapter:    NovelChapter
+    @Binding var fontSize:   Double
     @Binding var isDarkMode: Bool
-    @Binding var isSepia: Bool
+    @Binding var isSepia:    Bool
     @Binding var showOverlay: Bool
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top bar
-            ZStack(alignment: .bottom) {
-                LinearGradient(
-                    colors: [Color.black.opacity(0.8), Color.clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 88)
-                .ignoresSafeArea(edges: .top)
+        VStack {
+            if showOverlay {
+                // Top bar
+                ZStack(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.8), Color.clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 88)
+                    .ignoresSafeArea(edges: .top)
 
-                HStack(spacing: 12) {
-                    Button(action: onDismiss) {
-                        Image(systemName: "chevron.left")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .padding(.trailing, 4)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(novel.title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(chapter.name)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-            }
-
-            Spacer()
-
-            // Bottom bar
-            ZStack(alignment: .top) {
-                LinearGradient(
-                    colors: [Color.clear, Color.black.opacity(0.85)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 110)
-                .ignoresSafeArea(edges: .bottom)
-
-                VStack(spacing: 10) {
-                    // Font size slider
-                    HStack(spacing: 10) {
-                        Text("Aa")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.7))
-                        Slider(value: $fontSize, in: 14...26, step: 1)
-                            .tint(.white)
-                            .onChange(of: fontSize) { _, newValue in
-                                AppSettings.shared.fontSize = newValue
-                            }
-                        Text("Aa")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .padding(.horizontal, 20)
-
-                    HStack(spacing: 20) {
-                        // Dark / light toggle
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isDarkMode.toggle()
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: isDarkMode ? "sun.max" : "moon")
-                                Text(isDarkMode ? "Light mode" : "Dark mode")
-                                    .font(.caption)
-                            }
-                            .foregroundStyle(.white.opacity(0.85))
-                        }
-
-                        // Sepia mode toggle
-                        Button {
-                            isSepia.toggle()
-                            AppSettings.shared.novelSepia = isSepia
-                        } label: {
-                            Image(systemName: isSepia ? "s.circle.fill" : "s.circle")
+                    HStack(spacing: 12) {
+                        Button(action: onDismiss) {
+                            Image(systemName: "chevron.left")
                                 .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.trailing, 4)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(novel.title)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Text(chapter.name)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
+
+                Spacer()
+
+                // Bottom bar
+                ZStack(alignment: .top) {
+                    LinearGradient(
+                        colors: [Color.clear, Color.black.opacity(0.85)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 120)
+                    .ignoresSafeArea(edges: .bottom)
+
+                    VStack(spacing: 10) {
+                        HStack(spacing: 10) {
+                            Text("A")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.7))
+                            Slider(value: $fontSize, in: 14...28, step: 1)
+                                .tint(.white)
+                            Text("A")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        .padding(.horizontal, 20)
+
+                        HStack(spacing: 24) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isDarkMode.toggle()
+                                    isSepia = false
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: isDarkMode ? "sun.max" : "moon")
+                                    Text(isDarkMode ? "Light" : "Dark")
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(.white.opacity(0.85))
+                            }
+
+                            Button {
+                                isSepia.toggle()
+                                AppSettings.shared.novelSepia = isSepia
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: isSepia ? "s.circle.fill" : "s.circle")
+                                    Text("Sepia")
+                                        .font(.caption)
+                                }
                                 .foregroundStyle(.white.opacity(isSepia ? 1.0 : 0.6))
+                            }
                         }
                     }
+                    .padding(.top, 14)
                 }
-                .padding(.top, 14)
             }
         }
-        .opacity(showOverlay ? 1 : 0)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)
     }
 }
