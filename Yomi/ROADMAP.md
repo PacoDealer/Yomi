@@ -204,19 +204,27 @@ AppSettings.shared.fontSize — persists across sessions, SettingsView Stepper e
 | 3 | ✅ TextReaderView fontSize | @State fontSize initialized from AppSettings.shared.fontSize (was hardcoded 18). .onChange on Slider writes back to AppSettings.shared.fontSize. SettingsView Stepper and TextReaderView slider now share a single source of truth. |
 | 4 | ✅ Accent color picker | AppSettings.accentColor: String (default #FF6B6B). 6-swatch picker in SettingsView Appearance section (Red, Blue, Green, Orange, Purple, Pink). Color(hex:) extension in AppSettings.swift. .tint(Color(hex: settings.accentColor)) applied at WindowGroup root alongside .preferredColorScheme. |
 
-## Session 21 — Polish + App Store prep (planned)
+## Session 21 — Settings & Reader Fixes ✅ Complete
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | PrivacyInfo.xcprivacy | Create Yomi/PrivacyInfo.xcprivacy. XML plist, declare NSPrivacyAccessedAPICategoryUserDefaults (AppSettings, MAL token, onboarding flag). Add to Xcode target. Hard-rejection without it on iOS 17+. |
-| 2 | fontSize range inconsistency | Unify across 3 files: AppSettings default 16.0 → 18.0, remove max(18,...) clamp in styledHTML, align Stepper range (12–24) with Slider range (14–26). Decision: range 14–26, default 18.0, no clamp. |
-| 3 | PluginCatalogService concurrent fetches | fetchCatalog() must guard isLoading or entries.isEmpty\|\|forceRefresh before making network call — .onAppear fires on every tab switch, causing redundant fetches. |
+| 1 | ✅ Color+Hex.swift | New file Yomi/Core/Color+Hex.swift. Color(hex:) handles #RRGGBB and #RRGGBBAA. Color.hexString converts back to #RRGGBB via UIColor sRGB. Single definition — old duplicate in AppSettings removed. |
+| 2 | ✅ fontSize unified | AppSettings default 16.0 → 18.0. max(18,...) clamp removed from styledHTML. Slider range 14–28 in both SettingsView and reader overlay. Single source of truth. |
+| 3 | ✅ Dark mode + accent color wired | AppSettings gains colorScheme: ColorScheme? computed var and accentColor: String (default #FF6B6B). YomiApp: @State private var settings drives .preferredColorScheme + .tint on ContentView. |
+| 4 | ✅ Accent color picker | SettingsView Appearance: 10 curated swatches + custom ColorPicker sheet (.presentationDetents .medium). hexString binding via Color+Hex.swift. |
+| 5 | ✅ #if DEBUG seedBundledPlugins | YomiApp.init() calls ExtensionManager.shared.seedBundledPlugins() inside #if DEBUG. Plugins available in simulator. Release/App Store binary unaffected. |
+| 6 | ✅ TextReaderView CSS re-injection | fontSize initialized from AppSettings.shared.fontSize. lineSpacing reads AppSettings.shared.lineSpacing. onChange(of: fontSize) persists back. ReaderWebView.updateUIView re-injects <style> via evaluateJavaScript on every render — avoids full page reload. |
+| 7 | ⚠️ OnboardingView removed from YomiApp | fullScreenCover + showOnboarding @State were dropped in S21 (not in prompt scope). New users skip onboarding. Must be restored in S22. |
+| 8 | ⚠️ NovelQueries.markRead() removed | TextReaderView.loadContent() no longer marks novel chapters as read. Silent regression from S21 rewrite. Must be restored in S22. |
+
+## Session 22 — Regressions + Core UX (planned)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | Restore OnboardingView | Add @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding back to YomiApp. Restore .fullScreenCover(isPresented: $showOnboarding) { OnboardingView() } on ContentView. |
+| 2 | Restore markRead | Add back Task { try? NovelQueries.markRead(chapterId: chapter.id) } at end of TextReaderView.loadContent() after rawContent = html. |
+| 3 | PrivacyInfo.xcprivacy | Create Yomi/PrivacyInfo.xcprivacy. XML plist, declare NSPrivacyAccessedAPICategoryUserDefaults (AppSettings, MAL token, onboarding flag). Add to Xcode target. Hard-rejection without it on iOS 17+. |
 | 4 | Reading resume | Read chapter.progress from DB via ChapterQueries.fetchOne(id:) after pages load. Convert to page index: Int(progress * Double(pages.count - 1)). Set currentPage. |
-| 5 | Pan when zoomed | MangaPageView: add @State offset: CGSize + DragGesture. Clamp offset: max(offset.x) = (scale - 1) * viewWidth / 2. Reset to .zero when scale returns to 1.0. |
-| 6 | Browse source pagination | SourceBrowseView: @State currentPage = 1. "Load more" button at bottom of LazyVGrid. Append getMangaList(page:) results on tap. Both Format A and Format B affected. |
-| 7 | Library unread badge | Unread chapter count overlay on manga covers in LibraryView. Count from ChapterQueries.fetchUnread(mangaId:). |
-| 8 | MAL token → Keychain | Replace UserDefaults storage of MAL accessToken with Security framework Keychain. Add KeychainHelper wrapper. Update MALService read/write. Required before App Store submission. |
-| 9 | Downloads cleanup | DownloadManager: remove Documents/Downloads/{mangaId}/ when manga deleted. Add cleanup to MangaQueries.delete and swipe-delete handler in MangaDetailView. |
-| 10 | App icon | Required for App Store. All required sizes in Asset Catalog. ⏭ User adds manually when design is ready. |
+| 5 | Pan when zoomed | MangaPageView: add @State offset: CGSize + DragGesture. Clamp: max(abs(offset.x)) = (scale - 1) * viewWidth / 2. Reset to .zero when scale returns to 1.0. |
+| 6 | Browse pagination | SourceBrowseView: @State currentPage = 1. "Load more" button at bottom of LazyVGrid. Append getMangaList(page:) results on tap. Both Format A and Format B. |
 
 ## App Store submission checklist
 These items must ALL be complete before submitting to App Store Connect:

@@ -22,6 +22,7 @@ Yomi/
 │       └── ExtensionQueries.swift   # CRUD extensions
 ├── Core/
 │   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation
+│   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
 │   └── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 ├── Features/
 │   ├── Library/
@@ -59,9 +60,9 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 11 properties
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 12 properties. colorScheme: ColorScheme? derived from theme. accentColor: String hex default #FF6B6B. fontSize default 18.0.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
-├── YomiApp.swift                    # Entry point, DB setup. @State private var settings drives .preferredColorScheme + .tint at WindowGroup root. Onboarding gate via .fullScreenCover.
+├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State private var settings drives .preferredColorScheme(settings.colorScheme) + .tint(Color(hex: settings.accentColor)) on ContentView(). ⚠️ OnboardingView fullScreenCover removed in S21 — restore in S22.
 ├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
@@ -154,7 +155,8 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
 - `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView; prevents re-showing on subsequent launches
-- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; 6-swatch picker in SettingsView Appearance; applied via `.tint()` at WindowGroup root (S20)
+- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; 10-swatch picker + custom ColorPicker in SettingsView Appearance; applied via `.tint(Color(hex:))` on ContentView (S21)
+- `colorScheme: ColorScheme?` — computed var derived from `theme`; nil = system, .light, or .dark; drives `.preferredColorScheme` at ContentView root (S21)
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
