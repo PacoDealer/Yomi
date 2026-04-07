@@ -11,10 +11,19 @@ disconnected from local @State fontSize slider — not yet the single source of 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| Dark mode | Read YomiApp.swift before S20 to diagnose why preferredColorScheme at root doesn't apply in sim. May need @Bindable wrapper or explicit .dark/.light — never pass nil to verify. | High |
-| TextReader font | AppSettings.novelFontSize must replace local @State fontSize as source of truth. Re-inject CSS via evaluateJavaScript on .onChange(of: AppSettings.shared.novelFontSize). Remove local @State fontSize from TextReaderView. | High |
-| PluginsView catalog | Network error silently swallowed after onboarding flow change — Browse tab shows empty. Needs explicit errorMessage + retry button. Diagnose before assuming network is the cause. | High |
-| Theme + accent color | accentColor picker (6 swatches) + tint at WindowGroup root. Planned S20. | Medium |
+| Dark mode | Read YomiApp.swift before S20 to diagnose why preferredColorScheme at root doesn't apply in sim. Try explicit .dark/.light first — never use nil to verify. | High |
+| TextReader font | AppSettings.novelFontSize disconnected from local @State fontSize in TextReaderView. Must become single source of truth. Re-inject CSS via evaluateJavaScript on .onChange. | High |
+| PluginsView catalog | Error silently swallowed — Browse tab shows empty after onboarding. Needs explicit errorMessage + retry button. | High |
+| Reading resume | chapter.progress IS saved (updateProgress on disappear) but ChapterReaderView always opens at currentPage = 0. The saved progress is never read back. Users always restart from page 1. | High |
+| Browse pagination | SourceBrowseView calls getMangaList(page: 1) once and stops. No "load more". Users see only the first ~20 titles from any source. MangaDex has thousands. | High |
+| Pan when zoomed | MangaPageView uses .scaleEffect only — no DragGesture for offset. At zoom > 1x the image is stuck centered. Pan is required for zoom to be useful. | High |
+| Novel chapter read semantics | TextReaderView calls NovelQueries.markRead() immediately after HTML loads — not on scroll-to-end. A chapter is marked "read" before the user reads a single word. | Medium |
+| Downloads cleanup | DownloadManager never cleans up Documents/Downloads/{mangaId}/ when a manga is removed from library or a downloaded chapter is deleted. Disk leaks indefinitely. | Medium |
+| PrivacyInfo.xcprivacy | Required for all iOS 17+ App Store submissions. Must declare UserDefaults access (NSPrivacyAccessedAPICategoryUserDefaults) and any file timestamp API usage. Missing entirely — submission will be rejected without it. | High |
+| MAL token → Keychain | Currently in UserDefaults. Must migrate to Keychain before App Store submission. | Medium |
+| App icon | ⏭ Still pending since S12. Required before submission. | Medium |
+| Privacy policy URL | App Store Connect requires a privacy policy URL for any app that connects to the internet. Yomi connects to Firebase, MAL, and plugin sources. | Medium |
+| Theme + accent color | accentColor picker (6 swatches) + tint at WindowGroup root. Planned S20. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -187,25 +196,47 @@ disconnected from local @State fontSize slider — not yet the single source of 
 | 5 | ⚠️ Dark mode | preferredColorScheme applied at WindowGroup root in YomiApp.swift. colorScheme: ColorScheme? added to AppSettings. Compiled but not confirmed working — simulator stays light. Needs diagnostic read at S20 start. |
 | 6 | ⚠️ TextReaderView font re-inject | Coordinator.lastHTML re-inject pattern in place. Colors updated (dark #1C1C1E/#E8E8E8, sepia #FFF8F0/#2C1810, light #FFFFFF/#1C1C1E), line-height 1.6. AppSettings.novelFontSize still disconnected from local @State fontSize slider — not the single source of truth. |
 
-## Session 20 — Diagnostics + Polish (planned)
+## Session 20 — Core reading experience fixes (planned)
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | Dark mode diagnostic | Read YomiApp.swift. Verify @State showOnboarding + preferredColorScheme wiring. Try passing explicit .dark to rule out nil issue. Fix and confirm in sim by toggling appearance. |
-| 2 | TextReaderView font source of truth | Remove local @State fontSize. Use AppSettings.novelFontSize directly. Re-inject CSS via webView.evaluateJavaScript on .onChange(of: AppSettings.shared.novelFontSize). |
-| 3 | PluginsView error state | Add explicit errorMessage display + retry button to Browse tab. Diagnose why catalog fetch fails silently after onboarding. |
-| 4 | accentColor picker | 6 color swatches in Appearance settings. Store as String in AppSettings. Apply tint at WindowGroup root. |
-| 5 | Webtoon as default reading mode | AppSettings.defaultReaderMode = "Webtoon" (was "Manga (RTL)"). Carried over from S19. |
-| 6 | Chapter sort toggle | MangaDetailView: sort button in toolbar toggles chaptersAscending: Bool. ChapterQueries returns sorted list. Carried over from S19. |
-| 7 | Chapter 0,0 display fix | MangaDetailView: chapters where chapterNumber == 0 and name is empty → display as "Prologue" or skip. Carried over from S19. |
-| 8 | Browse source chips full names | Replace truncated chip labels with scrollable full-name chips or a dropdown picker |
-| 9 | Library filter fix | Debug and fix filter/sort button in LibraryView |
-| 10 | NovelUpdates plugin | Format B (LNReader), requires login or API key research |
+| 1 | Reading resume | On open, read chapter.progress from DB via ChapterQueries.fetchOne(id:). Convert to page index: Int(progress * Double(pages.count - 1)). Set currentPage to that index after pages load. |
+| 2 | Pan when zoomed | MangaPageView: add @State offset: CGSize + DragGesture. Clamp offset so image can't be dragged beyond its zoomed bounds. Reset offset to .zero when scale returns to 1.0 (double-tap or pinch out). |
+| 3 | Browse source pagination | SourceBrowseView: @State currentPage = 1. After initial load, show "Load more" button at bottom of LazyVGrid. On tap: currentPage += 1, append getMangaList(page: currentPage) results to mangas. |
+| 4 | Dark mode diagnostic | Read YomiApp.swift. Try explicit .dark to rule out nil issue. Fix and confirm in sim. |
+| 5 | TextReaderView font source of truth | Remove local @State fontSize. Use AppSettings.novelFontSize. Re-inject CSS via evaluateJavaScript on .onChange. |
+| 6 | PluginsView error state | Explicit errorMessage + retry button in Browse tab. |
+| 7 | Novel chapter read semantics | Mark novel chapter as read on scroll-to-bottom (WKWebView scroll position via JS), not on load. |
+| 8 | Webtoon as default reading mode | AppSettings.defaultReaderMode = "Webtoon". |
+| 9 | Chapter sort toggle | MangaDetailView toolbar button toggles sort order. |
+| 10 | Chapter 0,0 display fix | Filter/rename chapters where chapterNumber == 0 and name is empty. |
 
-## Session 21 — Backend + Data (planned)
+## Session 21 — Polish + App Store prep (planned)
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | UpdatesViewModel push notifications | scheduleChapterNotification(manga:newChapters:) after checkUpdates completes |
-| 2 | iCloud Drive backup | Native UIDocumentPickerViewController, export/import JSON, no OAuth |
+| 1 | PrivacyInfo.xcprivacy | Create Yomi/PrivacyInfo.xcprivacy. Declare NSPrivacyAccessedAPICategoryUserDefaults (AppSettings, MAL token, onboarding flag). Required for all iOS 17+ App Store submissions — will be rejected without it. |
+| 2 | Downloads cleanup | When a manga is removed from library or a chapter is deleted, call DownloadManager to remove Documents/Downloads/{mangaId}/ (or /{chapterId}/). Add cleanup to MangaQueries.delete and the swipe-delete handler in MangaDetailView. |
+| 3 | MAL token → Keychain | Replace UserDefaults storage of MAL accessToken with Security framework Keychain. Add KeychainHelper wrapper. Update MALService read/write. |
+| 4 | accentColor picker | 6 swatches in Appearance settings. Store as String in AppSettings. Apply tint at WindowGroup root. |
+| 5 | Library unread badge | Show unread chapter count overlay on manga covers in LibraryView. Count from ChapterQueries.fetchUnread(mangaId:). |
+| 6 | UpdatesViewModel push notifications | scheduleChapterNotification(manga:newChapters:) after checkUpdates completes. |
+| 7 | iCloud Drive backup | Native UIDocumentPickerViewController, export/import JSON, no OAuth. |
+| 8 | Browse source chips full names | Replace truncated chip labels with scrollable full-name chips or dropdown. |
+| 9 | Library filter fix | Debug and fix filter/sort button in LibraryView. |
+
+## App Store submission checklist
+These items must ALL be complete before submitting to App Store Connect:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| PrivacyInfo.xcprivacy | ❌ Missing | Declare UserDefaults API. Hard rejection without it (iOS 17+). |
+| Privacy policy URL | ❌ Missing | Required for any app connecting to the internet. Host a static page. |
+| App icon | ❌ Missing | All required sizes. Use Asset Catalog. |
+| Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
+| MAL token in Keychain | ❌ Pending | Currently in UserDefaults. Migrate before submission. |
+| Age rating: 17+ | ❌ Pending | App enables NSFW content via user-installed plugins. Must declare. |
+| App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
+| Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). |
+| Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |
 
 ## App Store compliance
 Yomi is App Store compliant via the extension model:
