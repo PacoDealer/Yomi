@@ -53,7 +53,7 @@ Yomi/
 │   │   └── OnboardingView.swift     # First-launch full-screen card (S19 — new); guides user to Browse catalog; gated by AppSettings.hasSeenOnboarding
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
-│       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins removed in S19 for App Store compliance
+│       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 10 properties
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
@@ -149,6 +149,7 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - `novelSepia: Bool` — sepia mode toggle for TextReaderView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
 - `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView; prevents re-showing on subsequent launches
+- `accentColor: String` — planned S20; 6-swatch picker; applied as tint at WindowGroup root
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`

@@ -1,11 +1,20 @@
 # Roadmap — Yomi
 
 ## Current state (post S19)
-App Store compliant: zero .js files in binary, all 7 plugins on Firebase CDN.
-Dark mode fixed at WindowGroup root. OnboardingView gates first launch.
-ChapterReaderView and TextReaderView fully immersive (tap-to-hide chrome).
-Novel reader colors match research spec (line-height 1.6, #1C1C1E/#E8E8E8
-dark, #FFF8F0/#2C1810 sepia). History shows plugin display name.
+App Store compliant: .js files removed from Xcode target, seedBundledPlugins call removed,
+all 7 plugins on Firebase CDN. OnboardingView gates first launch → tabMore.
+ChapterReaderView fully immersive (tap-to-hide chrome). History shows plugin display name.
+⚠️ Dark mode: preferredColorScheme applied at WindowGroup root but not confirmed working in sim.
+⚠️ TextReaderView: font re-inject via Coordinator.lastHTML in place but AppSettings.novelFontSize
+disconnected from local @State fontSize slider — not yet the single source of truth.
+
+## Technical debt
+| Area | Issue | Priority |
+|------|-------|----------|
+| Dark mode | Read YomiApp.swift before S20 to diagnose why preferredColorScheme at root doesn't apply in sim. May need @Bindable wrapper or explicit .dark/.light — never pass nil to verify. | High |
+| TextReader font | AppSettings.novelFontSize must replace local @State fontSize as source of truth. Re-inject CSS via evaluateJavaScript on .onChange(of: AppSettings.shared.novelFontSize). Remove local @State fontSize from TextReaderView. | High |
+| PluginsView catalog | Network error silently swallowed after onboarding flow change — Browse tab shows empty. Needs explicit errorMessage + retry button. Diagnose before assuming network is the cause. | High |
+| Theme + accent color | accentColor picker (6 swatches) + tint at WindowGroup root. Planned S20. | Medium |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -168,27 +177,29 @@ dark, #FFF8F0/#2C1810 sepia). History shows plugin display name.
 | 6 | ✅ scripts/build-plugins.mjs | Node.js ESM esbuild script. Reads scripts/plugins-src/*.ts, bundles each to IIFE ES6, writes to Yomi/Resources/ + Firebase public dir (~/Desktop/yomi-firebase/public/). Auto-generates index.json with SHA256 IDs from metadata comments (@name, @version, @lang, @description, @icon, @nsfw). |
 | 7 | ✅ scripts/catalog-output/index.json | Seeded catalog with all 7 plugins: MangaDex, Comick, Asura Scans, AquaManga, Royal Road, ScribbleHub (isNSFW:true), NovelFire. fileURL: https://yomi-plugins.web.app/{name}.js. SHA256(fileURL).prefix(32) as id. |
 
-## Session 19 — Critical fixes + Reader overhaul ✅ Complete
+## Session 19 — App Store compliance + Onboarding + Reader UX (partial)
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | ✅ Dark mode fix | AppSettings.colorScheme: ColorScheme? computed var (nil/light/dark from "System"/"Light"/"Dark" theme string). YomiApp.swift applies .preferredColorScheme(AppSettings.shared.colorScheme) on ContentView at WindowGroup root. Removed .preferredColorScheme(.dark) from TextReaderView. |
-| 2 | ✅ Remove bundled plugins + Onboarding | seedBundledPlugins() call removed from YomiApp.init (method kept in ExtensionManager for dev use). OnboardingView.swift created: 3-page TabView(.page) on #1C1C1E bg. Page 1: book.fill + "Welcome to Yomi". Page 2: "Install a Plugin" + yomi-plugins.web.app. Page 3: "You're all set" → appRouter.selectedTab = tabMore. Gated by AppSettings.hasSeenOnboarding UserDefaults flag. |
-| 3 | ✅ ChapterReaderView immersive mode | Added Color.clear.contentShape(Rectangle()).onTapGesture { showOverlay.toggle() } in ZStack after Color.black — sits behind reader content so scroll/pinch takes priority. All chrome (overlay, status bar) already wired via showOverlay from prior sessions. |
-| 4 | ✅ TextReaderView colors + line-height | Updated styledHTML: dark #1C1C1E/#E8E8E8, sepia #FFF8F0/#2C1810, light #FFFFFF/#1C1C1E. line-height 1.5 → 1.6. WKWebView re-inject pattern (Coordinator.lastHTML) already in place — no change needed. |
-| 5 | ✅ History view source name | HistoryRow: replaced Text(manga.sourceId) with ExtensionManager.shared.installed.first { $0.id == manga.sourceId }?.name ?? manga.sourceId — shows plugin display name, falls back to raw ID. |
-| 6 | ✅ AppSettings.hasSeenOnboarding | Added hasSeenOnboarding: Bool UserDefaults property. Added colorScheme: ColorScheme? computed var. Added import SwiftUI. |
+| 1 | ✅ App Store compliance | .js files removed from Xcode target membership. seedBundledPlugins() call removed from YomiApp.init. Method kept in ExtensionManager for dev use. Binary now ships zero plugin files. |
+| 2 | ✅ OnboardingView | 3-page TabView(.page) fullScreenCover on #1C1C1E bg. Page 1: book.fill + "Welcome to Yomi". Page 2: "Install a Plugin" + yomi-plugins.web.app. Page 3: "You're all set" → appRouter.selectedTab = tabMore + dismiss(). Gated by AppSettings.hasSeenOnboarding UserDefaults flag. |
+| 3 | ✅ ChapterReaderView immersive | Color.clear.contentShape(Rectangle()).onTapGesture { showOverlay.toggle() } added in ZStack behind reader content — tap toggles chrome without blocking scroll/pinch. |
+| 4 | ✅ HistoryView plugin display name | HistoryRow: Text(manga.sourceId) replaced by ExtensionManager.shared.installed.first { $0.id == manga.sourceId }?.name ?? manga.sourceId. |
+| 5 | ⚠️ Dark mode | preferredColorScheme applied at WindowGroup root in YomiApp.swift. colorScheme: ColorScheme? added to AppSettings. Compiled but not confirmed working — simulator stays light. Needs diagnostic read at S20 start. |
+| 6 | ⚠️ TextReaderView font re-inject | Coordinator.lastHTML re-inject pattern in place. Colors updated (dark #1C1C1E/#E8E8E8, sepia #FFF8F0/#2C1810, light #FFFFFF/#1C1C1E), line-height 1.6. AppSettings.novelFontSize still disconnected from local @State fontSize slider — not the single source of truth. |
 
-## Session 20 — Browse polish + Novel features (planned)
+## Session 20 — Diagnostics + Polish (planned)
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | Webtoon as default reading mode | AppSettings.defaultReaderMode = "Webtoon" (was "Manga (RTL)"). Carried over from S19. |
-| 2 | Chapter sort toggle | MangaDetailView: sort button in toolbar toggles chaptersAscending: Bool. ChapterQueries returns sorted list. Carried over from S19. |
-| 3 | Chapter 0,0 display fix | MangaDetailView: chapters where chapterNumber == 0 and name is empty → display as "Prologue" or skip. Carried over from S19. |
-| 4 | Browse source chips full names | Replace truncated chip labels with scrollable full-name chips or a dropdown picker |
-| 5 | Popular + Latest sections | New Format A functions: getLatestManga(page) alongside getMangaList(page). BrowseView shows two horizontal rows per source. Requires plugin protocol update + all 7 Format A plugins updated. |
-| 6 | Settings typography live preview | TextReaderView-style preview paragraph in SettingsView that updates as user changes font size / line spacing |
-| 7 | Library filter fix | Debug and fix filter/sort button in LibraryView |
-| 8 | NovelUpdates plugin | Format B (LNReader), requires login or API key research |
+| 1 | Dark mode diagnostic | Read YomiApp.swift. Verify @State showOnboarding + preferredColorScheme wiring. Try passing explicit .dark to rule out nil issue. Fix and confirm in sim by toggling appearance. |
+| 2 | TextReaderView font source of truth | Remove local @State fontSize. Use AppSettings.novelFontSize directly. Re-inject CSS via webView.evaluateJavaScript on .onChange(of: AppSettings.shared.novelFontSize). |
+| 3 | PluginsView error state | Add explicit errorMessage display + retry button to Browse tab. Diagnose why catalog fetch fails silently after onboarding. |
+| 4 | accentColor picker | 6 color swatches in Appearance settings. Store as String in AppSettings. Apply tint at WindowGroup root. |
+| 5 | Webtoon as default reading mode | AppSettings.defaultReaderMode = "Webtoon" (was "Manga (RTL)"). Carried over from S19. |
+| 6 | Chapter sort toggle | MangaDetailView: sort button in toolbar toggles chaptersAscending: Bool. ChapterQueries returns sorted list. Carried over from S19. |
+| 7 | Chapter 0,0 display fix | MangaDetailView: chapters where chapterNumber == 0 and name is empty → display as "Prologue" or skip. Carried over from S19. |
+| 8 | Browse source chips full names | Replace truncated chip labels with scrollable full-name chips or a dropdown picker |
+| 9 | Library filter fix | Debug and fix filter/sort button in LibraryView |
+| 10 | NovelUpdates plugin | Format B (LNReader), requires login or API key research |
 
 ## Session 21 — Backend + Data (planned)
 | # | Feature | Detail |
