@@ -216,6 +216,20 @@ struct ChapterReaderView: View {
         isLoading = false
         if result.isEmpty {
             errorMessage = "No pages found for this chapter."
+        } else {
+            // Restore reading progress
+            let chapterId = activeChapter.id
+            let pageCount = result.count
+            Task.detached {
+                if let saved = try? ChapterQueries.fetchOne(id: chapterId),
+                   saved.progress > 0, pageCount > 1 {
+                    let progress = saved.progress
+                    let resumePage = min(Int(progress * Double(pageCount - 1)), pageCount - 1)
+                    if resumePage > 0 {
+                        await MainActor.run { currentPage = resumePage }
+                    }
+                }
+            }
         }
     }
 }
@@ -248,51 +262,77 @@ private struct MangaPageView: View {
 
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
 
     var body: some View {
-        AsyncImage(url: URL(string: url)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .scaleEffect(scale)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .failure:
-                Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            default:
-                ProgressView()
-                    .tint(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .background(Color.black)
-        .gesture(
-            MagnificationGesture()
-                .onChanged { value in
-                    scale = min(max(lastScale * value, 1.0), 4.0)
+        GeometryReader { geo in
+            AsyncImage(url: URL(string: url)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(scale)
+                        .offset(offset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .failure:
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                default:
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .onEnded { _ in
-                    lastScale = scale
-                }
-        )
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showOverlay.toggle()
             }
-        }
-        .simultaneousGesture(
-            TapGesture(count: 2)
-                .onEnded {
-                    withAnimation(.spring()) {
-                        scale = 1.0
-                        lastScale = 1.0
+            .background(Color.black)
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        scale = min(max(lastScale * value, 1.0), 4.0)
                     }
+                    .onEnded { _ in
+                        lastScale = scale
+                        if scale == 1.0 {
+                            offset = .zero
+                            lastOffset = .zero
+                        }
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard scale > 1.0 else { return }
+                        let maxX = (scale - 1) * geo.size.width / 2
+                        let maxY = (scale - 1) * geo.size.height / 2
+                        offset = CGSize(
+                            width:  min(max(lastOffset.width  + value.translation.width,  -maxX), maxX),
+                            height: min(max(lastOffset.height + value.translation.height, -maxY), maxY)
+                        )
+                    }
+                    .onEnded { _ in
+                        lastOffset = offset
+                    }
+            )
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showOverlay.toggle()
                 }
-        )
+            }
+            .simultaneousGesture(
+                TapGesture(count: 2)
+                    .onEnded {
+                        withAnimation(.spring()) {
+                            scale = 1.0
+                            lastScale = 1.0
+                            offset = .zero
+                            lastOffset = .zero
+                        }
+                    }
+            )
+        }
     }
 }
 
