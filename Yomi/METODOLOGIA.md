@@ -1,32 +1,75 @@
 # Working methodology — Yomi
 
-## Workflow
-- **Claude.ai (Desktop app)** → architecture, planning, generating optimized prompts for Claude Code
-- **Claude Code (terminal)** → executes prompts, writes Swift/JS files, makes git commit/push
-- **Xcode** → compile, run on simulator, see exact errors
-- **GitHub Desktop** → review diffs, manual push when required
+## Workflow (updated S22 — Claude Code-first)
 
-## Workflow rules
-- One file at a time, compile after each new file
-- Never create multiple files simultaneously
-- Report exact Xcode errors to Claude.ai before continuing
-- Claude.ai generates the prompt → paste into Claude Code → Claude Code writes the file
-- Commits after each complete functional block (not after each file)
-- Code changes and doc updates go in the same git commit (or immediately consecutive). Never push code and leave docs stale overnight.
-- Prompt template for Claude Code includes an explicit DO NOT TOUCH section and ADDED/MODIFIED/UNTOUCHED/LINES summary at the end
-- The DO NOT TOUCH list must use specific method/property names, never vague phrases like "keep existing functionality". Claude Code respects explicit names.
-- At session start: paste only `find` + ROADMAP. METODOLOGIA and ARQUITECTURA live in Claude.ai project knowledge.
-- At session close: explicit Claude Code prompt updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Valid exception to "one file per prompt": they are docs, not Swift code.
-- At session start, also paste the content of files that will be modified (in addition to `find` + ROADMAP.md) — prevents Claude.ai from planning against the wrong file
-- Always read the target file before generating any edit prompt — not just for UIViewRepresentable. The file may have diverged from what Claude.ai has in context. Read → confirm state → then prescribe.
-- Placeholder stub pattern: when file A references file B that doesn't exist yet and compilation blocks forward progress, create a minimal stub (`struct B: View { var body: some View { EmptyView() } }`) first, compile, then replace with the full implementation in the next prompt.
-- When a prompt creates a prop/callback in a child view, the same prompt must wire it in the parent view, or register it as debt in ROADMAP before closing the session
-- Debug prompts always end with an explicit numbered cleanup prompt
-- "DO NOT modify any file" only in pure diagnostic prompts — never in edit prompts
-- When chaining independent fixes: run all without compiling, compile once at the end
-- Diagnose before prescribing (general rule, not just for plugins): (1) read the actual current file, (2) identify the exact failure point, (3) write one targeted fix. Never write fix prompts based on assumptions about what the file contains.
-- All planning and communication is in English from Session 15 onward
-- Claude Code also operates in English for all prompts, commits, and responses
+### Roles
+- **Claude Code (terminal)** → everything: reads files, plans, implements, builds, fixes errors, commits/pushes
+- **Claude.ai (Desktop app)** → session strategy only: review priorities, flag risks, architectural concerns. Does NOT generate implementation prompts anymore.
+- **Xcode** → compile verification, simulator, UI inspection
+- **GitHub Desktop** → visual diff review, manual push when required
+- **User** → product owner + QA: decides what to build, tests on simulator, reports what feels wrong
+
+### Why the relay was eliminated
+The old workflow (Claude.ai generates prompts → user copy-pastes → Claude Code executes) existed because
+Claude.ai couldn't see the real file state and compensated by generating extremely explicit prompts.
+Claude Code can read actual files before acting, making the relay unnecessary and harmful.
+Evidence: S21 regressions (OnboardingView, markRead()) happened because Claude.ai replaced entire files
+without seeing what they omitted. Claude Code reading first prevents this class of bug.
+
+### Workflow rules
+- Claude Code reads the target file before every edit. Always. No exceptions.
+- One file at a time, compile after each new file.
+- Never create multiple files simultaneously (docs are the valid exception).
+- Commits after each logical unit — not at session close. Clean rollback points matter.
+- Code changes and doc updates go in the same session. Never leave docs stale overnight.
+- When chaining independent fixes: run all without compiling, compile once at the end.
+- Diagnose before prescribing: (1) read the actual file, (2) find exact failure point, (3) write one targeted fix.
+- All code, commits, docs, and communication in English (from S15 onward).
+
+### Session start
+`cd /Users/martingamberg/Documents/GitHub/Yomi` → open Claude Code.
+CLAUDE.md loads automatically with full context. No pasting required.
+If starting a session after a long gap: read ROADMAP.md to confirm current state.
+
+### Session close
+Claude Code updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA) in one step.
+Valid exception to "one file per prompt": they are docs, not Swift code.
+
+## AI tooling setup (established S22)
+
+### Philosophy
+Claude Code is capable of reading files, planning, implementing, building, and iterating without a human relay. The workflow that uses Claude.ai to generate prompts for Claude Code to execute treats Claude Code as a dumb executor — this is suboptimal. Claude Code-first is better: Claude Code reads actual file state, generates its own implementation plan, writes code, builds, fixes errors, and commits. Claude.ai is reserved for session-level strategy.
+
+### CLAUDE.md
+Located at `/Users/martingamberg/Documents/GitHub/Yomi/CLAUDE.md`. Loaded automatically every session. Contains: tech stack, iOS 26 rules, GRDB/concurrency rules, key file paths, current session state, build command, App Store checklist. Update after every session close. This file replaces the session-start paste ritual.
+
+### Memory system
+Located at `~/.claude/projects/-Users-martingamberg/memory/`. Contains `MEMORY.md` (index) and `project_yomi.md` (project state). Persists project path, tech stack, and session state across conversations.
+
+### MCP servers
+Model Context Protocol servers extend Claude Code with external capabilities. Installed at user scope (available across all projects).
+
+| Server | Install command | What it does |
+|--------|----------------|--------------|
+| XcodeBuildMCP | `claude mcp add --scope user XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp` | 59 tools: build, simulator, LLDB, read errors |
+| context7 | `claude mcp add --transport http --scope user context7 https://mcp.context7.com/mcp` | Live docs for GRDB, SwiftUI, JS libraries. Append `use context7` to prompts. |
+| apple-docs | `claude mcp add --scope user apple-docs -- npx -y @kimsungwhee/apple-docs-mcp@latest` | SwiftUI + iOS 26 API from developer.apple.com |
+| github | `claude mcp add --transport http --scope user github https://api.githubcopilot.com/mcp -H "Authorization: Bearer TOKEN"` | PR/issue management |
+| mobile-mcp | `claude mcp add --scope user mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest` | iOS Simulator UI automation |
+
+Verify: `claude mcp list` (terminal) or `/mcp` (inside Claude Code session).
+
+### Plugins
+Claude Code has a `/plugin` marketplace system. Install inside a Claude Code session.
+
+| Plugin | Command | What it does |
+|--------|---------|--------------|
+| swift-lsp | `/plugin install swift-lsp@claude-plugins-official` | Real-time Swift diagnostics (note: produces false positives for cross-file types — see S22 learnings) |
+
+### What was evaluated and discarded
+- **Phase 3 plugins from Claude.ai research** (`/plugin install frontend-design@claude-plugins-official`, etc.): some did not exist and were hallucinated. Always verify slash commands with `/help` before spending time on them.
+- **Custom Yomi MCP**: evaluated, deferred. XcodeBuildMCP already covers build/simulator needs. A custom MCP for GRDB inspection or JSContext isolation testing may be worth building in a future session.
+- **Claude.ai connectors** (GitHub, Figma, etc.): these affect the Claude.ai web app, not Claude Code terminal sessions. Useful for Claude.ai planning context but irrelevant to implementation.
 
 ## Tech stack
 - Swift + SwiftUI (iOS 26)
@@ -93,6 +136,31 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 19 | 2026-04-06 | App Store compliance: .js removed from Xcode target, seedBundledPlugins() call removed from YomiApp. OnboardingView: 3-page TabView(.page) fullScreenCover on #1C1C1E, hasSeenOnboarding flag, navigates to tabMore. ChapterReaderView: Color.clear immersive tap layer. HistoryView: plugin display name via ExtensionManager. Dark mode and TextReader font re-inject attempted (code written) but not confirmed working in simulator — diagnostic read needed at S20 start. |
 | 20 | 2026-04-06 | Dark mode fixed: @State private var settings = AppSettings.shared in YomiApp, @Observable tracking fires on WindowGroup re-evaluation, .preferredColorScheme(settings.colorScheme) reactive. PluginsView catalog: .task → .onAppear { Task { ... } }, retry button, empty state, pull-to-refresh. TextReaderView fontSize: reads+writes AppSettings.shared.fontSize — single source of truth with SettingsView Stepper. Accent color: AppSettings.accentColor (String, default #FF6B6B), 6-swatch picker in SettingsView, Color(hex:) extension, .tint(Color(hex: settings.accentColor)) at WindowGroup root. |
 | 21 | 2026-04-07 | Color+Hex.swift (Yomi/Core/, 6+8-digit hex, hexString via UIColor sRGB). AppSettings: fontSize default 18.0, accentColor, colorScheme computed var, pluginCatalogURL kept. YomiApp: #if DEBUG seedBundledPlugins, .tint + .preferredColorScheme on ContentView (Scene has no .tint — WindowGroup build failure). SettingsView: Slider 14–28, 10 swatches + custom ColorPicker sheet. TextReaderView: CSS re-inject via evaluateJavaScript on every updateUIView cycle. Regressions introduced: OnboardingView fullScreenCover removed (not in prompt scope), NovelQueries.markRead() dropped in rewrite. |
+| 22 | 2026-04-07 | Restore S21 regressions: OnboardingView gate + NovelQueries.markRead(). PrivacyInfo.xcprivacy (NSPrivacyAccessedAPICategoryUserDefaults, reason CA92.1). Reading resume in ChapterReaderView (Task.detached DB read after loadPages, MainActor.run to set currentPage). Pan when zoomed in MangaPageView (GeometryReader, DragGesture with clamping, guard scale > 1.0). Browse pagination in SourceBrowseView (currentPage/isLoadingMore/hasMoreContent, "Load more" button, both Format A and B). Workflow change: Claude Code-first, no relay. MCP setup: XcodeBuildMCP, context7, apple-docs, github, mobile-mcp. CLAUDE.md created at project root. Memory system initialized. |
+
+## S22 — Technical learnings
+
+- **PBXFileSystemSynchronizedRootGroup eliminates manual Xcode target membership**: Yomi uses this Xcode feature, which means any file dropped into the `Yomi/` directory is automatically included in the target. No "Add Files to Yomi" step needed. Confirmed by checking `project.pbxproj` for the `isa = PBXFileSystemSynchronizedRootGroup` entry. Applies to `PrivacyInfo.xcprivacy` and any new `.swift` or resource file. Never perform the manual Xcode add step without first verifying this setting.
+
+- **SourceKit false positives are always noise — xcodebuild is the signal**: swift-lsp (the LSP plugin) analyzes each file in isolation without the full Xcode module context. It will always report "Cannot find type 'Manga' in scope", "Cannot find 'AppSettings' in scope", etc. These are structurally unavoidable and carry zero diagnostic value for this project. The only reliable error source is `xcodebuild`. Rule: ignore SourceKit errors entirely; act only on xcodebuild errors.
+
+- **Chapter.progress is Double, not Double? — check model types before writing conditionals**: the `Chapter` model has `progress: Double` (non-optional). Writing `if let progress = saved.progress` fails to compile. Before writing any conditional binding in a fix, read the model definition to confirm optionality. The correct pattern here: `if saved.progress > 0 { let progress = saved.progress }`.
+
+- **Simulator device names change across Xcode versions**: "iPhone 16 Pro" does not exist in Xcode 26.3.1. Available iPhone simulators: iPhone 16e, iPhone 17, iPhone 17 Pro, iPhone 17 Pro Max, iPhone Air. Always check with `xcrun simctl list devices available | grep iPhone` before hardcoding a destination. Update CLAUDE.md and ARQUITECTURA.md when simulator names change.
+
+- **PrivacyInfo.xcprivacy reason code for UserDefaults: CA92.1**: Apple requires a specific reason code when accessing UserDefaults. The correct reason for a settings/preferences use case is `CA92.1` ("Access from the app itself"). Do not use `C617.1` (which is for user-triggered actions) or leave the reasons array empty — App Store validation checks the reason code, not just the presence of the file.
+
+- **MCP --scope user flag placement**: `claude mcp add --scope user NAME -- COMMAND` is correct. `claude mcp add NAME -- COMMAND --scope user` is wrong — the flag after `--` is passed to the subprocess, not to `claude mcp add`. This caused XcodeBuildMCP and mobile-mcp to register incorrectly on first install.
+
+- **Never share credentials in conversation**: a GitHub PAT was accidentally pasted into the conversation during MCP setup. Revoke and regenerate immediately when this happens. Use `YOUR_TOKEN_HERE` as a placeholder in all command examples in docs.
+
+- **Claude Code-first workflow is strictly better than the relay for this project**: the relay (Claude.ai generates prompts → user copy-pastes → Claude Code executes) was necessary when Claude.ai was the only context-holder. With CLAUDE.md + memory + XcodeBuildMCP, Claude Code has everything it needs to plan and implement independently. The relay added latency, introduced stale-context bugs (S9, S14, S21 regressions), and degraded the user experience. The correct model: Claude.ai for strategic session review, Claude Code for everything inside a session.
+
+- **Reading progress restore: Task.detached for DB read, MainActor.run for state**: after `loadPages()` sets `pages`, reading `chapter.progress` from DB must happen in `Task.detached` (ChapterQueries is nonisolated but DB access should not block MainActor). The page index is `Int(progress * Double(pageCount - 1))`. Setting `currentPage` requires `await MainActor.run { ... }`. Always verify both write path (updateProgress on disappear) and read path (fetchOne on load) when implementing progress features.
+
+- **Pan-when-zoomed requires GeometryReader for clamping dimensions**: `.scaleEffect` scales around the view center but doesn't move the image. Adding pan requires knowing the view's actual rendered size, which means wrapping in `GeometryReader`. Clamping formula: `maxOffset = (scale - 1) * dimension / 2` for both axes. The DragGesture must guard `scale > 1.0` to avoid intercepting the TabView's page swipe gesture at scale == 1.0.
+
+- **Browse pagination: empty page = no more content**: there is no `total` field to compare against in Format A or Format B. The correct signal for "no more pages" is an empty result from the next page fetch. When the source returns 0 items, set `hasMoreContent = false` and hide the button. This works for all 7 current plugins.
 
 ## S21 — Technical learnings
 

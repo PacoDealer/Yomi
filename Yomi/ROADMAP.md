@@ -1,29 +1,23 @@
 # Roadmap — Yomi
 
-## Current state (post S20)
+## Current state (post S22)
 App Store compliant: binary ships zero plugin files. All 7 plugins on Firebase CDN.
-Dark mode wired at WindowGroup root via @State settings = AppSettings.shared — @Observable
-tracks theme changes and re-evaluates WindowGroup body. Accent color: 6-swatch picker in
-Settings, Color(hex:) extension, .tint at WindowGroup root. PluginsView catalog: .onAppear
-fetch, retry button, empty state, pull-to-refresh. TextReaderView: fontSize reads and writes
-AppSettings.shared.fontSize — persists across sessions, SettingsView Stepper effective.
+Dark mode, accent color, font size all wired correctly from S21. OnboardingView restored (S22
+regression fix). PrivacyInfo.xcprivacy added — no longer a hard rejection risk. Reading
+resume functional: chapter.progress saved and restored. Pan-when-zoomed implemented in
+MangaPageView with clamped DragGesture. Browse pagination: SourceBrowseView has "Load more"
+for both Format A and Format B. All S22 planned items complete.
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| fontSize range inconsistency | AppSettings default 16.0, styledHTML clamps max(18,...), slider 14–26, Stepper 12–24 — three files disagree. User sets 14pt in Settings, gets 18pt rendered. Fix: default=18.0, remove clamp, unify ranges to 14–26. | High |
 | PluginCatalogService concurrent fetches | .onAppear fires on every tab switch. fetchCatalog() must guard !isLoading and entries.isEmpty\|\|forceRefresh to prevent redundant network calls. | High |
-| Reading resume | chapter.progress IS saved (updateProgress on disappear) but ChapterReaderView always opens at currentPage = 0. The saved progress is never read back. Users always restart from page 1. | High |
-| Browse pagination | SourceBrowseView calls getMangaList(page: 1) once and stops. No "load more". Both Format A and B affected. | High |
-| Pan when zoomed | MangaPageView uses .scaleEffect only — no DragGesture for offset. At zoom > 1x the image is stuck centered. Pan is required for zoom to be useful. | High |
-| PrivacyInfo.xcprivacy | Required for all iOS 17+ App Store submissions. Must declare NSPrivacyAccessedAPICategoryUserDefaults. Missing entirely — App Store will hard-reject without it. | High |
 | .tint() across .fullScreenCover | .tint applied to ContentView() may not propagate into OnboardingView (new presentation context). Needs runtime verification — if broken, add .tint inside OnboardingView. | Medium |
 | Novel chapter read semantics | NovelQueries.markRead() called on HTML load, not scroll-to-end. Chapter is "read" before user reads a single word. | Medium |
 | Downloads cleanup | DownloadManager never cleans up Documents/Downloads/{mangaId}/ on manga delete. Disk leaks indefinitely. | Medium |
 | MAL token → Keychain | Currently in UserDefaults. Must migrate to Keychain before App Store submission. | Medium |
 | App icon | ⏭ Still pending since S12. Required before submission. | Medium |
 | Privacy policy URL | App Store Connect requires a privacy policy URL for any app connecting to the internet. | Medium |
-| Color(hex:) in AppSettings.swift | Architecturally odd. Should move to Yomi/Extensions/Color+Hex.swift. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -216,25 +210,26 @@ AppSettings.shared.fontSize — persists across sessions, SettingsView Stepper e
 | 7 | ⚠️ OnboardingView removed from YomiApp | fullScreenCover + showOnboarding @State were dropped in S21 (not in prompt scope). New users skip onboarding. Must be restored in S22. |
 | 8 | ⚠️ NovelQueries.markRead() removed | TextReaderView.loadContent() no longer marks novel chapters as read. Silent regression from S21 rewrite. Must be restored in S22. |
 
-## Session 22 — Regressions + Core UX (planned)
+## Session 22 — Regressions + Core UX ✅ Complete
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | Restore OnboardingView | Add @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding back to YomiApp. Restore .fullScreenCover(isPresented: $showOnboarding) { OnboardingView() } on ContentView. |
-| 2 | Restore markRead | Add back Task { try? NovelQueries.markRead(chapterId: chapter.id) } at end of TextReaderView.loadContent() after rawContent = html. |
-| 3 | PrivacyInfo.xcprivacy | Create Yomi/PrivacyInfo.xcprivacy. XML plist, declare NSPrivacyAccessedAPICategoryUserDefaults (AppSettings, MAL token, onboarding flag). Add to Xcode target. Hard-rejection without it on iOS 17+. |
-| 4 | Reading resume | Read chapter.progress from DB via ChapterQueries.fetchOne(id:) after pages load. Convert to page index: Int(progress * Double(pages.count - 1)). Set currentPage. |
-| 5 | Pan when zoomed | MangaPageView: add @State offset: CGSize + DragGesture. Clamp: max(abs(offset.x)) = (scale - 1) * viewWidth / 2. Reset to .zero when scale returns to 1.0. |
-| 6 | Browse pagination | SourceBrowseView: @State currentPage = 1. "Load more" button at bottom of LazyVGrid. Append getMangaList(page:) results on tap. Both Format A and Format B. |
+| 1 | ✅ Restore OnboardingView | @State showOnboarding = !AppSettings.shared.hasSeenOnboarding in YomiApp. .fullScreenCover on ContentView(). |
+| 2 | ✅ Restore markRead | Task { try? NovelQueries.markRead(chapterId: chapter.id) } after rawContent = html in TextReaderView.loadContent(). |
+| 3 | ✅ PrivacyInfo.xcprivacy | Yomi/PrivacyInfo.xcprivacy. XML plist, NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. PBXFileSystemSynchronizedRootGroup auto-included — no manual Xcode step. |
+| 4 | ✅ Reading resume | Task.detached reads ChapterQueries.fetchOne(id:) after pages load. Sets currentPage = Int(progress * Double(pageCount - 1)) on MainActor. |
+| 5 | ✅ Pan when zoomed | MangaPageView: GeometryReader for dimensions, @State offset/lastOffset, DragGesture with clamping (maxX = (scale-1)*width/2). Guard scale > 1.0 to not intercept TabView swipes. Double-tap resets both scale and offset. |
+| 6 | ✅ Browse pagination | SourceBrowseView: currentPage, isLoadingMore, hasMoreContent state. "Load more" button below LazyVGrid. Appends results for Format A and B. Hidden during local search filter and when last page returns empty. |
 
 ## App Store submission checklist
 These items must ALL be complete before submitting to App Store Connect:
 
 | Item | Status | Notes |
 |------|--------|-------|
-| PrivacyInfo.xcprivacy | ❌ Missing | Declare UserDefaults API. Hard rejection without it (iOS 17+). |
+| PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
 | Privacy policy URL | ❌ Missing | Required for any app connecting to the internet. Host a static page. |
 | App icon | ❌ Missing | All required sizes. Use Asset Catalog. |
 | Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
+| PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
 | MAL token in Keychain | ❌ Pending | Currently in UserDefaults. Migrate before submission. |
 | Age rating: 17+ | ❌ Pending | App enables NSFW content via user-installed plugins. Must declare. |
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
