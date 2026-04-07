@@ -43,7 +43,8 @@ struct PluginsView: View {
         .sheet(isPresented: $showInstallSheet) {
             InstallFromURLSheet(extensionManager: extensionManager)
         }
-        .task { await catalogService.fetchCatalog() }
+        .onAppear { Task { await catalogService.fetchCatalog() } }
+        .refreshable { await catalogService.fetchCatalog() }
     }
 
     // MARK: Installed section
@@ -82,9 +83,32 @@ struct PluginsView: View {
                 }
                 .padding(.vertical, 8)
             } else if let error = catalogService.errorMessage {
-                Text("Failed to load catalog: \(error)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    Text("Failed to load catalog: \(error)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Retry") {
+                        Task { await catalogService.fetchCatalog() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            } else if filteredCatalog.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "puzzlepiece.extension")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("No plugins found")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Retry") {
+                        Task { await catalogService.fetchCatalog() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
             } else {
                 ForEach(filteredCatalog) { entry in
                     YomiCatalogEntryRow(
