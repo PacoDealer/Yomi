@@ -34,12 +34,12 @@ Yomi/
 │   │   └── MangaDetailView.swift    # Detail + chapter list + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/page)
 │   ├── Browse/
 │   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search with debounce 500ms) + SourceBrowseView (dual manga/novel)
-│   │   │                            # ⚠️ SourceBrowseView calls getMangaList(page: 1) once — no pagination, no "load more". Users see only first ~20 titles per source.
+│   │   │                            # SourceBrowseView: currentPage/isLoadingMore/hasMoreContent state, "Load more" button below grid, appends for Format A and B (S22)
 │   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
-│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking; accepts chapters:[Chapter] for navigation
-│   │   │                            # ⚠️ chapter.progress IS saved on disappear but never restored on open — currentPage always starts at 0
-│   │   │                            # ⚠️ MangaPageView: .scaleEffect zoom works but no DragGesture offset — pan at zoom >1x is missing
+│   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom+pan, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking
+│   │   │                            # Reading resume: after loadPages(), Task.detached reads chapter.progress, sets currentPage on MainActor (S22)
+│   │   │                            # MangaPageView: GeometryReader + DragGesture with clamping, guard scale > 1.0. Double-tap resets scale+offset (S22)
 │   │   └── TextReaderView.swift     # HTML reader for novels (WKWebView, font size, dark/light/sepia)
 │   │                                # ⚠️ NovelQueries.markRead() called on chapter load, not on scroll-to-end — semantically incorrect
 │   ├── History/
@@ -62,7 +62,7 @@ Yomi/
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 12 properties. colorScheme: ColorScheme? derived from theme. accentColor: String hex default #FF6B6B. fontSize default 18.0.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
-├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State private var settings drives .preferredColorScheme(settings.colorScheme) + .tint(Color(hex: settings.accentColor)) on ContentView(). ⚠️ OnboardingView fullScreenCover removed in S21 — restore in S22.
+├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
 ├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
@@ -398,37 +398,62 @@ YomiApp / MALView.onOpenURL
 - `ExtensionManager` is `@Observable final class` — automatically conforms to `Sendable`. `nonisolated(unsafe)` on `static let shared` is unnecessary and generates a warning. To access `bridge(for:)` from `Task.detached`, capture a local `bridgeFn` closure in the `@MainActor` context before entering the Task.
 - `AppRouter` uses module-level `nonisolated(unsafe) var appRouter = AppRouter()` — same pattern as `appDatabase`. Access via `appRouter.selectedTab` from any context.
 
-## Workflow and prompts
+## Workflow
 
-### Prompt template for Claude Code
-Each prompt follows this structure:
-1. Header: tech stack + build setting
-2. ABSOLUTE RULES (nonisolated, Task.detached, no partials)
-3. TASK: [Create/Edit] file + one-sentence description
-4. If editing: "Read [file] first" — mandatory
-5. REQUIREMENTS: specific list of what to add/change
-6. DO NOT TOUCH: explicit list of intact methods/sections
-7. OUTPUT: complete file + ADDED/MODIFIED/UNTOUCHED/LINES summary
+### Current workflow (Claude Code-first, from S22)
+Claude.ai role: **session strategy only** — review priorities, flag risks, architectural concerns.
+Claude Code role: **everything else** — reads files, plans, implements, builds, fixes errors, commits.
 
-### Session start
-Paste into Claude.ai:
+No relay. No copy-paste between AIs. The user's role: product owner + QA.
+
+**Why this works now:**
+- `CLAUDE.md` at project root loads full context into every Claude Code session automatically
+- XcodeBuildMCP lets Claude Code trigger builds and read errors without user relay
+- swift-lsp gives real-time diagnostics after every edit
+- Memory system persists project path and state across sessions
+
+**Session start:** `cd` into the Yomi project, open Claude Code. CLAUDE.md loads automatically.
+No need to paste `find` output or ROADMAP — Claude Code reads actual files before acting.
+
+**Session close:** Claude Code updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA) in one step.
+
+**Commit discipline:** Commit after each logical unit, not at session close. If something breaks mid-session, rollback is clean.
+
+### MCP servers (user scope, all connected)
+| Server | Package / URL | Purpose |
+|--------|--------------|---------|
+| XcodeBuildMCP | `npx -y xcodebuildmcp@latest mcp` | Build, simulator control, LLDB, read Xcode errors |
+| context7 | `https://mcp.context7.com/mcp` (HTTP) | Live GRDB, SwiftUI, JS library docs |
+| apple-docs | `npx -y @kimsungwhee/apple-docs-mcp@latest` | SwiftUI + iOS 26 API lookup |
+| github | `https://api.githubcopilot.com/mcp` (HTTP) | PR/issue management |
+| mobile-mcp | `npx -y @mobilenext/mobile-mcp@latest` | iOS Simulator UI automation |
+
+**Install syntax:** `--scope user` flag must come BEFORE the `--` separator. Everything after `--` is passed to the subprocess.
+```bash
+claude mcp add --scope user XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp   # correct
+claude mcp add XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp --scope user   # wrong — scope passed to npx
 ```
-find Yomi -name "*.swift" | sort
-find Yomi -name "*.js" | sort
-cat Yomi/ROADMAP.md
-```
-METODOLOGIA.md and ARQUITECTURA.md are NOT pasted — they live in Claude.ai project knowledge.
 
-### Session close
-Claude.ai generates doc update prompt → Claude Code writes
-all three files (ROADMAP + METODOLOGIA + ARQUITECTURA) in a single prompt.
-Valid exception to "one file per prompt": they are docs, not Swift code.
+### Plugins
+| Plugin | Installed | Purpose |
+|--------|-----------|---------|
+| swift-lsp@claude-plugins-official | v1.0.0 (since S13) | Real-time Swift diagnostics |
+
+Install: `/plugin install swift-lsp@claude-plugins-official` inside a Claude Code session.
+The `/plugin` marketplace system is real. Check with `/help` inside Claude Code.
+
+### SourceKit false positives
+swift-lsp analyzes files in isolation (not as the full Xcode module). It will report
+"Cannot find type 'Manga' in scope" and similar errors on every Swift file. These are
+always false positives — ignore them unless `xcodebuild` confirms the same error.
+Rule: SourceKit errors are noise. xcodebuild errors are signal.
 
 ## Platform requirements
 
 **Deployment target: iOS 26.2**
 **Xcode:** 26+ (developer directory: `/Applications/Xcode.app`)
 **Build for simulator:** `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
+**Available simulators (Xcode 26 / OS 26.3.1):** iPhone 16e, iPhone 17, iPhone 17 Pro, iPhone 17 Pro Max, iPhone Air. "iPhone 16 Pro" no longer exists.
 
 ### iOS 26-exclusive APIs in use
 
