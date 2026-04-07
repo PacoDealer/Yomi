@@ -12,14 +12,19 @@
 - Report exact Xcode errors to Claude.ai before continuing
 - Claude.ai generates the prompt → paste into Claude Code → Claude Code writes the file
 - Commits after each complete functional block (not after each file)
+- Code changes and doc updates go in the same git commit (or immediately consecutive). Never push code and leave docs stale overnight.
 - Prompt template for Claude Code includes an explicit DO NOT TOUCH section and ADDED/MODIFIED/UNTOUCHED/LINES summary at the end
+- The DO NOT TOUCH list must use specific method/property names, never vague phrases like "keep existing functionality". Claude Code respects explicit names.
 - At session start: paste only `find` + ROADMAP. METODOLOGIA and ARQUITECTURA live in Claude.ai project knowledge.
 - At session close: explicit Claude Code prompt updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA). Valid exception to "one file per prompt": they are docs, not Swift code.
 - At session start, also paste the content of files that will be modified (in addition to `find` + ROADMAP.md) — prevents Claude.ai from planning against the wrong file
+- Always read the target file before generating any edit prompt — not just for UIViewRepresentable. The file may have diverged from what Claude.ai has in context. Read → confirm state → then prescribe.
+- Placeholder stub pattern: when file A references file B that doesn't exist yet and compilation blocks forward progress, create a minimal stub (`struct B: View { var body: some View { EmptyView() } }`) first, compile, then replace with the full implementation in the next prompt.
 - When a prompt creates a prop/callback in a child view, the same prompt must wire it in the parent view, or register it as debt in ROADMAP before closing the session
 - Debug prompts always end with an explicit numbered cleanup prompt
 - "DO NOT modify any file" only in pure diagnostic prompts — never in edit prompts
 - When chaining independent fixes: run all without compiling, compile once at the end
+- Diagnose before prescribing (general rule, not just for plugins): (1) read the actual current file, (2) identify the exact failure point, (3) write one targeted fix. Never write fix prompts based on assumptions about what the file contains.
 - All planning and communication is in English from Session 15 onward
 - Claude Code also operates in English for all prompts, commits, and responses
 
@@ -181,6 +186,12 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - **Workflow improvement — diagnose before prescribing**: when plugins return empty, the correct flow is: (1) read the actual file from GitHub, (2) read the shim implementation from GitHub, (3) identify the exact failure point, (4) write one targeted fix prompt. Do not write fix prompts based on assumptions — the each() bug was correctly identified only after reading the actual shim code.
 
 ## Technical learnings
+- **@Bindable for @Observable singletons in views**: to create a SwiftUI binding to a property on an `@Observable` singleton (e.g. `AppSettings.shared`), you cannot use `$AppSettings.shared.someProperty` directly. You must first declare `@Bindable var settings = AppSettings.shared` inside the view (or receive it as a parameter), then bind via `$settings.someProperty`. Without `@Bindable`, the `$` prefix won't compile on a non-`@State` reference.
+- **JSBridge is per-extension, not a singleton**: never share a JSBridge instance between extensions or between concurrent tasks. Each JSBridge owns a JSContext that evaluates one script. The correct pattern is `JSBridge(scriptURL: localURL)` fresh for each plugin call site. Sharing instances causes state bleed between plugins.
+- **SwiftUI view identity: mutate @State instead of replacing the view for in-reader navigation**: ChapterReaderView uses `currentChapterIndex: @State Int` + computed `activeChapter` to navigate between chapters without SwiftUI creating a new view instance. If the view were replaced (e.g. via NavigationLink push/pop), all `@State` (pages, isLoading, timer) would reset. Mutating existing @State preserves the view lifecycle and avoids redundant loads.
+- **Context window auto-summary can describe planned work as completed**: when Claude Code's context compresses mid-session, the summary may present outcomes that were planned (or partially executed) as fully done. At the start of any resumed session, always read the actual file state — do not trust the summary's description of completed work.
+- **xcode-select pointing to CommandLineTools**: if `xcodebuild` fails with "xcode-select: error: tool 'xcodebuild' requires Xcode" or similar, prefix all build commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. Check with `xcode-select -p`. Fix permanently via `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+- **Simulator device name changes across Xcode versions**: "iPhone 16 Pro" may not exist in a newer Xcode's simulator list. Always check available names with `xcrun simctl list devices available | grep iPhone` before hardcoding a destination in build commands. Use the newest available Pro model.
 - **iOS 26 TabView**: new API `Tab("title", systemImage:) {}` — old `.tabItem {}` renders nothing
 - **Xcode PBXFileSystemSynchronizedRootGroup**: all files in the folder are included automatically — never use `.gitkeep` or `.gitignore` inside the target
 - **Swift 6 + GRDB**: `init(row:)` and `encode(to:)` from FetchableRecord/PersistableRecord require `nonisolated` with `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`
@@ -281,6 +292,8 @@ Paste the complete output into Claude.ai and ask for analysis BEFORE generating 
 Additionally: paste the content of files that will be modified in that session. Prevents Claude.ai from generating prompts against the wrong file.
 
 **Rule:** Claude.ai analyzes → proposes → user confirms → only then generates prompts. Never the other way around.
+
+**Corollary:** ARQUITECTURA.md and METODOLOGIA.md in Claude.ai project knowledge are static until manually updated. If a session closes without updating them, they diverge from reality. The session start `find + ROADMAP` paste will catch new files, but architecture decisions, singleton descriptions, and learnings will be wrong. When in doubt, paste the relevant section of ARQUITECTURA.md alongside the file contents.
 
 ## Platform compatibility
 
