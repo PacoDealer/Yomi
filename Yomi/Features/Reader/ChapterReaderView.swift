@@ -91,7 +91,7 @@ struct ChapterReaderView: View {
             ReaderOverlayView(
                 manga: manga,
                 chapter: activeChapter,
-                currentPage: currentPage,
+                currentPage: $currentPage,
                 totalPages: pages.count,
                 readerMode: $readerMode,
                 showOverlay: $showOverlay,
@@ -387,7 +387,7 @@ struct WebtoonReaderView: View {
 struct ReaderOverlayView: View {
     let manga: Manga
     let chapter: Chapter
-    let currentPage: Int
+    @Binding var currentPage: Int
     let totalPages: Int
     @Binding var readerMode: ReaderMode
     @Binding var showOverlay: Bool
@@ -457,7 +457,7 @@ struct ReaderOverlayView: View {
                 .frame(height: 88)
                 .ignoresSafeArea(edges: .bottom)
 
-                HStack(spacing: 0) {
+                HStack(spacing: 8) {
                     Button {
                         onPrevChapter()
                     } label: {
@@ -469,15 +469,29 @@ struct ReaderOverlayView: View {
                     }
                     .disabled(!hasPrevChapter)
 
-                    Spacer()
+                    if showPageNumber && totalPages > 1 {
+                        VStack(spacing: 4) {
+                            Text("\(currentPage + 1) / \(totalPages)")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .monospacedDigit()
 
-                    if showPageNumber && totalPages > 0 {
-                        Text("Page \(currentPage + 1) / \(totalPages)")
-                            .font(.subheadline)
-                            .foregroundStyle(.white)
+                            if readerMode != .verticalScroll {
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(currentPage) },
+                                        set: { currentPage = Int($0.rounded()) }
+                                    ),
+                                    in: 0...Double(totalPages - 1),
+                                    step: 1
+                                )
+                                .tint(.white)
+                                .environment(\.colorScheme, .dark)
+                            }
+                        }
+                    } else {
+                        Spacer()
                     }
-
-                    Spacer()
 
                     Button {
                         onNextChapter()
