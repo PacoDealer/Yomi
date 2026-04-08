@@ -52,6 +52,7 @@ final class JSBridge {
         }
         JSBridge.injectShims(into: ctx)
         ctx.evaluateScript(source)
+        JSBridge.injectPaperbackAdapter(into: ctx)
     }
 
     /// true when the loaded script exposes a `plugin` global with `popularNovels` (LNReader format)
@@ -63,6 +64,160 @@ final class JSBridge {
             !fn.isUndefined, !fn.isNull
         else { return false }
         return true
+    }
+
+    // MARK: - Paperback format detection
+
+    /// true when the plugin exports a Paperback-format Source class (detected by __pbSourceId global)
+    nonisolated var isPaperbackPlugin: Bool {
+        guard
+            let flag = context.objectForKeyedSubscript("__pbSourceId"),
+            !flag.isUndefined, !flag.isNull
+        else { return false }
+        return true
+    }
+
+    /// After evaluating the plugin script, inspect exports for a Paperback Source subclass
+    /// and wire up Yomi-compatible global functions (getMangaList, searchManga, etc.).
+    nonisolated private static func injectPaperbackAdapter(into ctx: JSContext) {
+        ctx.evaluateScript("""
+        (function(global) {
+            // Detect paperback-extensions-common Source base class
+            var pbCommon = (function() {
+                try { return require('paperback-extensions-common'); } catch(e) { return null; }
+            })();
+            if (!pbCommon || !pbCommon.Source) return;
+
+            // Find a Paperback Source subclass in exports
+            var SourceClass = null;
+            var allExports = typeof exports !== 'undefined' ? exports : {};
+            var keys = Object.keys(allExports);
+            for (var i = 0; i < keys.length; i++) {
+                var val = allExports[keys[i]];
+                if (typeof val === 'function' && val.prototype instanceof pbCommon.Source) {
+                    SourceClass = val;
+                    break;
+                }
+            }
+            if (!SourceClass) return;
+
+            // Mark as Paperback plugin
+            global.__pbSourceId = SourceClass.name || 'PBSource';
+
+            // Instantiate the source
+            var instance;
+            try { instance = new SourceClass(global.cheerio); } catch(e) { return; }
+
+            // Helper: resolve a Promise synchronously (works because SOURCE.fetch is sync)
+            function _resolve(val) {
+                if (val && typeof val.then === 'function') {
+                    var result;
+                    val.then(function(v) { result = v; });
+                    return result;
+                }
+                return val;
+            }
+
+            // ------------------------------------------------------------------
+            // getMangaList(page) → collect items from getHomePageSections callback
+            // ------------------------------------------------------------------
+            global.getMangaList = function(page) {
+                var items = [];
+                var done = false;
+                try {
+                    var p = instance.getHomePageSections(function(section) {
+                        var sItems = section && section.items ? section.items : [];
+                        sItems.forEach(function(tile) {
+                            if (!tile || !tile.id) return;
+                            items.push({
+                                id:       tile.id,
+                                path:     tile.id,
+                                title:    tile.title && tile.title.text ? tile.title.text : (tile.title || tile.id),
+                                coverURL: tile.image && tile.image.value ? tile.image.value : (tile.image || null),
+                                summary:  null,
+                                author:   null,
+                                artist:   null,
+                                status:   'ongoing',
+                                genres:   []
+                            });
+                        });
+                        return Promise.resolve();
+                    }, []);
+                    _resolve(p);
+                } catch(e) {}
+                return items;
+            };
+
+            // ------------------------------------------------------------------
+            // searchManga(query, page) → getSearchResults
+            // ------------------------------------------------------------------
+            global.searchManga = function(query, page) {
+                var items = [];
+                try {
+                    var searchReq = { title: query, parameters: {} };
+                    var p = instance.getSearchResults(searchReq, { page: page || 1 });
+                    var paged = _resolve(p);
+                    var results = paged && paged.results ? paged.results : [];
+                    results.forEach(function(r) {
+                        if (!r) return;
+                        var id = r.mangaId || r.id || '';
+                        items.push({
+                            id:       id,
+                            path:     id,
+                            title:    r.title && r.title.text ? r.title.text : (r.title || id),
+                            coverURL: r.image && r.image.value ? r.image.value : (r.image || null),
+                            summary:  null,
+                            author:   null,
+                            artist:   null,
+                            status:   'ongoing',
+                            genres:   []
+                        });
+                    });
+                } catch(e) {}
+                return items;
+            };
+
+            // ------------------------------------------------------------------
+            // getChapterList(mangaPath) → getChapters(mangaPath)
+            // Chapter path encodes mangaId|chapterId for later getPageList call
+            // ------------------------------------------------------------------
+            global.getChapterList = function(mangaPath) {
+                var chapters = [];
+                try {
+                    var p = instance.getChapters(mangaPath);
+                    var raw = _resolve(p);
+                    if (!Array.isArray(raw)) return [];
+                    raw.forEach(function(ch, i) {
+                        var cid = ch.id || String(i);
+                        chapters.push({
+                            id:            mangaPath + '|' + cid,
+                            path:          mangaPath + '|' + cid,
+                            name:          ch.title || ch.name || ('Chapter ' + (ch.chapNum || i)),
+                            chapterNumber: ch.chapNum || 0
+                        });
+                    });
+                } catch(e) {}
+                return chapters;
+            };
+
+            // ------------------------------------------------------------------
+            // getPageList(chapterPath) → getChapterDetails(mangaId, chapterId)
+            // chapterPath is "mangaId|chapterId" as encoded above
+            // ------------------------------------------------------------------
+            global.getPageList = function(chapterPath) {
+                try {
+                    var sep = chapterPath.indexOf('|');
+                    if (sep === -1) return [];
+                    var mangaId   = chapterPath.substring(0, sep);
+                    var chapterId = chapterPath.substring(sep + 1);
+                    var p = instance.getChapterDetails(mangaId, chapterId);
+                    var details = _resolve(p);
+                    return details && details.pages ? details.pages : [];
+                } catch(e) { return []; }
+            };
+
+        })(this);
+        """)
     }
 
     // MARK: - Shims
@@ -564,6 +719,67 @@ final class JSBridge {
                             return Promise.resolve({ data: text, status: 200 });
                         }
                     };
+
+                } else if (name === 'paperback-extensions-common') {
+                    // Paperback compatibility shim
+                    // Provides the base Source class and App type-constructors
+                    mod.exports = (function() {
+                        function Source(cheerio) { this.cheerio = cheerio; }
+
+                        // Request manager — wraps SOURCE._fetchSync synchronously
+                        function createRequestManager() {
+                            return {
+                                schedule: function(request) {
+                                    var url = request.url || '';
+                                    if (request.param) {
+                                        url += (url.indexOf('?') === -1 ? '?' : '&') + request.param;
+                                    }
+                                    var options = {};
+                                    if (request.method) options.method = request.method;
+                                    if (request.data)   options.body   = JSON.stringify(request.data);
+                                    if (request.headers) options.headers = request.headers;
+                                    var text = SOURCE._fetchSync(url, options);
+                                    return Promise.resolve({ data: text, status: 200 });
+                                }
+                            };
+                        }
+                        function createRequest(opts) { return opts || {}; }
+                        function createMangaTile(opts) {
+                            return {
+                                id:    opts.id || '',
+                                image: (opts.image && opts.image.value) ? opts.image.value : (opts.image || ''),
+                                title: (opts.title && opts.title.text)  ? opts.title.text  : (opts.title  || '')
+                            };
+                        }
+                        function createIconText(opts) { return opts || {}; }
+                        function createHomeSection(opts) {
+                            return { id: opts.id, title: opts.title || '', type: opts.type, items: [], containsMoreItems: !!opts.containsMoreItems };
+                        }
+                        function createChapter(opts)        { return opts || {}; }
+                        function createChapterDetails(opts) { return opts || {}; }
+                        function createManga(opts)          { return opts || {}; }
+                        function createSearchResult(opts)   { return opts || {}; }
+                        function createPagedResults(opts)   { return opts || {}; }
+                        function createTag(opts)            { return opts || {}; }
+                        function createTagSection(opts)     { return opts || {}; }
+
+                        var App = {
+                            createRequestManager: createRequestManager,
+                            createRequest: createRequest,
+                            createMangaTile: createMangaTile,
+                            createIconText: createIconText,
+                            createHomeSection: createHomeSection,
+                            createChapter: createChapter,
+                            createChapterDetails: createChapterDetails,
+                            createManga: createManga,
+                            createSearchResult: createSearchResult,
+                            createPagedResults: createPagedResults,
+                            createTag: createTag,
+                            createTagSection: createTagSection
+                        };
+
+                        return { Source: Source, App: App };
+                    })();
 
                 } else {
                     // Unknown module — return empty exports, do not crash
