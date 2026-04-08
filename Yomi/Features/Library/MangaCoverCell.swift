@@ -9,6 +9,8 @@ struct MangaCoverCell: View {
     var onLongPress: (() -> Void)? = nil
     var onSelect: (() -> Void)? = nil
     @State private var unreadCount: Int = 0
+    @State private var downloadedCount: Int = 0
+    @State private var sourceName: String? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -54,6 +56,8 @@ struct MangaCoverCell: View {
         }
         .task(id: manga.id) {
             unreadCount = (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0
+            downloadedCount = (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0
+            sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
         }
     }
 
@@ -93,6 +97,24 @@ struct MangaCoverCell: View {
                 .font(.caption)
                 .lineLimit(2)
                 .foregroundStyle(.primary)
+
+            if let name = sourceName {
+                Text(name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if downloadedCount > 0 && !isSelecting {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.white)
+                    .padding(4)
+                    .background(Color.black.opacity(0.55))
+                    .clipShape(Circle())
+                    .padding(4)
+            }
         }
     }
 }

@@ -396,25 +396,19 @@ struct SourceBrowseView: View {
                     .padding(.top, 8)
 
                     if hasMoreContent && searchText.isEmpty {
-                        Button {
-                            Task { await loadMore() }
-                        } label: {
-                            Group {
-                                if isLoadingMore {
-                                    ProgressView()
-                                } else {
-                                    Text("Load more")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                }
+                        Group {
+                            if isLoadingMore {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                            } else {
+                                Color.clear
+                                    .frame(height: 40)
+                                    .onAppear {
+                                        Task { await loadMore() }
+                                    }
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
                         }
-                        .buttonStyle(.bordered)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .disabled(isLoadingMore)
                     }
                 }
             }

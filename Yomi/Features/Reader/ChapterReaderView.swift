@@ -111,6 +111,7 @@ struct ChapterReaderView: View {
         .navigationBarHidden(true)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             sessionStart = Date()
@@ -269,15 +270,42 @@ struct MangaReaderView: View {
     var isRTL: Bool = true
 
     var body: some View {
-        TabView(selection: $currentPage) {
-            ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                MangaPageView(url: url, showOverlay: $showOverlay)
-                    .tag(index)
+        ZStack {
+            TabView(selection: $currentPage) {
+                ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
+                    MangaPageView(url: url)
+                        .tag(index)
+                }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
+            .ignoresSafeArea()
+
+            // Tap zones: left / center / right
+            // RTL (manga):  left = next (+1), right = prev (-1)
+            // LTR (manhwa): left = prev (-1), right = next (+1)
+            HStack(spacing: 0) {
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture {
+                        let next = isRTL
+                            ? min(currentPage + 1, pages.count - 1)
+                            : max(currentPage - 1, 0)
+                        if next != currentPage { currentPage = next }
+                    }
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+                    }
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture {
+                        let next = isRTL
+                            ? max(currentPage - 1, 0)
+                            : min(currentPage + 1, pages.count - 1)
+                        if next != currentPage { currentPage = next }
+                    }
+            }
+            .ignoresSafeArea()
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
-        .ignoresSafeArea()
     }
 }
 
@@ -285,7 +313,6 @@ struct MangaReaderView: View {
 
 private struct MangaPageView: View {
     let url: String
-    @Binding var showOverlay: Bool
 
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -343,11 +370,6 @@ private struct MangaPageView: View {
                         lastOffset = offset
                     }
             )
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showOverlay.toggle()
-                }
-            }
             .simultaneousGesture(
                 TapGesture(count: 2)
                     .onEnded {
