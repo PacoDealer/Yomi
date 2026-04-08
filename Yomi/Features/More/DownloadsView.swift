@@ -61,6 +61,9 @@ struct DownloadsView: View {
             .navigationBarTitleDisplayMode(.large)
         }
         .task { await vm.load() }
+        .onChange(of: dm.completedDownloadCount) { _, _ in
+            Task { await vm.load() }
+        }
     }
 
     // MARK: List

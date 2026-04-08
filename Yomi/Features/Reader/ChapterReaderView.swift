@@ -113,7 +113,7 @@ struct ChapterReaderView: View {
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .tabBar)
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
+            UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
             sessionStart = Date()
             readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 sessionSeconds += 1
@@ -131,8 +131,9 @@ struct ChapterReaderView: View {
             let elapsed = Int(Date().timeIntervalSince(sessionStart))
             let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
             let cid = activeChapter.id
+            let page = currentPage
             Task.detached {
-                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed)
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
             }
 
             guard !pages.isEmpty, elapsed > 3 else { return }
@@ -195,8 +196,9 @@ struct ChapterReaderView: View {
         let elapsed = Int(Date().timeIntervalSince(sessionStart))
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
+        let page = currentPage
         Task.detached {
-            try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed)
+            try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
         }
 
         currentChapterIndex = index
@@ -244,14 +246,20 @@ struct ChapterReaderView: View {
         if result.isEmpty {
             errorMessage = "No pages found for this chapter."
         } else {
-            // Restore reading progress
+            // Restore reading progress (prefer stored page number)
             let chapterId = activeChapter.id
             let pageCount = result.count
             Task.detached {
                 if let saved = try? ChapterQueries.fetchOne(id: chapterId),
-                   saved.progress > 0, pageCount > 1 {
-                    let progress = saved.progress
-                    let resumePage = min(Int(progress * Double(pageCount - 1)), pageCount - 1)
+                   !saved.isRead, pageCount > 1 {
+                    let resumePage: Int
+                    if saved.lastPageRead > 0 {
+                        resumePage = min(saved.lastPageRead, pageCount - 1)
+                    } else if saved.progress > 0 {
+                        resumePage = min(Int(saved.progress * Double(pageCount - 1)), pageCount - 1)
+                    } else {
+                        resumePage = 0
+                    }
                     if resumePage > 0 {
                         await MainActor.run { currentPage = resumePage }
                     }

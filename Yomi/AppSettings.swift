@@ -88,6 +88,20 @@ import Observation
         didSet { defaults.set(pluginCatalogURL, forKey: "pluginCatalogURL") }
     }
 
+    // MARK: - Library display
+
+    /// Number of columns in library grid (portrait)
+    var libraryColumns: Int {
+        didSet { defaults.set(libraryColumns, forKey: "libraryColumns") }
+    }
+
+    // MARK: - Reader behaviour
+
+    /// Keep screen on while reading
+    var keepScreenOn: Bool {
+        didSet { defaults.set(keepScreenOn, forKey: "keepScreenOn") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -103,5 +117,7 @@ import Observation
         novelSepia              = d.bool(forKey: "novelSepia")
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
         pluginCatalogURL        = d.string(forKey: "pluginCatalogURL")       ?? "https://yomi-plugins.web.app/index.json"
+        libraryColumns          = d.object(forKey: "libraryColumns") as? Int ?? 3
+        keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
     }
 }
