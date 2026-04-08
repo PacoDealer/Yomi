@@ -19,22 +19,24 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S23 — 2026-04-07, starting S24)
+## Current state (post S24 — 2026-04-07, starting S25)
 
-S23 complete. All 8 implemented items pushed. AppSettings fully observable (stored properties
-with didSet). Plugin UX, LTR mode, unread badge, direct ContinueReading, bulk download, storage
-size, page-jump slider all shipped. Items 9-13 deferred to S24.
+S23 + S24 both complete same day. All shipped and pushed.
 
-**S24 priority order:**
-1. Webtoon scroll position persistence (ScrollViewReader + scrollTo saved anchor)
-2. Library sort options (Alphabetical / Last Read / Last Updated / Unread Count)
-3. "Discuss" button → WKWebView bottom sheet in reader overlay
-4. Paperback compatibility shim (~100 new sources — Large, 2-3 days)
-5. App icon (design — coral/amber + 読 or kitsune, 1024×1024 PNG, App Store blocker)
-6. MAL token → Keychain (required before App Store submission)
-7. Privacy policy URL (static page, required before App Store)
-8. Novel read semantics (mark read on scroll-to-end, not HTML load)
-9. Downloads cleanup on manga delete
+**S24 shipped:** Library sort (SortOrder enum + toolbar Menu), Webtoon scroll persistence
+(ScrollViewReader + .scrollPosition), novel read on scroll-to-end (WKScriptMessageHandler),
+MAL → Keychain (KeychainHelper), downloads cleanup on library remove, Discuss button
+(optional plugin export → WKWebView sheet), Paperback compatibility shim (Source base class +
+App constructors + post-eval adapter wiring getMangaList/searchManga/getChapterList/getPageList).
+
+**S25 priority order:**
+1. App icon (design — coral/amber + 読 or kitsune, 1024×1024 PNG, App Store blocker)
+2. Privacy policy URL (GitHub Pages or Firebase static page)
+3. Library unread count sort option
+4. Paperback plugin testing with real .js bundles — fix any adapter issues
+5. PluginCatalogService cache guard (fetchCatalog guard !isLoading)
+6. Multi-select long-press in library (bulk ops)
+7. Reading status field (DB migration v7)
 
 ## ABSOLUTE RULES — never violate
 
