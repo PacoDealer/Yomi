@@ -81,10 +81,11 @@ struct ChapterReaderView: View {
                         isRTL: false
                     )
                 case .verticalScroll:
-                    WebtoonReaderView(pages: pages, showOverlay: $showOverlay)
-                        .onAppear {
-                            markChapterRead()
-                        }
+                    WebtoonReaderView(
+                        pages: pages,
+                        currentPage: $currentPage,
+                        showOverlay: $showOverlay
+                    )
                 }
             }
 
@@ -350,27 +351,43 @@ private struct MangaPageView: View {
 
 struct WebtoonReaderView: View {
     let pages: [String]
+    @Binding var currentPage: Int
     @Binding var showOverlay: Bool
 
+    // Tracks the topmost visible item; nil = not yet scrolled
+    @State private var visibleId: Int? = nil
+
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 0) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { _, url in
-                    AsyncImage(url: URL(string: url)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                        default:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .aspectRatio(2 / 3, contentMode: .fit)
-                                .frame(maxWidth: .infinity)
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
+                        AsyncImage(url: URL(string: url)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity)
+                            default:
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .aspectRatio(2 / 3, contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
+                        .id(index)
                     }
                 }
+            }
+            .scrollPosition(id: $visibleId, anchor: .top)
+            .onAppear {
+                if currentPage > 0 {
+                    proxy.scrollTo(currentPage, anchor: .top)
+                }
+            }
+            .onChange(of: visibleId) { _, id in
+                if let id { currentPage = id }
             }
         }
         .ignoresSafeArea()

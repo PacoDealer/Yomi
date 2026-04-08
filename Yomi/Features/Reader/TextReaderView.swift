@@ -70,11 +70,14 @@ struct TextReaderView: View {
                     .multilineTextAlignment(.center)
                     .padding()
             } else {
-                ReaderWebView(html: styledHTML) {
+                ReaderWebView(html: styledHTML, onTap: {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showOverlay.toggle()
                     }
-                }
+                }, onReadComplete: {
+                    let chapterId = chapter.id
+                    Task { try? NovelQueries.markRead(chapterId: chapterId) }
+                })
                 .ignoresSafeArea()
             }
 
@@ -109,7 +112,6 @@ struct TextReaderView: View {
             errorMessage = "No content found for this chapter."
         } else {
             rawContent = html
-            Task { try? NovelQueries.markRead(chapterId: chapter.id) }
         }
         isLoading = false
     }
@@ -120,12 +122,33 @@ struct TextReaderView: View {
 struct ReaderWebView: UIViewRepresentable {
     let html: String
     let onTap: () -> Void
+    let onReadComplete: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap) }
+    func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap, onReadComplete: onReadComplete) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.dataDetectorTypes = []
+
+        // Register message handler for scroll-to-end detection
+        config.userContentController.add(context.coordinator, name: "readComplete")
+
+        // Inject scroll listener — fires once when user reaches 90% of content
+        let scrollJS = WKUserScript(source: """
+            (function() {
+                var fired = false;
+                window.addEventListener('scroll', function() {
+                    if (fired) return;
+                    var ratio = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+                    if (ratio >= 0.9) {
+                        fired = true;
+                        window.webkit.messageHandlers.readComplete.postMessage('done');
+                    }
+                }, { passive: true });
+            })();
+            """, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        config.userContentController.addUserScript(scrollJS)
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.backgroundColor = .clear
         webView.isOpaque = false
@@ -172,11 +195,23 @@ struct ReaderWebView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHandler {
         let onTap: () -> Void
-        init(onTap: @escaping () -> Void) { self.onTap = onTap }
+        let onReadComplete: () -> Void
+
+        init(onTap: @escaping () -> Void, onReadComplete: @escaping () -> Void) {
+            self.onTap = onTap
+            self.onReadComplete = onReadComplete
+        }
 
         @objc func handleTap() { onTap() }
+
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            if message.name == "readComplete" {
+                onReadComplete()
+            }
+        }
 
         func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
