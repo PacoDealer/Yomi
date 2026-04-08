@@ -33,6 +33,18 @@ enum ChapterQueries {
         }
     }
 
+    /// Devuelve un diccionario [mangaId: unreadCount] para todos los manga de la biblioteca.
+    /// Una sola query SQL, sin N+1.
+    nonisolated static func fetchUnreadCountsByManga() throws -> [String: Int] {
+        try appDatabase.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT mangaId, COUNT(*) as cnt FROM chapter WHERE isRead = 0 GROUP BY mangaId"
+            )
+            return Dictionary(uniqueKeysWithValues: rows.map { (($0["mangaId"] as String), ($0["cnt"] as Int)) })
+        }
+    }
+
     /// Devuelve los capítulos no leídos de un manga ordenados por chapterNumber ASC, nulos al final
     nonisolated static func fetchUnread(mangaId: String) throws -> [Chapter] {
         try appDatabase.read { db in

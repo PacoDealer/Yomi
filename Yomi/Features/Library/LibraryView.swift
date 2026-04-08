@@ -3,6 +3,8 @@ import SwiftUI
 struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var extensionManager = ExtensionManager.shared
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<String> = []
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -49,44 +51,133 @@ struct LibraryView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 0) {
-                            ContinueReadingRow()
+                            if !isSelecting { ContinueReadingRow() }
                             LazyVGrid(columns: columns, spacing: 12) {
                                 ForEach(viewModel.displayedManga) { manga in
-                                    MangaCoverCell(manga: manga)
+                                    MangaCoverCell(
+                                        manga: manga,
+                                        isSelecting: isSelecting,
+                                        isSelected: selectedIds.contains(manga.id),
+                                        onLongPress: {
+                                            withAnimation(.spring(duration: 0.2)) {
+                                                isSelecting = true
+                                                selectedIds.insert(manga.id)
+                                            }
+                                        },
+                                        onSelect: {
+                                            withAnimation(.spring(duration: 0.15)) {
+                                                if selectedIds.contains(manga.id) {
+                                                    selectedIds.remove(manga.id)
+                                                } else {
+                                                    selectedIds.insert(manga.id)
+                                                }
+                                            }
+                                        }
+                                    )
                                 }
                             }
                             .padding(.horizontal, 12)
                             .padding(.top, 8)
                         }
                     }
+                    .safeAreaInset(edge: .bottom) {
+                        if isSelecting {
+                            selectionActionBar
+                        }
+                    }
                 }
             }
-            .navigationTitle("Library")
+            .navigationTitle(isSelecting
+                ? (selectedIds.isEmpty ? "Select" : "\(selectedIds.count) selected")
+                : "Library")
             .safeAreaInset(edge: .top, spacing: 0) {
                 categoryFilterBar
             }
             .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(SortOrder.allCases) { order in
-                            Button {
-                                viewModel.sortOrder = order
-                            } label: {
-                                Label(order.rawValue, systemImage: order.systemImage)
-                                if viewModel.sortOrder == order {
-                                    Image(systemName: "checkmark")
+                if isSelecting {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") {
+                            withAnimation(.spring(duration: 0.2)) {
+                                isSelecting = false
+                                selectedIds = []
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(selectedIds.count == viewModel.displayedManga.count ? "Deselect All" : "Select All") {
+                            withAnimation(.spring(duration: 0.15)) {
+                                if selectedIds.count == viewModel.displayedManga.count {
+                                    selectedIds = []
+                                } else {
+                                    selectedIds = Set(viewModel.displayedManga.map { $0.id })
                                 }
                             }
                         }
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle\(viewModel.sortOrder == .lastRead ? "" : ".fill")")
+                    }
+                } else {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            ForEach(SortOrder.allCases) { order in
+                                Button {
+                                    viewModel.sortOrder = order
+                                } label: {
+                                    Label(order.rawValue, systemImage: order.systemImage)
+                                    if viewModel.sortOrder == order {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "line.3.horizontal.decrease.circle\(viewModel.sortOrder == .lastRead ? "" : ".fill")")
+                        }
                     }
                 }
             }
             .task {
                 await viewModel.loadLibrary()
             }
+        }
+    }
+
+    // MARK: - Selection Action Bar
+
+    private var selectionActionBar: some View {
+        HStack(spacing: 16) {
+            Spacer()
+            Button(role: .destructive) {
+                Task { await removeSelected() }
+            } label: {
+                Label("Remove from Library", systemImage: "heart.slash")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+            .disabled(selectedIds.isEmpty)
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            Spacer()
+        }
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private func removeSelected() async {
+        let ids = selectedIds
+        await Task.detached(priority: .userInitiated) {
+            for id in ids {
+                guard var manga = try? MangaQueries.fetchOne(id: id) else { continue }
+                manga.inLibrary = false
+                try? MangaQueries.update(manga)
+                let dir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Downloads/\(id)")
+                try? FileManager.default.removeItem(at: dir)
+            }
+        }.value
+        await viewModel.loadLibrary()
+        withAnimation(.spring(duration: 0.2)) {
+            isSelecting = false
+            selectedIds = []
         }
     }
 

@@ -4,52 +4,95 @@ import SwiftUI
 
 struct MangaCoverCell: View {
     let manga: Manga
+    var isSelecting: Bool = false
+    var isSelected: Bool = false
+    var onLongPress: (() -> Void)? = nil
+    var onSelect: (() -> Void)? = nil
     @State private var unreadCount: Int = 0
 
     var body: some View {
-        NavigationLink {
-            MangaDetailView(manga: manga)
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                AsyncImage(url: manga.coverURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(2 / 3, contentMode: .fill)
-                    case .failure:
-                        SkeletonView(showIcon: true)
-                            .aspectRatio(2 / 3, contentMode: .fit)
-                    default:
-                        SkeletonView(showIcon: false)
-                            .aspectRatio(2 / 3, contentMode: .fit)
-                    }
-                }
-                .cornerRadius(8)
-                .clipped()
-                .overlay(alignment: .topTrailing) {
-                    if unreadCount > 0 {
-                        Text("\(unreadCount)")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.accentColor)
-                            .clipShape(Capsule())
-                            .padding(6)
-                    }
-                }
+        ZStack(alignment: .topLeading) {
+            // Navigation link — disabled while in selection mode
+            NavigationLink {
+                MangaDetailView(manga: manga)
+            } label: {
+                cellContent
+            }
+            .buttonStyle(.plain)
+            .disabled(isSelecting)
 
-                Text(manga.title)
-                    .font(.caption)
-                    .lineLimit(2)
-                    .foregroundStyle(.primary)
+            // Transparent tap target in selection mode
+            if isSelecting {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { onSelect?() }
             }
         }
-        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: 0.4) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onLongPress?()
+        }
+        .overlay(alignment: .topLeading) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isSelected ? .white : .white)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? Color.accentColor : Color.black.opacity(0.35))
+                            .padding(1)
+                    )
+                    .padding(6)
+            }
+        }
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentColor, lineWidth: 2.5)
+            }
+        }
         .task(id: manga.id) {
             unreadCount = (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0
+        }
+    }
+
+    private var cellContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            AsyncImage(url: manga.coverURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                case .failure:
+                    SkeletonView(showIcon: true)
+                        .aspectRatio(2 / 3, contentMode: .fit)
+                default:
+                    SkeletonView(showIcon: false)
+                        .aspectRatio(2 / 3, contentMode: .fit)
+                }
+            }
+            .cornerRadius(8)
+            .clipped()
+            .overlay(alignment: .topTrailing) {
+                if unreadCount > 0 && !isSelecting {
+                    Text("\(unreadCount)")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.accentColor)
+                        .clipShape(Capsule())
+                        .padding(6)
+                }
+            }
+
+            Text(manga.title)
+                .font(.caption)
+                .lineLimit(2)
+                .foregroundStyle(.primary)
         }
     }
 }
