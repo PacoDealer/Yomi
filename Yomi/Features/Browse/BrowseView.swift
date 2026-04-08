@@ -214,37 +214,44 @@ private struct SearchView: View {
         }
         .searchable(text: $searchQuery, prompt: "Search titles")
         .onChange(of: searchQuery) { _, newValue in
-            debounceTask?.cancel()
-            guard newValue.count >= 2 else {
-                searchResults = []
-                isSearching = false
-                return
-            }
-            isSearching = true
-            let query = newValue
-            let sources = selectedSource.map { [$0] } ?? extensionManager.installed
-            let bridgeFn: (Extension) -> JSBridge? = { ext in
-                let docs = FileManager.default.urls(
-                    for: .documentDirectory, in: .userDomainMask)[0]
-                let url = docs
-                    .appendingPathComponent("Extensions", isDirectory: true)
-                    .appendingPathComponent("\(ext.id).js")
-                return JSBridge(scriptURL: url)
-            }
-            debounceTask = Task {
-                try? await Task.sleep(for: .milliseconds(500))
-                guard !Task.isCancelled else { return }
-                let results = await Task.detached(priority: .userInitiated) {
-                    sources.flatMap { ext in
-                        bridgeFn(ext)?
-                            .searchManga(query: query, page: 1, sourceId: ext.id)
-                        ?? []
-                    }
-                }.value
-                await MainActor.run {
-                    searchResults = results
-                    isSearching = false
+            runSearch(query: newValue, debounce: true)
+        }
+        .onChange(of: selectedSource) { _, _ in
+            guard searchQuery.count >= 2 else { return }
+            runSearch(query: searchQuery, debounce: false)
+        }
+    }
+
+    private func runSearch(query: String, debounce: Bool) {
+        debounceTask?.cancel()
+        guard query.count >= 2 else {
+            searchResults = []
+            isSearching = false
+            return
+        }
+        isSearching = true
+        let sources = selectedSource.map { [$0] } ?? extensionManager.installed
+        let bridgeFn: (Extension) -> JSBridge? = { ext in
+            let docs = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs
+                .appendingPathComponent("Extensions", isDirectory: true)
+                .appendingPathComponent("\(ext.id).js")
+            return JSBridge(scriptURL: url)
+        }
+        debounceTask = Task {
+            if debounce { try? await Task.sleep(for: .milliseconds(500)) }
+            guard !Task.isCancelled else { return }
+            let results = await Task.detached(priority: .userInitiated) {
+                sources.flatMap { ext in
+                    bridgeFn(ext)?
+                        .searchManga(query: query, page: 1, sourceId: ext.id)
+                    ?? []
                 }
+            }.value
+            await MainActor.run {
+                searchResults = results
+                isSearching = false
             }
         }
     }

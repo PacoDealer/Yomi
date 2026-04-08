@@ -23,9 +23,11 @@ struct SettingsView: View {
     var body: some View {
         List {
             generalSection
+            librarySection
             mangaReaderSection
             novelReaderSection
             appearanceSection
+            advancedSection
             aboutSection
         }
         .listStyle(.insetGrouped)
@@ -41,6 +43,18 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Library
+
+    private var librarySection: some View {
+        Section("Library") {
+            Stepper(
+                "Items per row: \(settings.libraryColumns)",
+                value: $settings.libraryColumns,
+                in: 2...6
+            )
+        }
+    }
+
     // MARK: - Reader — Manga
 
     private var mangaReaderSection: some View {
@@ -51,6 +65,8 @@ struct SettingsView: View {
                 Text("Webtoon").tag("Webtoon")
             }
             .pickerStyle(.menu)
+
+            Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
         }
     }
 
@@ -193,6 +209,18 @@ struct SettingsView: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    // MARK: - Advanced
+
+    private var advancedSection: some View {
+        Section("Advanced") {
+            Button("Clear image cache") {
+                URLCache.shared.removeAllCachedResponses()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            .foregroundStyle(.primary)
+        }
     }
 
     // MARK: - About

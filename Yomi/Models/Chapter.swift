@@ -24,4 +24,6 @@ struct Chapter: Identifiable, Codable {
     var progress: Double
     /// Segundos totales de tiempo de lectura registrado para este capítulo
     var readingSeconds: Int
+    /// Última página leída (0 = no iniciado); se restaura al abrir el capítulo
+    var lastPageRead: Int
 }

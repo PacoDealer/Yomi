@@ -142,12 +142,12 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
-    /// Actualiza progress y readingSeconds de un capítulo (UPDATE directo, sin fetch previo)
-    nonisolated static func updateProgress(id: String, progress: Double, readingSeconds: Int) throws {
+    /// Actualiza progress, readingSeconds y lastPageRead de un capítulo (UPDATE directo, sin fetch previo)
+    nonisolated static func updateProgress(id: String, progress: Double, readingSeconds: Int, lastPageRead: Int = 0) throws {
         _ = try appDatabase.write { db in
             try db.execute(
-                sql: "UPDATE chapter SET progress = ?, readingSeconds = ? WHERE id = ?",
-                arguments: [progress, readingSeconds, id]
+                sql: "UPDATE chapter SET progress = ?, readingSeconds = ?, lastPageRead = ? WHERE id = ?",
+                arguments: [progress, readingSeconds, lastPageRead, id]
             )
         }
     }
