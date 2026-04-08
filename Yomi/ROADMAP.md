@@ -1,14 +1,14 @@
 # Roadmap — Yomi
 
-## Current state (post S23 — 2026-04-07)
-AppSettings fully observable: all 11 settings are stored properties with didSet persisting to
-UserDefaults — dark mode and accent color now apply at runtime. Plugin UX: empty states explain
-what plugins are and guide first-time users. LTR reading mode added for manhwa/manhua.
-Unread badge on library covers. ContinueReading taps open ChapterReaderView directly at the
-last-read chapter (loads via JSBridge, merges progress from DB). Bulk download: "Download next N"
-button in manga detail chapters header. Storage size shown per manga. Page-jump slider in reader
-overlay (hidden in Webtoon mode). Accent color swatch row scrollable (fixed overflow). All 8
-implemented S23 items committed and pushed.
+## Current state (post S24 — 2026-04-07)
+S23 + S24 complete in same day. Library sort (Last Read/Alphabetical/Last Updated). Webtoon scroll
+persistence via ScrollViewReader + scrollPosition. Novel marks read on scroll-to-end (90% threshold,
+WKScriptMessageHandler). MAL token migrated to Keychain with UserDefaults migration on first load.
+Downloads deleted when manga removed from library. Discuss button in reader overlay — optional
+plugin export getDiscussionURL → WKWebView bottom sheet. Paperback compatibility shim: Source
+base class + App constructors injected via require('paperback-extensions-common'), adapter wires
+getMangaList/searchManga/getChapterList/getPageList post-evaluation. ~100 Paperback sources
+now theoretically compatible. All items committed and pushed.
 
 ## Technical debt
 | Area | Issue | Priority |
@@ -246,18 +246,30 @@ Webtoon, and community feedback from r/manga, r/manhwa, r/lightnovels, GitHub is
 Wrapped in ScrollView(.horizontal). Swatch size bumped 28→32pt. Custom picker button lost plain
 buttonStyle — fixed.
 
-## Session 24 — planned
+## Session 24 — UX polish + App Store prep ✅ Complete (2026-04-07)
+
+| # | Feature | Status | Detail |
+|---|---------|--------|--------|
+| 1 | Webtoon scroll persistence | ✅ Done | WebtoonReaderView: @Binding currentPage, ScrollViewReader + .scrollPosition(id:anchor:.top). On appear: scrollTo(currentPage). onChange(of: visibleId) updates currentPage. Removed premature markChapterRead on appear. |
+| 2 | Library sort options | ✅ Done | SortOrder enum (Last Read / Alphabetical / Last Updated) in LibraryViewModel. displayedManga computed sort. LibraryView toolbar Menu with all options + checkmark on active. |
+| 3 | "Discuss" button in reader | ✅ Done | JSBridge.getDiscussionURL(chapterPath:) calls optional plugin export. ReaderOverlayView: bubble icon button in top bar when URL available. DiscussWebSheet: NavigationStack + WKWebView, medium/large detents. |
+| 4 | Paperback compatibility shim | ✅ Done | require('paperback-extensions-common') module in JSBridge. Source base class + App type constructors + RequestManager wrapping SOURCE._fetchSync. injectPaperbackAdapter() post-eval: detects Source subclass in exports, wires getMangaList/searchManga/getChapterList/getPageList adapters. Chapter paths encode mangaId|chapterId. |
+| 5 | App icon | ⏭ S25 | Design task — coral-amber gradient + 読 or kitsune. App Store blocker. |
+| 6 | MAL token → Keychain | ✅ Done | KeychainHelper (Core/KeychainHelper.swift): SecItemAdd/SecItemUpdate/SecItemCopyMatching/SecItemDelete. MALService.saveToken/loadToken migrated. loadToken auto-migrates legacy UserDefaults values. |
+| 7 | Privacy policy URL | ⏭ S25 | Static page (GitHub Pages or Firebase). Required before App Store. |
+| 8 | Novel read on scroll-to-end | ✅ Done | ReaderWebView: WKUserScript injected at documentEnd — scroll event listener fires readComplete message at 90% scroll ratio (once: true). Coordinator conforms to WKScriptMessageHandler. markRead moved from HTML-load to scroll event. |
+| 9 | Downloads cleanup on delete | ✅ Done | MangaDetailView.toggleLibrary: when inLibrary becomes false, delete Documents/Downloads/{mangaId}/ via Task.detached + FileManager.removeItem. |
+
+## Session 25 — planned
 | # | Feature | Detail | Complexity |
 |---|---------|--------|------------|
-| 1 | Webtoon scroll persistence | ScrollViewReader, scrollTo saved anchor on appear. Progress saved as page ratio. | Medium |
-| 2 | Library sort options | Sort toolbar in LibraryView. LibraryViewModel: Alphabetical / Last Read / Last Updated / Unread Count. | Small |
-| 3 | "Discuss" button in reader | ReaderOverlayView → WKWebView bottom sheet → source's comment URL. Plugin: optional getDiscussionURL(chapterPath). | Medium |
-| 4 | Paperback compatibility shim | JSBridge shim: Source class, getHomePageSections, getSearchResults, getChapterDetails. ~100 new sources. | Large |
-| 5 | App icon | Design: coral-amber gradient + 読 or kitsune. 1024×1024 PNG, all Xcode Asset Catalog sizes. App Store blocker. | External |
-| 6 | MAL token → Keychain | Migrate from UserDefaults. SecItemAdd/SecItemCopyMatching. Required before App Store. | Small |
-| 7 | Privacy policy URL | Static page (GitHub Pages or Firebase). Required before App Store. | Trivial |
-| 8 | Novel read semantics | Mark read on scroll-to-end, not HTML load. WKWebView evaluateJavaScript scrollTop check. | Medium |
-| 9 | Downloads cleanup on delete | DownloadManager.deleteAll(mangaId:) called when manga removed from library. | Small |
+| 1 | App icon | 1024×1024 PNG coral-amber gradient + 読 or kitsune. All Asset Catalog sizes. App Store blocker. | External/design |
+| 2 | Privacy policy URL | Static page on GitHub Pages or Firebase. Required for App Store. | Trivial |
+| 3 | Library unread count sort | Requires bulk ChapterQueries count per manga. Load into LibraryViewModel. | Small |
+| 4 | Multi-select long-press in library | Long-press cover → multi-select mode → bulk download, mark read, categorize. | Medium |
+| 5 | Paperback plugin testing | Test with real Paperback .js bundles. Fix any adapter issues discovered. | Medium |
+| 6 | PluginCatalogService cache guard | fetchCatalog() guard !isLoading && (entries.isEmpty || forceRefresh). | Small |
+| 7 | Reading status field | Add status: String (Reading/Completed/On Hold/Dropped/Plan to Read) to manga table, DB migration v7. | Medium |
 
 ## UX research findings (S23 basis)
 Research covered: Tachiyomi, Paperback, Aidoku, MangaPlus, Webtoon, INKR, Azuki, Moon+ Reader,

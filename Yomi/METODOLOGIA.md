@@ -138,6 +138,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 21 | 2026-04-07 | Color+Hex.swift (Yomi/Core/, 6+8-digit hex, hexString via UIColor sRGB). AppSettings: fontSize default 18.0, accentColor, colorScheme computed var, pluginCatalogURL kept. YomiApp: #if DEBUG seedBundledPlugins, .tint + .preferredColorScheme on ContentView (Scene has no .tint — WindowGroup build failure). SettingsView: Slider 14–28, 10 swatches + custom ColorPicker sheet. TextReaderView: CSS re-inject via evaluateJavaScript on every updateUIView cycle. Regressions introduced: OnboardingView fullScreenCover removed (not in prompt scope), NovelQueries.markRead() dropped in rewrite. |
 | 22 | 2026-04-07 | Restore S21 regressions: OnboardingView gate + NovelQueries.markRead(). PrivacyInfo.xcprivacy (NSPrivacyAccessedAPICategoryUserDefaults, reason CA92.1). Reading resume in ChapterReaderView (Task.detached DB read after loadPages, MainActor.run to set currentPage). Pan when zoomed in MangaPageView (GeometryReader, DragGesture with clamping, guard scale > 1.0). Browse pagination in SourceBrowseView (currentPage/isLoadingMore/hasMoreContent, "Load more" button, both Format A and B). Workflow change: Claude Code-first, no relay. MCP setup: XcodeBuildMCP, context7, apple-docs, github, mobile-mcp. CLAUDE.md created at project root. Memory system initialized. |
 | 23 | 2026-04-07 | Fix dark mode + accent color: AppSettings converted from computed vars to stored properties with didSet — @Observable graph now tracks all 11 settings. Plugin UX overhaul: LibraryView empty state branches on installed.isEmpty → "No plugins" + Get plugins → More tab. PluginsView installed section shows title+description. Catalog distinguishes search-no-results from truly-empty. LTR reading mode: .horizontalLTR added to ReaderMode enum, MangaReaderView gains isRTL param. Unread badge: MangaCoverCell loads unread count via .task, shows accent Capsule overlay. ContinueReading direct navigation: tapping cell loads chapters via JSBridge+Task.detached, merges DB progress, finds last-read by readAt, navigates directly to ChapterReaderView. Bulk download: "Download next N" button (max 10) in Chapters header. Storage size: FileManager enumerates Downloads/{mangaId}/, ByteCountFormatter, shown in header. Page-jump slider: ReaderOverlayView bottom bar, currentPage promoted to @Binding, Slider hidden in Webtoon mode. Bonus fix: accent swatch HStack → ScrollView(.horizontal), swatch 28→32pt. All 8 items committed + pushed. Items 9-13 deferred to S24. |
+| 24 | 2026-04-07 | Library sort: SortOrder enum + Menu button in LibraryView toolbar. Webtoon scroll persistence: WebtoonReaderView gains @Binding currentPage, ScrollViewReader + .scrollPosition(id:anchor:.top), scrollTo on appear. Novel read semantics: WKUserScript fires readComplete JS message at 90% scroll, Coordinator WKScriptMessageHandler calls markRead. MAL → Keychain: KeychainHelper with SecItem* wrappers, MALService migrated, auto-migrates UserDefaults on first load. Downloads cleanup: toggleLibrary deletes Downloads/{mangaId}/ when removing from library. Discuss button: JSBridge.getDiscussionURL, bubble icon in ReaderOverlayView, DiscussWebSheet WKWebView bottom sheet. Paperback shim: require('paperback-extensions-common') in JSBridge cache (Source base class + App constructors + RequestManager wrapping SOURCE._fetchSync), injectPaperbackAdapter post-eval detects Source subclass in exports, wires getMangaList/searchManga/getChapterList/getPageList. Chapter paths encode mangaId|chapterId. All 7 items shipped. App icon + privacy policy deferred to S25. |
 
 ## Technical learnings — S23
 
@@ -172,6 +173,38 @@ The `.rounded()` prevents off-by-one drift from floating point.
 A plain `HStack` inside a `List` cell does not clip or scroll — items overflow off-screen
 silently. Wrap in `ScrollView(.horizontal, showsIndicators: false)` when the content count
 is variable or guaranteed to exceed screen width (e.g., color swatch rows).
+
+## Technical learnings — S24
+
+### Paperback shim: Promise resolution in JavaScriptCore
+Paperback plugins use async/await (compiled to generator + Promise chains by TypeScript).
+These work in JSContext because: (1) SOURCE.fetch is synchronous (DispatchSemaphore), so
+`await fetch()` resolves immediately; (2) JavaScriptCore drains the microtask queue before
+returning from `evaluateScript` / `JSValue.call(withArguments:)`. The `_resolve(promise)`
+helper in the adapter captures the synchronously-resolved value via `.then(v => result = v)`.
+
+### Paperback chapter path encoding
+Paperback's `getChapterDetails(mangaId, chapterId)` needs both IDs. Yomi's `getPageList(path)`
+only receives one string. Solution: encode as `mangaId + "|" + chapterId` in `getChapterList`,
+split on first `|` in `getPageList`. Safe because `|` doesn't appear in typical manga IDs.
+
+### WKScriptMessageHandler for JS→Swift callbacks
+To detect scroll-to-end in WKWebView: inject a `WKUserScript` at `.atDocumentEnd` containing
+a scroll event listener that calls `window.webkit.messageHandlers.name.postMessage(...)`.
+The Coordinator must conform to `WKScriptMessageHandler` and be added via
+`config.userContentController.add(coordinator, name: "readComplete")` BEFORE the WKWebView is created.
+The `once: true` event listener option ensures the message fires only once per chapter.
+
+### Keychain migration pattern
+When migrating from UserDefaults to Keychain: in `loadToken()`, check if the legacy UserDefaults
+key exists → save to Keychain → delete from UserDefaults. This runs once on first launch after
+update. Users are seamlessly migrated without needing to re-login.
+
+### scrollPosition(id:anchor:) for scroll restoration
+iOS 17+: `.scrollPosition(id: $binding, anchor: .top)` tracks the ID of the topmost visible item.
+Use `onChange(of: visibleId)` to update currentPage. On appear, call `proxy.scrollTo(id, anchor: .top)`
+inside a `ScrollViewReader` to restore position. The binding is `Binding<(Int)?>`  —
+unwrap in onChange before assigning to `Int`.
 
 ## UX research — reading apps (S23 basis)
 
