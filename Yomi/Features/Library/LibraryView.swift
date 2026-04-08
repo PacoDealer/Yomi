@@ -3,6 +3,7 @@ import SwiftUI
 struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var extensionManager = ExtensionManager.shared
+    @State private var settings = AppSettings.shared
     @State private var isSelecting = false
     @State private var selectedIds: Set<String> = []
     @State private var showNewCategorySheet = false
@@ -14,9 +15,9 @@ struct LibraryView: View {
         self.onBrowseTap = onBrowseTap
     }
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
-    ]
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 12), count: max(2, settings.libraryColumns))
+    }
 
     var body: some View {
         NavigationStack {

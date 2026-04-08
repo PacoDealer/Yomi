@@ -243,6 +243,10 @@ struct MangaDetailView: View {
                 selectionActionBar
             }
         }
+        .onAppear { Task { await refreshChapterStates() } }
+        .onChange(of: downloadManager.completedDownloadCount) { _, _ in
+            Task { await refreshChapterStates() }
+        }
         .task { await loadChapters() }
         .task { await touchLastRead() }
         .task { await loadCategories() }
@@ -429,6 +433,30 @@ struct MangaDetailView: View {
         }
         .padding(.vertical, 12)
         .background(.bar)
+    }
+
+    // MARK: - Refresh Chapter States
+
+    /// Re-reads persisted state (isRead, isDownloaded, progress, lastPageRead) from DB
+    /// and merges it into the in-memory chapters array. Lightweight — no network call.
+    private func refreshChapterStates() async {
+        guard !chapters.isEmpty else { return }
+        let mangaId = manga.id
+        let saved = await Task.detached(priority: .userInitiated) {
+            (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+        }.value
+        guard !saved.isEmpty else { return }
+        let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+        chapters = chapters.map { ch in
+            guard let p = savedMap[ch.id] else { return ch }
+            var merged = ch
+            merged.isRead       = p.isRead
+            merged.isDownloaded = p.isDownloaded
+            merged.progress     = p.progress
+            merged.lastPageRead = p.lastPageRead
+            merged.readAt       = p.readAt
+            return merged
+        }
     }
 
     // MARK: - Toggle Library
@@ -633,11 +661,6 @@ private struct ChapterRow: View {
                     Text(chapter.name)
                         .font(.subheadline)
                         .foregroundStyle(chapter.isRead ? .secondary : .primary)
-                    if chapter.isRead {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                     if chapter.isDownloaded {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.caption)
@@ -651,12 +674,25 @@ private struct ChapterRow: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if let number = chapter.chapterNumber {
-                    Text("Chapter \(number, specifier: "%.1f")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Subtitle: date + page progress
+                HStack(spacing: 4) {
+                    if let readAt = chapter.readAt {
+                        Text(readAt, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if let number = chapter.chapterNumber {
+                        Text("Chapter \(number, specifier: "%.1f")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if chapter.lastPageRead > 0 && !chapter.isRead {
+                        Text("· Page \(chapter.lastPageRead + 1)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+            .opacity(chapter.isRead ? 0.45 : 1.0)
 
             Spacer()
 

@@ -178,6 +178,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v8_last_page") { db in
+            try db.alter(table: "chapter") { t in
+                t.add(column: "lastPageRead", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -247,6 +253,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         readAt          = row["readAt"]
         progress        = row["progress"]
         readingSeconds  = row["readingSeconds"] ?? 0
+        lastPageRead    = row["lastPageRead"] ?? 0
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -261,6 +268,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         container["readAt"]         = readAt
         container["progress"]       = progress
         container["readingSeconds"] = readingSeconds
+        container["lastPageRead"]   = lastPageRead
     }
 }
 

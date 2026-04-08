@@ -164,9 +164,11 @@ import Observation
             chapterNumber:  d["chapterNumber"]  as? Double,
             isRead:         d["isRead"]         as? Bool ?? false,
             isDownloaded:   d["isDownloaded"]   as? Bool ?? false,
+            downloadedAt:   nil,
             readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
             progress:       d["progress"]       as? Double ?? 0,
-            readingSeconds: d["readingSeconds"] as? Int ?? 0
+            readingSeconds: d["readingSeconds"] as? Int ?? 0,
+            lastPageRead:   d["lastPageRead"]   as? Int ?? 0
         )
     }
 }

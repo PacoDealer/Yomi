@@ -22,6 +22,9 @@ import SwiftUI
     /// Manga titles for queued items, in queue order
     var queueMangaTitles: [String] = []
 
+    /// Increments each time a download finishes — views observe this to refresh chapter state
+    var completedDownloadCount: Int = 0
+
     // MARK: - Private
 
     private struct QueueItem {
@@ -193,7 +196,10 @@ import SwiftUI
         // 5. Persist download state in DB
         try? DownloadQueries.markDownloaded(chapterId: chapterId)
 
-        // 6. Reset active state
+        // 6. Signal completion so MangaDetailView can refresh chapter state
+        completedDownloadCount += 1
+
+        // 7. Reset active state
         activeChapter = nil
         activeManga = nil
         activeChapterId = nil
