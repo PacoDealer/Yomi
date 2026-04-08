@@ -193,7 +193,7 @@ private struct InstalledExtensionRow: View {
 
 // MARK: - YomiCatalogEntryRow
 
-private struct YomiCatalogEntryRow: View {
+struct YomiCatalogEntryRow: View {
     let entry:       PluginCatalogEntry
     let isInstalled: Bool
     let isInstalling: Bool
@@ -344,7 +344,7 @@ private struct InstallFromURLSheet: View {
 
 // MARK: - Shared badge helpers
 
-private struct LanguageBadge: View {
+struct LanguageBadge: View {
     let language: String
     var body: some View {
         Text(language.uppercased())
@@ -356,7 +356,7 @@ private struct LanguageBadge: View {
     }
 }
 
-private struct NSFWBadge: View {
+struct NSFWBadge: View {
     var body: some View {
         Text("18+")
             .font(.caption2).fontWeight(.semibold)
