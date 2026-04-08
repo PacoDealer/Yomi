@@ -4,11 +4,15 @@ import SwiftUI
 
 struct BrowseView: View {
     @State private var extensionManager = ExtensionManager.shared
+    @State private var catalogService   = PluginCatalogService.shared
+    @State private var settings         = AppSettings.shared
     @State private var selectedTab: BrowseTab = .sources
+    @State private var installingID: String? = nil
 
     enum BrowseTab: String, CaseIterable {
-        case sources = "Sources"
-        case search  = "Search"
+        case sources    = "Sources"
+        case extensions = "Extensions"
+        case search     = "Search"
     }
 
     var body: some View {
@@ -24,12 +28,19 @@ struct BrowseView: View {
                 .padding(.vertical, 8)
 
                 switch selectedTab {
-                case .sources: sourcesTab
-                case .search:  SearchView()
+                case .sources:    sourcesTab
+                case .extensions: extensionsTab
+                case .search:     SearchView()
                 }
             }
             .navigationTitle("Browse")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: appRouter.openBrowseExtensions) { _, open in
+                if open {
+                    selectedTab = .extensions
+                    appRouter.openBrowseExtensions = false
+                }
+            }
         }
     }
 
@@ -41,7 +52,7 @@ struct BrowseView: View {
             ContentUnavailableView(
                 "No sources installed",
                 systemImage: "puzzlepiece.extension",
-                description: Text("Go to More → Plugins to install sources.")
+                description: Text("Browse Extensions to discover and install reading sources.")
             )
         } else {
             List(extensionManager.installed) { ext in
@@ -52,6 +63,92 @@ struct BrowseView: View {
                 }
             }
         }
+    }
+
+    // MARK: Extensions tab
+
+    @ViewBuilder
+    private var extensionsTab: some View {
+        Group {
+            if catalogService.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = catalogService.errorMessage {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("Failed to load: \(error)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Retry") {
+                        Task { await catalogService.fetchCatalog() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if filteredCatalog.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "puzzlepiece.extension")
+                        .font(.system(size: 56))
+                        .foregroundStyle(.secondary)
+                    VStack(spacing: 8) {
+                        Text("No extensions available")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Text("Install a reading source to get started.\nYou can also add one manually via More → Plugins.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi/blob/main/EXTENSIONS.md")!) {
+                        Label("View extension guide", systemImage: "arrow.up.right.square")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(filteredCatalog) { entry in
+                    YomiCatalogEntryRow(
+                        entry:        entry,
+                        isInstalled:  catalogService.isInstalled(entry),
+                        isInstalling: installingID == entry.id
+                    ) {
+                        Task { await installEntry(entry) }
+                    }
+                }
+                .refreshable { await catalogService.fetchCatalog() }
+            }
+        }
+        .task { await catalogService.fetchCatalog() }
+    }
+
+    private var filteredCatalog: [PluginCatalogEntry] {
+        settings.showNSFW
+            ? catalogService.entries
+            : catalogService.entries.filter { !$0.isNSFW }
+    }
+
+    private func installEntry(_ entry: PluginCatalogEntry) async {
+        guard let fileURL = URL(string: entry.fileURL) else { return }
+        installingID = entry.id
+        let ext = Extension(
+            id:            entry.id,
+            name:          entry.name,
+            version:       entry.version,
+            language:      entry.language,
+            iconURL:       entry.iconURL.flatMap { URL(string: $0) },
+            sourceListURL: fileURL,
+            isInstalled:   true,
+            isNSFW:        entry.isNSFW,
+            sourceIds:     []
+        )
+        await extensionManager.install(ext)
+        installingID = nil
     }
 }
 
