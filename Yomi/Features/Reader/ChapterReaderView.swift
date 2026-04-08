@@ -28,6 +28,8 @@ struct ChapterReaderView: View {
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
     @State private var sessionSeconds: Int = 0
+    @State private var discussURL: URL? = nil
+    @State private var showDiscussSheet = false
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -97,9 +99,11 @@ struct ChapterReaderView: View {
                 readerMode: $readerMode,
                 showOverlay: $showOverlay,
                 showPageNumber: true,
+                discussURL: discussURL,
                 hasPrevChapter: hasPrevChapter,
                 hasNextChapter: hasNextChapter,
                 onDismiss: { dismiss() },
+                onDiscuss: { showDiscussSheet = true },
                 onPrevChapter: { navigateToChapter(currentChapterIndex - 1) },
                 onNextChapter: { navigateToChapter(currentChapterIndex + 1) }
             )
@@ -153,6 +157,18 @@ struct ChapterReaderView: View {
             }
         }
         .task { await loadPages() }
+        .task(id: activeChapter.id) {
+            let path = activeChapter.path
+            let b = bridge
+            discussURL = await Task.detached(priority: .background) {
+                b.getDiscussionURL(chapterPath: path)
+            }.value
+        }
+        .sheet(isPresented: $showDiscussSheet) {
+            if let url = discussURL {
+                DiscussWebSheet(url: url)
+            }
+        }
     }
 
     // MARK: - Mark as Read
@@ -409,9 +425,11 @@ struct ReaderOverlayView: View {
     @Binding var readerMode: ReaderMode
     @Binding var showOverlay: Bool
     let showPageNumber: Bool
+    let discussURL: URL?
     let hasPrevChapter: Bool
     let hasNextChapter: Bool
     let onDismiss: () -> Void
+    let onDiscuss: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
 
@@ -448,6 +466,14 @@ struct ReaderOverlayView: View {
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if discussURL != nil {
+                        Button(action: onDiscuss) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                        }
+                    }
 
                     Picker("Mode", selection: $readerMode) {
                         ForEach(ReaderMode.allCases, id: \.self) { mode in
@@ -528,6 +554,40 @@ struct ReaderOverlayView: View {
         .opacity(showOverlay ? 1 : 0)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)
     }
+}
+
+// MARK: - DiscussWebSheet
+
+import WebKit
+
+struct DiscussWebSheet: View {
+    let url: URL
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            WebView(url: url)
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle("Discussion")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private struct WebView: UIViewRepresentable {
+    let url: URL
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+    func updateUIView(_ webView: WKWebView, context: Context) {}
 }
 
 // MARK: - Preview

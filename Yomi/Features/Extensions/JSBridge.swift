@@ -607,6 +607,22 @@ final class JSBridge {
         return result?.toArray() as? [String] ?? []
     }
 
+    // MARK: - Discussion URL (optional plugin export)
+
+    /// Returns the URL string for the chapter's comment/discussion page, or nil if the plugin
+    /// doesn't implement `getDiscussionURL(chapterPath)`.
+    nonisolated func getDiscussionURL(chapterPath: String) -> URL? {
+        guard
+            let fn = context.objectForKeyedSubscript("getDiscussionURL"),
+            !fn.isUndefined, !fn.isNull, fn.isObject
+        else { return nil }
+        let result = fn.call(withArguments: [chapterPath])
+        guard let urlString = result?.toString(), !urlString.isEmpty,
+              urlString != "undefined", urlString != "null"
+        else { return nil }
+        return URL(string: urlString)
+    }
+
     // MARK: - Search
 
     nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {
