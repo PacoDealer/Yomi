@@ -15,25 +15,25 @@ Yomi/
 ├── Database/
 │   ├── DatabaseManager.swift        # GRDB setup, migrations, FetchableRecord conformances; module-level appDatabase var
 │   └── Queries/
-│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, delete
-│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
+│       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, updateReadingStatus, delete
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
 │       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensions
 ├── Core/
-│   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation
+│   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation; openBrowseExtensions flag for Library → Browse Extensions deep link
 │   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
 │   └── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 ├── Features/
 │   ├── Library/
-│   │   ├── LibraryView.swift        # Saved manga grid + horizontal category filter chips + ContinueReadingRow
-│   │   ├── LibraryViewModel.swift   # State, filtering, sort by lastReadAt DESC NULLS LAST; selectedCategoryId + displayedManga
+│   │   ├── LibraryView.swift        # Saved manga grid + category chips + ContinueReadingRow + multi-select (long-press, Cancel/SelectAll toolbar, bulk Remove)
+│   │   ├── LibraryViewModel.swift   # State, filtering, SortOrder (lastRead/alphabetical/lastUpdated/unreadCount); unreadCounts dict from single GROUP BY query
 │   │   ├── CategoryView.swift       # Category CRUD UI (create, rename, reorder, delete)
 │   │   ├── ContinueReadingRow.swift # Horizontal scrollable row of recently read manga
-│   │   ├── MangaCoverCell.swift     # Cover cell + animated ShimmerView skeleton
-│   │   └── MangaDetailView.swift    # Detail + chapter list + heart button (upsert) + DB merge + category assignment sheet + chapter pagination (50/page)
+│   │   ├── MangaCoverCell.swift     # Cover cell + shimmer skeleton + selection mode (isSelecting/isSelected overlays, long press enters select)
+│   │   └── MangaDetailView.swift    # Detail + chapter list + heart button + ReadingStatusMenu pill (planToRead/reading/onHold/completed/dropped) + category sheet
 │   ├── Browse/
-│   │   ├── BrowseView.swift         # Sources tab + SearchView (server-side search with debounce 500ms) + SourceBrowseView (dual manga/novel)
+│   │   ├── BrowseView.swift         # Sources / Extensions / Search tabs; Extensions tab shows Yomi catalog inline (reuses YomiCatalogEntryRow); openBrowseExtensions reacts to AppRouter flag
 │   │   │                            # SourceBrowseView: currentPage/isLoadingMore/hasMoreContent state, "Load more" button below grid, appends for Format A and B (S22)
 │   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
