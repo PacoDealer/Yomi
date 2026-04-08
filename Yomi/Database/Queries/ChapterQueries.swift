@@ -33,6 +33,16 @@ enum ChapterQueries {
         }
     }
 
+    /// Devuelve el número de capítulos descargados de un manga
+    nonisolated static func downloadedCount(mangaId: String) throws -> Int {
+        try appDatabase.read { db in
+            try Chapter
+                .filter(Column("mangaId") == mangaId)
+                .filter(Column("isDownloaded") == true)
+                .fetchCount(db)
+        }
+    }
+
     /// Devuelve un diccionario [mangaId: unreadCount] para todos los manga de la biblioteca.
     /// Una sola query SQL, sin N+1.
     nonisolated static func fetchUnreadCountsByManga() throws -> [String: Int] {

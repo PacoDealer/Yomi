@@ -14,9 +14,13 @@ import SwiftUI
 
     var queue: [Chapter] = []
     var activeChapter: Chapter? = nil
+    var activeManga: Manga? = nil
     var activeChapterId: String? = nil
     var progress: [String: Double] = [:]
     var isRunning: Bool = false
+
+    /// Manga titles for queued items, in queue order
+    var queueMangaTitles: [String] = []
 
     // MARK: - Private
 
@@ -45,6 +49,7 @@ import SwiftUI
         else { return }
         items.append(QueueItem(chapter: chapter, manga: manga, bridge: bridge))
         queue = items.map(\.chapter)
+        queueMangaTitles = items.map { $0.manga.title }
         processQueue()
     }
 
@@ -55,12 +60,14 @@ import SwiftUI
             currentTask?.cancel()
             currentTask = nil
             activeChapter = nil
+            activeManga = nil
             activeChapterId = nil
             isRunning = false
             progress.removeValue(forKey: chapterId)
         } else {
             items.removeAll { $0.chapter.id == chapterId }
             queue = items.map(\.chapter)
+            queueMangaTitles = items.map { $0.manga.title }
             progress.removeValue(forKey: chapterId)
         }
     }
@@ -101,8 +108,10 @@ import SwiftUI
         guard !isRunning, !items.isEmpty else { return }
         let item = items.removeFirst()
         queue = items.map(\.chapter)
+        queueMangaTitles = items.map { $0.manga.title }
         isRunning = true
         activeChapter = item.chapter
+        activeManga = item.manga
         activeChapterId = item.chapter.id
         progress[item.chapter.id] = 0.0
 
@@ -186,6 +195,7 @@ import SwiftUI
 
         // 6. Reset active state
         activeChapter = nil
+        activeManga = nil
         activeChapterId = nil
         isRunning = false
     }

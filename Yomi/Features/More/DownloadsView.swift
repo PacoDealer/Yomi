@@ -71,20 +71,47 @@ struct DownloadsView: View {
             if dm.isRunning || !dm.queue.isEmpty {
                 Section("Downloading") {
                     if let active = dm.activeChapter {
-                        HStack {
-                            Text(active.name)
-                            Spacer()
-                            ProgressView(value: dm.progress[active.id] ?? 0)
-                                .frame(width: 80)
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let title = dm.activeManga?.title {
+                                Text(title)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .lineLimit(1)
+                            }
+                            HStack {
+                                Text(active.name)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                ProgressView(value: dm.progress[active.id] ?? 0)
+                                    .frame(width: 80)
+                            }
                         }
+                        .padding(.vertical, 2)
                     }
-                    ForEach(dm.queue) { chapter in
+                    ForEach(Array(dm.queue.enumerated()), id: \.element.id) { idx, chapter in
                         HStack {
-                            Text(chapter.name)
+                            VStack(alignment: .leading, spacing: 2) {
+                                if idx < dm.queueMangaTitles.count {
+                                    Text(dm.queueMangaTitles[idx])
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .lineLimit(1)
+                                }
+                                Text(chapter.name)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
-                            Image(systemName: "clock")
-                                .foregroundStyle(.secondary)
+                            Button {
+                                dm.cancel(chapterId: chapter.id)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .padding(.vertical, 2)
                     }
                 }
             }

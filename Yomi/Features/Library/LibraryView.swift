@@ -5,6 +5,8 @@ struct LibraryView: View {
     @State private var extensionManager = ExtensionManager.shared
     @State private var isSelecting = false
     @State private var selectedIds: Set<String> = []
+    @State private var showNewCategorySheet = false
+    @State private var newCategoryName = ""
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -185,17 +187,15 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var categoryFilterBar: some View {
-        if !viewModel.categories.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    // "All" chip
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                if !viewModel.categories.isEmpty {
                     CategoryChip(
                         label: "All",
                         isSelected: viewModel.selectedCategoryId == nil
                     ) {
                         viewModel.selectedCategoryId = nil
                     }
-
                     ForEach(viewModel.categories) { category in
                         CategoryChip(
                             label: category.name,
@@ -205,10 +205,57 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                // Always show "+" to create categories
+                Button {
+                    newCategoryName = ""
+                    showNewCategorySheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(.secondary)
+                        .background(Capsule().stroke(Color.secondary, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .background(.bar)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+        .sheet(isPresented: $showNewCategorySheet) {
+            NavigationStack {
+                Form {
+                    Section("Category name") {
+                        TextField("e.g. Action, Favourites", text: $newCategoryName)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .navigationTitle("New Category")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { showNewCategorySheet = false }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Save") {
+                            let name = newCategoryName.trimmingCharacters(in: .whitespaces)
+                            guard !name.isEmpty else { return }
+                            Task {
+                                await Task.detached(priority: .userInitiated) {
+                                    try? CategoryQueries.insert(name: name)
+                                }.value
+                                viewModel.loadCategories()
+                                showNewCategorySheet = false
+                            }
+                        }
+                        .disabled(newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .fontWeight(.semibold)
+                    }
+                }
+            }
+            .presentationDetents([.height(180)])
         }
     }
 }

@@ -18,6 +18,7 @@ struct MangaDetailView: View {
 
     // Feature 2 — Chapter pagination
     @State private var displayedChapterCount: Int = 50
+    @State private var chaptersDescending: Bool = true
 
     // Feature 3 — Storage size
     @State private var storageSizeLabel: String? = nil
@@ -105,14 +106,15 @@ struct MangaDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    let visible = Array(chapters.prefix(displayedChapterCount).enumerated())
-                    ForEach(visible, id: \.element.id) { index, chapter in
+                    let sorted = chaptersDescending ? Array(chapters.reversed()) : chapters
+                    let visible = Array(sorted.prefix(displayedChapterCount).enumerated())
+                    ForEach(visible, id: \.element.id) { _, chapter in
                         NavigationLink {
                             ChapterReaderView(
                                 manga: manga,
                                 bridge: bridge!,
                                 chapters: chapters,
-                                chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? index
+                                chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
                             )
                         } label: {
                             ChapterRow(chapter: chapter, manga: manga, bridge: bridge)
@@ -141,6 +143,16 @@ struct MangaDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+                    Button {
+                        withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
+                    } label: {
+                        Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.tint)
+                    }
+                    .buttonStyle(.plain)
+
                     if let b = bridge, !chapters.isEmpty {
                         let undownloaded = chapters.filter { !$0.isDownloaded && !$0.isRead }
                         if !undownloaded.isEmpty {
