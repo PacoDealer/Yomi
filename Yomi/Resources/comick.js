@@ -2,6 +2,7 @@
 // Uses SOURCE.fetch(url) injected by JSBridge
 
 var CDN_BASE = "https://meo.comick.pictures/";
+var COMICK_HEADERS = { "Referer": "https://comick.io/", "Origin": "https://comick.io" };
 
 function statusLabel(code) {
     if (code === 1) { return "ongoing";   }
@@ -50,7 +51,7 @@ function getMangaList(page) {
     try {
         var p   = page || 1;
         var url = "https://api.comick.fun/v1.0/comics?type=manga&trending=true&page=" + p + "&limit=20";
-        var raw = SOURCE.fetch(url);
+        var raw = SOURCE.fetch(url, { headers: COMICK_HEADERS });
         var json = JSON.parse(raw);
 
         // Response may be { rank: [...] } or a direct array
@@ -87,7 +88,7 @@ function getChapterList(mangaPath, mangaId) {
         while (page <= maxPages) {
             var url = "https://api.comick.fun/comic/" + hid
                     + "/chapters?lang=en&page=" + page + "&limit=100";
-            var raw  = SOURCE.fetch(url);
+            var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
             var json = JSON.parse(raw);
 
             var batch = [];
@@ -149,7 +150,7 @@ function getPageList(chapterPath) {
         if (!chid) { return []; }
 
         var url  = "https://api.comick.fun/chapter/" + chid;
-        var raw  = SOURCE.fetch(url);
+        var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
         var json = JSON.parse(raw);
 
         var images = [];
@@ -160,8 +161,13 @@ function getPageList(chapterPath) {
         }
 
         return images.map(function(img) {
-            var imgUrl = (typeof img === "string") ? img : (img.url || "");
-            return imgUrl.indexOf("http") === 0 ? imgUrl : CDN_BASE + imgUrl;
+            if (typeof img === "string") {
+                return img.indexOf("http") === 0 ? img : CDN_BASE + img;
+            }
+            // Comick API returns either {url: "https://..."} or {b2key: "filename.jpg"}
+            if (img.url && img.url.indexOf("http") === 0) { return img.url; }
+            var key = img.url || img.b2key || "";
+            return key.length > 0 ? CDN_BASE + key : "";
         }).filter(function(u) { return u.length > 0; });
     } catch (e) {
         console.log("getPageList error: " + e);
@@ -178,7 +184,7 @@ function searchManga(query, page) {
         var url = "https://api.comick.fun/v1.0/comics?q="
                 + encodeURIComponent(query || "")
                 + "&page=" + p + "&limit=20";
-        var raw  = SOURCE.fetch(url);
+        var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
         var json = JSON.parse(raw);
 
         var list = [];

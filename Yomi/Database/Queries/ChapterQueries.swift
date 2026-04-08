@@ -114,6 +114,23 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
+    /// Marca un capítulo como leído o no leído (isRead flexible)
+    nonisolated static func setRead(chapterId: String, isRead: Bool) throws {
+        _ = try appDatabase.write { db in
+            if isRead {
+                try db.execute(
+                    sql: "UPDATE chapter SET isRead = 1, readAt = ? WHERE id = ?",
+                    arguments: [Date(), chapterId]
+                )
+            } else {
+                try db.execute(
+                    sql: "UPDATE chapter SET isRead = 0, readAt = NULL WHERE id = ?",
+                    arguments: [chapterId]
+                )
+            }
+        }
+    }
+
     /// Marca todos los capítulos de un manga como leídos con isRead=true y readAt=ahora
     nonisolated static func markAllRead(mangaId: String) throws {
         _ = try appDatabase.write { db in
