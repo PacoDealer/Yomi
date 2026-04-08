@@ -1,25 +1,29 @@
 # Roadmap — Yomi
 
-## Current state (post S24 — 2026-04-07)
-S23 + S24 complete in same day. Library sort (Last Read/Alphabetical/Last Updated). Webtoon scroll
-persistence via ScrollViewReader + scrollPosition. Novel marks read on scroll-to-end (90% threshold,
-WKScriptMessageHandler). MAL token migrated to Keychain with UserDefaults migration on first load.
-Downloads deleted when manga removed from library. Discuss button in reader overlay — optional
-plugin export getDiscussionURL → WKWebView bottom sheet. Paperback compatibility shim: Source
-base class + App constructors injected via require('paperback-extensions-common'), adapter wires
-getMangaList/searchManga/getChapterList/getPageList post-evaluation. ~100 Paperback sources
-now theoretically compatible. All items committed and pushed.
+## Current state (post S25 — 2026-04-08)
+S25 complete. Extension catalog is now inline in Browse → Extensions tab; "Get plugins" in Library
+deep-links directly to it. Firebase index.json populated with all 7 sources (MangaDex, Comick,
+Asura Scans, AquaManga, Royal Road, Scribble Hub, Novel Fire) and deployed. EXTENSIONS.md guide
+with copy-paste URLs committed to repo. Library now has multi-select (long-press → selection mode,
+checkmark overlays, bulk Remove from Library). Reading status field added to Manga model (v7 migration,
+ReadingStatus enum: none/planToRead/reading/onHold/completed/dropped) with pill menu in
+MangaDetailView header. Unread count sort added to LibraryViewModel (single-query aggregation
+via fetchUnreadCountsByManga). Privacy policy deployed at https://yomi-plugins.web.app/privacy,
+linked from Settings → About. PluginCatalogService fetchCatalog() guarded against concurrent calls.
+AppRouter.openBrowseExtensions flag enables Library → Browse → Extensions deep link.
+
+**App Store blockers remaining:**
+1. App icon (1024×1024 PNG) — user working on design
+2. PrivacyInfo.xcprivacy — already added in S22 (NSPrivacyAccessedAPICategoryUserDefaults)
+3. Age rating 17+ declaration (App Store Connect only)
+4. App description, screenshots, support URL (App Store Connect only)
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| PluginCatalogService concurrent fetches | .onAppear fires on every tab switch. fetchCatalog() must guard !isLoading and entries.isEmpty\|\|forceRefresh to prevent redundant network calls. | High |
-| .tint() across .fullScreenCover | .tint applied to ContentView() may not propagate into OnboardingView (new presentation context). Needs runtime verification — if broken, add .tint inside OnboardingView. | Medium |
-| Novel chapter read semantics | NovelQueries.markRead() called on HTML load, not scroll-to-end. Chapter is "read" before user reads a single word. | Medium |
-| Downloads cleanup | DownloadManager never cleans up Documents/Downloads/{mangaId}/ on manga delete. Disk leaks indefinitely. | Medium |
-| MAL token → Keychain | Currently in UserDefaults. Must migrate to Keychain before App Store submission. | Medium |
-| App icon | ⏭ Still pending since S12. Required before submission. | Medium |
-| Privacy policy URL | App Store Connect requires a privacy policy URL for any app connecting to the internet. | Medium |
+| .tint() across .fullScreenCover | .tint applied to ContentView() may not propagate into OnboardingView (new presentation context). Needs runtime verification. | Medium |
+| Paperback plugin testing | Shim is wired but untested with real Paperback .js bundles. Chapter path encodes mangaId\|chapterId — decode in getPageList adapter needs field testing. | Medium |
+| BrowseView Extensions tab caching | Currently fetches catalog every time the tab is opened (no entries.isEmpty guard). Add entries.isEmpty check or TTL-based refresh. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |

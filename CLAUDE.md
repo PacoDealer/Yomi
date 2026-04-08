@@ -19,24 +19,24 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S24 — 2026-04-07, starting S25)
+## Current state (post S25 — 2026-04-08)
 
-S23 + S24 both complete same day. All shipped and pushed.
+S25 complete. All shipped and pushed.
 
-**S24 shipped:** Library sort (SortOrder enum + toolbar Menu), Webtoon scroll persistence
-(ScrollViewReader + .scrollPosition), novel read on scroll-to-end (WKScriptMessageHandler),
-MAL → Keychain (KeychainHelper), downloads cleanup on library remove, Discuss button
-(optional plugin export → WKWebView sheet), Paperback compatibility shim (Source base class +
-App constructors + post-eval adapter wiring getMangaList/searchManga/getChapterList/getPageList).
+**S25 shipped:**
+- Browse → Extensions tab: Yomi catalog inline, "Get plugins" in Library deep-links there via AppRouter.openBrowseExtensions
+- Firebase index.json populated with 7 sources + privacy.html deployed at yomi-plugins.web.app/privacy
+- EXTENSIONS.md guide at repo root with step-by-step instructions + copy-paste plugin URLs
+- Reading status: ReadingStatus enum + v7 DB migration + ReadingStatusMenu pill in MangaDetailView
+- Unread count sort: SortOrder.unreadCount, fetchUnreadCountsByManga single GROUP BY query
+- Multi-select long-press: MangaCoverCell selection overlays, LibraryView Cancel/SelectAll/Remove toolbar
+- PluginCatalogService guard !isLoading at fetchCatalog() entry
+- Settings → About: Privacy Policy link
 
-**S25 priority order:**
-1. App icon (design — coral/amber + 読 or kitsune, 1024×1024 PNG, App Store blocker)
-2. Privacy policy URL (GitHub Pages or Firebase static page)
-3. Library unread count sort option
-4. Paperback plugin testing with real .js bundles — fix any adapter issues
-5. PluginCatalogService cache guard (fetchCatalog guard !isLoading)
-6. Multi-select long-press in library (bulk ops)
-7. Reading status field (DB migration v7)
+**App Store blockers remaining:**
+1. App icon (1024×1024 PNG) — user working on design separately
+2. Age rating 17+ declaration (App Store Connect)
+3. App description, screenshots, support URL (App Store Connect)
 
 ## ABSOLUTE RULES — never violate
 
@@ -54,7 +54,7 @@ App constructors + post-eval adapter wiring getMangaList/searchManga/getChapterL
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v6_` (v4_ prefix used twice — GRDB tracks by string name)
+- Next migration prefix must be `v8_` (v4_ prefix used twice — GRDB tracks by string name; v7_ used for reading_status)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
