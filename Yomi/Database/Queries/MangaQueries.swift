@@ -115,6 +115,15 @@ enum MangaQueries {
         }
     }
 
+    /// Actualiza el estado de lectura definido por el usuario
+    nonisolated static func updateReadingStatus(mangaId: String, status: ReadingStatus) throws {
+        _ = try appDatabase.write { db in
+            try Manga
+                .filter(Column("id") == mangaId)
+                .updateAll(db, [Column("readingStatus").set(to: status.rawValue)])
+        }
+    }
+
     // MARK: - Eliminación
 
     /// Elimina el manga con el id indicado (no lanza error si no existe)

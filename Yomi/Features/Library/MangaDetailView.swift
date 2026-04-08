@@ -59,6 +59,12 @@ struct MangaDetailView: View {
 
                         StatusBadge(status: manga.status)
 
+                        if manga.inLibrary {
+                            ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
+                                Task { await updateReadingStatus(newStatus) }
+                            }
+                        }
+
                         if !manga.genres.isEmpty {
                             Text(manga.genres.joined(separator: ", "))
                                 .font(.caption)
@@ -324,6 +330,17 @@ struct MangaDetailView: View {
         assignedCategoryIds = assigned
     }
 
+    // MARK: - Update Reading Status
+
+    private func updateReadingStatus(_ status: ReadingStatus) async {
+        let mangaId = manga.id
+        await Task.detached(priority: .userInitiated) {
+            try? MangaQueries.updateReadingStatus(mangaId: mangaId, status: status)
+        }.value
+        manga.readingStatus = status
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     // MARK: - Toggle Category
 
     private func toggleCategory(_ category: Category) async {
@@ -403,6 +420,43 @@ private struct ChapterRow: View {
                 .tint(.blue)
             }
         }
+    }
+}
+
+// MARK: - ReadingStatusMenu
+
+private struct ReadingStatusMenu: View {
+    let readingStatus: ReadingStatus
+    let onSelect: (ReadingStatus) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(ReadingStatus.allCases) { status in
+                Button {
+                    onSelect(status)
+                } label: {
+                    Label(status.label, systemImage: status.systemImage)
+                    if readingStatus == status {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: readingStatus.systemImage)
+                    .font(.caption)
+                Text(readingStatus.label)
+                    .font(.caption)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.12))
+            .clipShape(Capsule())
+            .foregroundStyle(readingStatus == .none ? Color.secondary : Color.accentColor)
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -172,6 +172,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v7_reading_status") { db in
+            try db.alter(table: "manga") { t in
+                t.add(column: "readingStatus", .text).notNull().defaults(to: "none")
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -199,6 +205,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         lastReadAt     = row["lastReadAt"]
         lastUpdatedAt  = row["lastUpdatedAt"]
         readingSeconds = row["readingSeconds"] ?? 0
+        readingStatus  = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -219,6 +226,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         container["lastReadAt"]     = lastReadAt
         container["lastUpdatedAt"]  = lastUpdatedAt
         container["readingSeconds"] = readingSeconds
+        container["readingStatus"]  = readingStatus.rawValue
     }
 }
 
