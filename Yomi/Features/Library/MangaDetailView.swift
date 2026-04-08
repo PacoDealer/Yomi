@@ -224,6 +224,16 @@ struct MangaDetailView: View {
                     await NotificationManager.shared.requestPermission()
                 }
             }
+            // Clean up downloaded chapters when removing from library
+            if !manga.inLibrary {
+                let mangaId = manga.id
+                Task.detached {
+                    let dir = FileManager.default
+                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        .appendingPathComponent("Downloads/\(mangaId)")
+                    try? FileManager.default.removeItem(at: dir)
+                }
+            }
         } catch {
             print("toggleLibrary error: \(error)")
         }

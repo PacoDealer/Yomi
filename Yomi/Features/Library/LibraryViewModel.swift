@@ -1,5 +1,25 @@
 import Foundation
 
+// MARK: - SortOrder
+
+enum SortOrder: String, CaseIterable, Identifiable {
+    case lastRead     = "Last Read"
+    case alphabetical = "Alphabetical"
+    case lastUpdated  = "Last Updated"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .lastRead:     return "clock"
+        case .alphabetical: return "textformat.abc"
+        case .lastUpdated:  return "arrow.clockwise"
+        }
+    }
+}
+
+// MARK: - LibraryViewModel
+
 @Observable
 final class LibraryViewModel {
 
@@ -9,6 +29,7 @@ final class LibraryViewModel {
     var searchText: String = ""
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    var sortOrder: SortOrder = .lastRead
 
     // MARK: - Categories
 
@@ -41,11 +62,34 @@ final class LibraryViewModel {
 
     // MARK: - Computed
 
-    /// Manga shown in the grid: category-filtered first, then title search.
+    /// Manga shown in the grid: category-filtered, sorted by sortOrder, then title search.
     var displayedManga: [Manga] {
         let base = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
-        guard !searchText.isEmpty else { return base }
-        return base.filter { $0.title.localizedStandardContains(searchText) }
+        let sorted: [Manga]
+        switch sortOrder {
+        case .lastRead:
+            sorted = base.sorted {
+                switch ($0.lastReadAt, $1.lastReadAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return $0.title < $1.title
+                }
+            }
+        case .alphabetical:
+            sorted = base.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
+        case .lastUpdated:
+            sorted = base.sorted {
+                switch ($0.lastUpdatedAt, $1.lastUpdatedAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return $0.title < $1.title
+                }
+            }
+        }
+        guard !searchText.isEmpty else { return sorted }
+        return sorted.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     /// Legacy alias kept for any existing callsite that uses filteredMangas.
@@ -58,15 +102,7 @@ final class LibraryViewModel {
         errorMessage = nil
         loadCategories()
         do {
-            let fetched = try MangaQueries.fetchLibrary()
-            mangas = fetched.sorted {
-                switch ($0.lastReadAt, $1.lastReadAt) {
-                case let (a?, b?): return a > b
-                case (.some, .none): return true
-                case (.none, .some): return false
-                case (.none, .none): return $0.title < $1.title
-                }
-            }
+            mangas = try MangaQueries.fetchLibrary()
         } catch {
             errorMessage = error.localizedDescription
         }
