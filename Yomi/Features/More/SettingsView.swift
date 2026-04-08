@@ -209,6 +209,7 @@ struct SettingsView: View {
             )
             Link("GitHub", destination: URL(string: "https://github.com/PacoDealer/Yomi")!)
             Link("Report a bug", destination: URL(string: "https://github.com/PacoDealer/Yomi/issues")!)
+            Link("Privacy Policy", destination: URL(string: "https://yomi-plugins.web.app/privacy")!)
         }
     }
 }

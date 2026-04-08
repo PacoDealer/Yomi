@@ -32,6 +32,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
     // MARK: - Fetch
 
     func fetchCatalog() async {
+        guard !isLoading else { return }
         await MainActor.run {
             isLoading = true
             errorMessage = nil

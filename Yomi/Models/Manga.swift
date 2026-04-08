@@ -9,6 +9,40 @@ enum MangaStatus: String, Codable {
     case cancelled  = "cancelled"
 }
 
+/// Estado de lectura definido por el usuario
+enum ReadingStatus: String, Codable, CaseIterable, Identifiable {
+    case none       = "none"
+    case planToRead = "planToRead"
+    case reading    = "reading"
+    case onHold     = "onHold"
+    case completed  = "completed"
+    case dropped    = "dropped"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none:       return "Not set"
+        case .planToRead: return "Plan to read"
+        case .reading:    return "Reading"
+        case .onHold:     return "On hold"
+        case .completed:  return "Completed"
+        case .dropped:    return "Dropped"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .none:       return "circle.dotted"
+        case .planToRead: return "bookmark"
+        case .reading:    return "book.open"
+        case .onHold:     return "pause.circle"
+        case .completed:  return "checkmark.circle"
+        case .dropped:    return "xmark.circle"
+        }
+    }
+}
+
 /// Representa una obra (manga, manhwa, manhua o novela ligera)
 struct Manga: Identifiable, Codable {
     /// Identificador único local
@@ -41,4 +75,6 @@ struct Manga: Identifiable, Codable {
     var lastUpdatedAt: Date?
     /// Segundos totales de tiempo de lectura registrado
     var readingSeconds: Int
+    /// Estado de lectura definido por el usuario
+    var readingStatus: ReadingStatus = .none
 }

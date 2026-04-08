@@ -6,6 +6,7 @@ enum SortOrder: String, CaseIterable, Identifiable {
     case lastRead     = "Last Read"
     case alphabetical = "Alphabetical"
     case lastUpdated  = "Last Updated"
+    case unreadCount  = "Unread"
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum SortOrder: String, CaseIterable, Identifiable {
         case .lastRead:     return "clock"
         case .alphabetical: return "textformat.abc"
         case .lastUpdated:  return "arrow.clockwise"
+        case .unreadCount:  return "book.closed"
         }
     }
 }
@@ -26,6 +28,7 @@ final class LibraryViewModel {
     // MARK: - State
 
     var mangas: [Manga] = []
+    var unreadCounts: [String: Int] = [:]
     var searchText: String = ""
     var isLoading: Bool = false
     var errorMessage: String? = nil
@@ -87,6 +90,10 @@ final class LibraryViewModel {
                 case (.none, .none): return $0.title < $1.title
                 }
             }
+        case .unreadCount:
+            sorted = base.sorted {
+                (unreadCounts[$0.id] ?? 0) > (unreadCounts[$1.id] ?? 0)
+            }
         }
         guard !searchText.isEmpty else { return sorted }
         return sorted.filter { $0.title.localizedStandardContains(searchText) }
@@ -103,6 +110,7 @@ final class LibraryViewModel {
         loadCategories()
         do {
             mangas = try MangaQueries.fetchLibrary()
+            unreadCounts = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
         } catch {
             errorMessage = error.localizedDescription
         }
