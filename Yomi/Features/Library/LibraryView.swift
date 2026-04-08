@@ -67,10 +67,19 @@ struct LibraryView: View {
             .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // filtros — próximamente
+                    Menu {
+                        ForEach(SortOrder.allCases) { order in
+                            Button {
+                                viewModel.sortOrder = order
+                            } label: {
+                                Label(order.rawValue, systemImage: order.systemImage)
+                                if viewModel.sortOrder == order {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
                     } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
+                        Image(systemName: "line.3.horizontal.decrease.circle\(viewModel.sortOrder == .lastRead ? "" : ".fill")")
                     }
                 }
             }

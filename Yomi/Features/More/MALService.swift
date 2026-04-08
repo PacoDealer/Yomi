@@ -143,6 +143,9 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         username     = nil
         isLoggedIn   = false
         codeVerifier = nil
+        KeychainHelper.delete(for: "mal_access_token")
+        KeychainHelper.delete(for: "mal_refresh_token")
+        // Clean up any legacy UserDefaults values
         UserDefaults.standard.removeObject(forKey: "mal_access_token")
         UserDefaults.standard.removeObject(forKey: "mal_refresh_token")
     }
@@ -150,13 +153,22 @@ private let baseURL     = "https://api.myanimelist.net/v2"
     // MARK: - Persistence
 
     private func saveToken() {
-        UserDefaults.standard.set(accessToken,  forKey: "mal_access_token")
-        UserDefaults.standard.set(refreshToken, forKey: "mal_refresh_token")
+        if let t = accessToken  { KeychainHelper.save(t, for: "mal_access_token")  }
+        if let t = refreshToken { KeychainHelper.save(t, for: "mal_refresh_token") }
     }
 
     private func loadToken() {
-        accessToken  = UserDefaults.standard.string(forKey: "mal_access_token")
-        refreshToken = UserDefaults.standard.string(forKey: "mal_refresh_token")
+        // Migrate from UserDefaults if keychain is empty
+        if let legacy = UserDefaults.standard.string(forKey: "mal_access_token") {
+            KeychainHelper.save(legacy, for: "mal_access_token")
+            UserDefaults.standard.removeObject(forKey: "mal_access_token")
+        }
+        if let legacy = UserDefaults.standard.string(forKey: "mal_refresh_token") {
+            KeychainHelper.save(legacy, for: "mal_refresh_token")
+            UserDefaults.standard.removeObject(forKey: "mal_refresh_token")
+        }
+        accessToken  = KeychainHelper.load(for: "mal_access_token")
+        refreshToken = KeychainHelper.load(for: "mal_refresh_token")
         isLoggedIn   = accessToken != nil
     }
 
