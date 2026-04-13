@@ -32,8 +32,10 @@ CLAUDE.md loads automatically with full context. No pasting required.
 If starting a session after a long gap: read ROADMAP.md to confirm current state.
 
 ### Session close
-Claude Code updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA) in one step.
-Valid exception to "one file per prompt": they are docs, not Swift code.
+1. Claude Code updates all three docs (ROADMAP + METODOLOGIA + ARQUITECTURA) in one step.
+   Valid exception to "one file per prompt": they are docs, not Swift code.
+2. **Commit and push to GitHub.** Every session must end with a commit + `git push`.
+   No exceptions — leaving uncommitted work overnight causes context loss and rollback risk.
 
 ## AI tooling setup (established S22)
 
@@ -49,13 +51,13 @@ Located at `~/.claude/projects/-Users-martingamberg/memory/`. Contains `MEMORY.m
 ### MCP servers
 Model Context Protocol servers extend Claude Code with external capabilities. Installed at user scope (available across all projects).
 
-| Server | Install command | What it does |
-|--------|----------------|--------------|
-| XcodeBuildMCP | `claude mcp add --scope user XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp` | 59 tools: build, simulator, LLDB, read errors |
-| context7 | `claude mcp add --transport http --scope user context7 https://mcp.context7.com/mcp` | Live docs for GRDB, SwiftUI, JS libraries. Append `use context7` to prompts. |
-| apple-docs | `claude mcp add --scope user apple-docs -- npx -y @kimsungwhee/apple-docs-mcp@latest` | SwiftUI + iOS 26 API from developer.apple.com |
-| github | `claude mcp add --transport http --scope user github https://api.githubcopilot.com/mcp -H "Authorization: Bearer TOKEN"` | PR/issue management |
-| mobile-mcp | `claude mcp add --scope user mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest` | iOS Simulator UI automation |
+| Server | Status | Install command | What it does |
+|--------|--------|----------------|--------------|
+| XcodeBuildMCP | ✅ Connected | `claude mcp add --scope user XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp` | Build, simulator, LLDB, read errors |
+| context7 | ✅ Connected | `claude mcp add --transport http --scope user context7 https://mcp.context7.com/mcp` | Live docs for GRDB, SwiftUI, JS libraries. Append `use context7` to prompts. |
+| github | ✅ Connected | `claude mcp add --transport http --scope user github https://api.githubcopilot.com/mcp -H "Authorization: Bearer TOKEN"` | PR/issue management |
+| mobile-mcp | ✅ Connected | `claude mcp add --scope user mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest` | iOS Simulator UI automation |
+| apple-docs | ✅ Connected | `claude mcp add --scope user apple-docs -- npx -y @kimsungwhee/apple-docs-mcp@latest` | SwiftUI + iOS 26 API from developer.apple.com |
 
 Verify: `claude mcp list` (terminal) or `/mcp` (inside Claude Code session).
 
@@ -140,6 +142,138 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 23 | 2026-04-07 | Fix dark mode + accent color: AppSettings converted from computed vars to stored properties with didSet — @Observable graph now tracks all 11 settings. Plugin UX overhaul: LibraryView empty state branches on installed.isEmpty → "No plugins" + Get plugins → More tab. PluginsView installed section shows title+description. Catalog distinguishes search-no-results from truly-empty. LTR reading mode: .horizontalLTR added to ReaderMode enum, MangaReaderView gains isRTL param. Unread badge: MangaCoverCell loads unread count via .task, shows accent Capsule overlay. ContinueReading direct navigation: tapping cell loads chapters via JSBridge+Task.detached, merges DB progress, finds last-read by readAt, navigates directly to ChapterReaderView. Bulk download: "Download next N" button (max 10) in Chapters header. Storage size: FileManager enumerates Downloads/{mangaId}/, ByteCountFormatter, shown in header. Page-jump slider: ReaderOverlayView bottom bar, currentPage promoted to @Binding, Slider hidden in Webtoon mode. Bonus fix: accent swatch HStack → ScrollView(.horizontal), swatch 28→32pt. All 8 items committed + pushed. Items 9-13 deferred to S24. |
 | 24 | 2026-04-07 | Library sort: SortOrder enum + Menu button in LibraryView toolbar. Webtoon scroll persistence: WebtoonReaderView gains @Binding currentPage, ScrollViewReader + .scrollPosition(id:anchor:.top), scrollTo on appear. Novel read semantics: WKUserScript fires readComplete JS message at 90% scroll, Coordinator WKScriptMessageHandler calls markRead. MAL → Keychain: KeychainHelper with SecItem* wrappers, MALService migrated, auto-migrates UserDefaults on first load. Downloads cleanup: toggleLibrary deletes Downloads/{mangaId}/ when removing from library. Discuss button: JSBridge.getDiscussionURL, bubble icon in ReaderOverlayView, DiscussWebSheet WKWebView bottom sheet. Paperback shim: require('paperback-extensions-common') in JSBridge cache (Source base class + App constructors + RequestManager wrapping SOURCE._fetchSync), injectPaperbackAdapter post-eval detects Source subclass in exports, wires getMangaList/searchManga/getChapterList/getPageList. Chapter paths encode mangaId|chapterId. All 7 items shipped. App icon + privacy policy deferred to S25. |
 | 25 | 2026-04-08 | Extension catalog inline in Browse tab (Extensions sub-tab, YomiCatalogEntryRow reused from PluginsView, NSFW filtered by AppSettings). AppRouter.openBrowseExtensions flag: "Get plugins" in Library deep-links to Browse → Extensions directly. EXTENSIONS.md guide in repo root with step-by-step install instructions + copy-paste URLs for all 7 sources. Firebase index.json populated (7 entries) + privacy.html deployed at yomi-plugins.web.app/privacy. Reading status: ReadingStatus enum (none/planToRead/reading/onHold/completed/dropped) added to Manga model + DB migration v7_reading_status + MangaQueries.updateReadingStatus + ReadingStatusMenu pill in MangaDetailView header. Unread count sort: SortOrder.unreadCount + ChapterQueries.fetchUnreadCountsByManga (single GROUP BY SQL, no N+1) + LibraryViewModel.unreadCounts dict loaded at library load. Multi-select long-press: MangaCoverCell gains isSelecting/isSelected/onLongPress/onSelect params, long press → selection mode, checkmark+ring overlays, NavigationLink disabled while selecting. LibraryView: isSelecting + selectedIds state, Cancel+SelectAll toolbar in selection mode, bottom action bar with bulk Remove from Library (Task.detached remove + download cleanup), ContinueReadingRow hidden during selection. PluginCatalogService: guard !isLoading at entry. SettingsView: Privacy Policy link. |
+| 26 | 2026-04-08 | comick.js: Referer/Origin headers + b2key image format fix. MangaDetailView: Tachimanga-style chapter selection mode (long-press → isSelectingChapters + selectedChapterIds, bottom action bar: mark read/unread/download/delete). Download sub-menu in chapter header (Next/Next 5/Next 10/All unread/All chapters). Per-chapter inline download button. Overflow ellipsis.circle menu: Edit categories, Select chapters, heart toggle. |
+| 27 | 2026-04-08 | Chapter.lastPageRead + v8_last_page migration (ALTER TABLE chapter ADD COLUMN lastPageRead INTEGER DEFAULT 0). DownloadManager.completedDownloadCount Int observer. refreshChapterStates() in MangaDetailView merges DB state on appear + download complete. ChapterReaderView: saves lastPageRead on exit; resumes from saved page. ChapterRow: "Page N" subtitle + opacity 0.45 when read. Browse source filter fix: runSearch() function called from both onChange(of: searchQuery) and onChange(of: selectedSource). AppSettings.libraryColumns + keepScreenOn. SettingsView: Items per row stepper + Keep screen on toggle + Clear image cache. ChapterQueries.setRead(chapterId:isRead:) for bulk selection. |
+| 28 | 2026-04-08 | Full project audit — no code shipped. Root causes documented for all 8 reported issues. Critical bug identified: chapters never INSERTed to DB, all state mutations silently affect 0 rows. S29 plan written (P0: INSERT OR IGNORE + novels in library; P1: novel reader + insights redesign; P2: popular/latest tabs + comick; P3: settings expansion). CLAUDE.md rewritten with full context. |
+| 29 | 2026-04-09 | Bug blitz + UX + features. ChapterQueries.insertAllIgnoringConflicts() fixes silent-fail root cause. Chapter tap→reader, long-press→selection, auto-delete on mark-read. Auto-mark chapter read (last page OR ≥80%). Post-read UI refresh with 500ms delayed refreshChapterStates(). InsightsView full ScrollView redesign. Novel reader overlay animation fix (opacity vs if-gating). Novel reader colorScheme fix (sepia now forces .light). Popular/Latest tabs in SourceBrowseView (optional JSBridge functions, bridge reuse). Incognito mode + unread badge toggle added to AppSettings. Comick domain migrated to api.comick.dev. Code audit: fixed 2 bugs (duplicate MARK, bridge recreation). |
+| 30 | 2026-04-11 | UI polish + bug fixes + reader UX. MangaDetailView header redesign (110pt cover, genre chips, resume button). MangaCoverCell: read progress bar, download icon moved to image overlay. ContinueReadingRow: progress bar + last-chapter subtitle. NovelDetailView header redesign matches MangaDetailView. HistoryView swipe-delete bug fixed (MangaQueries.clearLastRead persists removal). UpdatesView redesigned: per-chapter rows grouped under manga sections. UpdatesView refresh persists new chapters + sends notifications. TextReaderView: chapters[]+startIndex signature, prev/next chapter navigation buttons in overlay. MoreView version/build read from Bundle.main. |
+
+## Technical learnings — S29
+
+### Auto-mark read: race condition between onDisappear write and onAppear read
+`ChapterReaderView.onDisappear` writes to DB (markChapterRead). Parent `MangaDetailView.onAppear`
+fires simultaneously and reads DB (refreshChapterStates). The parent wins the race before the write
+settles → UI shows chapter still unread.
+
+Fix: don't rely on `onAppear` for post-read refresh. Instead, use `.onChange(of: chapterForNav)`:
+```swift
+.onChange(of: chapterForNav) { old, new in
+    guard new == nil, old != nil else { return }
+    Task {
+        try? await Task.sleep(for: .milliseconds(500))
+        await refreshChapterStates()
+    }
+}
+```
+500ms delay lets the onDisappear Task.detached write settle before the parent reads.
+The `guard new == nil, old != nil` condition fires exactly once: when the user returns from the reader.
+
+### SwiftUI overlay animation: opacity vs if-gating
+`if showOverlay { topBar }` removes the view from the hierarchy when overlay hides. SwiftUI cannot
+animate the disappearance of a removed view — the fade-out never plays.
+
+Fix: keep views in the hierarchy and animate opacity:
+```swift
+VStack { topBar; Spacer(); bottomBar }
+    .opacity(showOverlay ? 1 : 0)
+    .allowsHitTesting(showOverlay)
+    .animation(.easeInOut(duration: 0.2), value: showOverlay)
+```
+`.allowsHitTesting(false)` when hidden prevents invisible buttons from intercepting taps.
+
+### JSBridge optional plugin functions
+Pattern for calling plugin functions that may not exist:
+```swift
+nonisolated var supportsLatest: Bool {
+    guard let fn = context.objectForKeyedSubscript("getLatestManga") else { return false }
+    return !fn.isUndefined && !fn.isNull && fn.isObject
+}
+```
+Call site: `guard supportsLatest else { return [] }`. This makes features optional per-plugin
+without crashing. Sources without `getLatestManga` get `supportsLatest = false` and no picker is shown.
+
+### Bridge reuse across tab switches
+Creating a new `JSBridge` parses and evaluates the full JS file — expensive (10–50ms depending on
+plugin size). When switching between Popular/Latest tabs in `SourceBrowseView`, reuse the existing
+bridge instead of creating a new one:
+```swift
+let b: JSBridge
+if let existing = bridge { b = existing } else { b = try makeBridge(); bridge = b }
+```
+
+### Incognito mode: skip persistence at DB write site
+Read the flag at the earliest possible point before any DB write, not in the view layer:
+```swift
+let incognito = AppSettings.shared.isIncognito
+// ...
+guard !incognito else { return }
+markChapterRead()
+updateProgress()
+```
+Single guard covers all persistence. No changes needed in the query layer.
+
+### navigationDestination(item:) requires Hashable
+`navigationDestination(item: $chapterForNav)` where `chapterForNav: Chapter?` requires `Chapter`
+to conform to `Hashable`. The fix is one line:
+```swift
+struct Chapter: Identifiable, Codable, Hashable { ... }
+```
+SwiftUI synthesizes `Hashable` automatically from all stored properties (which are all Hashable types).
+
+## Technical learnings — S28 (audit)
+
+### INSERT OR IGNORE is mandatory for chapter list persistence
+`MangaDetailView.loadChapters()` fetches chapters from JSBridge but never calls any INSERT.
+Every subsequent SQL UPDATE (`markRead`, `markDownloaded`, `updateProgress`) silently affects 0 rows
+because the chapter row doesn't exist. This is the root cause of both the "downloads not showing"
+and "read state not persisting" bugs reported in S26 and S27.
+
+Fix pattern:
+```swift
+nonisolated static func insertAllIgnoringConflicts(_ chapters: [Chapter]) throws {
+    _ = try appDatabase.write { db in
+        for ch in chapters { try ch.insert(db, onConflict: .ignore) }
+    }
+}
+```
+Call in `loadChapters()` AFTER fetching from JSBridge, BEFORE the DB merge step.
+**Never use `chapter.save(db)` or `chapter.insert(db)` alone for chapter list persistence.**
+`save()` is INSERT OR REPLACE — it overwrites existing isRead/isDownloaded/progress state.
+`insert()` throws on conflict. Only `.insert(db, onConflict: .ignore)` is safe: inserts new rows,
+skips existing ones without touching their state.
+
+### @Observable DownloadManager.completedDownloadCount pattern
+To propagate download completion to views that aren't the active download target, add an observable
+Int counter to DownloadManager that increments after each successful download. Views observe via
+`.onChange(of: downloadManager.completedDownloadCount)` and call their refresh function. This avoids
+NotificationCenter and keeps the reactive chain entirely in SwiftUI observation.
+
+### refreshChapterStates() — lightweight DB merge without JSBridge
+When a view needs to reflect DB state changes (download complete, read state change) without
+re-fetching the full chapter list from the network, use a merge function that:
+1. Fetches all chapters for the manga from DB (one SQL query)
+2. Builds a Dictionary<String, Chapter> keyed by id
+3. Maps in-memory chapters: if savedMap[ch.id] exists, copy isRead/isDownloaded/progress/lastPageRead/readAt
+
+This pattern is safe to call on .onAppear without causing a network fetch.
+
+## Technical learnings — S27
+
+### Chapter progress resume: lastPageRead vs progress ratio
+Two strategies for reading resume:
+- `progress: Double` — fractional position 0.0–1.0. Used for MAL tracking and webtoon scroll.
+- `lastPageRead: Int` — exact page index. Used for manga chapter resume.
+
+Using a page ratio to derive an index introduces floating-point drift (a 47-page chapter at
+progress 0.6 gives page index 27.6 → 27 or 28 depending on rounding). Use `lastPageRead`
+for exact resume when the chapter has been partially read and the page count is known.
+Fallback: if `lastPageRead == 0` and `progress > 0`, use ratio calculation as legacy fallback.
+
+### Source filter re-trigger pattern in search views
+When a search view has both a text query and a source picker, the source change must immediately
+re-trigger the search. Extract the search logic into a shared function `runSearch(query:debounce:)`
+that both `.onChange(of: searchQuery)` and `.onChange(of: selectedSource)` call. Source changes
+should use `debounce: false` to avoid unnecessary delay — the user already made a deliberate choice.
 
 ## Technical learnings — S23
 
@@ -364,6 +498,20 @@ Webnovel (may need extra headers). These can be written as TypeScript plugins us
 - **Pan-when-zoomed requires GeometryReader for clamping dimensions**: `.scaleEffect` scales around the view center but doesn't move the image. Adding pan requires knowing the view's actual rendered size, which means wrapping in `GeometryReader`. Clamping formula: `maxOffset = (scale - 1) * dimension / 2` for both axes. The DragGesture must guard `scale > 1.0` to avoid intercepting the TabView's page swipe gesture at scale == 1.0.
 
 - **Browse pagination: empty page = no more content**: there is no `total` field to compare against in Format A or Format B. The correct signal for "no more pages" is an empty result from the next page fetch. When the source returns 0 items, set `hasMoreContent = false` and hide the button. This works for all 7 current plugins.
+
+## S31 — Technical learnings
+
+- **INSERT OR IGNORE pattern is mandatory for chapter persistence**: using `chapter.save(db)` (INSERT OR REPLACE) would overwrite `isRead`, `readAt`, and `readingSeconds` on every fetch from the source — silently resetting reading progress. Always use `chapter.insert(db, onConflict: .ignore)` in batch persist flows. After the INSERT OR IGNORE, re-fetch the full set from DB to merge the existing state back into the in-memory array.
+
+- **`Column` is a GRDB type — import GRDB in any file that uses it**: TextReaderView originally tried to write `Column("id")` directly in the view. This doesn't compile — `Column` lives in GRDB which the view doesn't import. The fix is to push all DB write logic into the matching `*Queries.swift` file (`NovelQueries.addReadingTime`) and call the typed method from the view. Never import GRDB in views.
+
+- **NovelChapter must be Hashable for `navigationDestination(item:)` to work**: SwiftUI's `navigationDestination(item:)` overload requires the item type to be `Hashable`. Adding `Hashable` conformance to `NovelChapter` (and `NovelReaderDest` structs with UUID-based hashing) unlocks type-safe navigation without isPresented bool gymnastics.
+
+- **JSBridge destinations in navigation structs need custom Hashable**: `JSBridge` is a `final class` that is not `Hashable`. When embedding it in a navigation destination struct, implement `Hashable` via UUID: `let id = UUID()` + `static func ==` + `func hash(into:)` that only hash the UUID. This gives each navigation event a unique identity without requiring JSBridge itself to be hashable.
+
+- **Novel updates need path-based deduplication, not ID-based**: manga chapter IDs are assigned by the source (stable). Novel chapter IDs are synthesized locally as `"\(novelId)-ch-\(index)"`. When checking for new chapters, compare by `path` (source-assigned, stable) not by local ID. The new-chapter detection in `checkNovelUpdates` correctly uses `Set(localChapters.map { $0.path })` and filters `source.chapters` by path.
+
+- **SourceKit diagnostics are always noise in a multi-file Swift project**: every session, SourceKit emits "Cannot find type X in scope" for types defined in other files. These are false positives from single-file LSP analysis. The rule is absolute: ignore all SourceKit errors, trust only `xcodebuild` output. Confirmed this session — BUILD SUCCEEDED with dozens of SourceKit errors still active.
 
 ## S21 — Technical learnings
 

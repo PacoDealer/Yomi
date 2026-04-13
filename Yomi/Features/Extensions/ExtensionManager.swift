@@ -42,13 +42,16 @@ final class ExtensionManager {
     /// (skips copy if the file is already on disk) and upserts the DB record.#imageLiteral(resourceName: "Screenshot 2026-03-23 at 12.37.05 AM.png")
     func seedBundledPlugins() {
         let plugins: [(filename: String, name: String, isNSFW: Bool)] = [
-            ("mangadex",   "MangaDex",    false),
-            ("asurascans", "Asura Scans", true),
-            ("aquamanga",  "Aqua Manga",  false),
-            ("royalroad",  "Royal Road",  false),
-            ("scribblehub","ScribbleHub", false),
-            ("novelfire",  "NovelFire",   false),
-            ("comick",     "Comick",      false)
+            ("mangadex",       "MangaDex",        false),
+            ("asurascans",     "Asura Scans",      true),
+            ("aquamanga",      "Aqua Manga",       false),
+            ("royalroad",      "Royal Road",       false),
+            ("scribblehub",    "ScribbleHub",      false),
+            ("novelfire",      "NovelFire",        false),
+            ("comick",         "Comick",           false),
+            ("freewebnovel",   "FreeWebNovel",     false),
+            ("lightnovelworld","LightNovelWorld",  false),
+            ("novelbin",       "NovelBin",         false)
         ]
 
         for plugin in plugins {

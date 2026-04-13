@@ -45,6 +45,8 @@ private struct ContinueReadingCell: View {
     @State private var readerBridge: JSBridge? = nil
     @State private var readerChapters: [Chapter] = []
     @State private var readerChapterIndex: Int = 0
+    @State private var lastChapterName: String? = nil
+    @State private var readProgress: Double = 0
 
     var body: some View {
         Button {
@@ -73,16 +75,36 @@ private struct ContinueReadingCell: View {
                                 .aspectRatio(2 / 3, contentMode: .fill)
                         }
                     }
-                    .frame(width: 80)
-                    .cornerRadius(6)
+                    .frame(width: 90)
+                    .cornerRadius(7)
                     .clipped()
+                    .overlay(alignment: .bottom) {
+                        if readProgress > 0 && readProgress < 1 {
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * readProgress, height: 3)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(height: 3)
+                        }
+                    }
 
                     Text(manga.title)
                         .font(.caption2)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                        .frame(width: 80)
+                        .frame(width: 90)
                         .foregroundStyle(.primary)
+
+                    if let chName = lastChapterName {
+                        Text(chName)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.center)
+                            .frame(width: 90)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if isLoading {
@@ -95,6 +117,19 @@ private struct ContinueReadingCell: View {
             }
         }
         .buttonStyle(.plain)
+        .task(id: manga.id) {
+            let chapters = await Task.detached {
+                (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? []
+            }.value
+            let touched = chapters
+                .filter { $0.isRead || $0.progress > 0 }
+                .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
+            lastChapterName = touched.first?.name
+            if !chapters.isEmpty {
+                let readCount = chapters.filter { $0.isRead }.count
+                readProgress = Double(readCount) / Double(chapters.count)
+            }
+        }
         .navigationDestination(isPresented: $navigateToReader) {
             if let bridge = readerBridge {
                 ChapterReaderView(

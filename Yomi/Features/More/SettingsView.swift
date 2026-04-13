@@ -52,6 +52,7 @@ struct SettingsView: View {
                 value: $settings.libraryColumns,
                 in: 2...6
             )
+            Toggle("Show unread count badge", isOn: $settings.showUnreadBadge)
         }
     }
 
@@ -67,6 +68,15 @@ struct SettingsView: View {
             .pickerStyle(.menu)
 
             Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
+
+            Toggle(isOn: $settings.isIncognito) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Incognito mode", systemImage: "theatermasks")
+                    Text("Reading progress and history won't be saved")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -88,6 +98,23 @@ struct SettingsView: View {
                 in: 1.0...2.5,
                 step: 0.1
             )
+
+            Picker("Font family", selection: $settings.novelFontFamily) {
+                Text("Serif (Georgia)").tag("Serif")
+                Text("System").tag("System")
+            }
+
+            Picker("Default theme", selection: $settings.novelTheme) {
+                ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
+                    Text(theme.rawValue).tag(theme.rawValue)
+                }
+            }
+
+            Picker("Margins", selection: $settings.novelHorizontalPadding) {
+                Text("Narrow").tag(8)
+                Text("Normal").tag(16)
+                Text("Wide").tag(28)
+            }
         }
     }
 

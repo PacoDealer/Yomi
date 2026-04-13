@@ -11,6 +11,7 @@ struct MangaCoverCell: View {
     @State private var unreadCount: Int = 0
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
+    @State private var readProgress: Double = 0   // 0.0 – 1.0, 0 = not started
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -55,9 +56,17 @@ struct MangaCoverCell: View {
             }
         }
         .task(id: manga.id) {
-            unreadCount = (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0
-            downloadedCount = (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0
+            async let unread   = Task.detached { (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0 }.value
+            async let dlCount  = Task.detached { (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0 }.value
+            async let allChaps = Task.detached { (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? [] }.value
+            let (u, d, all) = await (unread, dlCount, allChaps)
+            unreadCount     = u
+            downloadedCount = d
             sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
+            if !all.isEmpty {
+                let readCount = all.filter { $0.isRead }.count
+                readProgress = Double(readCount) / Double(all.count)
+            }
         }
     }
 
@@ -80,7 +89,7 @@ struct MangaCoverCell: View {
             .cornerRadius(8)
             .clipped()
             .overlay(alignment: .topTrailing) {
-                if unreadCount > 0 && !isSelecting {
+                if unreadCount > 0 && !isSelecting && AppSettings.shared.showUnreadBadge {
                     Text("\(unreadCount)")
                         .font(.caption2)
                         .fontWeight(.semibold)
@@ -90,6 +99,28 @@ struct MangaCoverCell: View {
                         .background(Color.accentColor)
                         .clipShape(Capsule())
                         .padding(6)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if downloadedCount > 0 && !isSelecting {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Color.black.opacity(0.55))
+                        .clipShape(Circle())
+                        .padding(4)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if readProgress > 0 && readProgress < 1 && !isSelecting {
+                    GeometryReader { geo in
+                        Rectangle()
+                            .fill(Color.accentColor)
+                            .frame(width: geo.size.width * readProgress, height: 3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 3)
                 }
             }
 
@@ -103,17 +134,6 @@ struct MangaCoverCell: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-            }
-        }
-        .overlay(alignment: .bottomLeading) {
-            if downloadedCount > 0 && !isSelecting {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.white)
-                    .padding(4)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(Circle())
-                    .padding(4)
             }
         }
     }

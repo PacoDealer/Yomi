@@ -35,7 +35,7 @@ struct Novel: Identifiable, Codable {
 // MARK: - NovelChapter
 
 /// Representa un capítulo de una novela ligera
-struct NovelChapter: Identifiable, Codable {
+struct NovelChapter: Identifiable, Codable, Hashable {
     /// Identificador único local
     let id: String
     /// ID de la novela a la que pertenece este capítulo
@@ -52,4 +52,6 @@ struct NovelChapter: Identifiable, Codable {
     var readAt: Date?
     /// Fecha de publicación original del capítulo (texto libre según la fuente)
     var releaseTime: String?
+    /// Segundos totales de tiempo de lectura registrado para este capítulo
+    var readingSeconds: Int
 }

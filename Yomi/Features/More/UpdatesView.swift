@@ -1,39 +1,100 @@
 import SwiftUI
 
+// MARK: - UpdateEntry
+
+struct UpdateEntry: Identifiable {
+    let id: String   // manga.id + ":" + chapter.id
+    let manga: Manga
+    let chapter: Chapter
+}
+
+// MARK: - Reader destinations
+
+private struct MangaReaderDest: Identifiable, Hashable {
+    let id = UUID()
+    let manga: Manga
+    let bridge: JSBridge
+    let chapters: [Chapter]
+    let chapterIndex: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+private struct NovelReaderDest: Identifiable, Hashable {
+    let id = UUID()
+    let novel: Novel
+    let bridge: JSBridge
+    let chapters: [NovelChapter]
+    let chapterIndex: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
 // MARK: - UpdatesViewModel
 
 @Observable final class UpdatesViewModel {
 
-    var items: [Manga] = []
+    var groups: [(manga: Manga, chapters: [Chapter])] = []
+    var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
     var isRefreshing = false
 
     func loadFromDB() async {
-        let loaded = await Task.detached(priority: .userInitiated) {
-            (try? MangaQueries.fetchLibraryByLastUpdated()) ?? []
+        let (mangaResult, novelResult) = await Task.detached(priority: .userInitiated) {
+            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date.distantPast
+
+            // --- Manga ---
+            let mangas = (try? MangaQueries.fetchLibraryByLastUpdated()) ?? []
+            let recentMangas = mangas.filter { ($0.lastUpdatedAt ?? .distantPast) >= cutoff }
+            var mangaGroups: [(manga: Manga, chapters: [Chapter])] = []
+            for manga in recentMangas {
+                let unread = (try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []
+                if !unread.isEmpty {
+                    let sorted = unread.sorted { ($0.chapterNumber ?? 0) > ($1.chapterNumber ?? 0) }
+                    mangaGroups.append((manga: manga, chapters: sorted))
+                }
+            }
+
+            // --- Novels ---
+            let novels = (try? NovelQueries.fetchLibrary()) ?? []
+            let recentNovels = novels.filter { ($0.lastUpdatedAt ?? .distantPast) >= cutoff }
+            var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
+            for novel in recentNovels {
+                let all = (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
+                let unread = all.filter { !$0.isRead }
+                if !unread.isEmpty {
+                    let sorted = unread.sorted { ($0.chapterNumber ?? 0) > ($1.chapterNumber ?? 0) }
+                    novelGroups.append((novel: novel, chapters: sorted))
+                }
+            }
+
+            return (mangaGroups, novelGroups)
         }.value
-        items = loaded
+
+        groups = mangaResult
+        novelGroups = novelResult
     }
 
     func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
 
-        // 1. Cargar biblioteca actual
-        let library = await Task.detached(priority: .userInitiated) {
-            (try? MangaQueries.fetchLibrary()) ?? []
+        let (library, novelLibrary) = await Task.detached(priority: .userInitiated) {
+            let manga = (try? MangaQueries.fetchLibrary()) ?? []
+            let novels = (try? NovelQueries.fetchLibrary()) ?? []
+            return (manga, novels)
         }.value
 
-        // 2. Para cada manga en biblioteca, obtener capítulos del plugin
-        //    y comparar con los guardados en DB
         await withTaskGroup(of: Void.self) { group in
             for manga in library {
-                group.addTask {
-                    await self.checkUpdates(for: manga)
-                }
+                group.addTask { await self.checkUpdates(for: manga) }
+            }
+            for novel in novelLibrary {
+                group.addTask { await self.checkNovelUpdates(for: novel) }
             }
         }
 
-        // 3. Recargar lista desde DB
         await loadFromDB()
         isRefreshing = false
     }
@@ -47,7 +108,7 @@ import SwiftUI
         let ext = allInstalled.first(where: { $0.id == sourceId })
         guard let ext else { return }
 
-        let bridge = ExtensionManager.shared.bridge(for: ext)
+        let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
         let remoteChapters = await Task.detached(priority: .background) {
             return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
@@ -56,12 +117,66 @@ import SwiftUI
 
         let localChapters = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         let localIds = Set(localChapters.map { $0.id })
-        let hasNew = remoteChapters.contains(where: { !localIds.contains($0.id) })
+        let newChapters = remoteChapters.filter { !localIds.contains($0.id) }
 
-        guard hasNew else { return }
+        guard !newChapters.isEmpty else { return }
 
-        // Hay capítulos nuevos → actualizar lastUpdatedAt
+        try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: remoteChapters)
         try? MangaQueries.touchLastUpdated(mangaId: mangaId)
+
+        let title = manga.title
+        let count = newChapters.count
+        await MainActor.run {
+            NotificationManager.shared.scheduleChapterNotification(mangaTitle: title, newCount: count)
+        }
+    }
+
+    private func checkNovelUpdates(for novel: Novel) async {
+        let sourceId  = novel.sourceId
+        let novelPath = novel.path
+        let novelId   = novel.id
+
+        let allInstalled = await MainActor.run { ExtensionManager.shared.installed }
+        let ext = allInstalled.first(where: { $0.id == sourceId })
+        guard let ext else { return }
+
+        let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
+        let source = await Task.detached(priority: .background) {
+            bridge?.parseNovel(path: novelPath)
+        }.value
+
+        guard let source, !source.chapters.isEmpty else { return }
+
+        let localChapters = (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+        let localPaths = Set(localChapters.map { $0.path })
+
+        let newChapters: [NovelChapter] = source.chapters
+            .filter { !localPaths.contains($0.path) }
+            .enumerated()
+            .map { offset, ch in
+                NovelChapter(
+                    id: "\(novelId)-ch-\(localChapters.count + offset)",
+                    novelId: novelId,
+                    path: ch.path,
+                    name: ch.name,
+                    chapterNumber: ch.chapterNumber,
+                    isRead: false,
+                    readAt: nil,
+                    releaseTime: ch.releaseTime,
+                    readingSeconds: 0
+                )
+            }
+
+        guard !newChapters.isEmpty else { return }
+
+        try? NovelQueries.insertAllIgnoringConflicts(newChapters)
+        try? NovelQueries.touchLastUpdated(novelId: novelId)
+
+        let title = novel.title
+        let count = newChapters.count
+        await MainActor.run {
+            NotificationManager.shared.scheduleChapterNotification(mangaTitle: title, newCount: count)
+        }
     }
 }
 
@@ -70,29 +185,60 @@ import SwiftUI
 struct UpdatesView: View {
     @State private var vm = UpdatesViewModel()
 
+    @State private var mangaReaderDest: MangaReaderDest? = nil
+    @State private var novelReaderDest: NovelReaderDest? = nil
+    @State private var isLoadingReader = false
+
+    private var hasContent: Bool { !vm.groups.isEmpty || !vm.novelGroups.isEmpty }
+
     var body: some View {
         List {
-            if vm.items.isEmpty && !vm.isRefreshing {
+            if !hasContent && !vm.isRefreshing {
                 ContentUnavailableView(
                     "No updates yet",
                     systemImage: "bell.badge",
-                    description: Text("Add manga to your library to track updates.")
+                    description: Text("Add titles to your library and refresh to check for new chapters.")
                 )
             } else {
-                ForEach(vm.items) { manga in
-                    NavigationLink {
-                        MangaDetailView(manga: manga)
-                    } label: {
-                        UpdatesRow(manga: manga)
+                ForEach(vm.groups, id: \.manga.id) { group in
+                    Section {
+                        ForEach(group.chapters) { chapter in
+                            Button {
+                                guard !isLoadingReader else { return }
+                                Task { await loadMangaReader(manga: group.manga, chapter: chapter) }
+                            } label: {
+                                UpdateChapterRow(chapter: chapter)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        MangaUpdateHeader(manga: group.manga, count: group.chapters.count)
+                    }
+                }
+
+                ForEach(vm.novelGroups, id: \.novel.id) { group in
+                    Section {
+                        ForEach(group.chapters) { chapter in
+                            Button {
+                                guard !isLoadingReader else { return }
+                                Task { await loadNovelReader(novel: group.novel, chapter: chapter) }
+                            } label: {
+                                UpdateNovelChapterRow(chapter: chapter)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        NovelUpdateHeader(novel: group.novel, count: group.chapters.count)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Updates")
+        .refreshable { await vm.refresh() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if vm.isRefreshing {
+                if vm.isRefreshing || isLoadingReader {
                     ProgressView()
                 } else {
                     Button {
@@ -104,38 +250,205 @@ struct UpdatesView: View {
             }
         }
         .task { await vm.loadFromDB() }
+        .navigationDestination(item: $mangaReaderDest) { dest in
+            ChapterReaderView(manga: dest.manga, bridge: dest.bridge,
+                              chapters: dest.chapters, chapterIndex: dest.chapterIndex)
+        }
+        .navigationDestination(item: $novelReaderDest) { dest in
+            TextReaderView(novel: dest.novel, bridge: dest.bridge,
+                           chapters: dest.chapters, startIndex: dest.chapterIndex)
+        }
+    }
+
+    // MARK: - Reader loading
+
+    private func loadMangaReader(manga: Manga, chapter: Chapter) async {
+        isLoadingReader = true
+        defer { isLoadingReader = false }
+
+        let sourceId = manga.sourceId
+        let mangaId  = manga.id
+
+        let (bridge, allChapters) = await Task.detached(priority: .userInitiated) {
+            let installed  = await MainActor.run { ExtensionManager.shared.installed }
+            let bridgeFn   = await MainActor.run { ExtensionManager.shared.bridge(for:) }
+            let ext        = installed.first(where: { $0.id == sourceId })
+            let br         = ext.flatMap { bridgeFn($0) }
+            let chapters   = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+            return (br, chapters)
+        }.value
+
+        guard let bridge else { return }
+        let sorted = allChapters.sorted { ($0.chapterNumber ?? 0) < ($1.chapterNumber ?? 0) }
+        let index  = sorted.firstIndex(where: { $0.id == chapter.id }) ?? 0
+        mangaReaderDest = MangaReaderDest(manga: manga, bridge: bridge, chapters: sorted, chapterIndex: index)
+    }
+
+    private func loadNovelReader(novel: Novel, chapter: NovelChapter) async {
+        isLoadingReader = true
+        defer { isLoadingReader = false }
+
+        let sourceId = novel.sourceId
+        let novelId  = novel.id
+
+        let (bridge, allChapters) = await Task.detached(priority: .userInitiated) {
+            let installed  = await MainActor.run { ExtensionManager.shared.installed }
+            let bridgeFn   = await MainActor.run { ExtensionManager.shared.bridge(for:) }
+            let ext        = installed.first(where: { $0.id == sourceId })
+            let br         = ext.flatMap { bridgeFn($0) }
+            let chapters   = (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            return (br, chapters)
+        }.value
+
+        guard let bridge else { return }
+        let index = allChapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
+        novelReaderDest = NovelReaderDest(novel: novel, bridge: bridge, chapters: allChapters, chapterIndex: index)
     }
 }
 
-// MARK: - UpdatesRow
+// MARK: - MangaUpdateHeader
 
-private struct UpdatesRow: View {
+private struct MangaUpdateHeader: View {
     let manga: Manga
+    let count: Int
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             AsyncImage(url: manga.coverURL) { image in
-                image.resizable().aspectRatio(2/3, contentMode: .fill)
+                image.resizable().aspectRatio(2 / 3, contentMode: .fill)
             } placeholder: {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.3))
-                    .aspectRatio(2/3, contentMode: .fit)
+                Rectangle().fill(Color.secondary.opacity(0.3))
             }
-            .frame(width: 48)
-            .cornerRadius(6)
+            .frame(width: 20, height: 30)
+            .cornerRadius(3)
             .clipped()
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(manga.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(2)
-
-                if let updated = manga.lastUpdatedAt {
-                    Text(updated.formatted(.relative(presentation: .named)))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            NavigationLink {
+                MangaDetailView(manga: manga)
+            } label: {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(manga.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text("\(count) new chapter\(count == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.tint)
+                        if let updated = manga.lastUpdatedAt {
+                            Text("·")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text(updated, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                 }
+            }
+            .buttonStyle(.plain)
+        }
+        .textCase(nil)
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - NovelUpdateHeader
+
+private struct NovelUpdateHeader: View {
+    let novel: Novel
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            AsyncImage(url: novel.coverURL) { image in
+                image.resizable().aspectRatio(2 / 3, contentMode: .fill)
+            } placeholder: {
+                Rectangle().fill(Color.secondary.opacity(0.3))
+            }
+            .frame(width: 20, height: 30)
+            .cornerRadius(3)
+            .clipped()
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(novel.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text("\(count) new chapter\(count == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .foregroundStyle(.tint)
+                    Text("·")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text("Novel")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    if let updated = novel.lastUpdatedAt {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text(updated, style: .relative)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+        .textCase(nil)
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - UpdateChapterRow
+
+private struct UpdateChapterRow: View {
+    let chapter: Chapter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(chapter.name)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+
+            if let num = chapter.chapterNumber {
+                let numStr = num.truncatingRemainder(dividingBy: 1) == 0
+                    ? "Chapter \(Int(num))"
+                    : String(format: "Chapter %.1f", num)
+                Text(numStr)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - UpdateNovelChapterRow
+
+private struct UpdateNovelChapterRow: View {
+    let chapter: NovelChapter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(chapter.name)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+
+            if let num = chapter.chapterNumber {
+                let numStr = num.truncatingRemainder(dividingBy: 1) == 0
+                    ? "Chapter \(Int(num))"
+                    : String(format: "Chapter %.1f", num)
+                Text(numStr)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 2)

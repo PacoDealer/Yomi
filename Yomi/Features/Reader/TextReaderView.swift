@@ -1,69 +1,186 @@
 import SwiftUI
 import WebKit
 
+// MARK: - NovelTheme
+
+enum NovelTheme: String, CaseIterable {
+    case light  = "Light"
+    case sepia  = "Sepia"
+    case warm   = "Warm"
+    case dark   = "Dark"
+    case amoled = "AMOLED"
+
+    var bg: String {
+        switch self {
+        case .light:  return "#FFFFFF"
+        case .sepia:  return "#F8F1E3"   // Research-validated warm cream (Apple Books standard)
+        case .warm:   return "#1A1209"   // Dark amber night
+        case .dark:   return "#1C1C1E"   // iOS system dark
+        case .amoled: return "#0A0A0A"   // Near-black avoids OLED scroll pixel jitter
+        }
+    }
+
+    var fg: String {
+        switch self {
+        case .light:  return "#1C1C1E"
+        case .sepia:  return "#2C2015"   // Dark warm brown for sepia
+        case .warm:   return "#CDB38B"   // Warm amber text
+        case .dark:   return "#E8E8E8"
+        case .amoled: return "#E0E0E0"
+        }
+    }
+
+    var linkColor: String {
+        switch self {
+        case .light, .sepia: return "#0A6ADA"
+        case .warm, .dark, .amoled: return "#5BA3F5"
+        }
+    }
+
+    var isDark: Bool {
+        switch self {
+        case .dark, .amoled, .warm: return true
+        case .light, .sepia:        return false
+        }
+    }
+
+    var colorScheme: ColorScheme { isDark ? .dark : .light }
+
+    /// Color for the theme swatch circle in the overlay
+    var swatchColor: Color {
+        switch self {
+        case .light:  return Color(white: 1.0)
+        case .sepia:  return Color(red: 0.961, green: 0.929, blue: 0.839)
+        case .warm:   return Color(red: 0.102, green: 0.071, blue: 0.035)
+        case .dark:   return Color(red: 0.11,  green: 0.11,  blue: 0.118)
+        case .amoled: return Color(white: 0.0)
+        }
+    }
+
+    var uiColor: UIColor {
+        UIColor(hex: bg) ?? .systemBackground
+    }
+}
+
 // MARK: - TextReaderView
 
 struct TextReaderView: View {
-    let chapter: NovelChapter
     let novel: Novel
     let bridge: JSBridge
+    let chapters: [NovelChapter]
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var currentChapterIndex: Int
     @State private var rawContent: String = ""
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
-    @State private var fontSize: Double = AppSettings.shared.fontSize
-    @State private var isDarkMode: Bool = true
-    @State private var isSepia: Bool = AppSettings.shared.novelSepia
+
+    // Reader settings — initialized from persisted AppSettings
+    @State private var fontSize: Double        = AppSettings.shared.fontSize
+    @State private var lineSpacing: Double     = AppSettings.shared.lineSpacing
+    @State private var novelTheme: NovelTheme  = NovelTheme(rawValue: AppSettings.shared.novelTheme) ?? .light
+    @State private var fontFamily: String      = AppSettings.shared.novelFontFamily
+    @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
+
     @State private var showOverlay = true
+    @State private var sessionStart: Date = Date()
+    @State private var readingTimer: Timer? = nil
+
+    init(novel: Novel, bridge: JSBridge, chapters: [NovelChapter], startIndex: Int = 0) {
+        self.novel   = novel
+        self.bridge  = bridge
+        self.chapters = chapters
+        _currentChapterIndex = State(initialValue: startIndex)
+    }
 
     // MARK: - Computed
 
-    private var lineSpacing: Double { AppSettings.shared.lineSpacing }
+    private var activeChapter: NovelChapter { chapters[currentChapterIndex] }
+    private var hasPrevChapter: Bool { currentChapterIndex > 0 }
+    private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
 
+    private var fontFamilyCSS: String {
+        fontFamily == "Serif"
+            ? "Georgia, \"Times New Roman\", serif"
+            : "-apple-system, \"Helvetica Neue\", sans-serif"
+    }
+
+    /// Full HTML document with viewport meta tag — fixes the large-margin bug caused by
+    /// WKWebView's default 980px virtual viewport when no viewport tag is present.
     private var styledHTML: String {
-        let fs = Int(fontSize)               // no clamp — use value directly
-        let ls = lineSpacing
-        let bg: String
-        let fg: String
-        if isSepia {
-            bg = "#FFF8F0"
-            fg = "#2C1810"
-        } else {
-            bg = isDarkMode ? "#1C1C1E" : "#FFFFFF"
-            fg = isDarkMode ? "#E8E8E8" : "#1C1C1E"
-        }
-        let style = """
-        <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, sans-serif;
-            font-size: \(fs)px;
-            line-height: \(String(format: "%.2f", ls));
-            padding: 20px 16px 60px 16px;
-            background: \(bg);
-            color: \(fg);
-            max-width: 680px;
-            margin: 0 auto;
-        }
-        img { max-width: 100%; }
-        a   { color: #4a9eff; }
-        </style>
-        """
-        return style + rawContent
+        let fs  = Int(fontSize)
+        let ls  = String(format: "%.2f", lineSpacing)
+        let bg  = novelTheme.bg
+        let fg  = novelTheme.fg
+        let lnk = AppSettings.shared.accentColor
+        let hp  = hPadding
+
+        let css = """
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; }
+            body {
+                font-family: \(fontFamilyCSS);
+                font-size: \(fs)px;
+                line-height: \(ls);
+                padding: 24px \(hp)px 200px \(hp)px;
+                background: \(bg);
+                color: \(fg);
+                -webkit-text-size-adjust: 100%;
+                word-break: break-word;
+                overflow-wrap: break-word;
+            }
+            p {
+                margin: 0 0 0.75em 0;
+            }
+            img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 0.5em auto;
+            }
+            a {
+                color: \(lnk);
+                text-decoration: none;
+            }
+            a svg, a svg path, a svg polygon, a svg rect {
+                fill: \(lnk);
+                stroke: \(lnk);
+            }
+            svg { fill: currentColor; }
+            h1, h2, h3 {
+                margin: 0.5em 0 0.4em 0;
+                line-height: 1.3;
+            }
+            """
+
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+            <style>
+            \(css)
+            </style>
+            </head>
+            <body>
+            \(rawContent)
+            </body>
+            </html>
+            """
     }
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            Color(isDarkMode ? UIColor(named: "ReaderDark") ?? .black : .white)
+            Color(novelTheme.uiColor)
                 .ignoresSafeArea()
 
             if isLoading {
                 ProgressView()
-                    .tint(isDarkMode ? .white : .gray)
+                    .tint(novelTheme.isDark ? .white : .gray)
             } else if let error = errorMessage {
                 Text(error)
                     .foregroundStyle(.secondary)
@@ -75,35 +192,83 @@ struct TextReaderView: View {
                         showOverlay.toggle()
                     }
                 }, onReadComplete: {
-                    let chapterId = chapter.id
+                    let chapterId = activeChapter.id
                     Task { try? NovelQueries.markRead(chapterId: chapterId) }
                 })
                 .ignoresSafeArea()
             }
 
             TextReaderOverlayView(
-                novel:       novel,
-                chapter:     chapter,
-                fontSize:    $fontSize,
-                isDarkMode:  $isDarkMode,
-                isSepia:     $isSepia,
-                showOverlay: $showOverlay,
-                onDismiss:   { dismiss() }
+                novel:            novel,
+                chapter:          activeChapter,
+                fontSize:         $fontSize,
+                novelTheme:       $novelTheme,
+                fontFamily:       $fontFamily,
+                hPadding:         $hPadding,
+                showOverlay:      $showOverlay,
+                hasPrevChapter:   hasPrevChapter,
+                hasNextChapter:   hasNextChapter,
+                onDismiss:        { dismiss() },
+                onPrevChapter:    { navigateToChapter(currentChapterIndex - 1) },
+                onNextChapter:    { navigateToChapter(currentChapterIndex + 1) }
             )
         }
         .navigationBarHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!showOverlay)
-        .preferredColorScheme(.dark)
-        .task { await loadContent() }
-        .onChange(of: fontSize) { _, newValue in
-            AppSettings.shared.fontSize = newValue
+        .preferredColorScheme(novelTheme.colorScheme)
+        .task(id: activeChapter.id) { await loadContent() }
+        .onChange(of: fontSize)   { _, v in AppSettings.shared.fontSize = v }
+        .onChange(of: novelTheme) { _, v in
+            AppSettings.shared.novelTheme  = v.rawValue
+            AppSettings.shared.novelSepia  = (v == .sepia)
         }
+        .onChange(of: fontFamily) { _, v in AppSettings.shared.novelFontFamily = v }
+        .onChange(of: hPadding)   { _, v in AppSettings.shared.novelHorizontalPadding = v }
+        .onAppear {
+            sessionStart  = Date()
+            readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
+        }
+        .onDisappear { flushReadingTime() }
+    }
+
+    // MARK: - Reading Time
+
+    private func flushReadingTime() {
+        readingTimer?.invalidate()
+        readingTimer = nil
+        let elapsed = Int(Date().timeIntervalSince(sessionStart))
+        guard !AppSettings.shared.isIncognito, elapsed > 3 else { return }
+        let cid = activeChapter.id
+        let nid = novel.id
+        Task.detached(priority: .background) {
+            try? NovelQueries.addReadingTime(chapterId: cid, novelId: nid, seconds: elapsed)
+        }
+    }
+
+    // MARK: - Navigate
+
+    private func navigateToChapter(_ index: Int) {
+        guard index >= 0, index < chapters.count else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        flushReadingTime()
+        sessionStart  = Date()
+        readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
+        let chapterId = activeChapter.id
+        Task.detached { try? NovelQueries.markRead(chapterId: chapterId) }
+        rawContent    = ""
+        isLoading     = true
+        errorMessage  = nil
+        currentChapterIndex = index
     }
 
     // MARK: - Load Content
 
     private func loadContent() async {
-        let path = chapter.path
+        isLoading    = true
+        errorMessage = nil
+        rawContent   = ""
+        let path = activeChapter.path
         let html = await Task.detached(priority: .userInitiated) {
             bridge.parseChapter(path: path)
         }.value
@@ -124,16 +289,16 @@ struct ReaderWebView: UIViewRepresentable {
     let onTap: () -> Void
     let onReadComplete: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap, onReadComplete: onReadComplete) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onTap: onTap, onReadComplete: onReadComplete)
+    }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.dataDetectorTypes = []
 
-        // Register message handler for scroll-to-end detection
         config.userContentController.add(context.coordinator, name: "readComplete")
 
-        // Inject scroll listener — fires once when user reaches 90% of content
         let scrollJS = WKUserScript(source: """
             (function() {
                 var fired = false;
@@ -151,14 +316,12 @@ struct ReaderWebView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.backgroundColor = .clear
-        webView.isOpaque = false
+        webView.isOpaque        = false
         webView.scrollView.backgroundColor = .clear
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
-        let tap = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleTap)
-        )
+        let tap = UITapGestureRecognizer(target: context.coordinator,
+                                         action: #selector(Coordinator.handleTap))
         tap.delegate = context.coordinator
         webView.addGestureRecognizer(tap)
 
@@ -167,15 +330,12 @@ struct ReaderWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Re-inject style via JS to avoid a full page reload.
-        // Only the <style> block changes; rawContent is stable after first load.
         guard !html.isEmpty else { return }
 
-        // Extract just the <style>...</style> portion and re-apply it.
+        // Re-inject only the <style> block to avoid a full page reload
         if let styleStart = html.range(of: "<style>"),
            let styleEnd   = html.range(of: "</style>") {
             let styleContent = String(html[styleStart.lowerBound...styleEnd.upperBound])
-            // Escape for JS string injection
             let escaped = styleContent
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "`",  with: "\\`")
@@ -208,158 +368,217 @@ struct ReaderWebView: UIViewRepresentable {
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
-            if message.name == "readComplete" {
-                onReadComplete()
-            }
+            if message.name == "readComplete" { onReadComplete() }
         }
 
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-        ) -> Bool { true }
+        func gestureRecognizer(_ gr: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
     }
 }
 
 // MARK: - TextReaderOverlayView
 
 struct TextReaderOverlayView: View {
-    let novel:      Novel
-    let chapter:    NovelChapter
-    @Binding var fontSize:   Double
-    @Binding var isDarkMode: Bool
-    @Binding var isSepia:    Bool
+    let novel:           Novel
+    let chapter:         NovelChapter
+    @Binding var fontSize:    Double
+    @Binding var novelTheme:  NovelTheme
+    @Binding var fontFamily:  String
+    @Binding var hPadding:    Int
     @Binding var showOverlay: Bool
-    let onDismiss: () -> Void
+    var hasPrevChapter:  Bool = false
+    var hasNextChapter:  Bool = false
+    let onDismiss:       () -> Void
+    var onPrevChapter:   (() -> Void)? = nil
+    var onNextChapter:   (() -> Void)? = nil
+
+    private let paddingOptions: [(label: String, value: Int)] = [
+        ("Narrow", 8), ("Normal", 16), ("Wide", 28)
+    ]
 
     var body: some View {
-        VStack {
-            if showOverlay {
-                // Top bar
-                ZStack(alignment: .bottom) {
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.8), Color.clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 88)
+        VStack(spacing: 0) {
+            // ── Top bar ──────────────────────────────────────────────────
+            ZStack(alignment: .bottom) {
+                LinearGradient(colors: [Color.black.opacity(0.8), Color.clear],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 100)
                     .ignoresSafeArea(edges: .top)
 
-                    HStack(spacing: 12) {
-                        Button(action: onDismiss) {
-                            Image(systemName: "chevron.left")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.white)
-                                .padding(.trailing, 4)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(novel.title)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                            Text(chapter.name)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.7))
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 12) {
+                    Button(action: onDismiss) {
+                        Image(systemName: "chevron.left")
+                            .font(.title3).fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.trailing, 4)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(novel.title)
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(.white).lineLimit(1)
+                        Text(chapter.name)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
 
-                Spacer()
+            Spacer()
 
-                // Bottom bar
-                ZStack(alignment: .top) {
-                    LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(0.85)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 120)
+            // ── Bottom bar ───────────────────────────────────────────────
+            ZStack(alignment: .top) {
+                LinearGradient(colors: [Color.clear, Color.black.opacity(0.9)],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 240)
                     .ignoresSafeArea(edges: .bottom)
 
-                    VStack(spacing: 10) {
-                        HStack(spacing: 10) {
-                            Text("A")
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.7))
-                            Slider(value: $fontSize, in: 14...28, step: 1)
-                                .tint(.white)
-                            Text("A")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.white.opacity(0.7))
-                        }
-                        .padding(.horizontal, 20)
+                VStack(spacing: 14) {
 
-                        HStack(spacing: 24) {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isDarkMode.toggle()
-                                    isSepia = false
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: isDarkMode ? "sun.max" : "moon")
-                                    Text(isDarkMode ? "Light" : "Dark")
-                                        .font(.caption)
-                                }
-                                .foregroundStyle(.white.opacity(0.85))
-                            }
-
-                            Button {
-                                isSepia.toggle()
-                                AppSettings.shared.novelSepia = isSepia
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: isSepia ? "s.circle.fill" : "s.circle")
-                                    Text("Sepia")
-                                        .font(.caption)
-                                }
-                                .foregroundStyle(.white.opacity(isSepia ? 1.0 : 0.6))
-                            }
-                        }
+                    // Row 1: Font size slider
+                    HStack(spacing: 10) {
+                        Text("A").font(.caption).foregroundStyle(.white.opacity(0.7))
+                        Slider(value: $fontSize, in: 14...28, step: 1).tint(.white)
+                        Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.white.opacity(0.7))
                     }
-                    .padding(.top, 14)
+                    .padding(.horizontal, 20)
+
+                    // Row 2: Font family + horizontal margin
+                    HStack(spacing: 16) {
+                        // Font family toggle
+                        Button {
+                            fontFamily = (fontFamily == "Serif") ? "System" : "Serif"
+                        } label: {
+                            Text(fontFamily == "Serif" ? "Aa" : "Aa")
+                                .font(fontFamily == "Serif"
+                                      ? .system(.subheadline, design: .serif).bold()
+                                      : .subheadline.bold())
+                                .foregroundStyle(fontFamily == "Serif" ? Color.white : Color.white.opacity(0.5))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
+                                .clipShape(Capsule())
+                        }
+
+                        Spacer()
+
+                        // Margin control: Narrow / Normal / Wide
+                        HStack(spacing: 0) {
+                            ForEach(paddingOptions, id: \.value) { opt in
+                                Button {
+                                    hPadding = opt.value
+                                } label: {
+                                    Text(opt.label)
+                                        .font(.caption2).fontWeight(.medium)
+                                        .foregroundStyle(hPadding == opt.value ? Color.black : Color.white.opacity(0.7))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(hPadding == opt.value ? Color.white : Color.clear)
+                                }
+                            }
+                        }
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Row 3: Theme swatches
+                    HStack(spacing: 12) {
+                        Spacer()
+                        ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
+                            Button {
+                                novelTheme = theme
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(theme.swatchColor)
+                                        .frame(width: 30, height: 30)
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
+                                        )
+                                    if novelTheme == theme {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(theme.isDark ? Color.white : Color.black)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer()
+                    }
+
+                    // Row 4: Prev / Next chapter
+                    HStack(spacing: 0) {
+                        Button { onPrevChapter?() } label: {
+                            Image(systemName: "chevron.left.2")
+                                .font(.title3).fontWeight(.semibold)
+                                .foregroundStyle(hasPrevChapter ? .white : .white.opacity(0.25))
+                                .frame(width: 56, height: 40)
+                        }
+                        .disabled(!hasPrevChapter)
+
+                        Spacer()
+
+                        Text(chapter.name)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.5))
+                            .lineLimit(1)
+                            .frame(maxWidth: 200)
+
+                        Spacer()
+
+                        Button { onNextChapter?() } label: {
+                            Image(systemName: "chevron.right.2")
+                                .font(.title3).fontWeight(.semibold)
+                                .foregroundStyle(hasNextChapter ? .white : .white.opacity(0.25))
+                                .frame(width: 56, height: 40)
+                        }
+                        .disabled(!hasNextChapter)
+                    }
+                    .padding(.horizontal, 8)
                 }
+                .padding(.top, 16)
             }
         }
+        .opacity(showOverlay ? 1 : 0)
+        .allowsHitTesting(showOverlay)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)
+    }
+}
+
+// MARK: - UIColor hex init (needed for NovelTheme.uiColor)
+
+private extension UIColor {
+    convenience init?(hex: String) {
+        let h = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard h.count == 6, let val = UInt64(h, radix: 16) else { return nil }
+        self.init(red:   CGFloat((val >> 16) & 0xFF) / 255,
+                  green: CGFloat((val >>  8) & 0xFF) / 255,
+                  blue:  CGFloat( val        & 0xFF) / 255,
+                  alpha: 1)
     }
 }
 
 // MARK: - Preview
 
 #Preview {
+    let chapter = NovelChapter(
+        id: "ch-1", novelId: "1", path: "/novel/re-zero/chapter/1",
+        name: "Chapter 1 — The Beginning", chapterNumber: 1.0,
+        isRead: false, readAt: nil, releaseTime: "2021-01-01", readingSeconds: 0
+    )
     TextReaderView(
-        chapter: NovelChapter(
-            id: "ch-1",
-            novelId: "1",
-            path: "/novel/re-zero/chapter/1",
-            name: "Chapter 1 — The Beginning",
-            chapterNumber: 1.0,
-            isRead: false,
-            readAt: nil,
-            releaseTime: "2021-01-01"
-        ),
         novel: Novel(
-            id: "1",
-            path: "/novel/re-zero",
-            sourceId: "en.royalroad",
+            id: "1", path: "/novel/re-zero", sourceId: "en.royalroad",
             title: "Re:Zero − Starting Life in Another World",
-            coverURL: nil,
-            summary: nil,
-            author: "Tappei Nagatsuki",
-            status: "ongoing",
-            genres: ["Fantasy", "Isekai"],
-            inLibrary: false,
-            lastReadAt: nil,
-            lastUpdatedAt: nil,
-            readingSeconds: 0
+            coverURL: nil, summary: nil, author: "Tappei Nagatsuki",
+            status: "ongoing", genres: ["Fantasy", "Isekai"],
+            inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
         ),
-        bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
+        bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
+        chapters: [chapter], startIndex: 0
     )
 }

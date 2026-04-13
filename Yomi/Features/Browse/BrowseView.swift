@@ -330,12 +330,19 @@ private struct ExtensionRow: View {
 struct SourceBrowseView: View {
     let ext: Extension
 
+    enum FeedTab: String, CaseIterable {
+        case popular = "Popular"
+        case latest  = "Latest"
+    }
+
     // MARK: State
 
     @State private var mangas: [Manga] = []
     @State private var novels: [Novel] = []
     @State private var bridge: JSBridge? = nil
     @State private var isNovelSource = false
+    @State private var supportsLatest = false
+    @State private var selectedFeed: FeedTab = .popular
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText = ""
@@ -411,9 +418,7 @@ struct SourceBrowseView: View {
                             } else {
                                 Color.clear
                                     .frame(height: 40)
-                                    .onAppear {
-                                        Task { await loadMore() }
-                                    }
+                                    .onAppear { Task { await loadMore() } }
                             }
                         }
                     }
@@ -423,6 +428,23 @@ struct SourceBrowseView: View {
         .navigationTitle(ext.name)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search \(ext.name)")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // Only show Popular/Latest picker for manga sources that support latest
+            if !isNovelSource && supportsLatest {
+                Picker("Feed", selection: $selectedFeed) {
+                    ForEach(FeedTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+        }
+        .onChange(of: selectedFeed) { _, _ in
+            Task { await loadContent() }
+        }
         .task { await loadContent() }
     }
 
@@ -434,53 +456,53 @@ struct SourceBrowseView: View {
         currentPage = 1
         hasMoreContent = true
         isLoadingMore = false
+        mangas = []
+        novels = []
         let sourceId = ext.id
 
-        let bridgeFn: (Extension) -> JSBridge? = { ext in
-            let docs = FileManager.default.urls(
-                for: .documentDirectory, in: .userDomainMask)[0]
+        // Reuse existing bridge when switching tabs; only build one on first load
+        let b: JSBridge
+        if let existing = bridge {
+            b = existing
+        } else {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let url = docs
                 .appendingPathComponent("Extensions", isDirectory: true)
                 .appendingPathComponent("\(ext.id).js")
-            return JSBridge(scriptURL: url)
+            guard let newBridge = JSBridge(scriptURL: url) else {
+                errorMessage = "Failed to load source plugin."
+                isLoading = false
+                return
+            }
+            bridge = newBridge
+            b = newBridge
         }
-        let loadedBridge = bridgeFn(ext)
-
-        guard let b = loadedBridge else {
-            errorMessage = "Failed to load source plugin."
-            isLoading = false
-            return
-        }
-
-        bridge = b
 
         if b.isLNReaderPlugin {
             isNovelSource = true
+            supportsLatest = false
             let items = await Task.detached(priority: .userInitiated) {
                 b.popularNovels(page: 1)
             }.value
             novels = items.map { item in
-                Novel(
-                    id:            UUID().uuidString,
-                    path:          item.path,
-                    sourceId:      sourceId,
-                    title:         item.name,
-                    coverURL:      URL(string: item.cover ?? ""),
-                    summary:       nil,
-                    author:        nil,
-                    status:        "unknown",
-                    genres:        [],
-                    inLibrary:      false,
-                    lastReadAt:     nil,
-                    lastUpdatedAt:  nil,
-                    readingSeconds: 0
-                )
+                Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
+                      title: item.name, coverURL: URL(string: item.cover ?? ""),
+                      summary: nil, author: nil, status: "unknown", genres: [],
+                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0)
             }
         } else {
             isNovelSource = false
-            let results = await Task.detached(priority: .userInitiated) {
-                b.getMangaList(page: 1, sourceId: sourceId)
+            let (results, hasLatest) = await Task.detached(priority: .userInitiated) {
+                let hasLatest = b.supportsLatest
+                let list: [Manga]
+                if hasLatest && self.selectedFeed == .latest {
+                    list = b.getLatestManga(page: 1, sourceId: sourceId)
+                } else {
+                    list = b.getMangaList(page: 1, sourceId: sourceId)
+                }
+                return (list, hasLatest)
             }.value
+            supportsLatest = hasLatest
             mangas = results
         }
 
@@ -494,6 +516,7 @@ struct SourceBrowseView: View {
         isLoadingMore = true
         let nextPage = currentPage + 1
         let sourceId = ext.id
+        let feed = selectedFeed
 
         if isNovelSource {
             let items = await Task.detached(priority: .userInitiated) {
@@ -503,28 +526,19 @@ struct SourceBrowseView: View {
                 hasMoreContent = false
             } else {
                 let newNovels = items.map { item in
-                    Novel(
-                        id:             UUID().uuidString,
-                        path:           item.path,
-                        sourceId:       sourceId,
-                        title:          item.name,
-                        coverURL:       URL(string: item.cover ?? ""),
-                        summary:        nil,
-                        author:         nil,
-                        status:         "unknown",
-                        genres:         [],
-                        inLibrary:      false,
-                        lastReadAt:     nil,
-                        lastUpdatedAt:  nil,
-                        readingSeconds: 0
-                    )
+                    Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
+                          title: item.name, coverURL: URL(string: item.cover ?? ""),
+                          summary: nil, author: nil, status: "unknown", genres: [],
+                          inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0)
                 }
                 novels.append(contentsOf: newNovels)
                 currentPage = nextPage
             }
         } else {
             let results = await Task.detached(priority: .userInitiated) {
-                b.getMangaList(page: nextPage, sourceId: sourceId)
+                feed == .latest
+                    ? b.getLatestManga(page: nextPage, sourceId: sourceId)
+                    : b.getMangaList(page: nextPage, sourceId: sourceId)
             }.value
             if results.isEmpty {
                 hasMoreContent = false

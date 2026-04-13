@@ -1,7 +1,7 @@
 import Foundation
 
 /// Representa un capítulo de una obra
-struct Chapter: Identifiable, Codable {
+struct Chapter: Identifiable, Codable, Hashable {
     /// Identificador único local
     let id: String
     /// ID del manga al que pertenece este capítulo

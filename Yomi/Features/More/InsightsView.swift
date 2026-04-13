@@ -14,6 +14,11 @@ struct InsightsView: View {
     @State private var titlesStarted: Int = 0
     @State private var mangaStats: [(title: String, seconds: Int)] = []
 
+    private let cardColumns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
     // MARK: - Body
 
     var body: some View {
@@ -21,11 +26,71 @@ struct InsightsView: View {
             if isLoading {
                 ProgressView()
             } else {
-                List {
-                    cardsSection
-                    byMangaSection
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        // MARK: Stat cards grid
+                        LazyVGrid(columns: cardColumns, spacing: 12) {
+                            StatCard(title: "Reading Streak",
+                                     value: "\(streak)",
+                                     unit: streak == 1 ? "day" : "days",
+                                     systemImage: "flame.fill",
+                                     color: .orange)
+                            StatCard(title: "Chapters Read",
+                                     value: "\(readChaptersCount)",
+                                     unit: "chapters",
+                                     systemImage: "book.closed.fill",
+                                     color: .accentColor)
+                            StatCard(title: "Time Read",
+                                     value: formatDuration(totalSeconds),
+                                     unit: nil,
+                                     systemImage: "clock.fill",
+                                     color: .purple)
+                            StatCard(title: "Titles Started",
+                                     value: "\(titlesStarted)",
+                                     unit: "titles",
+                                     systemImage: "square.stack.fill",
+                                     color: .green)
+                        }
+                        .padding(.horizontal, 16)
+
+                        // MARK: By manga
+                        if !mangaStats.isEmpty {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("By Title")
+                                    .font(.headline)
+                                    .padding(.horizontal, 16)
+                                    .padding(.bottom, 10)
+
+                                VStack(spacing: 0) {
+                                    ForEach(Array(mangaStats.enumerated()), id: \.element.title) { index, stat in
+                                        HStack {
+                                            Text(stat.title)
+                                                .font(.subheadline)
+                                                .lineLimit(1)
+                                            Spacer()
+                                            Text(formatDuration(stat.seconds))
+                                                .font(.subheadline)
+                                                .foregroundStyle(.secondary)
+                                                .monospacedDigit()
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .background(Color(.secondarySystemGroupedBackground))
+
+                                        if index < mangaStats.count - 1 {
+                                            Divider()
+                                                .padding(.leading, 16)
+                                        }
+                                    }
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .padding(.horizontal, 16)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 16)
                 }
-                .listStyle(.insetGrouped)
+                .background(Color(.systemGroupedBackground))
             }
         }
         .navigationTitle("Insights")
@@ -33,66 +98,33 @@ struct InsightsView: View {
         .task { await loadStats() }
     }
 
-    // MARK: - Cards Section
-
-    private var cardsSection: some View {
-        Section {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    StatCard(title: "Reading Streak",
-                             value: "\(streak) days",
-                             systemImage: "flame")
-                    StatCard(title: "Chapters Read",
-                             value: "\(readChaptersCount)",
-                             systemImage: "book.closed")
-                    StatCard(title: "Time Read",
-                             value: formatDuration(totalSeconds),
-                             systemImage: "clock")
-                    StatCard(title: "Titles Started",
-                             value: "\(titlesStarted)",
-                             systemImage: "square.stack")
-                }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 8)
-            }
-            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-        }
-    }
-
-    // MARK: - By Manga Section
-
-    private var byMangaSection: some View {
-        Section("By manga") {
-            if mangaStats.isEmpty {
-                Text("No reading data yet.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(mangaStats, id: \.title) { stat in
-                    LabeledContent(stat.title, value: formatDuration(stat.seconds))
-                }
-            }
-        }
-    }
-
     // MARK: - Load
 
     private func loadStats() async {
         let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int)]) in
 
-            // Chapters with readAt for streak computation
-            let readChapters = (try? appDatabase.read { db in
+            let calendar = Calendar.current
+
+            // --- Manga chapters ---
+            let readMangaChapters = (try? appDatabase.read { db in
                 try Chapter.filter(Column("readAt") != nil).fetchAll(db)
             }) ?? []
 
-            // Distinct calendar days with reads
-            let calendar = Calendar.current
-            let days = Set(readChapters.compactMap { ch -> DateComponents? in
+            // --- Novel chapters ---
+            let readNovelChapters = (try? appDatabase.read { db in
+                try NovelChapter.filter(Column("readAt") != nil).fetchAll(db)
+            }) ?? []
+
+            // --- Streak: union of both ---
+            var days = Set(readMangaChapters.compactMap { ch -> DateComponents? in
+                guard let d = ch.readAt else { return nil }
+                return calendar.dateComponents([.year, .month, .day], from: d)
+            })
+            days.formUnion(readNovelChapters.compactMap { ch -> DateComponents? in
                 guard let d = ch.readAt else { return nil }
                 return calendar.dateComponents([.year, .month, .day], from: d)
             })
 
-            // Count consecutive days ending today
             var streak = 0
             var checking = calendar.dateComponents([.year, .month, .day], from: Date())
             while days.contains(checking) {
@@ -101,7 +133,6 @@ struct InsightsView: View {
                 let prev = calendar.date(byAdding: .day, value: -1, to: date)!
                 checking = calendar.dateComponents([.year, .month, .day], from: prev)
             }
-            // If today has no reads yet, check from yesterday (streak still alive)
             if streak == 0 {
                 let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
                 var yc = calendar.dateComponents([.year, .month, .day], from: yesterday)
@@ -113,22 +144,44 @@ struct InsightsView: View {
                 }
             }
 
-            // All chapters for time + read count
-            let allChapters = (try? appDatabase.read { try Chapter.fetchAll($0) }) ?? []
-            let totalSeconds = allChapters.reduce(0) { $0 + $1.readingSeconds }
-            let readCount = allChapters.filter { $0.isRead }.count
+            // --- Chapters read + time ---
+            let allMangaChapters = (try? appDatabase.read { try Chapter.fetchAll($0) }) ?? []
+            let allNovelChapters = (try? appDatabase.read { try NovelChapter.fetchAll($0) }) ?? []
 
-            // Manga stats
+            let mangaSeconds = allMangaChapters.reduce(0) { $0 + $1.readingSeconds }
+            let novelSeconds = allNovelChapters.reduce(0) { $0 + $1.readingSeconds }
+            let totalSeconds = mangaSeconds + novelSeconds
+
+            let mangaReadCount = allMangaChapters.filter { $0.isRead }.count
+            let novelReadCount = allNovelChapters.filter { $0.isRead }.count
+            let readCount = mangaReadCount + novelReadCount
+
+            // --- Titles started ---
             let allManga = (try? MangaQueries.fetchAll()) ?? []
-            let chaptersByManga = Dictionary(grouping: allChapters, by: \.mangaId)
-            let titlesStarted = allManga.filter { manga in
+            let allNovels = (try? NovelQueries.fetchAll()) ?? []
+            let chaptersByManga = Dictionary(grouping: allMangaChapters, by: \.mangaId)
+            let chaptersByNovel = Dictionary(grouping: allNovelChapters, by: \.novelId)
+
+            let mangaTitlesStarted = allManga.filter { manga in
                 (chaptersByManga[manga.id] ?? []).reduce(0) { $0 + $1.readingSeconds } > 0
             }.count
-            let stats: [(title: String, seconds: Int)] = allManga.compactMap { manga in
+            let novelTitlesStarted = allNovels.filter { novel in
+                (chaptersByNovel[novel.id] ?? []).reduce(0) { $0 + $1.readingSeconds } > 0
+            }.count
+            let titlesStarted = mangaTitlesStarted + novelTitlesStarted
+
+            // --- By title (manga + novels merged) ---
+            let mangaStats: [(title: String, seconds: Int)] = allManga.compactMap { manga in
                 let secs = (chaptersByManga[manga.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
                 guard secs > 0 else { return nil }
                 return (title: manga.title, seconds: secs)
-            }.sorted { $0.seconds > $1.seconds }
+            }
+            let novelStats: [(title: String, seconds: Int)] = allNovels.compactMap { novel in
+                let secs = (chaptersByNovel[novel.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
+                guard secs > 0 else { return nil }
+                return (title: novel.title, seconds: secs)
+            }
+            let stats = (mangaStats + novelStats).sorted { $0.seconds > $1.seconds }
 
             return (streak, totalSeconds, readCount, titlesStarted, stats)
         }.value
@@ -161,24 +214,38 @@ struct InsightsView: View {
 private struct StatCard: View {
     let title: String
     let value: String
+    let unit: String?
     let systemImage: String
+    let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Image(systemName: systemImage)
-                .font(.title2)
-                .foregroundStyle(.white.opacity(0.85))
-            Spacer()
-            Text(value)
-                .font(.title2.bold())
-                .foregroundStyle(.white)
+                .font(.title3)
+                .foregroundStyle(color)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.title2.bold())
+                    .foregroundStyle(.primary)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                if let unit {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Text(title)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.75))
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
         .padding(14)
-        .frame(width: 160, height: 100, alignment: .leading)
-        .background(Color.accentColor)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }

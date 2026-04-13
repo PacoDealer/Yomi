@@ -28,7 +28,9 @@ final class LibraryViewModel {
     // MARK: - State
 
     var mangas: [Manga] = []
+    var novels: [Novel] = []
     var unreadCounts: [String: Int] = [:]
+    var novelUnreadCounts: [String: Int] = [:]
     var searchText: String = ""
     var isLoading: Bool = false
     var errorMessage: String? = nil
@@ -102,6 +104,39 @@ final class LibraryViewModel {
     /// Legacy alias kept for any existing callsite that uses filteredMangas.
     var filteredMangas: [Manga] { displayedManga }
 
+    /// Novels shown in the grid: sorted by sortOrder, then title search.
+    var displayedNovels: [Novel] {
+        let sorted: [Novel]
+        switch sortOrder {
+        case .lastRead:
+            sorted = novels.sorted {
+                switch ($0.lastReadAt, $1.lastReadAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return $0.title < $1.title
+                }
+            }
+        case .alphabetical:
+            sorted = novels.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
+        case .lastUpdated:
+            sorted = novels.sorted {
+                switch ($0.lastUpdatedAt, $1.lastUpdatedAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return $0.title < $1.title
+                }
+            }
+        case .unreadCount:
+            sorted = novels.sorted {
+                (novelUnreadCounts[$0.id] ?? 0) > (novelUnreadCounts[$1.id] ?? 0)
+            }
+        }
+        guard !searchText.isEmpty else { return sorted }
+        return sorted.filter { $0.title.localizedStandardContains(searchText) }
+    }
+
     // MARK: - Load
 
     func loadLibrary() async {
@@ -110,7 +145,9 @@ final class LibraryViewModel {
         loadCategories()
         do {
             mangas = try MangaQueries.fetchLibrary()
+            novels = (try? NovelQueries.fetchLibrary()) ?? []
             unreadCounts = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
+            novelUnreadCounts = (try? NovelQueries.fetchUnreadCountsByNovel()) ?? [:]
         } catch {
             errorMessage = error.localizedDescription
         }

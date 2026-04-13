@@ -2,7 +2,12 @@
 // Uses SOURCE.fetch(url) injected by JSBridge
 
 var CDN_BASE = "https://meo.comick.pictures/";
-var COMICK_HEADERS = { "Referer": "https://comick.io/", "Origin": "https://comick.io" };
+var API_BASE = "https://api.comick.dev";
+var COMICK_HEADERS = {
+    "Referer": "https://comick.io/",
+    "Origin": "https://comick.io",
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+};
 
 function statusLabel(code) {
     if (code === 1) { return "ongoing";   }
@@ -50,7 +55,7 @@ function mapComic(comic) {
 function getMangaList(page) {
     try {
         var p   = page || 1;
-        var url = "https://api.comick.fun/v1.0/comics?type=manga&trending=true&page=" + p + "&limit=20";
+        var url = "" + API_BASE + "/v1.0/comics?type=manga&trending=true&page=" + p + "&limit=20";
         var raw = SOURCE.fetch(url, { headers: COMICK_HEADERS });
         var json = JSON.parse(raw);
 
@@ -86,7 +91,7 @@ function getChapterList(mangaPath, mangaId) {
         var maxPages    = 50; // cap at 5000 chapters
 
         while (page <= maxPages) {
-            var url = "https://api.comick.fun/comic/" + hid
+            var url = "" + API_BASE + "/comic/" + hid
                     + "/chapters?lang=en&page=" + page + "&limit=100";
             var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
             var json = JSON.parse(raw);
@@ -149,7 +154,7 @@ function getPageList(chapterPath) {
         var chid  = parts[parts.length - 1];
         if (!chid) { return []; }
 
-        var url  = "https://api.comick.fun/chapter/" + chid;
+        var url  = "" + API_BASE + "/chapter/" + chid;
         var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
         var json = JSON.parse(raw);
 
@@ -181,7 +186,7 @@ function getPageList(chapterPath) {
 function searchManga(query, page) {
     try {
         var p   = page || 1;
-        var url = "https://api.comick.fun/v1.0/comics?q="
+        var url = "" + API_BASE + "/v1.0/comics?q="
                 + encodeURIComponent(query || "")
                 + "&page=" + p + "&limit=20";
         var raw  = SOURCE.fetch(url, { headers: COMICK_HEADERS });
