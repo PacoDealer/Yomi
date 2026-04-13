@@ -16,9 +16,16 @@ struct MangaDetailView: View {
     @State private var assignedCategoryIds: Set<String> = []
     @State private var showCategorySheet = false
 
-    // Feature 2 — Chapter pagination
+    // Feature 2 — Chapter pagination + filter
     @State private var displayedChapterCount: Int = 50
     @State private var chaptersDescending: Bool = true
+    @State private var chapterFilter: ChapterFilter = .all
+
+    enum ChapterFilter: String, CaseIterable {
+        case all        = "All"
+        case unread     = "Unread"
+        case downloaded = "Downloaded"
+    }
 
     // Feature 3 — Storage size
     @State private var storageSizeLabel: String? = nil
@@ -26,9 +33,41 @@ struct MangaDetailView: View {
     // Feature 4 — Chapter selection
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
+    @State private var chapterForNav: Chapter? = nil
 
     init(manga: Manga) {
         _manga = State(initialValue: manga)
+    }
+
+    // MARK: - Resume helpers
+
+    private var resumeChapter: Chapter? {
+        guard !chapters.isEmpty else { return nil }
+        // In-progress (partially read) chapter
+        if let partial = chapters.first(where: { $0.lastPageRead > 0 && !$0.isRead }) {
+            return partial
+        }
+        // First unread chapter in ascending order
+        if let firstUnread = chapters.first(where: { !$0.isRead }) {
+            return firstUnread
+        }
+        // All read — go back to last chapter
+        return chapters.last
+    }
+
+    private var hasStartedReading: Bool {
+        chapters.contains { $0.isRead || $0.lastPageRead > 0 }
+    }
+
+    private var resumeButtonTitle: String {
+        guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
+        if let num = ch.chapterNumber {
+            let numStr = num.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(num))
+                : String(format: "%.1f", num)
+            return "Resume Ch. \(numStr)"
+        }
+        return "Resume"
     }
 
     // MARK: - Body
@@ -37,47 +76,91 @@ struct MangaDetailView: View {
         List {
             // MARK: Header
             Section {
-                HStack(alignment: .top, spacing: 12) {
-                    AsyncImage(url: manga.coverURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(2 / 3, contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.3))
-                            .aspectRatio(2 / 3, contentMode: .fit)
-                    }
-                    .frame(width: 120)
-                    .cornerRadius(8)
-                    .clipped()
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(manga.title)
-                            .font(.headline)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let author = manga.author {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 14) {
+                    // Cover + meta
+                    HStack(alignment: .top, spacing: 14) {
+                        AsyncImage(url: manga.coverURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.secondary.opacity(0.3))
+                                .aspectRatio(2 / 3, contentMode: .fit)
                         }
+                        .frame(width: 110)
+                        .cornerRadius(10)
+                        .clipped()
+                        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
 
-                        StatusBadge(status: manga.status)
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text(manga.title)
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .fixedSize(horizontal: false, vertical: true)
 
-                        if manga.inLibrary {
-                            ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
-                                Task { await updateReadingStatus(newStatus) }
+                            if let author = manga.author, !author.isEmpty {
+                                Label(author, systemImage: "person")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+
+                            if let sourceName = ExtensionManager.shared.installed
+                                .first(where: { $0.id == manga.sourceId })?.name {
+                                Label(sourceName, systemImage: "puzzlepiece.extension")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+
+                            HStack(spacing: 8) {
+                                StatusBadge(status: manga.status)
+
+                                if manga.inLibrary {
+                                    ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
+                                        Task { await updateReadingStatus(newStatus) }
+                                    }
+                                }
                             }
                         }
 
-                        if !manga.genres.isEmpty {
-                            Text(manga.genres.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+
+                    // Genre chips
+                    if !manga.genres.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(manga.genres, id: \.self) { genre in
+                                    Text(genre)
+                                        .font(.caption)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                                }
+                            }
                         }
                     }
+
+                    // Start / Resume reading button
+                    if !isLoadingChapters && !chapters.isEmpty && bridge != nil {
+                        Button {
+                            if let ch = resumeChapter {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                chapterForNav = ch
+                            }
+                        } label: {
+                            Label(resumeButtonTitle,
+                                  systemImage: hasStartedReading ? "play.fill" : "book.fill")
+                                .frame(maxWidth: .infinity)
+                                .fontWeight(.semibold)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
 
             // MARK: Synopsis
@@ -111,17 +194,23 @@ struct MangaDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     let sorted = chaptersDescending ? Array(chapters.reversed()) : chapters
-                    let visible = Array(sorted.prefix(displayedChapterCount).enumerated())
+                    let filtered: [Chapter] = {
+                        switch chapterFilter {
+                        case .all:        return sorted
+                        case .unread:     return sorted.filter { !$0.isRead }
+                        case .downloaded: return sorted.filter { $0.isDownloaded }
+                        }
+                    }()
+                    let visible = Array(filtered.prefix(displayedChapterCount).enumerated())
                     ForEach(visible, id: \.element.id) { _, chapter in
-                        if isSelectingChapters {
-                            // Selection mode row — no NavigationLink
-                            ChapterRow(
-                                chapter: chapter,
-                                manga: manga,
-                                bridge: bridge,
-                                isSelecting: true,
-                                isSelected: selectedChapterIds.contains(chapter.id),
-                                onTap: {
+                        ChapterRow(
+                            chapter: chapter,
+                            manga: manga,
+                            bridge: bridge,
+                            isSelecting: isSelectingChapters,
+                            isSelected: selectedChapterIds.contains(chapter.id),
+                            onTap: {
+                                if isSelectingChapters {
                                     withAnimation(.spring(duration: 0.15)) {
                                         if selectedChapterIds.contains(chapter.id) {
                                             selectedChapterIds.remove(chapter.id)
@@ -129,37 +218,42 @@ struct MangaDetailView: View {
                                             selectedChapterIds.insert(chapter.id)
                                         }
                                     }
+                                } else if bridge != nil {
+                                    chapterForNav = chapter
                                 }
-                            )
-                        } else {
-                            NavigationLink {
-                                ChapterReaderView(
-                                    manga: manga,
-                                    bridge: bridge!,
-                                    chapters: chapters,
-                                    chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
-                                )
-                            } label: {
-                                ChapterRow(
-                                    chapter: chapter,
-                                    manga: manga,
-                                    bridge: bridge,
-                                    isSelecting: false,
-                                    isSelected: false,
-                                    onTap: nil
-                                )
+                            },
+                            onLongPress: {
+                                guard !isSelectingChapters else { return }
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                withAnimation(.spring(duration: 0.2)) {
+                                    isSelectingChapters = true
+                                    selectedChapterIds = [chapter.id]
+                                }
+                            },
+                            onToggleRead: {
+                                let id = chapter.id
+                                let newRead = !chapter.isRead
+                                Task.detached { try? ChapterQueries.setRead(chapterId: id, isRead: newRead) }
+                                chapters = chapters.map { ch in
+                                    ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
+                                }
                             }
-                            .disabled(bridge == nil)
-                        }
+                        )
                     }
-                    if chapters.count > displayedChapterCount {
-                        Button("Load \(min(50, chapters.count - displayedChapterCount)) more") {
+                    if filtered.count > displayedChapterCount {
+                        Button("Load \(min(50, filtered.count - displayedChapterCount)) more") {
                             displayedChapterCount += 50
                         }
                         .font(.subheadline)
                         .foregroundStyle(.tint)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
+                    } else if filtered.isEmpty && chapterFilter != .all {
+                        Text("No \(chapterFilter.rawValue.lowercased()) chapters")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
                     }
                 }
             } header: {
@@ -184,7 +278,14 @@ struct MangaDetailView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     let sortedChapters = chaptersDescending ? Array(chapters.reversed()) : chapters
-                    let visibleIds = Set(sortedChapters.prefix(displayedChapterCount).map { $0.id })
+                    let filteredChapters: [Chapter] = {
+                        switch chapterFilter {
+                        case .all:        return sortedChapters
+                        case .unread:     return sortedChapters.filter { !$0.isRead }
+                        case .downloaded: return sortedChapters.filter { $0.isDownloaded }
+                        }
+                    }()
+                    let visibleIds = Set(filteredChapters.prefix(displayedChapterCount).map { $0.id })
                     Button(selectedChapterIds.count == visibleIds.count ? "Deselect All" : "Select All") {
                         withAnimation(.spring(duration: 0.15)) {
                             if selectedChapterIds.count == visibleIds.count {
@@ -218,6 +319,20 @@ struct MangaDetailView: View {
 
                         Divider()
 
+                        if !chapters.isEmpty {
+                            Button {
+                                Task { await markAllChapters(read: true) }
+                            } label: {
+                                Label("Mark all as read", systemImage: "checkmark.circle.fill")
+                            }
+                            Button {
+                                Task { await markAllChapters(read: false) }
+                            } label: {
+                                Label("Mark all as unread", systemImage: "circle")
+                            }
+                            Divider()
+                        }
+
                         Button(role: .destructive) {
                             Task { await toggleLibrary() }
                         } label: {
@@ -246,6 +361,24 @@ struct MangaDetailView: View {
         .onAppear { Task { await refreshChapterStates() } }
         .onChange(of: downloadManager.completedDownloadCount) { _, _ in
             Task { await refreshChapterStates() }
+        }
+        .onChange(of: chapterForNav) { old, new in
+            // User returned from reader — wait for DB writes to finish then refresh
+            guard new == nil, old != nil else { return }
+            Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                await refreshChapterStates()
+            }
+        }
+        .navigationDestination(item: $chapterForNav) { chapter in
+            if let b = bridge {
+                ChapterReaderView(
+                    manga: manga,
+                    bridge: b,
+                    chapters: chapters,
+                    chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
+                )
+            }
         }
         .task { await loadChapters() }
         .task { await touchLastRead() }
@@ -288,14 +421,45 @@ struct MangaDetailView: View {
         HStack {
             Text("Chapters")
             if !chapters.isEmpty {
-                Text("(\(chapters.count))")
-                    .foregroundStyle(.secondary)
+                let readCount = chapters.filter { $0.isRead }.count
+                if readCount > 0 {
+                    Text("\(readCount) / \(chapters.count)")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("(\(chapters.count))")
+                        .foregroundStyle(.secondary)
+                }
             }
             if let size = storageSizeLabel {
                 Text("· \(size)")
                     .foregroundStyle(.secondary)
             }
             Spacer()
+
+            // Filter menu
+            Menu {
+                ForEach(ChapterFilter.allCases, id: \.self) { filter in
+                    Button {
+                        chapterFilter = filter
+                        displayedChapterCount = 50
+                    } label: {
+                        HStack {
+                            Text(filter.rawValue)
+                            if chapterFilter == filter {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: chapterFilter == .all
+                      ? "line.3.horizontal.decrease"
+                      : "line.3.horizontal.decrease.circle.fill")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
 
             // Sort toggle
             Button {
@@ -518,17 +682,28 @@ struct MangaDetailView: View {
             loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
 
+        // Ensure manga row exists first (FK constraint on chapter.mangaId),
+        // then insert chapters — INSERT OR IGNORE preserves existing read/download state.
+        // Manga INSERT OR IGNORE is a no-op for library manga; creates a browse-only row otherwise.
+        let mangaSnapshot = manga
+        await Task.detached(priority: .userInitiated) {
+            try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: loadedChapters)
+        }.value
+
         bridge = loadedBridge
 
-        // Merge persisted read/time state from DB
+        // Merge persisted state from DB
         let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
         chapters = loadedChapters.map { ch in
             guard let persisted = savedMap[ch.id] else { return ch }
             var merged = ch
             merged.isRead = persisted.isRead
-            merged.readingSeconds = persisted.readingSeconds
             merged.isDownloaded = persisted.isDownloaded
+            merged.readingSeconds = persisted.readingSeconds
+            merged.progress = persisted.progress
+            merged.lastPageRead = persisted.lastPageRead
+            merged.readAt = persisted.readAt
             return merged
         }
 
@@ -539,16 +714,30 @@ struct MangaDetailView: View {
 
     private func markSelected(read: Bool) async {
         let ids = selectedChapterIds
+        let mangaId = manga.id
+        // When marking as read, collect downloaded chapters so we can auto-delete
+        let downloadedIds: Set<String> = read
+            ? Set(chapters.filter { ids.contains($0.id) && $0.isDownloaded }.map { $0.id })
+            : []
         await Task.detached(priority: .userInitiated) {
             for id in ids {
                 try? ChapterQueries.setRead(chapterId: id, isRead: read)
             }
+            // Auto-delete downloaded files when marking as read
+            for id in downloadedIds {
+                let dir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Downloads/\(mangaId)/\(id)")
+                try? FileManager.default.removeItem(at: dir)
+                try? DownloadQueries.markNotDownloaded(chapterId: id)
+            }
         }.value
-        // Refresh chapters
+        // Update in-memory state
         chapters = chapters.map { ch in
             if ids.contains(ch.id) {
                 var updated = ch
                 updated.isRead = read
+                if downloadedIds.contains(ch.id) { updated.isDownloaded = false }
                 return updated
             }
             return ch
@@ -556,6 +745,37 @@ struct MangaDetailView: View {
         withAnimation(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    // MARK: - Mark All Chapters
+
+    private func markAllChapters(read: Bool) async {
+        let ids = Set(chapters.map { $0.id })
+        let mangaId = manga.id
+        let downloadedIds: Set<String> = read
+            ? Set(chapters.filter { $0.isDownloaded }.map { $0.id })
+            : []
+        await Task.detached(priority: .userInitiated) {
+            for id in ids {
+                try? ChapterQueries.setRead(chapterId: id, isRead: read)
+            }
+            if read {
+                for id in downloadedIds {
+                    let dir = FileManager.default
+                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        .appendingPathComponent("Downloads/\(mangaId)/\(id)")
+                    try? FileManager.default.removeItem(at: dir)
+                    try? DownloadQueries.markNotDownloaded(chapterId: id)
+                }
+            }
+        }.value
+        chapters = chapters.map { ch in
+            var updated = ch
+            updated.isRead = read
+            if downloadedIds.contains(ch.id) { updated.isDownloaded = false }
+            return updated
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -644,6 +864,8 @@ private struct ChapterRow: View {
     var isSelecting: Bool = false
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
+    var onLongPress: (() -> Void)? = nil
+    var onToggleRead: (() -> Void)? = nil
 
     private var dm: DownloadManager { DownloadManager.shared }
 
@@ -712,10 +934,9 @@ private struct ChapterRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if isSelecting { onTap?() }
-        }
-        .swipeActions(edge: .leading) {
+        .onTapGesture { onTap?() }
+        .onLongPressGesture(minimumDuration: 0.4) { onLongPress?() }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if !isSelecting {
                 if chapter.isDownloaded {
                     Button(role: .destructive) {
@@ -732,6 +953,18 @@ private struct ChapterRow: View {
                     }
                     .tint(.blue)
                 }
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isSelecting {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onToggleRead?()
+                } label: {
+                    Label(chapter.isRead ? "Unread" : "Read",
+                          systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
+                }
+                .tint(chapter.isRead ? .orange : .green)
             }
         }
     }

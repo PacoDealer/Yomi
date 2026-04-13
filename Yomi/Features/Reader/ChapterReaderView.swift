@@ -124,9 +124,15 @@ struct ChapterReaderView: View {
             readingTimer?.invalidate()
             readingTimer = nil
 
-            if currentPage > 0 {
+            let incognito = AppSettings.shared.isIncognito
+
+            // Mark as read if reached last page, or read ≥80% of a multi-page chapter
+            let readProgress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
+            if !incognito && !pages.isEmpty && (currentPage == pages.count - 1 || (pages.count > 1 && readProgress >= 0.8)) {
                 markChapterRead()
             }
+
+            guard !incognito else { return }
 
             let elapsed = Int(Date().timeIntervalSince(sessionStart))
             let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
@@ -145,7 +151,7 @@ struct ChapterReaderView: View {
             }
         }
         .onChange(of: currentPage) { _, newPage in
-            if pages.count > 0 && newPage == pages.count - 1 {
+            if !AppSettings.shared.isIncognito && pages.count > 0 && newPage == pages.count - 1 {
                 markChapterRead()
                 if MALService.shared.isLoggedIn {
                     Task {
@@ -178,11 +184,20 @@ struct ChapterReaderView: View {
     private func markChapterRead() {
         let cid = activeChapter.id
         let mid = activeChapter.mangaId
+        let wasDownloaded = activeChapter.isDownloaded
         Task.detached {
             do {
                 try ChapterQueries.markRead(id: cid, mangaId: mid)
             } catch {
                 print("markChapterRead error: \(error)")
+            }
+            // Auto-delete download after finishing a downloaded chapter
+            if wasDownloaded {
+                let dir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Downloads/\(mid)/\(cid)")
+                try? FileManager.default.removeItem(at: dir)
+                try? DownloadQueries.markNotDownloaded(chapterId: cid)
             }
         }
     }
@@ -298,7 +313,10 @@ struct MangaReaderView: View {
                         let next = isRTL
                             ? min(currentPage + 1, pages.count - 1)
                             : max(currentPage - 1, 0)
-                        if next != currentPage { currentPage = next }
+                        if next != currentPage {
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            currentPage = next
+                        }
                     }
                 Color.clear.contentShape(Rectangle())
                     .onTapGesture {
@@ -309,7 +327,10 @@ struct MangaReaderView: View {
                         let next = isRTL
                             ? max(currentPage - 1, 0)
                             : min(currentPage + 1, pages.count - 1)
-                        if next != currentPage { currentPage = next }
+                        if next != currentPage {
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            currentPage = next
+                        }
                     }
             }
             .ignoresSafeArea()
@@ -506,12 +527,12 @@ struct ReaderOverlayView: View {
                     }
 
                     Picker("Mode", selection: $readerMode) {
-                        ForEach(ReaderMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
+                        Image(systemName: "book.pages").tag(ReaderMode.horizontalRTL)
+                        Image(systemName: "book.pages.fill").tag(ReaderMode.horizontalLTR)
+                        Image(systemName: "scroll").tag(ReaderMode.verticalScroll)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 160)
+                    .frame(width: 108)
                     .colorScheme(.dark)
                 }
                 .padding(.horizontal, 16)

@@ -184,6 +184,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v9_novel_chapter_reading_time") { db in
+            try db.alter(table: "novel_chapter") { t in
+                t.add(column: "readingSeconds", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -378,16 +384,18 @@ extension NovelChapter: FetchableRecord, PersistableRecord {
         isRead        = row["isRead"]
         readAt        = row["readAt"]
         releaseTime   = row["releaseTime"]
+        readingSeconds = row["readingSeconds"] ?? 0
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]            = id
-        container["novelId"]       = novelId
-        container["path"]          = path
-        container["name"]          = name
-        container["chapterNumber"] = chapterNumber
-        container["isRead"]        = isRead
-        container["readAt"]        = readAt
-        container["releaseTime"]   = releaseTime
+        container["id"]             = id
+        container["novelId"]        = novelId
+        container["path"]           = path
+        container["name"]           = name
+        container["chapterNumber"]  = chapterNumber
+        container["isRead"]         = isRead
+        container["readAt"]         = readAt
+        container["releaseTime"]    = releaseTime
+        container["readingSeconds"] = readingSeconds
     }
 }

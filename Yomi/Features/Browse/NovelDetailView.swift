@@ -10,11 +10,38 @@ struct NovelDetailView: View {
     @State private var chapters: [NovelChapter] = []
     @State private var isLoadingChapters = false
     @State private var isInLibrary: Bool
+    @State private var chapterForNav: NovelChapter? = nil
 
     init(novel: Novel, bridge: JSBridge) {
         self.novel = novel
         self.bridge = bridge
         _isInLibrary = State(initialValue: novel.inLibrary)
+    }
+
+    // MARK: - Resume helpers
+
+    private var resumeChapter: NovelChapter? {
+        // In-progress (readAt set but not isRead — e.g. abandoned mid-way)
+        if let inProgress = chapters.first(where: { !$0.isRead && $0.readAt != nil }) { return inProgress }
+        // First unread
+        if let firstUnread = chapters.first(where: { !$0.isRead }) { return firstUnread }
+        // All read — return last
+        return chapters.last
+    }
+
+    private var hasStartedReading: Bool {
+        chapters.contains { $0.isRead || $0.readAt != nil }
+    }
+
+    private var resumeButtonTitle: String {
+        guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
+        if let num = ch.chapterNumber {
+            let numStr = num.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(num))
+                : String(format: "%.1f", num)
+            return "Resume Ch. \(numStr)"
+        }
+        return "Resume"
     }
 
     // MARK: - Body
@@ -23,41 +50,83 @@ struct NovelDetailView: View {
         List {
             // MARK: Header
             Section {
-                HStack(alignment: .top, spacing: 12) {
-                    AsyncImage(url: novel.coverURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(2 / 3, contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.3))
-                            .aspectRatio(2 / 3, contentMode: .fit)
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
+                        AsyncImage(url: novel.coverURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.secondary.opacity(0.3))
+                                .aspectRatio(2 / 3, contentMode: .fit)
+                        }
+                        .frame(width: 110)
+                        .cornerRadius(10)
+                        .clipped()
+                        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text(novel.title)
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if let author = novel.author {
+                                Label(author, systemImage: "person")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+
+                            if let sourceName = ExtensionManager.shared.installed
+                                .first(where: { $0.id == novel.sourceId })?.name {
+                                Label(sourceName, systemImage: "puzzlepiece.extension")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+
+                            NovelStatusBadge(status: novel.status)
+                        }
+
+                        Spacer(minLength: 0)
                     }
-                    .frame(width: 120)
-                    .cornerRadius(8)
-                    .clipped()
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(novel.title)
-                            .font(.headline)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let author = novel.author {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    // Genre chips
+                    if !novel.genres.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(novel.genres, id: \.self) { genre in
+                                    Text(genre)
+                                        .font(.caption)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                                }
+                            }
                         }
+                    }
 
-                        NovelStatusBadge(status: novel.status)
-
-                        if !novel.genres.isEmpty {
-                            Text(novel.genres.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    // Start / Resume reading button
+                    if !isLoadingChapters && !chapters.isEmpty {
+                        Button {
+                            if let ch = resumeChapter {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                chapterForNav = ch
+                                touchLastReadAt()
+                            }
+                        } label: {
+                            Label(resumeButtonTitle,
+                                  systemImage: hasStartedReading ? "play.fill" : "book.fill")
+                                .frame(maxWidth: .infinity)
+                                .fontWeight(.semibold)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
 
             // MARK: Synopsis
@@ -90,12 +159,14 @@ struct NovelDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(chapters) { chapter in
-                        NavigationLink {
-                            TextReaderView(chapter: chapter, novel: novel, bridge: bridge)
+                    ForEach(Array(chapters.enumerated()), id: \.element.id) { idx, chapter in
+                        Button {
+                            chapterForNav = chapter
+                            touchLastReadAt()
                         } label: {
                             NovelChapterRow(chapter: chapter)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             } header: {
@@ -111,6 +182,11 @@ struct NovelDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(novel.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $chapterForNav) { ch in
+            if let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
+                TextReaderView(novel: novel, bridge: bridge, chapters: chapters, startIndex: idx)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -134,30 +210,56 @@ struct NovelDetailView: View {
         try? NovelQueries.upsert(updated)
     }
 
+    // MARK: - Touch lastReadAt
+
+    private func touchLastReadAt() {
+        var updated = novel
+        updated.lastReadAt = Date()
+        Task.detached { try? NovelQueries.upsert(updated) }
+    }
+
     // MARK: - Load Chapters
 
     private func loadChapters() async {
         isLoadingChapters = true
+        let novelId = novel.id
         let path = novel.path
 
         let source = await Task.detached(priority: .userInitiated) {
             bridge.parseNovel(path: path)
         }.value
 
-        if let source {
-            chapters = source.chapters.enumerated().map { index, c in
-                NovelChapter(
-                    id:            "\(novel.id)-ch-\(index)",
-                    novelId:       novel.id,
-                    path:          c.path,
-                    name:          c.name,
-                    chapterNumber: c.chapterNumber,
-                    isRead:        false,
-                    readAt:        nil,
-                    releaseTime:   c.releaseTime
-                )
-            }
+        guard let source else {
+            isLoadingChapters = false
+            return
         }
+
+        // Build chapters from remote source
+        let fetched = source.chapters.enumerated().map { index, c in
+            NovelChapter(
+                id:             "\(novelId)-ch-\(index)",
+                novelId:        novelId,
+                path:           c.path,
+                name:           c.name,
+                chapterNumber:  c.chapterNumber,
+                isRead:         false,
+                readAt:         nil,
+                releaseTime:    c.releaseTime,
+                readingSeconds: 0
+            )
+        }
+
+        // Persist to DB (INSERT OR IGNORE — preserves existing isRead/readingSeconds)
+        await Task.detached {
+            try? NovelQueries.insertAllIgnoringConflicts(fetched)
+        }.value
+
+        // Re-fetch from DB to merge persisted read state
+        let merged = await Task.detached {
+            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? fetched
+        }.value
+
+        chapters = merged
         isLoadingChapters = false
     }
 }

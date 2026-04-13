@@ -106,6 +106,16 @@ enum MangaQueries {
         }
     }
 
+    /// Borra lastReadAt del manga (lo saca del historial de lectura)
+    nonisolated static func clearLastRead(mangaId: String) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE manga SET lastReadAt = NULL WHERE id = ?",
+                arguments: [mangaId]
+            )
+        }
+    }
+
     /// Actualiza lastUpdatedAt a la fecha actual para el manga indicado
     nonisolated static func touchLastUpdated(mangaId: String) throws {
         _ = try appDatabase.write { db in
