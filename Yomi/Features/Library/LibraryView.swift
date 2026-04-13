@@ -8,6 +8,9 @@ struct LibraryView: View {
     @State private var selectedIds: Set<String> = []
     @State private var showNewCategorySheet = false
     @State private var newCategoryName = ""
+    @State private var selectedNovel: Novel? = nil
+    @State private var novelBridgeForNav: JSBridge? = nil
+    @State private var showNovelDetail = false
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -22,7 +25,8 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.displayedManga.isEmpty && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
+                let hasAnyContent = !viewModel.displayedManga.isEmpty || !viewModel.displayedNovels.isEmpty
+                if !hasAnyContent && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
                     if extensionManager.installed.isEmpty {
                         VStack(spacing: 16) {
                             ContentUnavailableView(
@@ -49,40 +53,70 @@ struct LibraryView: View {
                             .buttonStyle(.borderedProminent)
                         }
                     }
-                } else if viewModel.displayedManga.isEmpty {
+                } else if !hasAnyContent {
                     ContentUnavailableView.search(text: viewModel.searchText)
                 } else {
                     ScrollView {
                         VStack(spacing: 0) {
                             if !isSelecting { ContinueReadingRow() }
-                            LazyVGrid(columns: columns, spacing: 12) {
-                                ForEach(viewModel.displayedManga) { manga in
-                                    MangaCoverCell(
-                                        manga: manga,
-                                        isSelecting: isSelecting,
-                                        isSelected: selectedIds.contains(manga.id),
-                                        onLongPress: {
-                                            withAnimation(.spring(duration: 0.2)) {
-                                                isSelecting = true
-                                                selectedIds.insert(manga.id)
-                                            }
-                                        },
-                                        onSelect: {
-                                            withAnimation(.spring(duration: 0.15)) {
-                                                if selectedIds.contains(manga.id) {
-                                                    selectedIds.remove(manga.id)
-                                                } else {
+                            if !viewModel.displayedManga.isEmpty {
+                                // Show "Manga" header only when novels are also present
+                                if !viewModel.displayedNovels.isEmpty {
+                                    Text("Manga")
+                                        .font(.headline)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 8)
+                                }
+                                LazyVGrid(columns: columns, spacing: 12) {
+                                    ForEach(viewModel.displayedManga) { manga in
+                                        MangaCoverCell(
+                                            manga: manga,
+                                            isSelecting: isSelecting,
+                                            isSelected: selectedIds.contains(manga.id),
+                                            onLongPress: {
+                                                withAnimation(.spring(duration: 0.2)) {
+                                                    isSelecting = true
                                                     selectedIds.insert(manga.id)
                                                 }
+                                            },
+                                            onSelect: {
+                                                withAnimation(.spring(duration: 0.15)) {
+                                                    if selectedIds.contains(manga.id) {
+                                                        selectedIds.remove(manga.id)
+                                                    } else {
+                                                        selectedIds.insert(manga.id)
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.top, 4)
+                            }
+                            if !isSelecting && !viewModel.displayedNovels.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Novels")
+                                        .font(.headline)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, viewModel.displayedManga.isEmpty ? 8 : 16)
+                                    LazyVGrid(columns: columns, spacing: 12) {
+                                        ForEach(viewModel.displayedNovels) { novel in
+                                            NovelLibraryCoverCell(
+                                                novel: novel,
+                                                unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0
+                                            ) {
+                                                loadNovelDetail(novel)
                                             }
                                         }
-                                    )
+                                    }
+                                    .padding(.horizontal, 12)
                                 }
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.top, 8)
                         }
                     }
+                    .refreshable { await viewModel.loadLibrary() }
                     .safeAreaInset(edge: .bottom) {
                         if isSelecting {
                             selectionActionBar
@@ -137,9 +171,35 @@ struct LibraryView: View {
                     }
                 }
             }
+            .navigationDestination(isPresented: $showNovelDetail) {
+                if let novel = selectedNovel, let bridge = novelBridgeForNav {
+                    NovelDetailView(novel: novel, bridge: bridge)
+                }
+            }
             .task {
                 await viewModel.loadLibrary()
             }
+        }
+    }
+
+    // MARK: - Novel navigation
+
+    private func loadNovelDetail(_ novel: Novel) {
+        let sourceId = novel.sourceId
+        // Capture MainActor state before entering Task.detached
+        let installed = extensionManager.installed
+        let bridgeFn = extensionManager.bridge(for:)
+        Task {
+            let bridge = await Task.detached(priority: .userInitiated) {
+                guard let ext = installed.first(where: { $0.id == sourceId }) else {
+                    return nil as JSBridge?
+                }
+                return bridgeFn(ext)
+            }.value
+            guard let bridge else { return }
+            selectedNovel = novel
+            novelBridgeForNav = bridge
+            showNovelDetail = true
         }
     }
 
@@ -284,6 +344,64 @@ private struct CategoryChip: View {
                 }
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - NovelLibraryCoverCell
+
+private struct NovelLibraryCoverCell: View {
+    let novel: Novel
+    let unreadCount: Int
+    let onTap: () -> Void
+
+    @State private var sourceName: String? = nil
+    @State private var settings = AppSettings.shared
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 4) {
+                AsyncImage(url: novel.coverURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .aspectRatio(2 / 3, contentMode: .fit)
+                }
+                .cornerRadius(8)
+                .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if settings.showUnreadBadge && unreadCount > 0 {
+                        Text("\(min(unreadCount, 999))")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor, in: Capsule())
+                            .padding(4)
+                    }
+                }
+
+                Text(novel.title)
+                    .font(.caption)
+                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+
+                if let name = sourceName {
+                    Text(name)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .task(id: novel.id) {
+            sourceName = ExtensionManager.shared.installed
+                .first(where: { $0.id == novel.sourceId })?.name
+        }
     }
 }
 

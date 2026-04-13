@@ -72,8 +72,24 @@ import Observation
 
     // MARK: - Novel reader
 
+    /// Legacy — kept so existing data is not lost on upgrade
     var novelSepia: Bool {
         didSet { defaults.set(novelSepia, forKey: "novelSepia") }
+    }
+
+    /// Color theme for the novel reader: "Light" | "Sepia" | "Warm" | "Dark" | "AMOLED"
+    var novelTheme: String {
+        didSet { defaults.set(novelTheme, forKey: "novelTheme") }
+    }
+
+    /// Font family for the novel reader: "System" | "Serif"
+    var novelFontFamily: String {
+        didSet { defaults.set(novelFontFamily, forKey: "novelFontFamily") }
+    }
+
+    /// Horizontal padding (points) for the novel reader body: 8 | 16 | 24
+    var novelHorizontalPadding: Int {
+        didSet { defaults.set(novelHorizontalPadding, forKey: "novelHorizontalPadding") }
     }
 
     // MARK: - Onboarding
@@ -95,11 +111,21 @@ import Observation
         didSet { defaults.set(libraryColumns, forKey: "libraryColumns") }
     }
 
+    /// Show unread count badge on manga covers
+    var showUnreadBadge: Bool {
+        didSet { defaults.set(showUnreadBadge, forKey: "showUnreadBadge") }
+    }
+
     // MARK: - Reader behaviour
 
     /// Keep screen on while reading
     var keepScreenOn: Bool {
         didSet { defaults.set(keepScreenOn, forKey: "keepScreenOn") }
+    }
+
+    /// When on: reading progress and chapter read-state are not saved
+    var isIncognito: Bool {
+        didSet { defaults.set(isIncognito, forKey: "isIncognito") }
     }
 
     // MARK: - Init
@@ -115,9 +141,23 @@ import Observation
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
         novelSepia              = d.bool(forKey: "novelSepia")
+        // novelTheme: migrate from legacy novelSepia + global theme
+        if let saved = d.string(forKey: "novelTheme") {
+            novelTheme = saved
+        } else if d.bool(forKey: "novelSepia") {
+            novelTheme = "Sepia"
+        } else if (d.string(forKey: "theme") ?? "System") == "Dark" {
+            novelTheme = "Dark"
+        } else {
+            novelTheme = "Light"
+        }
+        novelFontFamily         = d.string(forKey: "novelFontFamily")              ?? "Serif"
+        novelHorizontalPadding  = d.object(forKey: "novelHorizontalPadding") as? Int ?? 16
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
         pluginCatalogURL        = d.string(forKey: "pluginCatalogURL")       ?? "https://yomi-plugins.web.app/index.json"
         libraryColumns          = d.object(forKey: "libraryColumns") as? Int ?? 3
         keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
+        isIncognito             = d.bool(forKey: "isIncognito")
+        showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
     }
 }

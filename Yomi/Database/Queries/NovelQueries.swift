@@ -22,6 +22,34 @@ enum NovelQueries {
         }
     }
 
+    /// Devuelve la novela con el id indicado, o nil si no existe
+    nonisolated static func fetchOne(id: String) throws -> Novel? {
+        try appDatabase.read { db in
+            try Novel.fetchOne(db, key: id)
+        }
+    }
+
+    /// Devuelve novelas con lastReadAt != nil, ordenadas por fecha de lectura descendente
+    nonisolated static func fetchHistory() throws -> [Novel] {
+        try appDatabase.read { db in
+            try Novel
+                .filter(Column("lastReadAt") != nil)
+                .order(Column("lastReadAt").desc)
+                .fetchAll(db)
+        }
+    }
+
+    /// Devuelve novelas con lastReadAt != nil, ordenadas por fecha de lectura descendente, con límite
+    nonisolated static func fetchRecentlyRead(limit: Int = 10) throws -> [Novel] {
+        try appDatabase.read { db in
+            try Novel
+                .filter(Column("lastReadAt") != nil)
+                .order(Column("lastReadAt").desc)
+                .limit(limit)
+                .fetchAll(db)
+        }
+    }
+
     // MARK: - Novel: Escritura
 
     /// Inserta una nueva novela; falla si ya existe un registro con el mismo id
@@ -54,6 +82,24 @@ enum NovelQueries {
         }
     }
 
+    /// Borra lastReadAt de una novela (swipe-to-delete en History)
+    nonisolated static func clearLastRead(novelId: String) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("lastReadAt").set(to: nil)])
+        }
+    }
+
+    /// Actualiza lastUpdatedAt de una novela a la fecha actual
+    nonisolated static func touchLastUpdated(novelId: String) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("lastUpdatedAt").set(to: Date())])
+        }
+    }
+
     // MARK: - NovelChapter: Lectura
 
     /// Devuelve todos los capítulos de una novela ordenados por número de capítulo ascendente
@@ -66,7 +112,31 @@ enum NovelQueries {
         }
     }
 
+    /// Devuelve el conteo de capítulos no leídos agrupado por novelId
+    nonisolated static func fetchUnreadCountsByNovel() throws -> [String: Int] {
+        try appDatabase.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT novelId, COUNT(*) as cnt
+                FROM novel_chapter
+                WHERE isRead = 0
+                GROUP BY novelId
+            """)
+            return Dictionary(uniqueKeysWithValues: rows.map {
+                ($0["novelId"] as String, $0["cnt"] as Int)
+            })
+        }
+    }
+
     // MARK: - NovelChapter: Escritura
+
+    /// Inserta capítulos en lote usando INSERT OR IGNORE — nunca sobreescribe isRead ni readingSeconds existentes
+    nonisolated static func insertAllIgnoringConflicts(_ chapters: [NovelChapter]) throws {
+        try appDatabase.write { db in
+            for ch in chapters {
+                try ch.insert(db, onConflict: .ignore)
+            }
+        }
+    }
 
     /// Inserta o actualiza un capítulo (usa el id como clave)
     nonisolated static func upsertChapter(_ chapter: NovelChapter) throws {
@@ -82,6 +152,19 @@ enum NovelQueries {
                 try chapter.save(db)
             }
         }
+    }
+
+    /// Acumula segundos de lectura en un capítulo y actualiza lastReadAt + readingSeconds en la novela
+    nonisolated static func addReadingTime(chapterId: String, novelId: String, seconds: Int) throws {
+        _ = try appDatabase.write { db in
+            try NovelChapter
+                .filter(Column("id") == chapterId)
+                .updateAll(db, [Column("readingSeconds").set(to: Column("readingSeconds") + seconds)])
+        }
+        guard var novel = try appDatabase.read({ db in try Novel.fetchOne(db, key: novelId) }) else { return }
+        novel.readingSeconds += seconds
+        novel.lastReadAt = Date()
+        _ = try appDatabase.write { db in try novel.update(db) }
     }
 
     /// Marca un capítulo como leído: isRead=true, readAt=ahora

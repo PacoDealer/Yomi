@@ -91,6 +91,29 @@ enum ChapterQueries {
         }
     }
 
+    /// Inserta capítulos nuevos ignorando conflictos (INSERT OR IGNORE).
+    /// Nunca sobreescribe isRead, isDownloaded ni progress de filas existentes.
+    /// Llamar después de obtener la lista desde JSBridge, antes del merge con DB.
+    nonisolated static func insertAllIgnoringConflicts(_ chapters: [Chapter]) throws {
+        _ = try appDatabase.write { db in
+            for chapter in chapters {
+                try chapter.insert(db, onConflict: .ignore)
+            }
+        }
+    }
+
+    /// Inserta el manga y sus capítulos en una sola transacción (INSERT OR IGNORE).
+    /// El INSERT OR IGNORE del manga garantiza que la FK constraint se satisfaga
+    /// aunque el manga no esté todavía en la biblioteca (browsing sin añadir al library).
+    nonisolated static func insertMangaAndChapters(manga: Manga, chapters: [Chapter]) throws {
+        _ = try appDatabase.write { db in
+            try manga.insert(db, onConflict: .ignore)
+            for chapter in chapters {
+                try chapter.insert(db, onConflict: .ignore)
+            }
+        }
+    }
+
     // MARK: - Progress
 
     /// Marca un capítulo como leído con isRead=true, readAt=ahora y progress=1.0 (UPDATE directo, sin fetch previo)

@@ -16,7 +16,7 @@ Yomi/
 │   ├── DatabaseManager.swift        # GRDB setup, migrations, FetchableRecord conformances; module-level appDatabase var
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, updateReadingStatus, delete
-│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insert, upsert, upsertAll, markRead, markAllRead, updateProgress, addReadingTime, delete, deleteAll
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist), insert, upsert, upsertAll, markRead, markAllRead, updateProgress (saves lastPageRead), addReadingTime, setRead(chapterId:isRead:), delete, deleteAll
 │       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensions
@@ -31,17 +31,23 @@ Yomi/
 │   │   ├── CategoryView.swift       # Category CRUD UI (create, rename, reorder, delete)
 │   │   ├── ContinueReadingRow.swift # Horizontal scrollable row of recently read manga
 │   │   ├── MangaCoverCell.swift     # Cover cell + shimmer skeleton + selection mode (isSelecting/isSelected overlays, long press enters select)
-│   │   └── MangaDetailView.swift    # Detail + chapter list + heart button + ReadingStatusMenu pill (planToRead/reading/onHold/completed/dropped) + category sheet
+│   │   └── MangaDetailView.swift    # Detail + chapter list + heart button + ReadingStatusMenu pill + category sheet
+│   │                                # Chapter selection mode (long-press → isSelectingChapters, bottom action bar). Download sub-menu. Per-chapter download button. Overflow menu.
+│   │                                # loadChapters() calls insertAllIgnoringConflicts() after JSBridge fetch — chapters persisted before DB merge
+│   │                                # refreshChapterStates() merges DB state on .onAppear + .onChange(of: downloadManager.completedDownloadCount)
+│   │                                # navigationDestination(item: $chapterForNav) for tap-to-reader. .onChange(of: chapterForNav) triggers 500ms delayed refresh on return.
 │   ├── Browse/
 │   │   ├── BrowseView.swift         # Sources / Extensions / Search tabs; Extensions tab shows Yomi catalog inline (reuses YomiCatalogEntryRow); openBrowseExtensions reacts to AppRouter flag
 │   │   │                            # SourceBrowseView: currentPage/isLoadingMore/hasMoreContent state, "Load more" button below grid, appends for Format A and B (S22)
+│   │   │                            # FeedTab enum (.popular/.latest). Segmented Picker shown when supportsLatest && !isNovelSource. Bridge reused across tab switches.
 │   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom+pan, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking
 │   │   │                            # Reading resume: after loadPages(), Task.detached reads chapter.progress, sets currentPage on MainActor (S22)
 │   │   │                            # MangaPageView: GeometryReader + DragGesture with clamping, guard scale > 1.0. Double-tap resets scale+offset (S22)
+│   │   │                            # Auto-mark read: last page reached OR (multi-page && ≥80% read). Incognito guard skips markChapterRead + updateProgress.
 │   │   └── TextReaderView.swift     # HTML reader for novels (WKWebView, font size, dark/light/sepia)
-│   │                                # ⚠️ NovelQueries.markRead() called on chapter load, not on scroll-to-end — semantically incorrect
+│   │                                # Overlay: .opacity/.allowsHitTesting/.animation — smooth fade animation (S29). colorScheme: sepia→.light, dark→.dark, else .light (S29).
 │   ├── History/
 │   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
 │   ├── More/
@@ -60,7 +66,7 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 12 properties. colorScheme: ColorScheme? derived from theme. accentColor: String hex default #FF6B6B. fontSize default 18.0.
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 16 properties. colorScheme: ColorScheme? derived from theme. accentColor: String hex default #FF6B6B. fontSize default 18.0. libraryColumns: Int default 3. keepScreenOn: Bool default true. isIncognito: Bool default false. showUnreadBadge: Bool default true.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
 ├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
@@ -97,15 +103,17 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v5)
+### Current tables (migration v9_novel_chapter_reading_time)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
-              status, genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
+              status TEXT (ReadingStatus enum: none/planToRead/reading/onHold/completed/dropped),
+              genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
               readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
-              isDownloaded, readAt, progress,
-              readingSeconds INTEGER NOT NULL DEFAULT 0)
+              isDownloaded, downloadedAt, readAt, progress,
+              readingSeconds INTEGER NOT NULL DEFAULT 0,
+              lastPageRead INTEGER NOT NULL DEFAULT 0)
 
 category     (id, name, sort)
 
@@ -123,7 +131,8 @@ novel        (id, path, sourceId, title, coverURL, summary, author, status,
               readingSeconds INTEGER NOT NULL DEFAULT 0)
 
 novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
-               readAt, releaseTime)
+               readAt, releaseTime,
+               readingSeconds INTEGER NOT NULL DEFAULT 0)
 ```
 
 ### Migrations
@@ -133,8 +142,12 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - **v4_reading_insights**: `ALTER TABLE manga ADD COLUMN readingSeconds` / `ALTER TABLE novel ADD COLUMN readingSeconds`
 - **v4_reading_time**: `ALTER TABLE chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
 - **v5_categories**: manga_category join table (mangaId + categoryId, composite PK, ON DELETE CASCADE)
+- **v6_downloads**: `ALTER TABLE chapter ADD COLUMN downloadedAt TEXT` (downloadedAt on chapter)
+- **v7_reading_status**: `ALTER TABLE manga ADD COLUMN status TEXT NOT NULL DEFAULT 'none'`
+- **v8_last_page**: `ALTER TABLE chapter ADD COLUMN lastPageRead INTEGER NOT NULL DEFAULT 0`
+- **v9_novel_chapter_reading_time**: `ALTER TABLE novel_chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks them by string name, not number. Next migration must use prefix `v6_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v10_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
@@ -146,10 +159,9 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 ### AppSettings (Yomi/AppSettings.swift)
 `@Observable final class`, accessed via `AppSettings.shared`
 
-**Pattern (fixed S23):** All 11 user-facing settings are **stored properties** with `didSet`
-that persists to `UserDefaults`. `@ObservationIgnored` on the `defaults` ivar. `private init()`
-reads all values from UserDefaults with fallback defaults. `colorScheme` remains computed
-(derived from `theme`) — correct because `theme` is stored and tracked.
+**Pattern (fixed S23):** All stored properties use `didSet` to persist to `UserDefaults`.
+`@ObservationIgnored` on the `defaults` ivar. `private init()` reads all values from UserDefaults
+with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 
 - `readerMode: String` — "Manga (RTL)", "Manhwa (LTR)", or "Webtoon"
 - `fontSize: Double` — novel reader font size (points)
@@ -162,6 +174,10 @@ reads all values from UserDefaults with fallback defaults. `colorScheme` remains
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
 - `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView
 - `accentColor: String` — hex string for app tint color; default `#FF6B6B`; scrollable 10-swatch row + custom ColorPicker in SettingsView; applied via `.tint(Color(hex:))` on ContentView
+- `libraryColumns: Int` — grid columns in LibraryView; UserDefaults key "libraryColumns"; default 3; range 2–6
+- `keepScreenOn: Bool` — disables idle timer in ChapterReaderView; UserDefaults key "keepScreenOn"; default true
+- `isIncognito: Bool` — skip chapter read/progress persistence when true; UserDefaults key "isIncognito"; default false
+- `showUnreadBadge: Bool` — show unread count capsule badge on library covers; UserDefaults key "showUnreadBadge"; default true
 - `colorScheme: ColorScheme?` — computed; nil=system, .light, .dark; drives `.preferredColorScheme` at ContentView root
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
@@ -217,7 +233,11 @@ getMangaList(page)        → [{id, path, title, coverURL, summary, author, arti
 getChapterList(mangaPath) → [{id, path, name, chapterNumber}]
 getPageList(chapterPath)  → [urlString]
 searchManga(query, page)  → [{id, path, title, coverURL, summary, author, artist, status, genres}]
+
+// Optional — JSBridge checks for undefined before calling
+getLatestManga(page)      → [{id, path, title, coverURL, ...}]   // Latest tab in SourceBrowseView
 ```
+`JSBridge.supportsLatest: Bool` — returns true only if `getLatestManga` is a defined function in the plugin context.
 
 ### Format B — LNReader/Novel
 Class exported on global `plugin`. Compatible with LNReader ecosystem plugins.
@@ -426,13 +446,13 @@ No need to paste `find` output or ROADMAP — Claude Code reads actual files bef
 **Commit discipline:** Commit after each logical unit, not at session close. If something breaks mid-session, rollback is clean.
 
 ### MCP servers (user scope, all connected)
-| Server | Package / URL | Purpose |
-|--------|--------------|---------|
-| XcodeBuildMCP | `npx -y xcodebuildmcp@latest mcp` | Build, simulator control, LLDB, read Xcode errors |
-| context7 | `https://mcp.context7.com/mcp` (HTTP) | Live GRDB, SwiftUI, JS library docs |
-| apple-docs | `npx -y @kimsungwhee/apple-docs-mcp@latest` | SwiftUI + iOS 26 API lookup |
-| github | `https://api.githubcopilot.com/mcp` (HTTP) | PR/issue management |
-| mobile-mcp | `npx -y @mobilenext/mobile-mcp@latest` | iOS Simulator UI automation |
+| Server | Package / URL | Status | Purpose |
+|--------|--------------|--------|---------|
+| XcodeBuildMCP | `npx -y xcodebuildmcp@latest mcp` | ✅ Connected | Build, simulator control, LLDB, read Xcode errors |
+| context7 | `https://mcp.context7.com/mcp` (HTTP) | ✅ Connected | Live GRDB, SwiftUI, JS library docs |
+| github | `https://api.githubcopilot.com/mcp` (HTTP) | ✅ Connected | PR/issue management |
+| mobile-mcp | `npx -y @mobilenext/mobile-mcp@latest` | ✅ Connected | iOS Simulator UI automation |
+| apple-docs | `npx -y @kimsungwhee/apple-docs-mcp@latest` | ✅ Connected | SwiftUI + iOS 26 API from developer.apple.com |
 
 **Install syntax:** `--scope user` flag must come BEFORE the `--` separator. Everything after `--` is passed to the subprocess.
 ```bash

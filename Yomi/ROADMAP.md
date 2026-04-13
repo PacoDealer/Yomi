@@ -1,29 +1,35 @@
 # Roadmap — Yomi
 
-## Current state (post S25 — 2026-04-08)
-S25 complete. Extension catalog is now inline in Browse → Extensions tab; "Get plugins" in Library
-deep-links directly to it. Firebase index.json populated with all 7 sources (MangaDex, Comick,
-Asura Scans, AquaManga, Royal Road, Scribble Hub, Novel Fire) and deployed. EXTENSIONS.md guide
-with copy-paste URLs committed to repo. Library now has multi-select (long-press → selection mode,
-checkmark overlays, bulk Remove from Library). Reading status field added to Manga model (v7 migration,
-ReadingStatus enum: none/planToRead/reading/onHold/completed/dropped) with pill menu in
-MangaDetailView header. Unread count sort added to LibraryViewModel (single-query aggregation
-via fetchUnreadCountsByManga). Privacy policy deployed at https://yomi-plugins.web.app/privacy,
-linked from Settings → About. PluginCatalogService fetchCatalog() guarded against concurrent calls.
-AppRouter.openBrowseExtensions flag enables Library → Browse → Extensions deep link.
+## Current state (post S30 — 2026-04-11)
+
+All S28/S29 critical bugs are resolved. Core functionality fully working: chapter persistence, read
+state, downloads, update checks with notifications. UI is polished across all major screens.
+
+**S29 shipped:** ChapterQueries.insertAllIgnoringConflicts() — chapters now persisted in DB; read state
+and downloads work correctly. Chapter tap→reader via navigationDestination(item:) + Chapter.Hashable.
+Auto-mark chapter read (last page or ≥80%). Post-read UI refresh with 500ms delay. InsightsView full
+redesign (ScrollView + LazyVGrid StatCards). Novel reader overlay smooth fade animation. Novel reader
+colorScheme fix (sepia → .light). Popular/Latest tabs in SourceBrowseView. Incognito mode + unread
+badge toggle. comick.js domain migrated to api.comick.dev.
+
+**S30 shipped:** MangaDetailView header redesign (110pt cover, genre chips, resume button). MangaCoverCell
+read progress bar. ContinueReadingRow: progress bar + last chapter subtitle. NovelDetailView header
+redesign (matches MangaDetailView style). HistoryView: swipe-to-delete now persists (clears lastReadAt
+in DB). UpdatesView redesigned: per-chapter rows grouped by manga, shows unread chapters for each
+updated manga. UpdatesView refresh now persists new chapters to DB + sends notifications. TextReaderView:
+added prev/next chapter navigation buttons in overlay; view now takes chapters[] + startIndex.
+MangaQueries.clearLastRead() added. MoreView version/build info from Bundle.
 
 **App Store blockers remaining:**
-1. App icon (1024×1024 PNG) — user working on design
-2. PrivacyInfo.xcprivacy — already added in S22 (NSPrivacyAccessedAPICategoryUserDefaults)
-3. Age rating 17+ declaration (App Store Connect only)
-4. App description, screenshots, support URL (App Store Connect only)
+1. App icon (1024×1024 PNG) — user working on design separately
+2. Age rating 17+ declaration (App Store Connect only)
+3. App description, screenshots, support URL (App Store Connect only)
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| .tint() across .fullScreenCover | .tint applied to ContentView() may not propagate into OnboardingView (new presentation context). Needs runtime verification. | Medium |
-| Paperback plugin testing | Shim is wired but untested with real Paperback .js bundles. Chapter path encodes mangaId\|chapterId — decode in getPageList adapter needs field testing. | Medium |
-| BrowseView Extensions tab caching | Currently fetches catalog every time the tab is opened (no entries.isEmpty guard). Add entries.isEmpty check or TTL-based refresh. | Low |
+| Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
+| BrowseView Extensions tab caching | Fetches catalog every time tab opens. Add entries.isEmpty check or TTL refresh. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -264,16 +270,106 @@ buttonStyle — fixed.
 | 8 | Novel read on scroll-to-end | ✅ Done | ReaderWebView: WKUserScript injected at documentEnd — scroll event listener fires readComplete message at 90% scroll ratio (once: true). Coordinator conforms to WKScriptMessageHandler. markRead moved from HTML-load to scroll event. |
 | 9 | Downloads cleanup on delete | ✅ Done | MangaDetailView.toggleLibrary: when inLibrary becomes false, delete Documents/Downloads/{mangaId}/ via Task.detached + FileManager.removeItem. |
 
-## Session 25 — planned
-| # | Feature | Detail | Complexity |
-|---|---------|--------|------------|
-| 1 | App icon | 1024×1024 PNG coral-amber gradient + 読 or kitsune. All Asset Catalog sizes. App Store blocker. | External/design |
-| 2 | Privacy policy URL | Static page on GitHub Pages or Firebase. Required for App Store. | Trivial |
-| 3 | Library unread count sort | Requires bulk ChapterQueries count per manga. Load into LibraryViewModel. | Small |
-| 4 | Multi-select long-press in library | Long-press cover → multi-select mode → bulk download, mark read, categorize. | Medium |
-| 5 | Paperback plugin testing | Test with real Paperback .js bundles. Fix any adapter issues discovered. | Medium |
-| 6 | PluginCatalogService cache guard | fetchCatalog() guard !isLoading && (entries.isEmpty || forceRefresh). | Small |
-| 7 | Reading status field | Add status: String (Reading/Completed/On Hold/Dropped/Plan to Read) to manga table, DB migration v7. | Medium |
+## Session 25 — ✅ Complete (2026-04-08)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | App icon | ⏭ Deferred — user designing separately |
+| 2 | Privacy policy URL | ✅ privacy.html deployed to Firebase at yomi-plugins.web.app/privacy |
+| 3 | Library unread count sort | ✅ SortOrder.unreadCount + ChapterQueries.fetchUnreadCountsByManga (single GROUP BY) |
+| 4 | Multi-select long-press in library | ✅ MangaCoverCell: isSelecting/isSelected/onLongPress/onSelect. LibraryView: Cancel+SelectAll toolbar, bulk Remove from Library |
+| 5 | Paperback plugin testing | ⏭ Deferred |
+| 6 | PluginCatalogService cache guard | ✅ guard !isLoading at fetchCatalog() entry |
+| 7 | Reading status field | ✅ ReadingStatus enum + v7_reading_status migration + MangaQueries.updateReadingStatus + ReadingStatusMenu pill in MangaDetailView |
+| 8 | Extension catalog inline | ✅ Browse → Extensions sub-tab, YomiCatalogEntryRow reused. AppRouter.openBrowseExtensions deep link from Library |
+| 9 | EXTENSIONS.md | ✅ Step-by-step install guide with copy-paste URLs for all 7 sources |
+
+## Session 26 — ✅ Complete (2026-04-08)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | comick.js fix | Added COMICK_HEADERS (Referer + Origin). Fixed b2key image object format in getPageList. Deployed to Firebase. |
+| 2 | Chapter selection mode | Long-press ChapterRow → isSelectingChapters + selectedChapterIds. Bottom action bar: mark read, mark unread, download, delete. Cancel button. |
+| 3 | Download sub-menu | Chapters section header: ellipsis menu with Next / Next 5 / Next 10 / All unread / All chapters. Only shown when bridge available. |
+| 4 | Per-chapter download button | Inline download icon on each ChapterRow. Taps DownloadManager.enqueue(). |
+| 5 | Overflow menu | ellipsis.circle in MangaDetailView toolbar: Edit categories, Select chapters, heart toggle. |
+
+## Session 27 — ✅ Complete (2026-04-08)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | Chapter.lastPageRead | New Int field on Chapter model. DB migration v8_last_page (ALTER TABLE chapter ADD COLUMN lastPageRead INTEGER DEFAULT 0). |
+| 2 | completedDownloadCount | DownloadManager.completedDownloadCount Int observer. Increments after each successful download. MangaDetailView + DownloadsView observe via .onChange. |
+| 3 | refreshChapterStates() | MangaDetailView: lightweight DB merge (isRead, isDownloaded, progress, lastPageRead, readAt) without JSBridge fetch. Called on .onAppear + download complete. |
+| 4 | lastPageRead in reader | ChapterReaderView saves currentPage as lastPageRead on exit (onDisappear + navigateToChapter). Resumes from saved page on load. |
+| 5 | ChapterRow progress | "Page N" subtitle for partially-read chapters. opacity 0.45 when isRead. |
+| 6 | Browse source filter fix | BrowseView: extracted runSearch(query:debounce:). Both onChange(of: searchQuery) and onChange(of: selectedSource) call runSearch — source filter now immediately re-triggers search. |
+| 7 | Settings: Items per row | AppSettings.libraryColumns: Int (UserDefaults, default 3). Stepper in SettingsView. LibraryView dynamic GridItem columns. |
+| 8 | Settings: Keep screen on | AppSettings.keepScreenOn: Bool (UserDefaults, default true). Toggle in SettingsView. Applied in ChapterReaderView via isIdleTimerDisabled. |
+| 9 | Settings: Clear image cache | Advanced section in SettingsView. URLCache.shared.removeAllCachedResponses() + haptic. |
+| 10 | ChapterQueries.setRead | nonisolated static func setRead(chapterId: String, isRead: Bool) — used by bulk selection mark read/unread. |
+
+## Session 28 — Full project audit (2026-04-08, no code shipped)
+| # | Finding | Root Cause | Fix (S29) |
+|---|---------|-----------|-----------|
+| 1 | Downloads not showing | Chapters never INSERTed in DB; markDownloaded SQL UPDATE affects 0 rows | ChapterQueries.insertAllIgnoringConflicts() in loadChapters() |
+| 2 | Read state not persisting | Same root cause — markRead SQL UPDATE affects 0 rows | Same fix |
+| 3 | Novel reader overlay invisible | TextReaderView forces .preferredColorScheme(.dark) even in sepia; overlay gated on showOverlay bool | Remove forced dark colorScheme; redesign overlay |
+| 4 | Novels not in Library | LibraryViewModel.loadLibrary() never calls NovelQueries.fetchLibrary() | Add novels field + call fetchLibrary() |
+| 5 | No Popular/Latest tabs | Format A spec has no getPopularManga/getLatestManga; SourceBrowseView has no tab picker | Add optional functions to spec + Picker in SourceBrowseView |
+| 6 | Comick broken | Code correct; Cloudflare or API change. Needs live diagnostic | curl test; update headers/endpoint |
+| 7 | InsightsView ugly | Stat cards inside List row clips them awkwardly | Redesign as ScrollView with proper card layout |
+| 8 | Settings incomplete | Many Tachimanga settings not yet in Yomi | Backup/Restore page, Reader settings sub-page, Incognito mode (P3) |
+
+## Session 29 — Bug blitz + UX + Features (2026-04-09) ✅ Complete
+All S28 P0/P1/P2/P3 items resolved.
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ INSERT OR IGNORE chapters | ChapterQueries.insertAllIgnoringConflicts() added. Called in MangaDetailView.loadChapters() after JSBridge fetch, before DB merge. Fixes silent-fail root cause (downloads, read state, progress). |
+| 2 | ✅ Chapter selection UX fix | Long-press ChapterRow enters selection mode. Tap navigates to reader (download button remains download-only). Chapter.Hashable conformance added for navigationDestination(item:). |
+| 3 | ✅ Auto-delete download on mark-read | markSelected(read: Bool) auto-deletes downloaded files when marking chapters as read. |
+| 4 | ✅ Auto-mark chapter as read | Chapter marked read automatically when: last page reached OR (multi-page chapter AND ≥80% read). No user action required. Fires in onDisappear and onChange(of: currentPage). |
+| 5 | ✅ Post-read UI refresh | .onChange(of: chapterForNav) fires 500ms delayed refreshChapterStates() when returning from reader. Fixes race condition between onDisappear DB write and parent onAppear DB read. |
+| 6 | ✅ InsightsView redesign | Full ScrollView-based layout: 2-column LazyVGrid StatCard (flame/book/clock/stack icons), by-manga VStack rows with rounded background and dividers. |
+| 7 | ✅ Novel reader overlay fix | .opacity(showOverlay ? 1 : 0) + .allowsHitTesting(showOverlay) replaces if showOverlay gating — overlay animates smoothly because views stay in hierarchy. .animation(.easeInOut, value: showOverlay) added. |
+| 8 | ✅ Novel reader colorScheme fix | .preferredColorScheme(isSepia ? .light : (isDarkMode ? .dark : .light)) replaces forced .dark. Sepia mode now shows correct light chrome. |
+| 9 | ✅ Popular / Latest tabs in Browse | JSBridge: getLatestManga(page:sourceId:) + supportsLatest Bool (checks for undefined before calling). SourceBrowseView: FeedTab enum (.popular/.latest), segmented Picker shown only when supportsLatest && !isNovelSource. Bridge reused across tab switches (not recreated). |
+| 10 | ✅ Incognito mode | AppSettings.isIncognito: Bool (UserDefaults, default false). Toggle in SettingsView → Reader — Manga with descriptive subtitle. ChapterReaderView: guard !isIncognito else { return } skips markChapterRead() and updateProgress(). |
+| 11 | ✅ Unread badge toggle | AppSettings.showUnreadBadge: Bool (UserDefaults, default true). Toggle in SettingsView → Library section. MangaCoverCell gates badge on AppSettings.shared.showUnreadBadge. |
+| 12 | ✅ Comick domain migration | API_BASE variable added to comick.js. Updated from api.comick.fun (DNS dead) to api.comick.dev. Mobile Safari User-Agent added to COMICK_HEADERS. Note: api.comick.dev returns 403 Cloudflare challenge from non-browser clients — site-level block outside Yomi control. |
+| 13 | ✅ Code audit + 2 bugs fixed | Duplicate // MARK: - Library display in AppSettings removed. SourceBrowseView bridge recreation on tab switch fixed (reuse existing bridge). Build verified clean. |
+
+## Session 30 — UI Polish + Bug Fixes + Reader UX (2026-04-11) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ MangaDetailView header redesign | 110pt cover with shadow, title3.bold, Label author/source, genre chips (horizontal ScrollView), full-width Resume/Start Reading button (borderedProminent .large). Smart resume: in-progress → first unread → last chapter. |
+| 2 | ✅ MangaCoverCell improvements | Read progress bar (accentColor, 3pt height at bottom of image). Moved download icon to image overlay (was covering title). async let parallel fetch for unread/downloaded/chapters in .task. |
+| 3 | ✅ ContinueReadingCell improvements | 90pt cover, read progress bar, last-read chapter name subtitle. Loads via .task(id:). |
+| 4 | ✅ NovelDetailView header redesign | Matches MangaDetailView: 110pt cover + shadow, title3.bold, Label author/source, NovelStatusBadge, genre chips. |
+| 5 | ✅ HistoryView delete fix | swipe-to-delete now calls MangaQueries.clearLastRead() — manga no longer reappears on refresh. MangaQueries.clearLastRead(mangaId:) added. |
+| 6 | ✅ UpdatesView redesign | Per-chapter rows grouped by manga: each manga = Section with MangaUpdateHeader (tiny cover + title + "N new chapters" + relative time) + UpdateChapterRow per unread chapter. Shows manga updated in last 30 days. NavigationLink to MangaDetailView. |
+| 7 | ✅ UpdatesView refresh: persist + notify | checkUpdates now calls insertMangaAndChapters (persists new chapters to DB) and scheduleChapterNotification. bridge capture uses await MainActor.run. |
+| 8 | ✅ TextReaderView chapter navigation | Signature changed to chapters:[NovelChapter] + startIndex:Int. activeChapter computed var. Prev/next chapter buttons in overlay (chevron.left.2 / chevron.right.2, greyed out when at boundary). navigateToChapter() marks current as read then switches. .task(id: activeChapter.id) reloads content on chapter change. |
+| 9 | ✅ MoreView version/build from Bundle | CFBundleShortVersionString + CFBundleVersion read from Bundle.main.infoDictionary (was hardcoded). |
+
+## Session 31 — Novel parity + UX improvements (2026-04-13) ✅ Complete
+
+Full project audit before S31 revealed novels were second-class citizens: no read state persistence,
+no reading time tracking, missing from History/Insights/Updates, wrong dark mode init.
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ DB v9_novel_chapter_reading_time | ALTER TABLE novel_chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0. NovelChapter model + GRDB conformance updated. |
+| 2 | ✅ Novel chapter persistence | NovelDetailView.loadChapters(): after JSBridge fetch, calls NovelQueries.insertAllIgnoringConflicts() then re-fetches merged state from DB. NovelQueries.markRead() now hits real rows. |
+| 3 | ✅ Novel resume button | NovelDetailView: Resume/Start Reading button (same pattern as MangaDetailView). resumeChapter logic: in-progress → first unread → last. touchLastReadAt() on chapter tap. |
+| 4 | ✅ Novel reading time tracking | TextReaderView: sessionStart + readingTimer (Timer 1s). flushReadingTime() on onDisappear and navigateToChapter. Calls NovelQueries.addReadingTime(chapterId:novelId:seconds:) which accumulates readingSeconds in both chapter and novel rows + updates novel.lastReadAt. |
+| 5 | ✅ TextReaderView isDarkMode fix | Was hardcoded to true. Now initialized from AppSettings.shared.theme == "Dark". Light-theme users no longer get dark novel reader on first open. |
+| 6 | ✅ HistoryView: manga + novels | loadHistory() fetches both MangaQueries.fetchHistory() + NovelQueries.fetchHistory(). Unified HistoryItem enum. Merged and sorted by lastReadAt desc. Novel rows navigate via loadNovelDetail() (bridge lookup). Swipe-delete calls clearLastRead on correct type. Novel rows show "Novel" badge. |
+| 7 | ✅ InsightsView: includes novels | Streak unions manga + novel chapter readAt dates. Chapters Read = manga + novel isRead counts. Time Read = manga + novel readingSeconds totals. Titles Started = manga + novels with readingSeconds > 0. "By Manga" → "By Title" section shows combined manga+novel stats sorted by time desc. |
+| 8 | ✅ UpdatesView: novel updates | checkNovelUpdates(for:) mirrors checkUpdates(for:) using bridge.parseNovel(). Finds new chapters by path diff, calls insertAllIgnoringConflicts, touchLastUpdated, scheduleChapterNotification. novelGroups: [(novel: Novel, chapters: [NovelChapter])] added to ViewModel. Novel groups render in List below manga groups with NovelUpdateHeader + UpdateNovelChapterRow. |
+| 9 | ✅ UpdatesView: direct chapter→reader | Manga chapter rows changed from NavigationLink→MangaDetailView to Button → loadMangaReader() (async: load bridge + full chapter list → find index → set MangaReaderDest). Novel chapter rows: Button → loadNovelReader() (same pattern → TextReaderView). navigationDestination(item:) for both. Section header NavigationLink to MangaDetailView kept. |
+| 10 | ✅ LibraryViewModel: novel sort + search | displayedNovels computed var mirrors displayedManga: applies sortOrder (lastRead/alphabetical/lastUpdated/unreadCount) + searchText filter. novelUnreadCounts: [String: Int] loaded from NovelQueries.fetchUnreadCountsByNovel() in loadLibrary(). |
+| 11 | ✅ LibraryView: displayedNovels | Novel grid uses viewModel.displayedNovels instead of viewModel.novels. Novel unread badge added to NovelLibraryCoverCell: accent-colored Capsule top-right, gated on AppSettings.showUnreadBadge, capped at 999. |
+| 12 | ✅ NovelQueries additions | Added: fetchOne(id:), fetchHistory(), fetchRecentlyRead(limit:), clearLastRead(novelId:), touchLastUpdated(novelId:), fetchUnreadCountsByNovel(), insertAllIgnoringConflicts(), addReadingTime(chapterId:novelId:seconds:). |
 
 ## UX research findings (S23 basis)
 Research covered: Tachiyomi, Paperback, Aidoku, MangaPlus, Webtoon, INKR, Azuki, Moon+ Reader,
@@ -321,12 +417,11 @@ These items must ALL be complete before submitting to App Store Connect:
 | Item | Status | Notes |
 |------|--------|-------|
 | PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
-| Privacy policy URL | ❌ Missing | Required for any app connecting to the internet. Host a static page. |
-| App icon | ❌ Missing | All required sizes. Use Asset Catalog. |
+| Privacy policy URL | ✅ Done S25 | yomi-plugins.web.app/privacy — linked from Settings → About. |
+| App icon | ❌ Missing | All required sizes. Use Asset Catalog. User designing separately. |
 | Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
-| PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
-| MAL token in Keychain | ❌ Pending | Currently in UserDefaults. Migrate before submission. |
-| Age rating: 17+ | ❌ Pending | App enables NSFW content via user-installed plugins. Must declare. |
+| MAL token in Keychain | ✅ Done S24 | KeychainHelper + auto-migration from UserDefaults on first load. |
+| Age rating: 17+ | ❌ Pending | App enables NSFW content via user-installed plugins. Must declare in App Store Connect. |
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
 | Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). |
 | Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |

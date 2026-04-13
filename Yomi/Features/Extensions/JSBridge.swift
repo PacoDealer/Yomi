@@ -53,6 +53,7 @@ final class JSBridge {
         JSBridge.injectShims(into: ctx)
         ctx.evaluateScript(source)
         JSBridge.injectPaperbackAdapter(into: ctx)
+        JSBridge.injectLNReaderAdapter(into: ctx)
     }
 
     /// true when the loaded script exposes a `plugin` global with `popularNovels` (LNReader format)
@@ -75,6 +76,44 @@ final class JSBridge {
             !flag.isUndefined, !flag.isNull
         else { return false }
         return true
+    }
+
+    /// After evaluating the plugin script, check for LNReader-format plugins and:
+    /// 1. Bridge parseNovelAndChapters → parseNovel (LNReader uses the former)
+    /// 2. Wrap all async plugin methods so they return synchronously (using Promise microtask flush)
+    nonisolated private static func injectLNReaderAdapter(into ctx: JSContext) {
+        ctx.evaluateScript("""
+        (function(global) {
+            var p = global.plugin;
+            if (!p || typeof p !== 'object') return;
+
+            // _resolve: flush pending Promise microtasks synchronously.
+            // Works because fetchApi wraps SOURCE._fetchSync (a DispatchSemaphore-based sync call),
+            // so the Promise chain is already resolved when .then() is called.
+            function _resolve(val) {
+                if (val && typeof val.then === 'function') {
+                    var result;
+                    val.then(function(v) { result = v; });
+                    return result;
+                }
+                return val;
+            }
+
+            // LNReader uses parseNovelAndChapters; Yomi bridge calls parseNovel.
+            // Add parseNovel alias if only the LNReader variant exists.
+            if (typeof p.parseNovelAndChapters === 'function' && typeof p.parseNovel !== 'function') {
+                var _pnac = p.parseNovelAndChapters.bind(p);
+                p.parseNovel = function(path) { return _resolve(_pnac(path)); };
+            }
+
+            // Wrap all async plugin methods to appear synchronous to the Swift bridge.
+            ['popularNovels', 'latestUpdates', 'searchNovels', 'parseNovel', 'parseChapter'].forEach(function(name) {
+                if (typeof p[name] !== 'function') return;
+                var orig = p[name].bind(p);
+                p[name] = function() { return _resolve(orig.apply(null, arguments)); };
+            });
+        })(this);
+        """)
     }
 
     /// After evaluating the plugin script, inspect exports for a Paperback Source subclass
@@ -310,6 +349,29 @@ final class JSBridge {
             var headers = options.headers || {};
             return SOURCE._fetchSync(url, method, body, JSON.stringify(headers));
         };
+
+        // LNReader-compatible global fetchApi — wraps SOURCE._fetchSync, returns a Promise
+        // so that LNReader async plugins can do: const html = await fetchApi(url).then(r=>r.text())
+        this.fetchApi = function(url, options) {
+            options = options || {};
+            var method  = (options.method || 'GET').toUpperCase();
+            var body    = options.body;
+            var headers = options.headers || {};
+            var bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+            var responseText = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(headers));
+            return Promise.resolve({
+                ok:     true,
+                status: 200,
+                text:   function() { return Promise.resolve(responseText); },
+                json:   function() {
+                    try { return Promise.resolve(JSON.parse(responseText)); }
+                    catch(e) { return Promise.reject(e); }
+                }
+            });
+        };
+
+        // Plugin namespace — satisfies TypeScript `implements Plugin.PluginBase`
+        this.Plugin = { PluginBase: function() {} };
         """)
     }
 
@@ -781,6 +843,22 @@ final class JSBridge {
                         return { Source: Source, App: App };
                     })();
 
+                } else if (name === '@libs/storage') {
+                    // LNReader storage utility — in-memory key-value store
+                    var _lnStore = {};
+                    mod.exports = {
+                        storage: {
+                            get: function(k) { return Object.prototype.hasOwnProperty.call(_lnStore, k) ? _lnStore[k] : null; },
+                            set: function(k, v) { _lnStore[k] = v; }
+                        }
+                    };
+
+                } else if (name === '@libs/filterInputs') {
+                    mod.exports = { FilterTypes: {}, Filters: {} };
+
+                } else if (name === '@libs/defaultCover') {
+                    mod.exports = { defaultCover: '' };
+
                 } else {
                     // Unknown module — return empty exports, do not crash
                     mod.exports = {};
@@ -807,6 +885,22 @@ final class JSBridge {
             .objectForKeyedSubscript("getMangaList")?
             .call(withArguments: [page])
         return JSBridge.parseMangaArray(result, sourceId: sourceId)
+    }
+
+    /// Returns the latest-updated manga list. Returns [] if the plugin doesn't export `getLatestManga`.
+    nonisolated func getLatestManga(page: Int, sourceId: String) -> [Manga] {
+        guard
+            let fn = context.objectForKeyedSubscript("getLatestManga"),
+            !fn.isUndefined, !fn.isNull, fn.isObject
+        else { return [] }
+        let result = fn.call(withArguments: [page])
+        return JSBridge.parseMangaArray(result, sourceId: sourceId)
+    }
+
+    /// True if this plugin exports `getLatestManga`.
+    nonisolated var supportsLatest: Bool {
+        guard let fn = context.objectForKeyedSubscript("getLatestManga") else { return false }
+        return !fn.isUndefined && !fn.isNull && fn.isObject
     }
 
     nonisolated func getChapterList(mangaPath: String, mangaId: String) -> [Chapter] {
