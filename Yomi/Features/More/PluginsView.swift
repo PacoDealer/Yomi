@@ -44,7 +44,7 @@ struct PluginsView: View {
             InstallFromURLSheet(extensionManager: extensionManager)
         }
         .onAppear { Task { await catalogService.fetchCatalog() } }
-        .refreshable { await catalogService.fetchCatalog() }
+        .refreshable { await catalogService.fetchCatalog(force: true) }
     }
 
     // MARK: Installed section

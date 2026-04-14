@@ -351,6 +351,25 @@ All S28 P0/P1/P2/P3 items resolved.
 | 8 | ✅ TextReaderView chapter navigation | Signature changed to chapters:[NovelChapter] + startIndex:Int. activeChapter computed var. Prev/next chapter buttons in overlay (chevron.left.2 / chevron.right.2, greyed out when at boundary). navigateToChapter() marks current as read then switches. .task(id: activeChapter.id) reloads content on chapter change. |
 | 9 | ✅ MoreView version/build from Bundle | CFBundleShortVersionString + CFBundleVersion read from Bundle.main.infoDictionary (was hardcoded). |
 
+## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Library ReadingStatus filter chips | Second horizontal chip row below category row in LibraryView. Chips: All / Reading / Plan to Read / On Hold / Completed / Dropped. Applies to manga only (novels have no status column). LibraryViewModel.statusFilter: ReadingStatus? drives displayedManga filter. |
+| 2 | ✅ ContinueReadingRow shows novels | ContinueItem enum (manga/novel cases). Both fetched in parallel, merged by lastReadAt desc, top 10 shown. ContinueReadingNovelCell: 90pt cover + "N" badge + progress bar + last-chapter subtitle + tap→NovelDetailView via JSBridge bridge lookup. |
+| 3 | ✅ Novel categories (v10_ migration) | v10_novel_category migration: novel_category join table (novelId FK→novel, categoryId FK→category, PK composite). CategoryQueries: assignNovel/unassignNovel/categoriesForNovel/novelIds(inCategory:). LibraryViewModel: filteredNovelIds + category filter applied to displayedNovels. NovelDetailView: category sheet via ellipsis.circle menu (mirrors MangaDetailView pattern). |
+| 4 | ✅ Backup & Restore includes novels | BackupManager v2 format: adds novels, novelChapters, novelCategories arrays. Export fetches NovelQueries.fetchAll() + NovelChapter.fetchAll + novel_category rows. Import: NovelQueries.upsert() + insertAllIgnoringConflicts() + INSERT OR IGNORE for novel_category. encode/decodeNovel + encode/decodeNovelChapter helpers added. |
+| 5 | ✅ Extensions tab TTL cache | PluginCatalogService: lastFetchedAt + 1-hour TTL. fetchCatalog(force:) skips network if data is fresh. Pull-to-refresh uses force: true. No redundant fetches on tab switches. |
+| 6 | ✅ LNReader compat gaps documented | METODOLOGIA.md: Gap 1 (latestUpdates not called by UpdatesView), Gap 2 (plugin.options not surfaced in UI), Gap 3 (Cloudflare blocks WuxiaWorld/WebNovel). No code change needed — gaps are documented for future sessions. |
+| 7 | ✅ New plugin: LightNovelPub | lightnovelpub.js (Format B). Selectors for popular/search/detail/chapter. Added to Firebase index.json. Deployed to yomi-plugins.web.app. |
+
+**Deep research conducted (2026-04-14) — saved to memory, do not re-research:**
+- Competitive: Mihon, Tachimanga, Paperback, LNReader, Aidoku, all source sites, community sentiment
+- UX/reading science: typography, themes, sepia, novel-specific UX, TTS, glossary
+- App Store 2026: new age rating system (4/9/13/16/18+, replaces 17+), rejection reasons, screenshot requirements
+
+**App Store correction:** Age rating changed from 17+ to **18+** in 2026 system. Update in App Store Connect.
+
 ## Session 31 — Novel parity + UX improvements (2026-04-13) ✅ Complete
 
 Full project audit before S31 revealed novels were second-class citizens: no read state persistence,
@@ -421,7 +440,7 @@ These items must ALL be complete before submitting to App Store Connect:
 | App icon | ❌ Missing | All required sizes. Use Asset Catalog. User designing separately. |
 | Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
 | MAL token in Keychain | ✅ Done S24 | KeychainHelper + auto-migration from UserDefaults on first load. |
-| Age rating: 17+ | ❌ Pending | App enables NSFW content via user-installed plugins. Must declare in App Store Connect. |
+| Age rating: 18+ | ❌ Pending | 2026 system uses 4/9/13/16/18+ (replaces old 17+). App enables NSFW content via user-installed plugins. Must declare in App Store Connect. |
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
 | Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). |
 | Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |

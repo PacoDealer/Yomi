@@ -248,41 +248,64 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var categoryFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if !viewModel.categories.isEmpty {
-                    CategoryChip(
-                        label: "All",
-                        isSelected: viewModel.selectedCategoryId == nil
-                    ) {
-                        viewModel.selectedCategoryId = nil
-                    }
-                    ForEach(viewModel.categories) { category in
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if !viewModel.categories.isEmpty {
                         CategoryChip(
-                            label: category.name,
-                            isSelected: viewModel.selectedCategoryId == category.id
+                            label: "All",
+                            isSelected: viewModel.selectedCategoryId == nil
                         ) {
-                            viewModel.selectedCategoryId = category.id
+                            viewModel.selectedCategoryId = nil
+                        }
+                        ForEach(viewModel.categories) { category in
+                            CategoryChip(
+                                label: category.name,
+                                isSelected: viewModel.selectedCategoryId == category.id
+                            ) {
+                                viewModel.selectedCategoryId = category.id
+                            }
                         }
                     }
+                    // Always show "+" to create categories
+                    Button {
+                        newCategoryName = ""
+                        showNewCategorySheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(.secondary)
+                            .background(Capsule().stroke(Color.secondary, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
                 }
-                // Always show "+" to create categories
-                Button {
-                    newCategoryName = ""
-                    showNewCategorySheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .foregroundStyle(.secondary)
-                        .background(Capsule().stroke(Color.secondary, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            // Reading status filter row — only shown when manga are in library
+            if !viewModel.mangas.isEmpty {
+                Divider()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        CategoryChip(label: "All", isSelected: viewModel.statusFilter == nil) {
+                            viewModel.statusFilter = nil
+                        }
+                        ForEach(ReadingStatus.allCases.filter { $0 != .none }) { status in
+                            CategoryChip(
+                                label: status.label,
+                                isSelected: viewModel.statusFilter == status
+                            ) {
+                                viewModel.statusFilter = (viewModel.statusFilter == status) ? nil : status
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+            }
         }
         .background(.bar)
         .sheet(isPresented: $showNewCategorySheet) {

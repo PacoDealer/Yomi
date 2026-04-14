@@ -19,27 +19,26 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S31 — 2026-04-13)
+## Current state (post S32 — 2026-04-14)
 
-S31 closed the novel parity gap. Novels now have feature parity with manga across the entire app:
-read state persistence, reading time tracking, History, Insights, Updates, Library sort/search/badges.
+S32 ships library organization, novel categories, backup completeness, and new plugin sources.
 
-**S31 shipped:**
-- DB v9_novel_chapter_reading_time: readingSeconds column added to novel_chapter table
-- NovelDetailView: chapters now persisted with INSERT OR IGNORE + DB re-fetch for merged read state
-- NovelDetailView: Resume/Start Reading button (same as MangaDetailView)
-- TextReaderView: isDarkMode initialized from AppSettings.shared.theme (was hardcoded true)
-- TextReaderView: reading time tracked (sessionStart + Timer + flushReadingTime on exit/nav)
-- NovelQueries: addReadingTime, fetchHistory, clearLastRead, touchLastUpdated, fetchUnreadCountsByNovel, insertAllIgnoringConflicts, fetchOne, fetchRecentlyRead all added
-- HistoryView: now shows manga + novels merged by lastReadAt desc; novel rows navigate via bridge lookup
-- InsightsView: all 4 stat cards + "By Title" section now include novels; section renamed "By Title"
-- UpdatesView: novel library checked for updates (bridge.parseNovel); direct chapter→reader navigation for both manga and novels (no more intermediary MangaDetailView step)
-- LibraryViewModel: displayedNovels computed var with sort+search; novelUnreadCounts loaded
-- LibraryView: novel grid uses displayedNovels; NovelLibraryCoverCell shows unread badge
+**S32 shipped:**
+- LibraryView: ReadingStatus filter chips (second chip row; All/Reading/Plan to Read/On Hold/Completed/Dropped; manga only)
+- LibraryViewModel: statusFilter: ReadingStatus? applied in displayedManga after category filter
+- ContinueReadingRow: now shows novels (ContinueItem enum, merged by lastReadAt, top 10; ContinueReadingNovelCell with "N" badge + progress bar)
+- DB v10_novel_category: novel_category join table (novelId FK→novel, categoryId FK→category, composite PK)
+- CategoryQueries: assignNovel/unassignNovel/categoriesForNovel/novelIds(inCategory:)
+- LibraryViewModel: filteredNovelIds + category filter applied to displayedNovels
+- NovelDetailView: category sheet via ellipsis.circle menu; loadCategories() + toggleCategory() methods
+- BackupManager v2: novels + novelChapters + novelCategories in export/import; backwards-compatible with v1 backups
+- PluginCatalogService: 1-hour TTL on fetchCatalog(); force: true for pull-to-refresh
+- lightnovelpub.js: new Format B plugin deployed to Firebase
+- METODOLOGIA.md: LNReader compat gaps documented (latestUpdates, plugin.options, Cloudflare)
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG) — user working on design separately
-2. Age rating 17+ declaration (App Store Connect)
+2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
 3. App description, screenshots, support URL (App Store Connect)
 
 ## Known issues / next session
@@ -115,7 +114,7 @@ mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v10_` (v9_ used for novel_chapter.readingSeconds in S31)
+- Next migration prefix must be `v11_` (v10_ used for novel_category in S32)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`

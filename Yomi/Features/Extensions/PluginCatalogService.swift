@@ -28,11 +28,18 @@ struct PluginCatalogEntry: Codable, Identifiable {
     var entries: [PluginCatalogEntry] = []
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    private var lastFetchedAt: Date? = nil
+    private let ttl: TimeInterval = 3600 // 1 hour
 
     // MARK: - Fetch
 
-    func fetchCatalog() async {
+    /// Fetches the catalog from Firebase. Skipped if data is fresh (< 1 hour old).
+    /// Pass `force: true` to bypass TTL (e.g. pull-to-refresh).
+    func fetchCatalog(force: Bool = false) async {
         guard !isLoading else { return }
+        if !force, !entries.isEmpty, let last = lastFetchedAt, Date().timeIntervalSince(last) < ttl {
+            return
+        }
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -50,6 +57,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
             let decoded = try JSONDecoder().decode([PluginCatalogEntry].self, from: data)
             await MainActor.run {
                 entries = decoded
+                lastFetchedAt = Date()
                 isLoading = false
             }
         } catch {
