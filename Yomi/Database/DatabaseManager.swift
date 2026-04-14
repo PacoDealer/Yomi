@@ -190,6 +190,16 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v10_novel_category") { db in
+            try db.create(table: "novel_category", ifNotExists: true) { t in
+                t.column("novelId", .text).notNull()
+                    .references("novel", onDelete: .cascade)
+                t.column("categoryId", .text).notNull()
+                    .references("category", onDelete: .cascade)
+                t.primaryKey(["novelId", "categoryId"])
+            }
+        }
+
         try migrator.migrate(db)
     }
 }

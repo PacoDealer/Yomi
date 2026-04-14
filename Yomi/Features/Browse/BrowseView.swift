@@ -121,7 +121,7 @@ struct BrowseView: View {
                         Task { await installEntry(entry) }
                     }
                 }
-                .refreshable { await catalogService.fetchCatalog() }
+                .refreshable { await catalogService.fetchCatalog(force: true) }
             }
         }
         .task { await catalogService.fetchCatalog() }

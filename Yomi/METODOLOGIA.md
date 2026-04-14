@@ -773,6 +773,30 @@ Reasons:
 **Rule:** if iOS 18 support is needed in the future, create a separate branch
 `compat/ios18` and never mix it with main development.
 
+## S32 — Technical learnings (2026-04-14)
+
+- **ContinueReadingRow mixed-type pattern**: use a private `enum ContinueItem { case manga(Manga); case novel(Novel) }` with `var lastReadAt: Date?` computed property to merge and sort heterogeneous types in a single `[ContinueItem]` array. Fetch both in parallel `Task.detached`, merge, sort, take prefix(10).
+- **LibraryViewModel status filter**: add `var statusFilter: ReadingStatus? = nil` and apply after category filter in `displayedManga`: `let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }`. Tapping the active chip again toggles it off (nil).
+- **Novel category join table mirrors manga_category exactly**: same `category` table shared between manga and novels. Methods: `assignNovel/unassignNovel/categoriesForNovel/novelIds(inCategory:)` in CategoryQueries. No separate category table needed.
+- **PluginCatalogService TTL pattern**: `private var lastFetchedAt: Date?` + `fetchCatalog(force: Bool = false)`. Guard: `if !force, !entries.isEmpty, let last = lastFetchedAt, Date().timeIntervalSince(last) < ttl { return }`. Pull-to-refresh callers pass `force: true`. All `.onAppear`/`.task` callers get TTL for free.
+- **BackupManager v2 format**: `"version": 2` with `novels`, `novelChapters`, `novelCategories` arrays added. Import is backwards-compatible: v1 backups (missing novel keys) fall back to empty arrays via `?? []`. Novel chapters use `insertAllIgnoringConflicts` (INSERT OR IGNORE) on restore — safe, preserves existing read state.
+- **NovelDetailView toolbar refactor (S32)**: replaced single heart `Button` with `Menu { ... }` (ellipsis.circle) containing library toggle + category sheet trigger. Matches MangaDetailView overflow menu pattern. Category sheet disabled when `!isInLibrary`.
+- **App Store age rating 2026**: old 17+ system replaced by 4+/9+/13+/16+/18+. Yomi targets **18+**. Must update questionnaire in App Store Connect before submission.
+- **Deep research saved to memory**: `research_competitive.md` + `research_ux_appstore.md` in Claude memory. Do not re-research Mihon/Tachimanga/LNReader/Paperback/App Store/UX unless explicitly asked.
+
+## S32 — LNReader plugin compatibility gaps (researched 2026-04-14)
+
+The LNReader adapter in `JSBridge.swift` (`injectLNReaderAdapter`) is production-ready. Known gaps documented below — no code change needed unless a specific new plugin fails.
+
+**Gap 1 — `latestUpdates` not called by UpdatesView**
+The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesView` does not call it. It checks for new chapters by calling `bridge.parseNovel(path:)` and comparing the returned chapter list against the DB. `latestUpdates` would be more efficient (returns a lightweight list), but `parseNovel` is more reliable since it also refreshes all chapter metadata. Future optimization: use `latestUpdates` as a fast pre-check before deciding whether to call `parseNovel`.
+
+**Gap 2 — `plugin.options` not surfaced in UI**
+`popularNovels(pageNo, options)` receives `options` from Swift as `undefined`. Some LNReader plugins use `options` to filter by genre, language, or sort order (e.g., `options.genres`, `options.sortedBy`). These filter capabilities are silently ignored — the user always gets the default list. Future work: expose a genre/sort picker in `BrowseView` for novel sources that declare options, and pass the selected values through the bridge.
+
+**Gap 3 — Cloudflare blocks WuxiaWorld and WebNovel**
+`SOURCE.fetch` uses a realistic iPhone Safari `User-Agent` and standard headers, but does not execute JavaScript or solve Cloudflare challenges. Sites with Cloudflare bot protection (WuxiaWorld, WebNovel) will return 403 or a JS challenge page instead of HTML. These sources are not viable with the current HTTP-only fetch model. Viable novel sources: Royal Road, ScribbleHub, NovelFire, LightNovelPub, NovelBin, FreeWebNovel.
+
 ## Architecture decisions
 - GRDB over SwiftData: full schema control, more mature, compatible with incremental migrations
 - JavaScriptCore over WKWebView: lighter, no UI required, better for headless plugins

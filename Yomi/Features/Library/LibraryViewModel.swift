@@ -35,6 +35,8 @@ final class LibraryViewModel {
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var sortOrder: SortOrder = .lastRead
+    /// When nil → show all manga regardless of reading status. Only applies to manga.
+    var statusFilter: ReadingStatus? = nil
 
     // MARK: - Categories
 
@@ -47,14 +49,21 @@ final class LibraryViewModel {
 
     private(set) var filteredIds: Set<String> = []
 
+    private(set) var filteredNovelIds: Set<String> = []
+
     private func updateFilteredIds() {
         guard let catId = selectedCategoryId else {
             filteredIds = []
+            filteredNovelIds = []
             return
         }
         Task.detached {
-            let ids = (try? CategoryQueries.mangaIds(inCategory: catId)) ?? []
-            await MainActor.run { self.filteredIds = Set(ids) }
+            let mangaIds = (try? CategoryQueries.mangaIds(inCategory: catId)) ?? []
+            let novelIds = (try? CategoryQueries.novelIds(inCategory: catId)) ?? []
+            await MainActor.run {
+                self.filteredIds = Set(mangaIds)
+                self.filteredNovelIds = Set(novelIds)
+            }
         }
     }
 
@@ -69,7 +78,8 @@ final class LibraryViewModel {
 
     /// Manga shown in the grid: category-filtered, sorted by sortOrder, then title search.
     var displayedManga: [Manga] {
-        let base = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
+        let categoryFiltered = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
+        let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Manga]
         switch sortOrder {
         case .lastRead:
@@ -104,12 +114,13 @@ final class LibraryViewModel {
     /// Legacy alias kept for any existing callsite that uses filteredMangas.
     var filteredMangas: [Manga] { displayedManga }
 
-    /// Novels shown in the grid: sorted by sortOrder, then title search.
+    /// Novels shown in the grid: category-filtered, sorted by sortOrder, then title search.
     var displayedNovels: [Novel] {
+        let base = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
         let sorted: [Novel]
         switch sortOrder {
         case .lastRead:
-            sorted = novels.sorted {
+            sorted = base.sorted {
                 switch ($0.lastReadAt, $1.lastReadAt) {
                 case let (a?, b?): return a > b
                 case (.some, .none): return true
@@ -118,9 +129,9 @@ final class LibraryViewModel {
                 }
             }
         case .alphabetical:
-            sorted = novels.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
+            sorted = base.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
         case .lastUpdated:
-            sorted = novels.sorted {
+            sorted = base.sorted {
                 switch ($0.lastUpdatedAt, $1.lastUpdatedAt) {
                 case let (a?, b?): return a > b
                 case (.some, .none): return true
@@ -129,7 +140,7 @@ final class LibraryViewModel {
                 }
             }
         case .unreadCount:
-            sorted = novels.sorted {
+            sorted = base.sorted {
                 (novelUnreadCounts[$0.id] ?? 0) > (novelUnreadCounts[$1.id] ?? 0)
             }
         }

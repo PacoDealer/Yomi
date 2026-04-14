@@ -103,7 +103,7 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v9_novel_chapter_reading_time)
+### Current tables (migration v10_novel_category)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (ReadingStatus enum: none/planToRead/reading/onHold/completed/dropped),
@@ -133,6 +133,10 @@ novel        (id, path, sourceId, title, coverURL, summary, author, status,
 novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
                readAt, releaseTime,
                readingSeconds INTEGER NOT NULL DEFAULT 0)
+
+novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
+                categoryId TEXT NOT NULL FK→category ON DELETE CASCADE,
+                PRIMARY KEY (novelId, categoryId))
 ```
 
 ### Migrations
@@ -146,8 +150,9 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 - **v7_reading_status**: `ALTER TABLE manga ADD COLUMN status TEXT NOT NULL DEFAULT 'none'`
 - **v8_last_page**: `ALTER TABLE chapter ADD COLUMN lastPageRead INTEGER NOT NULL DEFAULT 0`
 - **v9_novel_chapter_reading_time**: `ALTER TABLE novel_chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
+- **v10_novel_category**: novel_category join table (novelId + categoryId, composite PK, ON DELETE CASCADE)
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v10_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v11_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control

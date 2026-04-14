@@ -21,14 +21,24 @@ import Observation
         defer { isExporting = false }
 
         do {
-            let mangas   = try MangaQueries.fetchAll()
-            let chapters = try await appDatabase.read { try Chapter.fetchAll($0) }
+            let mangas         = try MangaQueries.fetchAll()
+            let chapters       = try await appDatabase.read { try Chapter.fetchAll($0) }
+            let novels         = try NovelQueries.fetchAll()
+            let novelChapters  = try await appDatabase.read { try NovelChapter.fetchAll($0) }
+            let novelCatPairs  = try await appDatabase.read { db -> [[String: String]] in
+                try Row.fetchAll(db, sql: "SELECT novelId, categoryId FROM novel_category").map {
+                    ["novelId": $0["novelId"], "categoryId": $0["categoryId"]]
+                }
+            }
 
             let payload: [String: Any] = [
-                "version":    1,
-                "exportedAt": ISO8601DateFormatter().string(from: Date()),
-                "mangas":     mangas.map   { encodeManga($0) },
-                "chapters":   chapters.map { encodeChapter($0) }
+                "version":         2,
+                "exportedAt":      ISO8601DateFormatter().string(from: Date()),
+                "mangas":          mangas.map        { encodeManga($0) },
+                "chapters":        chapters.map      { encodeChapter($0) },
+                "novels":          novels.map        { encodeNovel($0) },
+                "novelChapters":   novelChapters.map { encodeNovelChapter($0) },
+                "novelCategories": novelCatPairs
             ]
 
             let data = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
@@ -73,6 +83,31 @@ import Observation
             for dict in chapterDicts {
                 if let chapter = decodeChapter(dict) {
                     try ChapterQueries.upsert(chapter)
+                }
+            }
+
+            // Novels (v2 backup)
+            let novelDicts        = payload["novels"]          as? [[String: Any]] ?? []
+            let novelChapterDicts = payload["novelChapters"]   as? [[String: Any]] ?? []
+            let novelCatPairs     = payload["novelCategories"] as? [[String: String]] ?? []
+
+            for dict in novelDicts {
+                if let novel = decodeNovel(dict) {
+                    try NovelQueries.upsert(novel)
+                }
+            }
+            for dict in novelChapterDicts {
+                if let chapter = decodeNovelChapter(dict) {
+                    try NovelQueries.insertAllIgnoringConflicts([chapter])
+                }
+            }
+            _ = try await appDatabase.write { db in
+                for pair in novelCatPairs {
+                    guard let novelId = pair["novelId"], let catId = pair["categoryId"] else { continue }
+                    try db.execute(
+                        sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
+                        arguments: [novelId, catId]
+                    )
                 }
             }
         } catch {
@@ -169,6 +204,86 @@ import Observation
             progress:       d["progress"]       as? Double ?? 0,
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
             lastPageRead:   d["lastPageRead"]   as? Int ?? 0
+        )
+    }
+
+    private func encodeNovel(_ n: Novel) -> [String: Any] {
+        var d: [String: Any] = [
+            "id":             n.id,
+            "path":           n.path,
+            "sourceId":       n.sourceId,
+            "title":          n.title,
+            "status":         n.status,
+            "genres":         n.genres,
+            "inLibrary":      n.inLibrary,
+            "readingSeconds": n.readingSeconds
+        ]
+        if let v = n.coverURL?.absoluteString { d["coverURL"]      = v }
+        if let v = n.summary                  { d["summary"]       = v }
+        if let v = n.author                   { d["author"]        = v }
+        if let v = n.lastReadAt               { d["lastReadAt"]    = ISO8601DateFormatter().string(from: v) }
+        if let v = n.lastUpdatedAt            { d["lastUpdatedAt"] = ISO8601DateFormatter().string(from: v) }
+        return d
+    }
+
+    private func encodeNovelChapter(_ c: NovelChapter) -> [String: Any] {
+        var d: [String: Any] = [
+            "id":             c.id,
+            "novelId":        c.novelId,
+            "path":           c.path,
+            "name":           c.name,
+            "isRead":         c.isRead,
+            "readingSeconds": c.readingSeconds
+        ]
+        if let v = c.chapterNumber { d["chapterNumber"] = v }
+        if let v = c.readAt        { d["readAt"]        = ISO8601DateFormatter().string(from: v) }
+        if let v = c.releaseTime   { d["releaseTime"]   = v }
+        return d
+    }
+
+    private func decodeNovel(_ d: [String: Any]) -> Novel? {
+        guard
+            let id       = d["id"]       as? String,
+            let path     = d["path"]     as? String,
+            let sourceId = d["sourceId"] as? String,
+            let title    = d["title"]    as? String
+        else { return nil }
+        let fmt = ISO8601DateFormatter()
+        return Novel(
+            id:             id,
+            path:           path,
+            sourceId:       sourceId,
+            title:          title,
+            coverURL:       (d["coverURL"] as? String).flatMap { URL(string: $0) },
+            summary:        d["summary"] as? String,
+            author:         d["author"]  as? String,
+            status:         d["status"]  as? String ?? "",
+            genres:         d["genres"]  as? [String] ?? [],
+            inLibrary:      d["inLibrary"]      as? Bool ?? false,
+            lastReadAt:     (d["lastReadAt"]    as? String).flatMap { fmt.date(from: $0) },
+            lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
+            readingSeconds: d["readingSeconds"] as? Int ?? 0
+        )
+    }
+
+    private func decodeNovelChapter(_ d: [String: Any]) -> NovelChapter? {
+        guard
+            let id      = d["id"]      as? String,
+            let novelId = d["novelId"] as? String,
+            let path    = d["path"]    as? String,
+            let name    = d["name"]    as? String
+        else { return nil }
+        let fmt = ISO8601DateFormatter()
+        return NovelChapter(
+            id:             id,
+            novelId:        novelId,
+            path:           path,
+            name:           name,
+            chapterNumber:  d["chapterNumber"] as? Double,
+            isRead:         d["isRead"]        as? Bool ?? false,
+            readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
+            releaseTime:    d["releaseTime"]   as? String,
+            readingSeconds: d["readingSeconds"] as? Int ?? 0
         )
     }
 }

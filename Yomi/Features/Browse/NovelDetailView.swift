@@ -11,6 +11,9 @@ struct NovelDetailView: View {
     @State private var isLoadingChapters = false
     @State private var isInLibrary: Bool
     @State private var chapterForNav: NovelChapter? = nil
+    @State private var allCategories: [Category] = []
+    @State private var assignedCategoryIds: Set<String> = []
+    @State private var showCategorySheet = false
 
     init(novel: Novel, bridge: JSBridge) {
         self.novel = novel
@@ -189,17 +192,59 @@ struct NovelDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isInLibrary.toggle()
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    Task { await toggleLibrary() }
+                Menu {
+                    Button {
+                        isInLibrary.toggle()
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        Task { await toggleLibrary() }
+                    } label: {
+                        Label(
+                            isInLibrary ? "Remove from Library" : "Add to Library",
+                            systemImage: isInLibrary ? "heart.slash" : "heart"
+                        )
+                    }
+                    Button {
+                        showCategorySheet = true
+                    } label: {
+                        Label("Edit categories", systemImage: "tag")
+                    }
+                    .disabled(!isInLibrary)
                 } label: {
-                    Image(systemName: isInLibrary ? "heart.fill" : "heart")
-                        .foregroundStyle(isInLibrary ? .red : .primary)
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
+        .sheet(isPresented: $showCategorySheet) {
+            NavigationStack {
+                List {
+                    ForEach(allCategories) { cat in
+                        Button {
+                            Task { await toggleCategory(cat) }
+                        } label: {
+                            HStack {
+                                Text(cat.name)
+                                Spacer()
+                                if assignedCategoryIds.contains(cat.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .navigationTitle("Categories")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showCategorySheet = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .task { await loadChapters() }
+        .task { await loadCategories() }
     }
 
     // MARK: - Toggle Library
@@ -208,6 +253,40 @@ struct NovelDetailView: View {
         var updated = novel
         updated.inLibrary = isInLibrary
         try? NovelQueries.upsert(updated)
+    }
+
+    // MARK: - Load Categories
+
+    private func loadCategories() async {
+        let novelId = novel.id
+        let (all, assigned) = await Task.detached(priority: .userInitiated) {
+            let all = (try? CategoryQueries.fetchAll()) ?? []
+            let assigned = (try? CategoryQueries.categoriesForNovel(novelId: novelId)) ?? []
+            return (all, Set(assigned.map { $0.id }))
+        }.value
+        allCategories = all
+        assignedCategoryIds = assigned
+    }
+
+    // MARK: - Toggle Category
+
+    private func toggleCategory(_ category: Category) async {
+        let novelId = novel.id
+        let catId = category.id
+        let isAssigned = assignedCategoryIds.contains(catId)
+        await Task.detached(priority: .userInitiated) {
+            if isAssigned {
+                try? CategoryQueries.unassignNovel(novelId: novelId, categoryId: catId)
+            } else {
+                try? CategoryQueries.assignNovel(novelId: novelId, categoryId: catId)
+            }
+        }.value
+        if isAssigned {
+            assignedCategoryIds.remove(catId)
+        } else {
+            assignedCategoryIds.insert(catId)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: - Touch lastReadAt
