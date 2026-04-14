@@ -109,4 +109,54 @@ enum CategoryQueries {
             )
         }
     }
+
+    // MARK: - novel_category join
+
+    /// Asigna una novela a una categoría (INSERT OR IGNORE)
+    nonisolated static func assignNovel(novelId: String, categoryId: String) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
+                arguments: [novelId, categoryId]
+            )
+        }
+    }
+
+    /// Elimina la asignación de una novela a una categoría
+    nonisolated static func unassignNovel(novelId: String, categoryId: String) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "DELETE FROM novel_category WHERE novelId = ? AND categoryId = ?",
+                arguments: [novelId, categoryId]
+            )
+        }
+    }
+
+    /// Devuelve las categorías asignadas a una novela, ordenadas por sort ASC
+    nonisolated static func categoriesForNovel(novelId: String) throws -> [Category] {
+        try appDatabase.read { db in
+            try Category.fetchAll(
+                db,
+                sql: """
+                    SELECT category.*
+                    FROM category
+                    JOIN novel_category ON category.id = novel_category.categoryId
+                    WHERE novel_category.novelId = ?
+                    ORDER BY category.sort ASC
+                    """,
+                arguments: [novelId]
+            )
+        }
+    }
+
+    /// Devuelve los novelId asignados a una categoría
+    nonisolated static func novelIds(inCategory categoryId: String) throws -> [String] {
+        try appDatabase.read { db in
+            try String.fetchAll(
+                db,
+                sql: "SELECT novelId FROM novel_category WHERE categoryId = ?",
+                arguments: [categoryId]
+            )
+        }
+    }
 }

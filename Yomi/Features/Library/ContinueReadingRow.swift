@@ -1,9 +1,44 @@
 import SwiftUI
 
+// MARK: - ContinueItem
+
+private enum ContinueItem: Identifiable {
+    case manga(Manga)
+    case novel(Novel)
+
+    var id: String {
+        switch self {
+        case .manga(let m): return "manga-\(m.id)"
+        case .novel(let n): return "novel-\(n.id)"
+        }
+    }
+
+    var lastReadAt: Date? {
+        switch self {
+        case .manga(let m): return m.lastReadAt
+        case .novel(let n): return n.lastReadAt
+        }
+    }
+
+    var coverURL: URL? {
+        switch self {
+        case .manga(let m): return m.coverURL
+        case .novel(let n): return n.coverURL
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .manga(let m): return m.title
+        case .novel(let n): return n.title
+        }
+    }
+}
+
 // MARK: - ContinueReadingRow
 
 struct ContinueReadingRow: View {
-    @State private var items: [Manga] = []
+    @State private var items: [ContinueItem] = []
 
     var body: some View {
         Group {
@@ -17,8 +52,13 @@ struct ContinueReadingRow: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 12) {
-                            ForEach(items) { manga in
-                                ContinueReadingCell(manga: manga)
+                            ForEach(items) { item in
+                                switch item {
+                                case .manga(let manga):
+                                    ContinueReadingCell(manga: manga)
+                                case .novel(let novel):
+                                    ContinueReadingNovelCell(novel: novel)
+                                }
                             }
                         }
                         .padding(.horizontal)
@@ -27,15 +67,30 @@ struct ContinueReadingRow: View {
             }
         }
         .task {
-            let loaded = await Task.detached(priority: .userInitiated) {
+            let mangas = await Task.detached(priority: .userInitiated) {
                 (try? MangaQueries.fetchRecentlyRead(limit: 10)) ?? []
             }.value
-            await MainActor.run { items = loaded }
+            let novels = await Task.detached(priority: .userInitiated) {
+                (try? NovelQueries.fetchRecentlyRead(limit: 10)) ?? []
+            }.value
+
+            let merged: [ContinueItem] = (mangas.map { .manga($0) } + novels.map { .novel($0) })
+                .sorted {
+                    switch ($0.lastReadAt, $1.lastReadAt) {
+                    case let (a?, b?): return a > b
+                    case (.some, .none): return true
+                    default: return false
+                    }
+                }
+                .prefix(10)
+                .map { $0 }
+
+            await MainActor.run { items = merged }
         }
     }
 }
 
-// MARK: - ContinueReadingCell
+// MARK: - ContinueReadingCell (manga)
 
 private struct ContinueReadingCell: View {
     let manga: Manga
@@ -142,8 +197,6 @@ private struct ContinueReadingCell: View {
         }
     }
 
-    // MARK: - Open reader at last-read chapter
-
     private func openReader() async {
         isLoading = true
         defer { isLoading = false }
@@ -152,7 +205,6 @@ private struct ContinueReadingCell: View {
         let mangaPath = manga.path
         let mangaId = manga.id
 
-        // Capture bridge on MainActor before entering Task.detached
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
               let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
 
@@ -162,7 +214,6 @@ private struct ContinueReadingCell: View {
 
         guard !fetchedChapters.isEmpty else { return }
 
-        // Merge persisted read/progress state from DB
         let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
         let chapters = fetchedChapters.map { ch -> Chapter in
@@ -174,7 +225,6 @@ private struct ContinueReadingCell: View {
             return merged
         }
 
-        // Find most recently touched chapter
         let lastTouched = saved
             .filter { $0.isRead || $0.progress > 0 }
             .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
@@ -192,5 +242,126 @@ private struct ContinueReadingCell: View {
         readerChapters = chapters
         readerChapterIndex = chapterIndex
         navigateToReader = true
+    }
+}
+
+// MARK: - ContinueReadingNovelCell
+
+private struct ContinueReadingNovelCell: View {
+    let novel: Novel
+
+    @State private var isLoading = false
+    @State private var navigateToDetail = false
+    @State private var detailBridge: JSBridge? = nil
+    @State private var lastChapterName: String? = nil
+    @State private var readProgress: Double = 0
+
+    var body: some View {
+        Button {
+            guard !isLoading else { return }
+            Task { await openDetail() }
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 4) {
+                    AsyncImage(url: novel.coverURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        case .failure:
+                            Rectangle()
+                                .fill(.quaternary)
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                                .overlay {
+                                    Image(systemName: "text.book.closed")
+                                        .foregroundStyle(.secondary)
+                                }
+                        default:
+                            Rectangle()
+                                .fill(.quaternary)
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        }
+                    }
+                    .frame(width: 90)
+                    .cornerRadius(7)
+                    .clipped()
+                    .overlay(alignment: .bottom) {
+                        if readProgress > 0 && readProgress < 1 {
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * readProgress, height: 3)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(height: 3)
+                        }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        // "N" badge to distinguish novels from manga
+                        Text("N")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+                            .padding(4)
+                    }
+
+                    Text(novel.title)
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 90)
+                        .foregroundStyle(.primary)
+
+                    if let chName = lastChapterName {
+                        Text(chName)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.center)
+                            .frame(width: 90)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .padding(4)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .padding(4)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .task(id: novel.id) {
+            let chapters = await Task.detached {
+                (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
+            }.value
+            let touched = chapters
+                .filter { $0.isRead }
+                .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
+            lastChapterName = touched.first?.name
+            if !chapters.isEmpty {
+                let readCount = chapters.filter { $0.isRead }.count
+                readProgress = Double(readCount) / Double(chapters.count)
+            }
+        }
+        .navigationDestination(isPresented: $navigateToDetail) {
+            if let bridge = detailBridge {
+                NovelDetailView(novel: novel, bridge: bridge)
+            }
+        }
+    }
+
+    private func openDetail() async {
+        isLoading = true
+        defer { isLoading = false }
+        let sourceId = novel.sourceId
+        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
+              let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
+        detailBridge = bridge
+        navigateToDetail = true
     }
 }
