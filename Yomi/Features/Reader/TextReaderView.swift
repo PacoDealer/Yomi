@@ -576,7 +576,8 @@ private extension UIColor {
             title: "Re:Zero − Starting Life in Another World",
             coverURL: nil, summary: nil, author: "Tappei Nagatsuki",
             status: "ongoing", genres: ["Fantasy", "Isekai"],
-            inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
+            inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+            readingSeconds: 0, readingStatus: .none
         ),
         bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
         chapters: [chapter], startIndex: 0

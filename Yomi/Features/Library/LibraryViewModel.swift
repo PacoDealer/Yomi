@@ -114,9 +114,10 @@ final class LibraryViewModel {
     /// Legacy alias kept for any existing callsite that uses filteredMangas.
     var filteredMangas: [Manga] { displayedManga }
 
-    /// Novels shown in the grid: category-filtered, sorted by sortOrder, then title search.
+    /// Novels shown in the grid: category-filtered, status-filtered, sorted by sortOrder, then title search.
     var displayedNovels: [Novel] {
-        let base = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
+        let categoryFiltered = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
+        let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Novel]
         switch sortOrder {
         case .lastRead:

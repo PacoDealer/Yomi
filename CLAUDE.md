@@ -19,27 +19,24 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S32 — 2026-04-14)
+## Current state (post S33 — 2026-04-14)
 
-S32 ships library organization, novel categories, backup completeness, and new plugin sources.
+S33 adds ReadingStatus tracking for novels (parity with manga since S25).
 
-**S32 shipped:**
-- LibraryView: ReadingStatus filter chips (second chip row; All/Reading/Plan to Read/On Hold/Completed/Dropped; manga only)
-- LibraryViewModel: statusFilter: ReadingStatus? applied in displayedManga after category filter
-- ContinueReadingRow: now shows novels (ContinueItem enum, merged by lastReadAt, top 10; ContinueReadingNovelCell with "N" badge + progress bar)
-- DB v10_novel_category: novel_category join table (novelId FK→novel, categoryId FK→category, composite PK)
-- CategoryQueries: assignNovel/unassignNovel/categoriesForNovel/novelIds(inCategory:)
-- LibraryViewModel: filteredNovelIds + category filter applied to displayedNovels
-- NovelDetailView: category sheet via ellipsis.circle menu; loadCategories() + toggleCategory() methods
-- BackupManager v2: novels + novelChapters + novelCategories in export/import; backwards-compatible with v1 backups
-- PluginCatalogService: 1-hour TTL on fetchCatalog(); force: true for pull-to-refresh
-- lightnovelpub.js: new Format B plugin deployed to Firebase
-- METODOLOGIA.md: LNReader compat gaps documented (latestUpdates, plugin.options, Cloudflare)
+**S33 shipped:**
+- DB v11_novel_reading_status: ALTER TABLE novel ADD COLUMN readingStatus TEXT NOT NULL DEFAULT 'none'
+- Novel model: readingStatus: ReadingStatus field added; GRDB extension updated
+- NovelQueries: updateReadingStatus(novelId:status:) added
+- NovelDetailView: inline ReadingStatusMenu pill next to NovelStatusBadge (shown when inLibrary); updateReadingStatus() via Task.detached + haptic
+- ReadingStatusMenu: made non-private (was private to MangaDetailView) — now module-level accessible
+- LibraryView: status chip row guard updated — shows for manga OR novels (was manga-only)
+- LibraryViewModel.displayedNovels: statusFilter applied after category filter
+- Plugin catalog: novelbin.js + lightnovelpub.js + lightnovelworld.js ready (Firebase deploy pending — run firebase login --reauth && firebase deploy --only hosting in ~/Desktop/Yomi\ 2.0/yomi-firebase)
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG) — user working on design separately
 2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
-3. App description, screenshots, support URL (App Store Connect)
+3. App description, screenshots, support URL (App Store Connect — description text drafted in S33 session)
 
 ## Known issues / next session
 
@@ -114,7 +111,7 @@ mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v11_` (v10_ used for novel_category in S32)
+- Next migration prefix must be `v12_` (v11_ used for novel_reading_status in S33)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`

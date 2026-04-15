@@ -285,8 +285,8 @@ struct LibraryView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
-            // Reading status filter row — only shown when manga are in library
-            if !viewModel.mangas.isEmpty {
+            // Reading status filter row — shown when manga or novels are in library
+            if !viewModel.mangas.isEmpty || !viewModel.novels.isEmpty {
                 Divider()
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
