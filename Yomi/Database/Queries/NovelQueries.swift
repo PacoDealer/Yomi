@@ -100,6 +100,15 @@ enum NovelQueries {
         }
     }
 
+    /// Actualiza el readingStatus de una novela (estado definido por el usuario)
+    nonisolated static func updateReadingStatus(novelId: String, status: ReadingStatus) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("readingStatus").set(to: status.rawValue)])
+        }
+    }
+
     // MARK: - NovelChapter: Lectura
 
     /// Devuelve todos los capítulos de una novela ordenados por número de capítulo ascendente

@@ -216,7 +216,8 @@ import Observation
             "status":         n.status,
             "genres":         n.genres,
             "inLibrary":      n.inLibrary,
-            "readingSeconds": n.readingSeconds
+            "readingSeconds": n.readingSeconds,
+            "readingStatus":  n.readingStatus.rawValue
         ]
         if let v = n.coverURL?.absoluteString { d["coverURL"]      = v }
         if let v = n.summary                  { d["summary"]       = v }
@@ -262,7 +263,8 @@ import Observation
             inLibrary:      d["inLibrary"]      as? Bool ?? false,
             lastReadAt:     (d["lastReadAt"]    as? String).flatMap { fmt.date(from: $0) },
             lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
-            readingSeconds: d["readingSeconds"] as? Int ?? 0
+            readingSeconds: d["readingSeconds"] as? Int ?? 0,
+            readingStatus:  ReadingStatus(rawValue: d["readingStatus"] as? String ?? "none") ?? .none
         )
     }
 
