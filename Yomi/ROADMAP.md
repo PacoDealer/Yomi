@@ -369,6 +369,28 @@ All S28 P0/P1/P2/P3 items resolved.
 2. Age rating **18+** declaration (App Store Connect — 2026 system)
 3. App description + screenshots + support URL (App Store Connect)
 
+## Session 34 — Plugin debugging + code review (2026-04-15) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ freewebnovel.js chapter selector | Changed from `ul#chapter-list li a` to `a.con` (actual HTML structure). Added `/novel/` href filter to avoid matching unrelated links. |
+| 2 | ✅ novelbin.js data-novel-id regex | Changed `\d+` to `[^'"]+` — NovelBin uses text slugs (e.g., `martial-peak`) not numeric IDs. The previous regex always failed, falling back to visible chapter list. |
+| 3 | ✅ novelfire.js robustness | Added multiple fallback selectors for summary (`div.novel-synopsis`, `section.summary`, `div.description`) and status (`span.status`, `div.status`). Added `?page=1` to chapters URL. Added fallback chapter selectors (`li.chapter-item a`, `div.chapter-list a`). |
+| 4 | ✅ Catalog cleanup | Removed `comick` (Cloudflare blocks SOURCE.fetch, returns 403), `lightnovelworld` (site permanently dead), `lightnovelpub` (Cloudflare blocks). Catalog now has 8 working sources: MangaDex, Asura Scans, AquaManga, Royal Road, ScribbleHub, NovelFire, FreeWebNovel, NovelBin. |
+| 5 | ✅ BrowseView Swift concurrency fix | `self.selectedFeed` (MainActor @State) captured in `let currentFeed = selectedFeed` before `Task.detached` entry — eliminates Swift 6 isolation warning. |
+| 6 | ✅ NovelCoverCell phase-based AsyncImage | Switched from two-closure to phase-based `AsyncImage(url:content:)`. Consistent placeholder sizing across loading/error states prevents LazyVGrid row height instability. |
+| 7 | ✅ LazyVGrid bottom padding | Added `.padding(.bottom, 8)` to novel browse grid in `SourceBrowseView`. |
+| 8 | ✅ UpdatesView: insert newChapters only | Was inserting `remoteChapters` (all) instead of `newChapters` (filtered). INSERT OR IGNORE is non-destructive but inserting all chapters on every update check is wasteful for large catalogs. |
+| 9 | ✅ TextReaderView Task.detached priority | Added `priority: .background` to the `Task.detached` call that marks a chapter as read on navigation — was unspecified before. |
+| 10 | ✅ Full code review | All *Queries methods nonisolated ✓, JSBridge calls in Task.detached ✓, results via MainActor.run ✓, INSERT OR IGNORE for chapters ✓, bridge(for:) never uses stale sourceListURL ✓. Build clean with zero warnings. |
+
+**Firebase deploy needed:** Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase` to publish updated freewebnovel.js, novelbin.js, novelfire.js and updated index.json (3 plugins removed).
+
+**App Store blockers remaining:**
+1. App icon (1024×1024 PNG) — user working on design separately
+2. Age rating **18+** declaration (App Store Connect — 2026 system)
+3. App description + screenshots + support URL (App Store Connect)
+
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 
 | # | Feature | Detail |

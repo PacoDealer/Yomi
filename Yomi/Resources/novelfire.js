@@ -57,32 +57,49 @@ var plugin = {
       cover = BASE_URL + cover;
     }
 
-    var author = $("div.author a").first().text().trim() || "";
+    var author = $("div.author a").first().text().trim() ||
+                 $("span.author a").first().text().trim() || "";
 
-    var status = $("strong.ongoing").text().trim() ||
-                 $("strong.completed").text().trim() ||
-                 $("strong.hiatus").text().trim() || "Ongoing";
+    var statusText = $("strong.ongoing").text().trim() ||
+                     $("strong.completed").text().trim() ||
+                     $("strong.hiatus").text().trim() ||
+                     $("span.status").text().trim() ||
+                     $("div.status").text().trim() || "";
+    var status = statusText || "Ongoing";
 
     var summary = $("div.summary").text().trim() ||
+                  $("div.novel-synopsis").text().trim() ||
+                  $("section.summary").text().trim() ||
+                  $("div.description").text().trim() ||
                   $("div.novel-summary").text().trim() || "";
 
-    // Fetch chapter list from /book/{slug}/chapters
-    var chapUrl = BASE_URL + novelPath + "/chapters";
+    // Fetch chapter list from /book/{slug}/chapters (paginated, first page)
+    var chapUrl = BASE_URL + novelPath + "/chapters?page=1";
     var chapHtml = SOURCE.fetch(chapUrl);
     var $c = cheerio.load(chapHtml);
     var chapters = [];
 
-    $c("ul.chapter-list li a").each(function(i, el) {
+    // Try both ul.chapter-list and li.chapter-item patterns
+    var chapItems = $c("ul.chapter-list li a");
+    if (!chapItems.length) chapItems = $c("li.chapter-item a");
+    if (!chapItems.length) chapItems = $c("div.chapter-list a");
+
+    chapItems.each(function(i, el) {
       var chPath = el.attr("href") || "";
-      if (chPath && !chPath.startsWith("/")) chPath = "/" + chPath;
-      var chName = el.find("strong.chapter-title").text().trim();
-      var chNoText = el.find("span.chapter-no").text().trim();
+      if (chPath && !chPath.startsWith("/") && !chPath.startsWith("http")) chPath = "/" + chPath;
+      // Make absolute paths relative
+      if (chPath.startsWith(BASE_URL)) chPath = chPath.slice(BASE_URL.length);
+      var chName = el.find("strong.chapter-title").text().trim() ||
+                   el.find("span.chapter-title").text().trim() ||
+                   el.text().trim();
+      var chNoText = el.find("span.chapter-no").text().trim() ||
+                     el.find("span.chno").text().trim() || "";
       var chNo = parseFloat(chNoText) || (i + 1);
-      if (chPath) {
+      if (chPath && chName) {
         chapters.push({
           id: chPath,
           path: chPath,
-          name: chName || ("Chapter " + chNoText),
+          name: chName || ("Chapter " + chNo),
           chapterNumber: chNo
         });
       }

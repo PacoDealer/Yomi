@@ -61,7 +61,7 @@ var plugin = {
 
     // Chapter list via AJAX endpoint
     var novelId = "";
-    var idMatch = html.match(/data-novel-id=['"](\d+)['"]/);
+    var idMatch = html.match(/data-novel-id=['"]([^'"]+)['"]/);
     if (idMatch) novelId = idMatch[1];
 
     var chapters = [];

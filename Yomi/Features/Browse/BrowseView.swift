@@ -408,6 +408,7 @@ struct SourceBrowseView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
+                    .padding(.bottom, 8)
 
                     if hasMoreContent && searchText.isEmpty {
                         Group {
@@ -493,10 +494,11 @@ struct SourceBrowseView: View {
             }
         } else {
             isNovelSource = false
+            let currentFeed = selectedFeed
             let (results, hasLatest) = await Task.detached(priority: .userInitiated) {
                 let hasLatest = b.supportsLatest
                 let list: [Manga]
-                if hasLatest && self.selectedFeed == .latest {
+                if hasLatest && currentFeed == .latest {
                     list = b.getLatestManga(page: 1, sourceId: sourceId)
                 } else {
                     list = b.getMangaList(page: 1, sourceId: sourceId)
@@ -564,14 +566,16 @@ private struct NovelCoverCell: View {
             NovelDetailView(novel: novel, bridge: bridge)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                AsyncImage(url: novel.coverURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(2 / 3, contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .aspectRatio(2 / 3, contentMode: .fit)
+                AsyncImage(url: novel.coverURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    default:
+                        Color.secondary.opacity(0.3)
+                            .aspectRatio(2 / 3, contentMode: .fit)
+                    }
                 }
                 .cornerRadius(8)
                 .clipped()

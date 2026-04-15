@@ -64,10 +64,12 @@ var plugin = {
     });
 
     var chapters = [];
-    $("ul#chapter-list li a, div#chapter-list li a, ul.chapter-list li a").each(function(i, el) {
-      var chName = el.text().trim();
+    // Chapter links on freewebnovel use class="con" — e.g. <a href="/novel/title/chapter-1" class="con">
+    $("a.con").each(function(i, el) {
       var chPath = el.attr("href") || "";
-      if (chName && chPath) {
+      var chName = el.text().trim();
+      // Only include links that look like chapter URLs
+      if (chName && chPath && chPath.indexOf("/novel/") !== -1) {
         chapters.push({
           name: chName,
           path: chPath,
