@@ -121,7 +121,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         guard !newChapters.isEmpty else { return }
 
-        try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: remoteChapters)
+        try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: newChapters)
         try? MangaQueries.touchLastUpdated(mangaId: mangaId)
 
         let title = manga.title

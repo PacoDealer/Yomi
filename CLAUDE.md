@@ -19,19 +19,19 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 
-## Current state (post S33 — 2026-04-14)
+## Current state (post S34 — 2026-04-15)
 
-S33 adds ReadingStatus tracking for novels (parity with manga since S25).
+S34 is a plugin debug + code review session.
 
-**S33 shipped:**
-- DB v11_novel_reading_status: ALTER TABLE novel ADD COLUMN readingStatus TEXT NOT NULL DEFAULT 'none'
-- Novel model: readingStatus: ReadingStatus field added; GRDB extension updated
-- NovelQueries: updateReadingStatus(novelId:status:) added
-- NovelDetailView: inline ReadingStatusMenu pill next to NovelStatusBadge (shown when inLibrary); updateReadingStatus() via Task.detached + haptic
-- ReadingStatusMenu: made non-private (was private to MangaDetailView) — now module-level accessible
-- LibraryView: status chip row guard updated — shows for manga OR novels (was manga-only)
-- LibraryViewModel.displayedNovels: statusFilter applied after category filter
-- Plugin catalog: novelbin.js + lightnovelpub.js + lightnovelworld.js ready (Firebase deploy pending — run firebase login --reauth && firebase deploy --only hosting in ~/Desktop/Yomi\ 2.0/yomi-firebase)
+**S34 shipped:**
+- freewebnovel.js: chapter selector fixed (ul#chapter-list li a → a.con, with /novel/ href filter)
+- novelbin.js: data-novel-id regex fixed (\d+ → [^'"]+) — NovelBin uses text slugs not numeric IDs
+- novelfire.js: robust fallback selectors for summary/status; chapters URL gets ?page=1; multiple chapter selector fallbacks
+- Catalog (index.json): removed comick (Cloudflare 403), lightnovelworld (site dead), lightnovelpub (Cloudflare) — 8 sources remain
+- BrowseView: `let currentFeed = selectedFeed` before Task.detached (Swift 6 concurrency fix); NovelCoverCell phase-based AsyncImage; bottom padding on LazyVGrid
+- UpdatesView: inserts `newChapters` not `remoteChapters` (performance — avoids re-inserting all chapters)
+- TextReaderView: Task.detached(priority: .background) for markRead on navigation
+- Full code review: all concurrency/GRDB rules confirmed correct, zero build warnings
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG) — user working on design separately
@@ -42,8 +42,9 @@ S33 adds ReadingStatus tracking for novels (parity with manga since S25).
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block. May resolve if Cloudflare changes policy. |
+| 1 | NovelFire synopsis/status empty | `div.summary` and `strong.ongoing` selectors return empty despite being in HTML. Root cause unconfirmed — possibly JS-rendered content not returned by SOURCE.fetch. Multiple fallback selectors added in S34. |
 | 2 | App icon missing | User designing separately. App Store blocker. |
+| 3 | Firebase deploy needed | S34 updated freewebnovel.js, novelbin.js, novelfire.js + index.json. Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. |
 
 ## MCP tools — use these every session
 
