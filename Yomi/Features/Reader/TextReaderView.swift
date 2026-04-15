@@ -255,7 +255,7 @@ struct TextReaderView: View {
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
         let chapterId = activeChapter.id
-        Task.detached { try? NovelQueries.markRead(chapterId: chapterId) }
+        Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId) }
         rawContent    = ""
         isLoading     = true
         errorMessage  = nil
