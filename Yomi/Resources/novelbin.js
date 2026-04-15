@@ -10,7 +10,7 @@ const BASE_URL = "https://novelbin.me";
 var plugin = {
 
   popularNovels: function(pageNo, options) {
-    var url = BASE_URL + "/sort/top-novel?page=" + pageNo;
+    var url = BASE_URL + "/sort/novelbin-popular?page=" + pageNo;
     var html = SOURCE.fetch(url);
     var $ = cheerio.load(html);
     var novels = [];
@@ -20,7 +20,7 @@ var plugin = {
       var path  = $a.attr("href") || "";
       // Make path relative
       if (path.startsWith(BASE_URL)) path = path.slice(BASE_URL.length);
-      var cover = el.find("img.lazy").attr("data-src") || el.find("img").attr("src") || "";
+      var cover = el.find("img[data-src]").attr("data-src") || el.find("img").attr("src") || "";
       if (title && path) novels.push({ name: title, path: path, cover: cover });
     });
     return novels;
@@ -36,7 +36,7 @@ var plugin = {
       var title = $a.text().trim();
       var path  = $a.attr("href") || "";
       if (path.startsWith(BASE_URL)) path = path.slice(BASE_URL.length);
-      var cover = el.find("img.lazy").attr("data-src") || el.find("img").attr("src") || "";
+      var cover = el.find("img[data-src]").attr("data-src") || el.find("img").attr("src") || "";
       if (title && path) novels.push({ name: title, path: path, cover: cover });
     });
     return novels;

@@ -10,7 +10,7 @@ const BASE_URL = "https://freewebnovel.com";
 var plugin = {
 
   popularNovels: function(pageNo, options) {
-    var url = BASE_URL + "/most-popular-novel/" + pageNo + "/";
+    var url = BASE_URL + "/sort/most-popular/?page=" + pageNo;
     var html = SOURCE.fetch(url);
     var $ = cheerio.load(html);
     var novels = [];
@@ -19,6 +19,7 @@ var plugin = {
       var title = $a.text().trim();
       var path  = $a.attr("href") || "";
       var cover = el.find("div.pic img").attr("src") || "";
+      if (cover && !cover.startsWith("http")) cover = BASE_URL + cover;
       if (title && path) novels.push({ name: title, path: path, cover: cover });
     });
     return novels;
@@ -38,6 +39,7 @@ var plugin = {
       var title = $a.text().trim();
       var path  = $a.attr("href") || "";
       var cover = el.find("div.pic img").attr("src") || "";
+      if (cover && !cover.startsWith("http")) cover = BASE_URL + cover;
       if (title && path) novels.push({ name: title, path: path, cover: cover });
     });
     return novels;
@@ -50,6 +52,7 @@ var plugin = {
 
     var name    = $("h1.tit").text().trim() || $("title").text().trim();
     var cover   = $("div.pic img").attr("src") || "";
+    if (cover && !cover.startsWith("http")) cover = BASE_URL + cover;
     var author  = $("div.author a").text().trim() || $("span.author a").text().trim() || "";
     var summary = $("div.inner").text().trim() || $("div[class*='desc']").text().trim() || "";
     var status  = $("div.infos span.status").text().trim() || "Ongoing";
