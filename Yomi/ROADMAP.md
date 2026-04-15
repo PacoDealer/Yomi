@@ -351,6 +351,24 @@ All S28 P0/P1/P2/P3 items resolved.
 | 8 | ✅ TextReaderView chapter navigation | Signature changed to chapters:[NovelChapter] + startIndex:Int. activeChapter computed var. Prev/next chapter buttons in overlay (chevron.left.2 / chevron.right.2, greyed out when at boundary). navigateToChapter() marks current as read then switches. .task(id: activeChapter.id) reloads content on chapter change. |
 | 9 | ✅ MoreView version/build from Bundle | CFBundleShortVersionString + CFBundleVersion read from Bundle.main.infoDictionary (was hardcoded). |
 
+## Session 33 — Novel ReadingStatus parity (2026-04-14) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Novel ReadingStatus (v11_ migration) | ALTER TABLE novel ADD COLUMN readingStatus TEXT NOT NULL DEFAULT 'none'. Novel model: `readingStatus: ReadingStatus` field added. GRDB extension updated (init(row:) + encode(to:)). |
+| 2 | ✅ NovelQueries.updateReadingStatus | nonisolated static; GRDB updateAll on readingStatus column. Mirrors MangaQueries.updateReadingStatus. |
+| 3 | ✅ NovelDetailView ReadingStatusMenu | `ReadingStatusMenu` pill shown inline next to `NovelStatusBadge` when `isInLibrary`. Made `ReadingStatusMenu` struct non-private (was private to MangaDetailView) so NovelDetailView can reuse it. `@State private var novelReadingStatus: ReadingStatus` initialized from `novel.readingStatus`. `updateReadingStatus()` via Task.detached + haptic. |
+| 4 | ✅ Library status chips apply to novels | LibraryView chip row guard changed from `!mangas.isEmpty` to `!mangas.isEmpty \|\| !novels.isEmpty`. LibraryViewModel.displayedNovels now applies statusFilter after category filter (same pattern as displayedManga). |
+| 5 | ✅ Plugin catalog up to date | novelbin.js + lightnovelpub.js + lightnovelworld.js all written and in Firebase public folder. Firebase deploy pending (auth — see below). |
+| 6 | ✅ App Store description drafted | Text ready to paste into App Store Connect (see session notes). |
+
+**Firebase deploy pending:** Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase` to publish lightnovelpub.js, novelbin.js, lightnovelworld.js to yomi-plugins.web.app.
+
+**App Store blockers remaining:**
+1. App icon (1024×1024 PNG) — user working on design separately
+2. Age rating **18+** declaration (App Store Connect — 2026 system)
+3. App description + screenshots + support URL (App Store Connect)
+
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 
 | # | Feature | Detail |

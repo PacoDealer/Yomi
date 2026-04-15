@@ -972,7 +972,7 @@ private struct ChapterRow: View {
 
 // MARK: - ReadingStatusMenu
 
-private struct ReadingStatusMenu: View {
+struct ReadingStatusMenu: View {
     let readingStatus: ReadingStatus
     let onSelect: (ReadingStatus) -> Void
 

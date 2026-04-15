@@ -488,7 +488,8 @@ struct SourceBrowseView: View {
                 Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
                       title: item.name, coverURL: URL(string: item.cover ?? ""),
                       summary: nil, author: nil, status: "unknown", genres: [],
-                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0)
+                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+                      readingSeconds: 0, readingStatus: .none)
             }
         } else {
             isNovelSource = false
@@ -529,7 +530,8 @@ struct SourceBrowseView: View {
                     Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
                           title: item.name, coverURL: URL(string: item.cover ?? ""),
                           summary: nil, author: nil, status: "unknown", genres: [],
-                          inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0)
+                          inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+                          readingSeconds: 0, readingStatus: .none)
                 }
                 novels.append(contentsOf: newNovels)
                 currentPage = nextPage

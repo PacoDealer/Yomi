@@ -14,11 +14,13 @@ struct NovelDetailView: View {
     @State private var allCategories: [Category] = []
     @State private var assignedCategoryIds: Set<String> = []
     @State private var showCategorySheet = false
+    @State private var novelReadingStatus: ReadingStatus
 
     init(novel: Novel, bridge: JSBridge) {
         self.novel = novel
         self.bridge = bridge
         _isInLibrary = State(initialValue: novel.inLibrary)
+        _novelReadingStatus = State(initialValue: novel.readingStatus)
     }
 
     // MARK: - Resume helpers
@@ -90,7 +92,14 @@ struct NovelDetailView: View {
                                     .lineLimit(1)
                             }
 
-                            NovelStatusBadge(status: novel.status)
+                            HStack(spacing: 8) {
+                                NovelStatusBadge(status: novel.status)
+                                if isInLibrary {
+                                    ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
+                                        Task { await updateReadingStatus(newStatus) }
+                                    }
+                                }
+                            }
                         }
 
                         Spacer(minLength: 0)
@@ -255,6 +264,17 @@ struct NovelDetailView: View {
         try? NovelQueries.upsert(updated)
     }
 
+    // MARK: - Update Reading Status
+
+    private func updateReadingStatus(_ status: ReadingStatus) async {
+        let novelId = novel.id
+        await Task.detached(priority: .userInitiated) {
+            try? NovelQueries.updateReadingStatus(novelId: novelId, status: status)
+        }.value
+        novelReadingStatus = status
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     // MARK: - Load Categories
 
     private func loadCategories() async {
@@ -408,7 +428,8 @@ private struct NovelStatusBadge: View {
                 inLibrary: false,
                 lastReadAt: nil,
                 lastUpdatedAt: nil,
-                readingSeconds: 0
+                readingSeconds: 0,
+                readingStatus: .none
             ),
             bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
         )
