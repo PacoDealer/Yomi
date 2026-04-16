@@ -141,16 +141,16 @@ struct HistoryView: View {
                 }
             }
 
-            // Merge and sort by lastReadAt descending
+            // Merge (sort deferred to MainActor to avoid isolation warning)
             let mangaItems = mangas.map { HistoryItem.manga($0) }
             let novelItems = novels.map { HistoryItem.novel($0) }
-            let merged = (mangaItems + novelItems).sorted {
-                ($0.lastReadAt ?? .distantPast) > ($1.lastReadAt ?? .distantPast)
-            }
-            return (merged, map)
+            return (mangaItems + novelItems, map)
         }.value
         await MainActor.run {
-            items = result
+            // Sort on MainActor — avoids "lastReadAt referenced from nonisolated context" warning
+            items = result.sorted {
+                ($0.lastReadAt ?? .distantPast) > ($1.lastReadAt ?? .distantPast)
+            }
             lastChapterNames = lastChaps
             isLoading = false
         }

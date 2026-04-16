@@ -328,7 +328,7 @@ struct LibraryView: View {
                             guard !name.isEmpty else { return }
                             Task {
                                 await Task.detached(priority: .userInitiated) {
-                                    try? CategoryQueries.insert(name: name)
+                                    _ = try? CategoryQueries.insert(name: name)
                                 }.value
                                 viewModel.loadCategories()
                                 showNewCategorySheet = false
