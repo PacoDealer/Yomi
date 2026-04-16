@@ -274,7 +274,7 @@ struct TextReaderView: View {
         }.value
 
         if html.isEmpty {
-            errorMessage = "No content found for this chapter."
+            errorMessage = "Unable to load chapter content. The source may be temporarily unavailable."
         } else {
             rawContent = html
         }
