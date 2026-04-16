@@ -786,9 +786,8 @@ final class JSBridge {
                     // Paperback compatibility shim
                     // Provides the base Source class and App type-constructors
                     mod.exports = (function() {
-                        function Source(cheerio) { this.cheerio = cheerio; }
-
-                        // Request manager — wraps SOURCE._fetchSync synchronously
+                        // Request manager — wraps SOURCE._fetchSync synchronously.
+                        // _fetchSync signature: (url, method, body, headersJSON) — 4 args.
                         function createRequestManager() {
                             return {
                                 schedule: function(request) {
@@ -796,14 +795,21 @@ final class JSBridge {
                                     if (request.param) {
                                         url += (url.indexOf('?') === -1 ? '?' : '&') + request.param;
                                     }
-                                    var options = {};
-                                    if (request.method) options.method = request.method;
-                                    if (request.data)   options.body   = JSON.stringify(request.data);
-                                    if (request.headers) options.headers = request.headers;
-                                    var text = SOURCE._fetchSync(url, options);
+                                    var method  = (request.method || 'GET').toUpperCase();
+                                    var body    = request.data    ? JSON.stringify(request.data) : null;
+                                    var headers = request.headers ? JSON.stringify(request.headers) : null;
+                                    var text = SOURCE._fetchSync(url, method, body, headers);
                                     return Promise.resolve({ data: text, status: 200 });
                                 }
                             };
+                        }
+
+                        // Base Source class — every Paperback plugin extends this.
+                        // requestManager is set on construction so subclasses that call
+                        // this.requestManager.schedule() without assigning it themselves work.
+                        function Source(cheerio) {
+                            this.cheerio = cheerio;
+                            this.requestManager = createRequestManager();
                         }
                         function createRequest(opts) { return opts || {}; }
                         function createMangaTile(opts) {
