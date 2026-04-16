@@ -1,29 +1,17 @@
 # Roadmap — Yomi
 
-## Current state (post S30 — 2026-04-11)
+## Current state (post S35 — 2026-04-15)
 
-All S28/S29 critical bugs are resolved. Core functionality fully working: chapter persistence, read
-state, downloads, update checks with notifications. UI is polished across all major screens.
+App is feature-complete. Deep research conducted. 4 App Store blockers remain (all user actions). Next session (S36) ships customization polish + App Store integration work.
 
-**S29 shipped:** ChapterQueries.insertAllIgnoringConflicts() — chapters now persisted in DB; read state
-and downloads work correctly. Chapter tap→reader via navigationDestination(item:) + Chapter.Hashable.
-Auto-mark chapter read (last page or ≥80%). Post-read UI refresh with 500ms delay. InsightsView full
-redesign (ScrollView + LazyVGrid StatCards). Novel reader overlay smooth fade animation. Novel reader
-colorScheme fix (sepia → .light). Popular/Latest tabs in SourceBrowseView. Incognito mode + unread
-badge toggle. comick.js domain migrated to api.comick.dev.
+**S34 shipped:** Plugin debug session. freewebnovel.js chapter selector fixed. novelbin.js data-novel-id regex fixed (text slugs). novelfire.js robust fallback selectors + ?page=1. Catalog cleanup: removed comick (Cloudflare), lightnovelworld (dead), lightnovelpub (Cloudflare) — 8 sources remain. BrowseView Swift 6 concurrency fix. NovelCoverCell phase-based AsyncImage. UpdatesView: inserts newChapters only. TextReaderView Task.detached(.background). Full code review — zero warnings.
 
-**S30 shipped:** MangaDetailView header redesign (110pt cover, genre chips, resume button). MangaCoverCell
-read progress bar. ContinueReadingRow: progress bar + last chapter subtitle. NovelDetailView header
-redesign (matches MangaDetailView style). HistoryView: swipe-to-delete now persists (clears lastReadAt
-in DB). UpdatesView redesigned: per-chapter rows grouped by manga, shows unread chapters for each
-updated manga. UpdatesView refresh now persists new chapters to DB + sends notifications. TextReaderView:
-added prev/next chapter navigation buttons in overlay; view now takes chapters[] + startIndex.
-MangaQueries.clearLastRead() added. MoreView version/build info from Bundle.
+**S35 shipped:** Deep research session. No code. RESEARCH.md created as master research doc. Research: plugin ecosystems (Mihon impossible, Paperback S37 target, WASM S40+), iOS 26 Liquid Glass icons (3-layer format, Icon Composer), app customization competitor analysis, JSContext architecture audit (stay the course + requiresWebView flag), Claude Code MCP stack audit (current optimal + Apple xcrun mcpbridge available).
 
 **App Store blockers remaining:**
-1. App icon (1024×1024 PNG) — user working on design separately
-2. Age rating 17+ declaration (App Store Connect only)
-3. App description, screenshots, support URL (App Store Connect only)
+1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
+2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
+3. App description + screenshots + support URL (App Store Connect — description drafted S33)
 
 ## Technical debt
 | Area | Issue | Priority |
@@ -391,6 +379,74 @@ All S28 P0/P1/P2/P3 items resolved.
 1. App icon (1024×1024 PNG) — user working on design separately
 2. Age rating **18+** declaration (App Store Connect — 2026 system)
 3. App description + screenshots + support URL (App Store Connect)
+
+## Session 35 — Deep Research (2026-04-15) ✅ Complete
+
+| # | Topic | Finding |
+|---|-------|---------|
+| 1 | Tachiyomi/Mihon on iOS | ❌ Impossible — Kotlin APKs, Android-only runtime. No viable path. |
+| 2 | Aidoku WASM (Rust SDK) | ❌ Not viable now — full rewrite, plugin authors need Rust. Revisit S40+. |
+| 3 | Paperback TS ecosystem (~100 sources) | ✅ **S37 target** — JSBridge S24 shim already started; full Format C support planned. |
+| 4 | iOS 26 Liquid Glass icons | ✅ 3-layer PNG format, Icon Composer tool in Xcode 26, alternate icon API unchanged. |
+| 5 | App customization gaps vs Tachimanga | Pure black OLED, alternate icons, tab reordering. First two are S36. |
+| 6 | JSContext architecture audit | ✅ Stay the course. `requiresWebView` flag for JS-rendered pages (NovelFire synopsis). |
+| 7 | Claude Code MCP stack | ✅ Current stack optimal. Apple `xcrun mcpbridge` available as supplement. |
+| 8 | RESEARCH.md created | Master research doc replaces all per-session research notes. |
+
+## Planned: Session 36 — App Store Push + Customization Polish
+
+**Goal:** Ship polish items + coordinate App Store submission blockers.
+
+**Claude codes:**
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | Alternate app icons (asset catalog + `setAlternateIconName` + SettingsView picker) | Assets.xcassets, SettingsView.swift, Info.plist |
+| 2 | Pure black OLED mode (`AppSettings.pureBlack: Bool`) | AppSettings.swift, SettingsView.swift, ContentView.swift, TextReaderView.swift |
+| 3 | NovelFire synopsis fix: `requiresWebView` flag + targeted WKWebView fallback in JSBridge | JSBridge.swift, novelfire.js |
+| 4 | App icon integration (when user delivers PNG) | Assets.xcassets |
+| 5 | `xcrun mcpbridge` supplemental MCP | .mcp.json |
+
+**User actions (do these in parallel):**
+- [ ] Firebase deploy: `firebase login --reauth && firebase deploy --only hosting`
+- [ ] Uninstall LightNovelWorld manually (Extensions tab → swipe)
+- [ ] App icon: design 1024×1024 PNG (3 layers for iOS 26 Liquid Glass)
+- [ ] App Store Connect: age rating 18+
+- [ ] App Store Connect: paste S33 description + support URL
+- [ ] Screenshots: 6.9" iPhone + iPad on simulator
+
+## Planned: Session 37 — Paperback Ecosystem Unlock (~100 sources)
+
+**Goal:** Enable Paperback TypeScript sources to run natively in Yomi.
+
+**Claude codes:**
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | JSBridge Format C detection (Source class export post-eval) | JSBridge.swift |
+| 2 | Source class bridge preamble + requestManager HTTP stub | JSBridge.swift |
+| 3 | Test with 3 real Paperback sources | — |
+| 4 | 5–10 curated Paperback catalog entries | ~/Desktop/Yomi\ 2.0/yomi-firebase/public/index.json |
+| 5 | build-plugins.mjs Paperback TS compilation support | scripts/build-plugins.mjs |
+
+**User actions:**
+- [ ] Pick 2–3 Paperback sources to prioritize (browse Paperback community repos)
+- [ ] Test on real device after deploy (Cloudflare behavior may differ from simulator)
+
+## Planned: Session 38 — WidgetKit + Community Infrastructure
+
+**Goal:** Home screen widget + foundation for community plugin contributions.
+
+**Claude codes:**
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | WidgetKit YomiWidget target (ContinueReadingWidget, small + medium, App Groups shared DB) | New target: YomiWidget/ |
+| 2 | App Groups shared DB path | DatabaseManager.swift, YomiApp.swift |
+| 3 | `yomi.d.ts` TypeScript type definitions | scripts/yomi.d.ts |
+| 4 | GitHub issue template for plugin submissions | .github/ISSUE_TEMPLATE/ |
+
+**User actions:**
+- [ ] Add App Groups entitlement in Apple Developer Portal
+- [ ] Enable App Groups in Xcode → Signing & Capabilities for both targets
+- [ ] Decide: open source Firebase plugin repo for community contributions?
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 
