@@ -1,24 +1,24 @@
 # Roadmap — Yomi
 
-## Current state (post S35 — 2026-04-15)
+## Current state (post S36 — 2026-04-16)
 
-App is feature-complete. Deep research conducted. 4 App Store blockers remain (all user actions). Next session (S36) ships customization polish + App Store integration work.
-
-**S34 shipped:** Plugin debug session. freewebnovel.js chapter selector fixed. novelbin.js data-novel-id regex fixed (text slugs). novelfire.js robust fallback selectors + ?page=1. Catalog cleanup: removed comick (Cloudflare), lightnovelworld (dead), lightnovelpub (Cloudflare) — 8 sources remain. BrowseView Swift 6 concurrency fix. NovelCoverCell phase-based AsyncImage. UpdatesView: inserts newChapters only. TextReaderView Task.detached(.background). Full code review — zero warnings.
+App is feature-complete + polished. S36 shipped OLED mode, alternate icon infrastructure, NovelFire restored. Apple Developer account now active. App Store submission imminent — only blockers are app icon design + App Store Connect data entry.
 
 **S35 shipped:** Deep research session. No code. RESEARCH.md created as master research doc. Research: plugin ecosystems (Mihon impossible, Paperback S37 target, WASM S40+), iOS 26 Liquid Glass icons (3-layer format, Icon Composer), app customization competitor analysis, JSContext architecture audit (stay the course + requiresWebView flag), Claude Code MCP stack audit (current optimal + Apple xcrun mcpbridge available). S36–S38 session plans written.
 
-**S35 bug fixes (session close):** NovelFire temporarily removed from index.json — site under active security attack (official notice posted on novelfire.net). **Restore to catalog once incident resolves.** TextReaderView error message improved to indicate source unavailability. Source removal protocol added to METODOLOGIA.md.
+**S35 bug fixes (session close):** NovelFire temporarily removed (security attack), TextReaderView error message improved, source removal protocol added to METODOLOGIA.md.
+
+**S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab. Apple Developer account created by user — App Store submission unblocked.
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
-2. Age rating **18+** declaration (App Store Connect — first accept Apple Developer Program License Agreement at developer.apple.com/account)
-3. App description + screenshots + support URL (App Store Connect — description drafted S33)
+2. Age rating **18+** — App Store Connect → My Apps → Yomi → App Information
+3. App description + screenshots + support URL — App Store Connect
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| NovelFire temporarily removed | Site under active security attack (S35). Returns 403 during incident. Restore to index.json once incident resolves — source is high-quality and Cloudflare block was temporary. | High |
+| Alternate icons need Xcode step | AppIconDark + AppIconMinimal appiconsets are placeholders. Drop in PNGs + add CFBundleAlternateIcons in Xcode Target → Info to activate. | Low (after icon design) |
 | Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
 | BrowseView Extensions tab caching | Fetches catalog every time tab opens. Add entries.isEmpty check or TTL refresh. | Low |
 

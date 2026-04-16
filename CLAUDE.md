@@ -20,34 +20,30 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S35 — 2026-04-15)
+## Current state (post S36 — 2026-04-16)
 
-S35 is a deep research session. No code shipped. RESEARCH.md created (master research doc).
+S36 shipped OLED mode + alternate icon infrastructure. NovelFire restored. Apple Developer account active.
 
-**S35 research completed:**
-- Plugin ecosystems: Tachiyomi/Mihon iOS viability (impossible), Aidoku WASM (Rust SDK), Paperback TS format (S37 target)
-- iOS 26 app icons: Liquid Glass 3-layer system, Icon Composer tool, alternate icons API unchanged
-- App customization: competitor comparison (Tachimanga features pure black OLED, alternate icons, tab reordering)
-- Architecture audit: JSContext correct for current stage; WKWebView `requiresWebView` flag for JS-rendered pages
-- Claude Code MCP: current stack optimal; Apple's native `xcrun mcpbridge` (Xcode 26.3) available as supplement
-- All research compiled into `Yomi/RESEARCH.md` (replaces RESEARCH_S35.md)
+**S36 shipped:**
+- NovelFire restored to Firebase catalog (security incident resolved) + deployed
+- Pure black OLED mode: `AppSettings.pureBlack`, ContentView tab bar, Settings toggle
+- Alternate icons: `AppSettings.alternateIconName`, SettingsView picker (3 slots), placeholder appiconsets
+- To activate alternates: drop 1024×1024 PNGs into `AppIconDark.appiconset`/`AppIconMinimal.appiconset` + add `CFBundleAlternateIcons` in Xcode Target → Info tab
 
 **App Store blockers remaining:**
-1. App icon (1024×1024 PNG) — user working on design separately
-2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
-3. App description, screenshots, support URL (App Store Connect — description text drafted in S33 session)
+1. App icon (1024×1024 PNG) — user designing
+2. Age rating **18+** — App Store Connect → My Apps → Yomi → App Information
+3. App description, screenshots, support URL — App Store Connect (description drafted S33)
 
-## Known issues / next session (S36)
+## Known issues / next session (S37)
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Firebase deploy needed | Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. After deploy, reinstall plugins. **User action required.** |
-| 2 | LightNovelWorld in installed list | User must manually uninstall via Extensions tab → swipe left → Delete. Cannot auto-remove. |
-| 3 | NovelFire restored | Security incident resolved. Re-added to index.json + deployed (S36). User must reinstall via Extensions tab. |
-| 4 | App icon missing | App Store blocker. User designing separately — deliver as 3-layer PNG for Icon Composer (iOS 26). |
-| 5 | App Store blockers | Age rating 18+, description, screenshots, support URL — all in App Store Connect. **Must accept Apple Developer Program License Agreement at developer.apple.com/account first.** |
-| 6 | Alternate app icons | S36 feature: asset catalog + `setAlternateIconName` + SettingsView picker. |
-| 7 | Pure black OLED mode | S36 feature: `AppSettings.pureBlack: Bool` + apply in ContentView + readers. |
+| 1 | LightNovelWorld in installed list | User must manually uninstall via Extensions tab → swipe left → Delete. Cannot auto-remove. |
+| 2 | App icon missing | App Store blocker. User designing separately — deliver as 3-layer PNG for Icon Composer (iOS 26). |
+| 3 | Alternate icons need Xcode step | Drop 1024×1024 PNGs into `AppIconDark.appiconset` + `AppIconMinimal.appiconset`, then in Xcode: Target → Info → add `CFBundleAlternateIcons` dictionary with `AppIconDark` and `AppIconMinimal` keys. |
+| 4 | App Store submission | Age rating 18+, description, screenshots, support URL — all in App Store Connect. Apple Developer account now active. |
+| 5 | S37 — Paperback ecosystem | ~100 community TypeScript sources. JSBridge Format C detection + requestManager.schedule shim. |
 
 ## MCP tools — use these every session
 
