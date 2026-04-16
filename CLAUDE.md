@@ -20,30 +20,27 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S36 — 2026-04-16)
+## Current state (post S37 — 2026-04-16)
 
-S36 shipped OLED mode + alternate icon infrastructure. NovelFire restored. Apple Developer account active.
+S37 = full 44-file audit + bug blitz. 3 critical bugs fixed. NovelFull plugin added. App Store deferred (user not paying $99 Developer Program yet). Focus: finish the app.
 
-**S36 shipped:**
-- NovelFire restored to Firebase catalog (security incident resolved) + deployed
-- Pure black OLED mode: `AppSettings.pureBlack`, ContentView tab bar, Settings toggle
-- Alternate icons: `AppSettings.alternateIconName`, SettingsView picker (3 slots), placeholder appiconsets
-- To activate alternates: drop 1024×1024 PNGs into `AppIconDark.appiconset`/`AppIconMinimal.appiconset` + add `CFBundleAlternateIcons` in Xcode Target → Info tab
+**S37 fixed:**
+- `PluginCatalogService.fetchCatalog()`: `CancellationError` now caught silently (was showing "Failed to load: cancelled")
+- `SourceBrowseView`: novel IDs now stable `"\(sourceId)_\(path)"` (was random UUID per load)
+- `MangaDetailView.loadChapters()`: `guard let ext` now clears spinner before return; `ChapterQueries.fetchAll` moved to `Task.detached`
+- `novelfull.js` + `index.json` entry written — **pending Firebase deploy** (user must `firebase login --reauth && firebase deploy --only hosting`)
 
-**App Store blockers remaining:**
-1. App icon (1024×1024 PNG) — user designing
-2. Age rating **18+** — App Store Connect → My Apps → Yomi → App Information
-3. App description, screenshots, support URL — App Store Connect (description drafted S33)
+**App Store status:** Deferred. User chose not to enroll in Apple Developer Program ($99/year) yet.
 
-## Known issues / next session (S37)
+## Known issues / next session (S38)
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | LightNovelWorld in installed list | User must manually uninstall via Extensions tab → swipe left → Delete. Cannot auto-remove. |
-| 2 | App icon missing | App Store blocker. User designing separately — deliver as 3-layer PNG for Icon Composer (iOS 26). |
-| 3 | Alternate icons need Xcode step | Drop 1024×1024 PNGs into `AppIconDark.appiconset` + `AppIconMinimal.appiconset`, then in Xcode: Target → Info → add `CFBundleAlternateIcons` dictionary with `AppIconDark` and `AppIconMinimal` keys. |
-| 4 | App Store submission | Age rating 18+, description, screenshots, support URL — all in App Store Connect. Apple Developer account now active. |
-| 5 | S37 — Paperback ecosystem | ~100 community TypeScript sources. JSBridge Format C detection + requestManager.schedule shim. |
+| 1 | Firebase deploy pending | novelfull.js + updated index.json not yet live. Run: `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi 2.0/yomi-firebase` |
+| 2 | Chapters from Browse (partial) | Defensive fixes applied in S37. Root cause not fully confirmed — needs live device test with real plugins. |
+| 3 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
+| 4 | Alternate icons need Xcode step | Drop PNGs into `AppIconDark.appiconset` + `AppIconMinimal.appiconset`, add `CFBundleAlternateIcons` in Xcode Target → Info. |
+| 5 | App Store deferred | User will enroll when ready. Age rating 18+, description, screenshots, support URL all pending. |
 
 ## MCP tools — use these every session
 

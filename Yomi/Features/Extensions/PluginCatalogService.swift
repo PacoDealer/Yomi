@@ -60,6 +60,8 @@ struct PluginCatalogEntry: Codable, Identifiable {
                 lastFetchedAt = Date()
                 isLoading = false
             }
+        } catch is CancellationError {
+            await MainActor.run { isLoading = false }
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
