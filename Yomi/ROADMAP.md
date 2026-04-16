@@ -6,16 +6,19 @@ App is feature-complete. Deep research conducted. 4 App Store blockers remain (a
 
 **S34 shipped:** Plugin debug session. freewebnovel.js chapter selector fixed. novelbin.js data-novel-id regex fixed (text slugs). novelfire.js robust fallback selectors + ?page=1. Catalog cleanup: removed comick (Cloudflare), lightnovelworld (dead), lightnovelpub (Cloudflare) — 8 sources remain. BrowseView Swift 6 concurrency fix. NovelCoverCell phase-based AsyncImage. UpdatesView: inserts newChapters only. TextReaderView Task.detached(.background). Full code review — zero warnings.
 
-**S35 shipped:** Deep research session. No code. RESEARCH.md created as master research doc. Research: plugin ecosystems (Mihon impossible, Paperback S37 target, WASM S40+), iOS 26 Liquid Glass icons (3-layer format, Icon Composer), app customization competitor analysis, JSContext architecture audit (stay the course + requiresWebView flag), Claude Code MCP stack audit (current optimal + Apple xcrun mcpbridge available).
+**S35 shipped:** Deep research session. No code. RESEARCH.md created as master research doc. Research: plugin ecosystems (Mihon impossible, Paperback S37 target, WASM S40+), iOS 26 Liquid Glass icons (3-layer format, Icon Composer), app customization competitor analysis, JSContext architecture audit (stay the course + requiresWebView flag), Claude Code MCP stack audit (current optimal + Apple xcrun mcpbridge available). S36–S38 session plans written.
+
+**S35 bug fixes (session close):** NovelFire temporarily removed from index.json — site under active security attack (official notice posted on novelfire.net). **Restore to catalog once incident resolves.** TextReaderView error message improved to indicate source unavailability. Source removal protocol added to METODOLOGIA.md.
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
-2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
+2. Age rating **18+** declaration (App Store Connect — first accept Apple Developer Program License Agreement at developer.apple.com/account)
 3. App description + screenshots + support URL (App Store Connect — description drafted S33)
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
+| NovelFire temporarily removed | Site under active security attack (S35). Returns 403 during incident. Restore to index.json once incident resolves — source is high-quality and Cloudflare block was temporary. | High |
 | Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
 | BrowseView Extensions tab caching | Fetches catalog every time tab opens. Add entries.isEmpty check or TTL refresh. | Low |
 
