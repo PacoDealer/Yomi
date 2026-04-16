@@ -3,7 +3,7 @@
 ## What this app is
 iOS manga, manhwa, manhua, and light novel reader. Plugin-based architecture:
 JS plugins run in JavaScriptCore. Two plugin formats: Format A (manga) and Format B (LNReader/novels).
-Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files (App Store compliance).
+Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files (App Store compliance).
 
 ## Tech stack
 - **Swift + SwiftUI — iOS 26.2 deployment target. No iOS 18 fallbacks. Ever.**
@@ -18,35 +18,36 @@ Firebase CDN hosts all 7 production plugins. App binary ships zero plugin files 
 - `Yomi/ROADMAP.md` — current state, planned work, tech debt
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
+- `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S34 — 2026-04-15)
+## Current state (post S35 — 2026-04-15)
 
-S34 is a plugin debug + code review session.
+S35 is a deep research session. No code shipped. RESEARCH.md created (master research doc).
 
-**S34 shipped:**
-- freewebnovel.js: chapter selector fixed (ul#chapter-list li a → a.con, with /novel/ href filter)
-- novelbin.js: data-novel-id regex fixed (\d+ → [^'"]+) — NovelBin uses text slugs not numeric IDs
-- novelfire.js: robust fallback selectors for summary/status; chapters URL gets ?page=1; multiple chapter selector fallbacks
-- Catalog (index.json): removed comick (Cloudflare 403), lightnovelworld (site dead), lightnovelpub (Cloudflare) — 8 sources remain
-- BrowseView: `let currentFeed = selectedFeed` before Task.detached (Swift 6 concurrency fix); NovelCoverCell phase-based AsyncImage; bottom padding on LazyVGrid
-- UpdatesView: inserts `newChapters` not `remoteChapters` (performance — avoids re-inserting all chapters)
-- TextReaderView: Task.detached(priority: .background) for markRead on navigation
-- Full code review: all concurrency/GRDB rules confirmed correct, zero build warnings
+**S35 research completed:**
+- Plugin ecosystems: Tachiyomi/Mihon iOS viability (impossible), Aidoku WASM (Rust SDK), Paperback TS format (S37 target)
+- iOS 26 app icons: Liquid Glass 3-layer system, Icon Composer tool, alternate icons API unchanged
+- App customization: competitor comparison (Tachimanga features pure black OLED, alternate icons, tab reordering)
+- Architecture audit: JSContext correct for current stage; WKWebView `requiresWebView` flag for JS-rendered pages
+- Claude Code MCP: current stack optimal; Apple's native `xcrun mcpbridge` (Xcode 26.3) available as supplement
+- All research compiled into `Yomi/RESEARCH.md` (replaces RESEARCH_S35.md)
 
 **App Store blockers remaining:**
 1. App icon (1024×1024 PNG) — user working on design separately
 2. Age rating **18+** declaration (App Store Connect — 2026 system changed from 17+ to 18+)
 3. App description, screenshots, support URL (App Store Connect — description text drafted in S33 session)
 
-## Known issues / next session
+## Known issues / next session (S36)
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Chapters empty from Browse (novel sources) | `parseNovel()` returns empty chapters for novelfire + freewebnovel. Works from Library because chapters are already in DB. Root fix: the updated JS plugins need to reach the device via Firebase deploy + user reinstalls plugins. |
-| 2 | LightNovelWorld shows in installed list | Removed from catalog index.json (site dead) but user already has it installed in Documents/Extensions/. Cannot auto-remove. User must manually uninstall via Extensions tab → swipe or long-press. |
-| 3 | NovelFire synopsis/status empty | `div.summary` and `strong.ongoing` return empty despite being in HTML. Possibly JS-rendered on the real site. Multiple fallbacks added in S34. |
-| 4 | App icon missing | User designing separately. App Store blocker. |
-| 5 | Firebase deploy needed | S34 updated freewebnovel.js, novelbin.js, novelfire.js + index.json (comick/lightnovelworld/lightnovelpub removed). Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. After deploy, reinstall plugins in the app to get the fixed versions. |
+| 1 | Firebase deploy needed | Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. After deploy, reinstall plugins to fix Browse chapters. **User action required.** |
+| 2 | LightNovelWorld in installed list | User must manually uninstall via Extensions tab → swipe left → Delete. Cannot auto-remove. |
+| 3 | NovelFire synopsis/status empty | JS-rendered fields. Fix in S36: `requiresWebView: true` flag triggers targeted WKWebView fallback. |
+| 4 | App icon missing | App Store blocker. User designing separately — deliver as 3-layer PNG for Icon Composer (iOS 26). |
+| 5 | App Store blockers | Age rating 18+, description, screenshots, support URL — all in App Store Connect. User action required. |
+| 6 | Alternate app icons | S36 feature: asset catalog + `setAlternateIconName` + SettingsView picker. |
+| 7 | Pure black OLED mode | S36 feature: `AppSettings.pureBlack: Bool` + apply in ContentView + readers. |
 
 ## MCP tools — use these every session
 
