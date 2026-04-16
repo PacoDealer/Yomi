@@ -6,6 +6,13 @@ struct SettingsView: View {
     @State private var settings = AppSettings.shared
     @State private var showCustomColorPicker = false
 
+    // Alternate icons: key = display name, value = CFBundleAlternateIcons key (nil = default)
+    private let alternateIcons: [(label: String, key: String?)] = [
+        ("Default",  nil),
+        ("Dark",     "AppIconDark"),
+        ("Minimal",  "AppIconMinimal"),
+    ]
+
     // 10 curated swatches (hex strings)
     private let accentSwatches: [String] = [
         "#FF6B6B", // coral (default)
@@ -173,6 +180,44 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
 
+            // App icon picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text("App icon")
+                    .font(.subheadline)
+                HStack(spacing: 12) {
+                    ForEach(alternateIcons, id: \.label) { option in
+                        Button {
+                            applyAlternateIcon(option.key)
+                        } label: {
+                            VStack(spacing: 4) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 56, height: 56)
+                                    .overlay(
+                                        Text(option.label.prefix(1))
+                                            .font(.title2.bold())
+                                            .foregroundStyle(.secondary)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(
+                                                settings.alternateIconName == option.key
+                                                    ? Color(hex: settings.accentColor)
+                                                    : Color.clear,
+                                                lineWidth: 2.5
+                                            )
+                                    )
+                                Text(option.label)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+
             Toggle("Use system font", isOn: $settings.useSystemFont)
 
             Toggle(isOn: $settings.pureBlack) {
@@ -245,6 +290,20 @@ struct SettingsView: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    // MARK: - Apply alternate icon
+
+    private func applyAlternateIcon(_ name: String?) {
+        Task { @MainActor in
+            do {
+                try await UIApplication.shared.setAlternateIconName(name)
+                settings.alternateIconName = name
+            } catch {
+                // Icon not registered in Info.plist CFBundleAlternateIcons — silently ignore.
+                // Add the icon entries in Xcode: Target → Info → CFBundleIcons → CFBundleAlternateIcons.
+            }
+        }
     }
 
     // MARK: - Advanced

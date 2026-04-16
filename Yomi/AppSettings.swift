@@ -133,6 +133,12 @@ import Observation
         didSet { defaults.set(pureBlack, forKey: "pureBlack") }
     }
 
+    /// Alternate icon name (nil = default icon). Must match CFBundleAlternateIcons key in Info.
+    /// Set via UIApplication.setAlternateIconName on the main thread.
+    var alternateIconName: String? {
+        didSet { defaults.set(alternateIconName, forKey: "alternateIconName") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -165,5 +171,6 @@ import Observation
         isIncognito             = d.bool(forKey: "isIncognito")
         showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
         pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false
+        alternateIconName       = d.string(forKey: "alternateIconName")
     }
 }
