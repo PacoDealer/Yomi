@@ -174,6 +174,15 @@ struct SettingsView: View {
             .padding(.vertical, 4)
 
             Toggle("Use system font", isOn: $settings.useSystemFont)
+
+            Toggle(isOn: $settings.pureBlack) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Pure black (OLED)", systemImage: "circle.fill")
+                    Text("Forces #000000 backgrounds — saves battery on OLED screens")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
