@@ -42,9 +42,11 @@ S34 is a plugin debug + code review session.
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | NovelFire synopsis/status empty | `div.summary` and `strong.ongoing` selectors return empty despite being in HTML. Root cause unconfirmed — possibly JS-rendered content not returned by SOURCE.fetch. Multiple fallback selectors added in S34. |
-| 2 | App icon missing | User designing separately. App Store blocker. |
-| 3 | Firebase deploy needed | S34 updated freewebnovel.js, novelbin.js, novelfire.js + index.json. Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. |
+| 1 | Chapters empty from Browse (novel sources) | `parseNovel()` returns empty chapters for novelfire + freewebnovel. Works from Library because chapters are already in DB. Root fix: the updated JS plugins need to reach the device via Firebase deploy + user reinstalls plugins. |
+| 2 | LightNovelWorld shows in installed list | Removed from catalog index.json (site dead) but user already has it installed in Documents/Extensions/. Cannot auto-remove. User must manually uninstall via Extensions tab → swipe or long-press. |
+| 3 | NovelFire synopsis/status empty | `div.summary` and `strong.ongoing` return empty despite being in HTML. Possibly JS-rendered on the real site. Multiple fallbacks added in S34. |
+| 4 | App icon missing | User designing separately. App Store blocker. |
+| 5 | Firebase deploy needed | S34 updated freewebnovel.js, novelbin.js, novelfire.js + index.json (comick/lightnovelworld/lightnovelpub removed). Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. After deploy, reinstall plugins in the app to get the fixed versions. |
 
 ## MCP tools — use these every session
 

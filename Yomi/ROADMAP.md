@@ -383,6 +383,7 @@ All S28 P0/P1/P2/P3 items resolved.
 | 8 | ✅ UpdatesView: insert newChapters only | Was inserting `remoteChapters` (all) instead of `newChapters` (filtered). INSERT OR IGNORE is non-destructive but inserting all chapters on every update check is wasteful for large catalogs. |
 | 9 | ✅ TextReaderView Task.detached priority | Added `priority: .background` to the `Task.detached` call that marks a chapter as read on navigation — was unspecified before. |
 | 10 | ✅ Full code review | All *Queries methods nonisolated ✓, JSBridge calls in Task.detached ✓, results via MainActor.run ✓, INSERT OR IGNORE for chapters ✓, bridge(for:) never uses stale sourceListURL ✓. Build clean with zero warnings. |
+| 11 | ✅ Xcode warnings fixed | HistoryView: sort moved from Task.detached to MainActor.run (fixes "Main actor-isolated lastReadAt" ×2). LibraryView: `_ = try? CategoryQueries.insert(name:)` (fixes unused Category? expression). |
 
 **Firebase deploy needed:** Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase` to publish updated freewebnovel.js, novelbin.js, novelfire.js and updated index.json (3 plugins removed).
 
