@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var router = appRouter
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -30,6 +31,14 @@ struct ContentView: View {
                 MoreView()
             }
         }
+        .toolbarBackground(
+            settings.pureBlack ? Color.black : Color.clear,
+            for: .tabBar
+        )
+        .toolbarBackground(
+            settings.pureBlack ? .visible : .automatic,
+            for: .tabBar
+        )
     }
 }
 

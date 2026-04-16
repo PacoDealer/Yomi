@@ -128,6 +128,11 @@ import Observation
         didSet { defaults.set(isIncognito, forKey: "isIncognito") }
     }
 
+    /// Pure black OLED mode — forces #000000 backgrounds in dark mode
+    var pureBlack: Bool {
+        didSet { defaults.set(pureBlack, forKey: "pureBlack") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -159,5 +164,6 @@ import Observation
         keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
         isIncognito             = d.bool(forKey: "isIncognito")
         showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
+        pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false
     }
 }
