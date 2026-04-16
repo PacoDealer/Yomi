@@ -43,7 +43,7 @@ S35 is a deep research session. No code shipped. RESEARCH.md created (master res
 |---|-------|-------|
 | 1 | Firebase deploy needed | Run `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase`. After deploy, reinstall plugins. **User action required.** |
 | 2 | LightNovelWorld in installed list | User must manually uninstall via Extensions tab → swipe left → Delete. Cannot auto-remove. |
-| 3 | NovelFire removed | Cloudflare blocks URLSession (403). Removed from index.json (same as ComicK/LightNovelPub in S34). User must uninstall if previously installed. |
+| 3 | NovelFire temporarily removed | Site under active security attack (S35) — not a permanent Cloudflare block. Restore to index.json once incident resolves. User must uninstall if previously installed. |
 | 4 | App icon missing | App Store blocker. User designing separately — deliver as 3-layer PNG for Icon Composer (iOS 26). |
 | 5 | App Store blockers | Age rating 18+, description, screenshots, support URL — all in App Store Connect. **Must accept Apple Developer Program License Agreement at developer.apple.com/account first.** |
 | 6 | Alternate app icons | S36 feature: asset catalog + `setAlternateIconName` + SettingsView picker. |

@@ -138,7 +138,7 @@ What users universally want:
 | AquaManga | Aggregator | None | HTML | ✅ Working (aquamanga.js) | aquareader.net domain. |
 | Royal Road | Platform | None | Possible | ✅ Working (royalroad.js) | Web serials/LitRPG. Anti-scraping but accessible. |
 | ScribbleHub | Platform | None | Possible | ✅ Working (scribblehub.js) | Web serials. AJAX POST TOC. |
-| NovelFire | Aggregator | None | HTML | ✅ Working (novelfire.js) | Synopsis/status may be JS-rendered. |
+| NovelFire | Aggregator | None | HTML | ⚠️ Temporarily removed | Site under active security attack (S35 — official notice posted on novelfire.net). novelfire.js exists and works. Restore to index.json once incident resolves. NOT a permanent Cloudflare block. |
 | FreeWebNovel | Aggregator | None | HTML | ✅ Working (freewebnovel.js) | Fixed S34. |
 | NovelBin | Aggregator | None | HTML | ✅ Working (novelbin.js) | Uses text slugs not numeric IDs. Fixed S34. |
 | LightNovelWorld | Aggregator | None | HTML | ❌ Removed (site dead) | Permanently down. Removed from catalog S34. |
