@@ -672,8 +672,10 @@ struct MangaDetailView: View {
         let mangaPath = manga.path
         let mangaId = manga.id
 
-        let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId })
-        guard let ext else { return }
+        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
+            isLoadingChapters = false
+            return
+        }
 
         isLoadingChapters = true
 
@@ -692,8 +694,10 @@ struct MangaDetailView: View {
 
         bridge = loadedBridge
 
-        // Merge persisted state from DB
-        let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+        // Merge persisted state from DB (off main thread per GRDB rule)
+        let saved = await Task.detached(priority: .userInitiated) {
+            (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+        }.value
         let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
         chapters = loadedChapters.map { ch in
             guard let persisted = savedMap[ch.id] else { return ch }

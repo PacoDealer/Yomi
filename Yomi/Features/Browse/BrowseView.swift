@@ -486,7 +486,7 @@ struct SourceBrowseView: View {
                 b.popularNovels(page: 1)
             }.value
             novels = items.map { item in
-                Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
+                Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
                       title: item.name, coverURL: URL(string: item.cover ?? ""),
                       summary: nil, author: nil, status: "unknown", genres: [],
                       inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
@@ -529,7 +529,7 @@ struct SourceBrowseView: View {
                 hasMoreContent = false
             } else {
                 let newNovels = items.map { item in
-                    Novel(id: UUID().uuidString, path: item.path, sourceId: sourceId,
+                    Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
                           title: item.name, coverURL: URL(string: item.cover ?? ""),
                           summary: nil, author: nil, status: "unknown", genres: [],
                           inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
