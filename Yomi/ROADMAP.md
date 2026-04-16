@@ -1,26 +1,31 @@
 # Roadmap — Yomi
 
-## Current state (post S36 — 2026-04-16)
+## Current state (post S37 — 2026-04-16)
 
-App is feature-complete + polished. S36 shipped OLED mode, alternate icon infrastructure, NovelFire restored. Apple Developer account now active. App Store submission imminent — only blockers are app icon design + App Store Connect data entry.
+App is feature-complete + polished. S37 full code audit + bug blitz: 3 critical bugs fixed. NovelFull plugin added. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
 
-**S35 shipped:** Deep research session. No code. RESEARCH.md created as master research doc. Research: plugin ecosystems (Mihon impossible, Paperback S37 target, WASM S40+), iOS 26 Liquid Glass icons (3-layer format, Icon Composer), app customization competitor analysis, JSContext architecture audit (stay the course + requiresWebView flag), Claude Code MCP stack audit (current optimal + Apple xcrun mcpbridge available). S36–S38 session plans written.
+**S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
-**S35 bug fixes (session close):** NovelFire temporarily removed (security attack), TextReaderView error message improved, source removal protocol added to METODOLOGIA.md.
+**S37 shipped:** Full 44-file Swift audit. 3 bugs fixed:
+1. **"Failed to load: cancelled"** — `PluginCatalogService.fetchCatalog()` was catching `CancellationError` from tab switches and displaying it as an error. Fixed: `catch is CancellationError` branch added.
+2. **Novel IDs in Browse unstable** — `SourceBrowseView` was using `UUID().uuidString` for novel IDs on every `loadContent()` call, making DB lookups fail on re-entry. Fixed: stable `"\(sourceId)_\(item.path)"` ID.
+3. **MangaDetailView.loadChapters() silent failure** — `guard let ext else { return }` fired without clearing `isLoadingChapters` (spinner stuck forever). Also `ChapterQueries.fetchAll` was called synchronously on MainActor. Both fixed.
+4. **NovelFull plugin** added to Firebase catalog (novelfull.net — verified accessible, Format B).
 
-**S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab. Apple Developer account created by user — App Store submission unblocked.
-
-**App Store blockers remaining:**
-1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
-2. Age rating **18+** — App Store Connect → My Apps → Yomi → App Information
-3. App description + screenshots + support URL — App Store Connect
+**App Store blockers remaining (deferred):**
+1. Apple Developer Program enrollment ($99/year) — user decided not to pay yet
+2. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
+3. Age rating 18+, description, screenshots — App Store Connect
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
+| Chapters from Browse (partial fix) | Defensive fixes applied in S37 but root cause not fully confirmed. Chapters may still fail for some sources. Needs device testing with live plugins to verify. | High |
+| Firebase pending deploy | novelfull.js + updated index.json written but not deployed. User must run: `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi 2.0/yomi-firebase` | High |
 | Alternate icons need Xcode step | AppIconDark + AppIconMinimal appiconsets are placeholders. Drop in PNGs + add CFBundleAlternateIcons in Xcode Target → Info to activate. | Low (after icon design) |
 | Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
-| BrowseView Extensions tab caching | Fetches catalog every time tab opens. Add entries.isEmpty check or TTL refresh. | Low |
+| LibraryViewModel DB reads on MainActor | loadLibrary() calls MangaQueries/NovelQueries synchronously on MainActor. Should use Task.detached. Works in practice but blocks main thread briefly. | Low |
+| Extension.init(row:) force unwrap | sourceListURL = URL(string: row["sourceListURL"])! will crash on malformed DB value. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
