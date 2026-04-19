@@ -12,7 +12,7 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - Firebase Hosting: https://yomi-plugins.web.app
 
 ## Project path
-`/Users/martingamberg/Documents/GitHub/Yomi`
+`/Users/martingamberg/Projects/Yomi/iOS`
 
 ## Key docs (read these at session start)
 - `Yomi/ROADMAP.md` — current state, planned work, tech debt
@@ -36,7 +36,7 @@ S37 = full 44-file audit + bug blitz. 3 critical bugs fixed. NovelFull plugin ad
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Firebase deploy pending | novelfull.js + updated index.json not yet live. Run: `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi 2.0/yomi-firebase` |
+| 1 | Firebase deploy pending | novelfull.js + updated index.json not yet live. Run: `firebase login --reauth && firebase deploy --only hosting` in `~/Projects/Yomi/Firebase` |
 | 2 | Chapters from Browse (partial) | Defensive fixes applied in S37. Root cause not fully confirmed — needs live device test with real plugins. |
 | 3 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
 | 4 | Alternate icons need Xcode step | Drop PNGs into `AppIconDark.appiconset` + `AppIconMinimal.appiconset`, add `CFBundleAlternateIcons` in Xcode Target → Info. |
@@ -168,7 +168,7 @@ Clean DerivedData if stale: `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*
 
 ## Firebase plugin deploy
 ```bash
-cd ~/Desktop/yomi-firebase && firebase deploy --only hosting
+cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting
 ```
 Firebase folder lives outside the Xcode repo — not committed to git.
 
