@@ -37,7 +37,15 @@ struct ChapterReaderView: View {
         self.chapters = chapters
         _currentChapterIndex = State(initialValue: chapterIndex)
         let modeString = AppSettings.shared.readerMode
-        _readerMode = State(initialValue: ReaderMode(rawValue: modeString) ?? .horizontalRTL)
+        var initialMode = ReaderMode(rawValue: modeString) ?? .horizontalRTL
+        if AppSettings.shared.autoWebtoonFromTags {
+            let webtoonTags = ["webtoon", "long strip", "manhwa", "manhua"]
+            let genres = manga.genres.map { $0.lowercased() }
+            if webtoonTags.contains(where: { tag in genres.contains(where: { $0.contains(tag) }) }) {
+                initialMode = .verticalScroll
+            }
+        }
+        _readerMode = State(initialValue: initialMode)
     }
 
     // MARK: - Computed
@@ -185,6 +193,7 @@ struct ChapterReaderView: View {
         let cid = activeChapter.id
         let mid = activeChapter.mangaId
         let wasDownloaded = activeChapter.isDownloaded
+        let deleteAfterReading = AppSettings.shared.deleteDownloadAfterReading
         Task.detached {
             do {
                 try ChapterQueries.markRead(id: cid, mangaId: mid)
@@ -192,7 +201,7 @@ struct ChapterReaderView: View {
                 print("markChapterRead error: \(error)")
             }
             // Auto-delete download after finishing a downloaded chapter
-            if wasDownloaded {
+            if wasDownloaded && deleteAfterReading {
                 let dir = FileManager.default
                     .urls(for: .documentDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("Downloads/\(mid)/\(cid)")
@@ -421,8 +430,8 @@ struct WebtoonReaderView: View {
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
 
-    // Tracks the topmost visible item; nil = not yet scrolled
     @State private var visibleId: Int? = nil
+    @State private var isAutoScrolling = false
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -463,6 +472,38 @@ struct WebtoonReaderView: View {
                 showOverlay.toggle()
             }
         }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.6)
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.2)) { isAutoScrolling.toggle() }
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+        )
+        .overlay(alignment: .bottom) {
+            if isAutoScrolling {
+                Label("Auto-scroll", systemImage: "arrow.down.circle.fill")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.bottom, 60)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isAutoScrolling)
+        .task(id: isAutoScrolling) {
+            guard isAutoScrolling else { return }
+            while !Task.isCancelled && isAutoScrolling {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled && isAutoScrolling else { break }
+                let next = (visibleId ?? 0) + 1
+                guard next < pages.count else { isAutoScrolling = false; break }
+                visibleId = next
+            }
+        }
+        .onDisappear { isAutoScrolling = false }
     }
 }
 

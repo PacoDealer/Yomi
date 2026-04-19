@@ -150,12 +150,13 @@ import SwiftUI
         let total = urls.count
         var completed = 0
 
-        // 3. Download pages — max 3 concurrent via sliding-window withTaskGroup
+        // 3. Download pages — concurrent via sliding-window withTaskGroup
+        let concurrentLimit = AppSettings.shared.concurrentDownloads
         await withTaskGroup(of: (Int, Data?).self) { group in
             var nextIndex = 0
 
             // Seed initial batch
-            while nextIndex < min(3, total) {
+            while nextIndex < min(concurrentLimit, total) {
                 let idx    = nextIndex
                 let urlStr = urls[idx]
                 group.addTask {

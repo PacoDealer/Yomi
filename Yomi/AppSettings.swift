@@ -139,6 +139,45 @@ import Observation
         didSet { defaults.set(alternateIconName, forKey: "alternateIconName") }
     }
 
+    // MARK: - Downloads
+
+    /// Auto-switch to Webtoon mode when manga tags include manhwa/manhua/long strip
+    var autoWebtoonFromTags: Bool {
+        didSet { defaults.set(autoWebtoonFromTags, forKey: "autoWebtoonFromTags") }
+    }
+
+    /// Delete downloaded chapter files automatically after finishing reading
+    var deleteDownloadAfterReading: Bool {
+        didSet { defaults.set(deleteDownloadAfterReading, forKey: "deleteDownloadAfterReading") }
+    }
+
+    /// Max concurrent page downloads per chapter (1–5)
+    var concurrentDownloads: Int {
+        didSet { defaults.set(concurrentDownloads, forKey: "concurrentDownloads") }
+    }
+
+    // MARK: - Smart updates
+
+    /// Skip update check for manga that has unread chapters
+    var skipUpdateWithUnread: Bool {
+        didSet { defaults.set(skipUpdateWithUnread, forKey: "skipUpdateWithUnread") }
+    }
+
+    /// Skip update check for manga not yet started (never opened)
+    var skipUpdateNotStarted: Bool {
+        didSet { defaults.set(skipUpdateNotStarted, forKey: "skipUpdateNotStarted") }
+    }
+
+    /// Skip update check for completed manga
+    var skipUpdateCompleted: Bool {
+        didSet { defaults.set(skipUpdateCompleted, forKey: "skipUpdateCompleted") }
+    }
+
+    /// Category IDs excluded from update checks
+    var excludedCategoryIds: [String] {
+        didSet { defaults.set(excludedCategoryIds, forKey: "excludedCategoryIds") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -172,5 +211,12 @@ import Observation
         showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
         pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false
         alternateIconName       = d.string(forKey: "alternateIconName")
+        autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true
+        deleteDownloadAfterReading = d.object(forKey: "deleteDownloadAfterReading") as? Bool ?? true
+        concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 3
+        skipUpdateWithUnread    = d.object(forKey: "skipUpdateWithUnread")         as? Bool ?? false
+        skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
+        skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false
+        excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
     }
 }
