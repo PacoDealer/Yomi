@@ -26,4 +26,6 @@ struct Chapter: Identifiable, Codable, Hashable {
     var readingSeconds: Int
     /// Última página leída (0 = no iniciado); se restaura al abrir el capítulo
     var lastPageRead: Int
+    /// Grupo de escaneo que publicó este capítulo (opcional, provisto por el plugin)
+    var scanlator: String? = nil
 }

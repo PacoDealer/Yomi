@@ -206,6 +206,18 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v12_scanlator") { db in
+            try db.alter(table: "chapter") { t in
+                t.add(column: "scanlator", .text)
+            }
+        }
+
+        migrator.registerMigration("v13_custom_cover") { db in
+            try db.alter(table: "manga") { t in
+                t.add(column: "customCoverPath", .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -232,29 +244,31 @@ extension Manga: FetchableRecord, PersistableRecord {
         isLocal        = row["isLocal"]
         lastReadAt     = row["lastReadAt"]
         lastUpdatedAt  = row["lastUpdatedAt"]
-        readingSeconds = row["readingSeconds"] ?? 0
-        readingStatus  = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
+        readingSeconds  = row["readingSeconds"] ?? 0
+        readingStatus   = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
+        customCoverPath = row["customCoverPath"]
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]             = id
-        container["path"]           = path
-        container["sourceId"]       = sourceId
-        container["title"]          = title
-        container["coverURL"]       = coverURL?.absoluteString
-        container["summary"]        = summary
-        container["author"]         = author
-        container["artist"]         = artist
-        container["status"]         = status.rawValue
+        container["id"]              = id
+        container["path"]            = path
+        container["sourceId"]        = sourceId
+        container["title"]           = title
+        container["coverURL"]        = coverURL?.absoluteString
+        container["summary"]         = summary
+        container["author"]          = author
+        container["artist"]          = artist
+        container["status"]          = status.rawValue
         // Serializa [String] a JSON para guardarlo en la columna TEXT
-        container["genres"]         = (try? JSONEncoder().encode(genres))
-                                          .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        container["inLibrary"]      = inLibrary
-        container["isLocal"]        = isLocal
-        container["lastReadAt"]     = lastReadAt
-        container["lastUpdatedAt"]  = lastUpdatedAt
-        container["readingSeconds"] = readingSeconds
-        container["readingStatus"]  = readingStatus.rawValue
+        container["genres"]          = (try? JSONEncoder().encode(genres))
+                                           .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        container["inLibrary"]       = inLibrary
+        container["isLocal"]         = isLocal
+        container["lastReadAt"]      = lastReadAt
+        container["lastUpdatedAt"]   = lastUpdatedAt
+        container["readingSeconds"]  = readingSeconds
+        container["readingStatus"]   = readingStatus.rawValue
+        container["customCoverPath"] = customCoverPath
     }
 }
 
@@ -276,6 +290,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         progress        = row["progress"]
         readingSeconds  = row["readingSeconds"] ?? 0
         lastPageRead    = row["lastPageRead"] ?? 0
+        scanlator       = row["scanlator"]
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -291,6 +306,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         container["progress"]       = progress
         container["readingSeconds"] = readingSeconds
         container["lastPageRead"]   = lastPageRead
+        container["scanlator"]      = scanlator
     }
 }
 

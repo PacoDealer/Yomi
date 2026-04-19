@@ -232,7 +232,8 @@ final class JSBridge {
                             id:            mangaPath + '|' + cid,
                             path:          mangaPath + '|' + cid,
                             name:          ch.title || ch.name || ('Chapter ' + (ch.chapNum || i)),
-                            chapterNumber: ch.chapNum || 0
+                            chapterNumber: ch.chapNum || 0,
+                            scanlator:     ch.group || ch.scanlator || null
                         });
                     });
                 } catch(e) {}
@@ -1056,7 +1057,8 @@ final class JSBridge {
                 readAt:          nil,
                 progress:        0.0,
                 readingSeconds:  0,
-                lastPageRead:    0
+                lastPageRead:    0,
+                scanlator:       dict["scanlator"] as? String
             )
         }
     }
