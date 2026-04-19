@@ -20,11 +20,17 @@ struct MangaDetailView: View {
     @State private var displayedChapterCount: Int = 50
     @State private var chaptersDescending: Bool = true
     @State private var chapterFilter: ChapterFilter = .all
+    @State private var chapterSortOption: ChapterSortOption = .chapterNumber
 
     enum ChapterFilter: String, CaseIterable {
         case all        = "All"
         case unread     = "Unread"
         case downloaded = "Downloaded"
+    }
+
+    enum ChapterSortOption: String, CaseIterable {
+        case chapterNumber = "Chapter Number"
+        case name          = "Name"
     }
 
     // Feature 3 — Storage size
@@ -169,6 +175,7 @@ struct MangaDetailView: View {
                     Text(manga.summary ?? "No synopsis available.")
                         .font(.subheadline)
                         .lineLimit(synopsisExpanded ? nil : 4)
+                        .textSelection(.enabled)
 
                     Button(synopsisExpanded ? "Less" : "More") {
                         synopsisExpanded.toggle()
@@ -193,7 +200,14 @@ struct MangaDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    let sorted = chaptersDescending ? Array(chapters.reversed()) : chapters
+                    let sorted: [Chapter] = {
+                        switch chapterSortOption {
+                        case .chapterNumber:
+                            return chaptersDescending ? Array(chapters.reversed()) : chapters
+                        case .name:
+                            return chapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
+                        }
+                    }()
                     let filtered: [Chapter] = {
                         switch chapterFilter {
                         case .all:        return sorted
@@ -277,7 +291,14 @@ struct MangaDetailView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    let sortedChapters = chaptersDescending ? Array(chapters.reversed()) : chapters
+                    let sortedChapters: [Chapter] = {
+                        switch chapterSortOption {
+                        case .chapterNumber:
+                            return chaptersDescending ? Array(chapters.reversed()) : chapters
+                        case .name:
+                            return chapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
+                        }
+                    }()
                     let filteredChapters: [Chapter] = {
                         switch chapterFilter {
                         case .all:        return sortedChapters
@@ -461,9 +482,25 @@ struct MangaDetailView: View {
             }
             .buttonStyle(.plain)
 
-            // Sort toggle
-            Button {
-                withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
+            // Sort option + direction
+            Menu {
+                ForEach(ChapterSortOption.allCases, id: \.self) { option in
+                    Button {
+                        withAnimation(.spring(duration: 0.2)) { chapterSortOption = option }
+                    } label: {
+                        HStack {
+                            Text(option.rawValue)
+                            if chapterSortOption == option { Image(systemName: "checkmark") }
+                        }
+                    }
+                }
+                Divider()
+                Button {
+                    withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
+                } label: {
+                    Label(chaptersDescending ? "Descending" : "Ascending",
+                          systemImage: chaptersDescending ? "arrow.down" : "arrow.up")
+                }
             } label: {
                 Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
                     .font(.caption)

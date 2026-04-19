@@ -32,6 +32,8 @@ struct SettingsView: View {
             generalSection
             librarySection
             mangaReaderSection
+            downloadsSection
+            updatesSection
             novelReaderSection
             appearanceSection
             advancedSection
@@ -74,6 +76,15 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
 
+            Toggle(isOn: $settings.autoWebtoonFromTags) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-detect webtoon")
+                    Text("Switches to Webtoon mode for manhwa/manhua/long-strip titles")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
 
             Toggle(isOn: $settings.isIncognito) {
@@ -83,6 +94,60 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+        }
+    }
+
+    // MARK: - Downloads
+
+    private var downloadsSection: some View {
+        Section("Downloads") {
+            Toggle(isOn: $settings.deleteDownloadAfterReading) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Delete after reading")
+                    Text("Removes downloaded files when you finish a chapter")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Stepper(
+                "Concurrent downloads: \(settings.concurrentDownloads)",
+                value: $settings.concurrentDownloads,
+                in: 1...5
+            )
+        }
+    }
+
+    // MARK: - Updates
+
+    private var updatesSection: some View {
+        Section("Updates") {
+            Toggle(isOn: $settings.skipUpdateWithUnread) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Skip if unread chapters exist")
+                    Text("Don't check for updates when you already have unread content")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Toggle(isOn: $settings.skipUpdateNotStarted) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Skip titles not started")
+                    Text("Don't check titles you've never opened")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Toggle(isOn: $settings.skipUpdateCompleted) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Skip completed titles")
+                    Text("Don't check titles marked as Completed by the source")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            NavigationLink("Excluded categories") {
+                ExcludedCategoriesView(settings: settings)
             }
         }
     }
@@ -333,6 +398,52 @@ struct SettingsView: View {
             Link("GitHub", destination: URL(string: "https://github.com/PacoDealer/Yomi")!)
             Link("Report a bug", destination: URL(string: "https://github.com/PacoDealer/Yomi/issues")!)
             Link("Privacy Policy", destination: URL(string: "https://yomi-plugins.web.app/privacy")!)
+        }
+    }
+}
+
+// MARK: - ExcludedCategoriesView
+
+private struct ExcludedCategoriesView: View {
+    let settings: AppSettings
+    @State private var categories: [Category] = []
+
+    var body: some View {
+        List {
+            if categories.isEmpty {
+                Text("No categories yet. Create categories in your library to exclude them from update checks.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(categories) { cat in
+                    Button {
+                        var excluded = settings.excludedCategoryIds
+                        if excluded.contains(cat.id) {
+                            excluded.removeAll { $0 == cat.id }
+                        } else {
+                            excluded.append(cat.id)
+                        }
+                        settings.excludedCategoryIds = excluded
+                    } label: {
+                        HStack {
+                            Text(cat.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if settings.excludedCategoryIds.contains(cat.id) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Excluded Categories")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            categories = (try? CategoryQueries.fetchAll()) ?? []
         }
     }
 }

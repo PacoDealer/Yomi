@@ -11,6 +11,8 @@ struct LibraryView: View {
     @State private var selectedNovel: Novel? = nil
     @State private var novelBridgeForNav: JSBridge? = nil
     @State private var showNovelDetail = false
+    @State private var randomMangaDest: Manga? = nil
+    @State private var showRandomManga = false
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -154,6 +156,17 @@ struct LibraryView: View {
                     }
                 } else {
                     ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            if let pick = viewModel.displayedManga.randomElement() {
+                                randomMangaDest = pick
+                                showRandomManga = true
+                            }
+                        } label: {
+                            Image(systemName: "shuffle")
+                        }
+                        .disabled(viewModel.displayedManga.isEmpty)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             ForEach(SortOrder.allCases) { order in
                                 Button {
@@ -169,6 +182,11 @@ struct LibraryView: View {
                             Image(systemName: "line.3.horizontal.decrease.circle\(viewModel.sortOrder == .lastRead ? "" : ".fill")")
                         }
                     }
+                }
+            }
+            .navigationDestination(isPresented: $showRandomManga) {
+                if let manga = randomMangaDest {
+                    MangaDetailView(manga: manga)
                 }
             }
             .navigationDestination(isPresented: $showNovelDetail) {
