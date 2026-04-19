@@ -147,6 +147,7 @@ struct NovelDetailView: View {
                     Text(novel.summary ?? "No synopsis available.")
                         .font(.subheadline)
                         .lineLimit(synopsisExpanded ? nil : 4)
+                        .textSelection(.enabled)
 
                     Button(synopsisExpanded ? "Less" : "More") {
                         synopsisExpanded.toggle()

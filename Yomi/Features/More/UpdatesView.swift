@@ -100,6 +100,20 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     private func checkUpdates(for manga: Manga) async {
+        let settings = AppSettings.shared
+
+        // Smart skip conditions
+        if settings.skipUpdateNotStarted && manga.lastReadAt == nil { return }
+        if settings.skipUpdateCompleted && manga.status == .completed { return }
+        if settings.skipUpdateWithUnread {
+            let unread = (try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []
+            if !unread.isEmpty { return }
+        }
+        if !settings.excludedCategoryIds.isEmpty {
+            let assigned = (try? CategoryQueries.categoriesForManga(mangaId: manga.id)) ?? []
+            if assigned.contains(where: { settings.excludedCategoryIds.contains($0.id) }) { return }
+        }
+
         let sourceId  = manga.sourceId
         let mangaPath = manga.path
         let mangaId   = manga.id
