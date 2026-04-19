@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct MangaDetailView: View {
 
@@ -40,6 +41,13 @@ struct MangaDetailView: View {
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
     @State private var chapterForNav: Chapter? = nil
+
+    // Feature 5 — Scanlator filter
+    @State private var scanlatorFilter: String? = nil
+
+    // Feature 6 — Custom cover
+    @State private var showCoverPicker = false
+    @State private var selectedCoverItem: PhotosPickerItem? = nil
 
     init(manga: Manga) {
         _manga = State(initialValue: manga)
@@ -85,14 +93,23 @@ struct MangaDetailView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     // Cover + meta
                     HStack(alignment: .top, spacing: 14) {
-                        AsyncImage(url: manga.coverURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.secondary.opacity(0.3))
-                                .aspectRatio(2 / 3, contentMode: .fit)
+                        Group {
+                            if let customPath = manga.customCoverPath,
+                               let uiImage = UIImage(contentsOfFile: customPath) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(2 / 3, contentMode: .fill)
+                            } else {
+                                AsyncImage(url: manga.coverURL) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(2 / 3, contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.secondary.opacity(0.3))
+                                        .aspectRatio(2 / 3, contentMode: .fit)
+                                }
+                            }
                         }
                         .frame(width: 110)
                         .cornerRadius(10)
@@ -200,6 +217,7 @@ struct MangaDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
+                    scanlatorChipRow
                     let sorted: [Chapter] = {
                         switch chapterSortOption {
                         case .chapterNumber:
@@ -209,11 +227,14 @@ struct MangaDetailView: View {
                         }
                     }()
                     let filtered: [Chapter] = {
+                        let base: [Chapter]
                         switch chapterFilter {
-                        case .all:        return sorted
-                        case .unread:     return sorted.filter { !$0.isRead }
-                        case .downloaded: return sorted.filter { $0.isDownloaded }
+                        case .all:        base = sorted
+                        case .unread:     base = sorted.filter { !$0.isRead }
+                        case .downloaded: base = sorted.filter { $0.isDownloaded }
                         }
+                        if let s = scanlatorFilter { return base.filter { $0.scanlator == s } }
+                        return base
                     }()
                     let visible = Array(filtered.prefix(displayedChapterCount).enumerated())
                     ForEach(visible, id: \.element.id) { _, chapter in
@@ -329,6 +350,12 @@ struct MangaDetailView: View {
                         .disabled(!manga.inLibrary)
 
                         Button {
+                            showCoverPicker = true
+                        } label: {
+                            Label("Change cover", systemImage: "photo")
+                        }
+
+                        Button {
                             withAnimation(.spring(duration: 0.2)) {
                                 isSelectingChapters = true
                                 selectedChapterIds = []
@@ -405,6 +432,22 @@ struct MangaDetailView: View {
         .task { await touchLastRead() }
         .task { await loadCategories() }
         .task { computeStorageSize() }
+        .photosPicker(isPresented: $showCoverPicker, selection: $selectedCoverItem, matching: .images)
+        .onChange(of: selectedCoverItem) { _, item in
+            guard let item else { return }
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+                let coversDir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Covers")
+                try? FileManager.default.createDirectory(at: coversDir, withIntermediateDirectories: true)
+                let fileURL = coversDir.appendingPathComponent("\(manga.id).jpg")
+                try? data.write(to: fileURL)
+                manga.customCoverPath = fileURL.path
+                let updated = manga
+                Task.detached { try? MangaQueries.update(updated) }
+            }
+        }
         .sheet(isPresented: $showCategorySheet) {
             NavigationStack {
                 List {
@@ -560,6 +603,33 @@ struct MangaDetailView: View {
             }
         }
         .textCase(nil)
+    }
+
+    // MARK: - Scanlator Chip Row
+
+    @ViewBuilder
+    private var scanlatorChipRow: some View {
+        let available = Array(Set(chapters.compactMap { $0.scanlator })).sorted()
+        if available.count > 1 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    Button("All") { scanlatorFilter = nil }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(scanlatorFilter == nil ? Color.accentColor : Color.gray)
+                    ForEach(available, id: \.self) { s in
+                        Button(s) {
+                            scanlatorFilter = scanlatorFilter == s ? nil : s
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(scanlatorFilter == s ? Color.accentColor : Color.gray)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
+        }
     }
 
     // MARK: - Selection Action Bar

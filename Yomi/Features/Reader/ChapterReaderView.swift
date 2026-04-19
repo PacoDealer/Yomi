@@ -301,6 +301,8 @@ struct MangaReaderView: View {
     @Binding var showOverlay: Bool
     var isRTL: Bool = true
 
+    @State private var settings = AppSettings.shared
+
     var body: some View {
         ZStack {
             TabView(selection: $currentPage) {
@@ -313,36 +315,60 @@ struct MangaReaderView: View {
             .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
             .ignoresSafeArea()
 
-            // Tap zones: left / center / right
-            // RTL (manga):  left = next (+1), right = prev (-1)
-            // LTR (manhwa): left = prev (-1), right = next (+1)
-            HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture {
-                        let next = isRTL
-                            ? min(currentPage + 1, pages.count - 1)
-                            : max(currentPage - 1, 0)
-                        if next != currentPage {
-                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            currentPage = next
+            tapZoneOverlay
+                .ignoresSafeArea()
+        }
+    }
+
+    @ViewBuilder
+    private var tapZoneOverlay: some View {
+        let layout = settings.tapZoneLayout
+
+        if layout == "disabled" {
+            Color.clear.contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+                }
+        } else {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let leftFraction: CGFloat = layout == "sides" ? 0.2 : 1.0 / 3.0
+                let rightFraction: CGFloat = layout == "sides" ? 0.2 : 1.0 / 3.0
+                let centerFraction = 1.0 - leftFraction - rightFraction
+
+                HStack(spacing: 0) {
+                    // Left zone
+                    Color.clear.contentShape(Rectangle())
+                        .frame(width: w * leftFraction)
+                        .onTapGesture {
+                            let next = isRTL
+                                ? min(currentPage + 1, pages.count - 1)
+                                : max(currentPage - 1, 0)
+                            if next != currentPage {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                currentPage = next
+                            }
                         }
-                    }
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
-                    }
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture {
-                        let next = isRTL
-                            ? max(currentPage - 1, 0)
-                            : min(currentPage + 1, pages.count - 1)
-                        if next != currentPage {
-                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            currentPage = next
+                    // Center zone — toggles overlay
+                    Color.clear.contentShape(Rectangle())
+                        .frame(width: w * centerFraction)
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
                         }
-                    }
+                    // Right zone
+                    Color.clear.contentShape(Rectangle())
+                        .frame(width: w * rightFraction)
+                        .onTapGesture {
+                            let next = isRTL
+                                ? max(currentPage - 1, 0)
+                                : min(currentPage + 1, pages.count - 1)
+                            if next != currentPage {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                currentPage = next
+                            }
+                        }
+                }
             }
-            .ignoresSafeArea()
         }
     }
 }
@@ -432,6 +458,7 @@ struct WebtoonReaderView: View {
 
     @State private var visibleId: Int? = nil
     @State private var isAutoScrolling = false
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -455,6 +482,7 @@ struct WebtoonReaderView: View {
                         .id(index)
                     }
                 }
+                .padding(.horizontal, CGFloat(settings.webtoonHorizontalPadding))
             }
             .scrollPosition(id: $visibleId, anchor: .top)
             .onAppear {
@@ -496,7 +524,7 @@ struct WebtoonReaderView: View {
         .task(id: isAutoScrolling) {
             guard isAutoScrolling else { return }
             while !Task.isCancelled && isAutoScrolling {
-                try? await Task.sleep(for: .milliseconds(3000))
+                try? await Task.sleep(for: .milliseconds(Int(settings.autoScrollSpeed * 1000)))
                 guard !Task.isCancelled && isAutoScrolling else { break }
                 let next = (visibleId ?? 0) + 1
                 guard next < pages.count else { isAutoScrolling = false; break }

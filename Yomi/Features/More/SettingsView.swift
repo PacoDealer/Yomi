@@ -85,6 +85,12 @@ struct SettingsView: View {
                 }
             }
 
+            Picker("Tap zones", selection: $settings.tapZoneLayout) {
+                Text("Default (equal thirds)").tag("default")
+                Text("Sides (20 · 60 · 20%)").tag("sides")
+                Text("Disabled (swipe only)").tag("disabled")
+            }
+
             Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
 
             Toggle(isOn: $settings.isIncognito) {
@@ -102,6 +108,20 @@ struct SettingsView: View {
 
     private var downloadsSection: some View {
         Section("Downloads") {
+            Stepper(
+                "Auto-scroll speed: \(String(format: "%.0f", settings.autoScrollSpeed))s",
+                value: $settings.autoScrollSpeed,
+                in: 1...10,
+                step: 0.5
+            )
+
+            Picker("Webtoon margins", selection: $settings.webtoonHorizontalPadding) {
+                Text("None").tag(0)
+                Text("Small (8 pt)").tag(8)
+                Text("Normal (16 pt)").tag(16)
+                Text("Wide (24 pt)").tag(24)
+            }
+
             Toggle(isOn: $settings.deleteDownloadAfterReading) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Delete after reading")
