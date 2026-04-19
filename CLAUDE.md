@@ -20,20 +20,16 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S38 — 2026-04-19)
+## Current state (post S39 — 2026-04-19)
 
-S38 = 9 UX features shipped (Tachimanga parity blitz). All 9 items implemented, built, and pushed.
+S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + scanlators + custom covers shipped.
 
-**S38 shipped:**
-1. Auto-detect webtoon from tags — ChapterReaderView.init checks genres for manhwa/manhua/long strip → `.verticalScroll`
-2. Hold-to-scroll in WebtoonReaderView — long-press toggles `.task(id:)` async auto-scroll loop
-3. Delete download after reading — `AppSettings.deleteDownloadAfterReading` (default true), captured before Task.detached
-4. Concurrent downloads — `AppSettings.concurrentDownloads` (1–5, default 3), used in DownloadManager
-5. Smart update skip conditions — 3 AppSettings booleans, early returns in `checkUpdates(for:)`
-6. Excluded categories from updates — `AppSettings.excludedCategoryIds`, `ExcludedCategoriesView` in SettingsView.swift
-7. Chapter sort by name — `ChapterSortOption` enum, sort Menu in chapter section header
-8. Random entry — shuffle toolbar button in LibraryView, `navigationDestination(isPresented:)` (Manga is not Hashable)
-9. Text selection — `.textSelection(.enabled)` on synopsis in MangaDetailView + NovelDetailView
+**S39 shipped:**
+1. Scanlator filter — v12_ migration (chapter.scanlator), JSBridge Format A shim, chip row in MangaDetailView
+2. Tap zone layouts — AppSettings.tapZoneLayout ("default"/"sides"/"disabled"), tapZoneOverlay in MangaReaderView
+3. Webtoon padding — AppSettings.webtoonHorizontalPadding (0/8/16/24), applied to LazyVStack in WebtoonReaderView
+4. Auto-scroll speed — AppSettings.autoScrollSpeed (default 3.0s), hold-to-scroll loop uses setting
+5. Custom covers — v13_ migration (manga.customCoverPath), PhotosPicker in MangaDetailView, MangaCoverCell renders custom path
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
@@ -113,7 +109,7 @@ mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v12_` (v11_ used for novel_reading_status in S33)
+- Next migration prefix must be `v14_` (v13_ used for manga.customCoverPath in S39)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`

@@ -1,8 +1,8 @@
 # Roadmap — Yomi
 
-## Current state (post S38 — 2026-04-19)
+## Current state (post S39 — 2026-04-19)
 
-App is feature-complete + polished. S38 UX feature blitz: 9 Tachimanga-parity items shipped. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
+App is feature-complete + polished. S38 UX feature blitz: 9 Tachimanga-parity items shipped. S39 reader polish + scanlators + custom covers shipped. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -455,17 +455,17 @@ All S28 P0/P1/P2/P3 items resolved.
 | 8 | ✅ Random entry button | Shuffle toolbar button in LibraryView. Sets randomMangaDest + showRandomManga, navigates to MangaDetailView. |
 | 9 | ✅ Text selection on descriptions | .textSelection(.enabled) on synopsis Text in MangaDetailView and NovelDetailView. |
 
-## Planned: Session 39 — Reader Polish + Scanlators + Search
+## Session 39 — Reader Polish + Scanlators + Custom Covers ✅ Complete (2026-04-19)
 
-| # | Feature | Files |
-|---|---------|-------|
-| 1 | Scanlator filter + priority | DatabaseManager.swift (v12_ migration), ChapterQueries.swift, MangaDetailView.swift |
-| 2 | Reader tap zone layouts (Kindle-ish, Edge, L-Shape, Right&Left, Disabled, Invert) | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
-| 3 | Separate reader padding (webtoon vs paged, portrait vs landscape) | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
-| 4 | Auto-scroll (seconds-per-page timer) | AppSettings.swift, WebtoonReaderView, SettingsView.swift |
-| 5 | Saved searches | DatabaseManager.swift (new table), BrowseView.swift |
-| 6 | Custom manga covers | DatabaseManager.swift (v13_ migration), MangaDetailView.swift, MangaCoverCell.swift |
-| 7 | Source settings per extension | PluginsView.swift, ExtensionManager.swift |
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Scanlator filter | v12_ migration (chapter.scanlator column). JSBridge Format A shim passes `ch.group \|\| ch.scanlator \|\| null`. MangaDetailView: scanlator chip row above chapter list (only shown when >1 scanlator). Filters displayed chapters. |
+| 2 | ✅ Tap zone layouts | AppSettings.tapZoneLayout: String ("default"/"sides"/"disabled"). MangaReaderView tapZoneOverlay computed @ViewBuilder: default = equal thirds, sides = 20/60/20%, disabled = tap anywhere toggles overlay. Picker in SettingsView → Reader—Manga. |
+| 3 | ✅ Webtoon horizontal padding | AppSettings.webtoonHorizontalPadding: Int (0/8/16/24 pt). Applied as `.padding(.horizontal,)` on WebtoonReaderView LazyVStack. Picker in SettingsView → Downloads section. |
+| 4 | ✅ Auto-scroll speed | AppSettings.autoScrollSpeed: Double (default 3.0s). WebtoonReaderView hold-to-scroll uses `Task.sleep(for: .milliseconds(Int(settings.autoScrollSpeed * 1000)))`. Stepper in SettingsView → Downloads section. |
+| 5 | ⏭ Saved searches | Deferred — too complex for this session. |
+| 6 | ✅ Custom manga covers | v13_ migration (manga.customCoverPath column). MangaDetailView ellipsis menu: "Change cover" → PhotosPicker, saves JPEG to Documents/Covers/{id}.jpg, updates DB. MangaCoverCell shows custom cover if path set. |
+| 7 | ⏭ Source settings per extension | Deferred — too complex for this session. |
 
 ## Planned: Session 40 — Security + Migration + Power Features
 
