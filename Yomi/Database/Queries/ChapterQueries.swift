@@ -23,16 +23,6 @@ enum ChapterQueries {
         }
     }
 
-    /// Devuelve todos los capítulos de un manga ordenados por chapterNumber ASC, nulos al final
-    nonisolated static func fetchByManga(mangaId: String) throws -> [Chapter] {
-        try appDatabase.read { db in
-            try Chapter
-                .filter(Column("mangaId") == mangaId)
-                .order(Column("chapterNumber").ascNullsLast)
-                .fetchAll(db)
-        }
-    }
-
     /// Devuelve el número de capítulos descargados de un manga
     nonisolated static func downloadedCount(mangaId: String) throws -> Int {
         try appDatabase.read { db in

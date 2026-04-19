@@ -38,7 +38,8 @@ final class NotificationManager {
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let identifier = "yomi.update.\(mangaTitle.hashValue)"
+        let safeTitle = mangaTitle.filter { $0.isLetter || $0.isNumber || $0 == " " }.prefix(60)
+        let identifier = "yomi.update.\(safeTitle)"
         let request = UNNotificationRequest(identifier: identifier,
                                             content: content,
                                             trigger: trigger)
