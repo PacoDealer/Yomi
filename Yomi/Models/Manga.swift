@@ -77,4 +77,6 @@ struct Manga: Identifiable, Codable {
     var readingSeconds: Int
     /// Estado de lectura definido por el usuario
     var readingStatus: ReadingStatus = .none
+    /// Ruta local a portada personalizada (nil = usar coverURL de la fuente)
+    var customCoverPath: String? = nil
 }

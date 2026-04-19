@@ -72,18 +72,27 @@ struct MangaCoverCell: View {
 
     private var cellContent: some View {
         VStack(alignment: .leading, spacing: 4) {
-            AsyncImage(url: manga.coverURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
+            Group {
+                if let customPath = manga.customCoverPath,
+                   let uiImage = UIImage(contentsOfFile: customPath) {
+                    Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(2 / 3, contentMode: .fill)
-                case .failure:
-                    SkeletonView(showIcon: true)
-                        .aspectRatio(2 / 3, contentMode: .fit)
-                default:
-                    SkeletonView(showIcon: false)
-                        .aspectRatio(2 / 3, contentMode: .fit)
+                } else {
+                    AsyncImage(url: manga.coverURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        case .failure:
+                            SkeletonView(showIcon: true)
+                                .aspectRatio(2 / 3, contentMode: .fit)
+                        default:
+                            SkeletonView(showIcon: false)
+                                .aspectRatio(2 / 3, contentMode: .fit)
+                        }
+                    }
                 }
             }
             .cornerRadius(8)

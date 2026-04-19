@@ -178,6 +178,25 @@ import Observation
         didSet { defaults.set(excludedCategoryIds, forKey: "excludedCategoryIds") }
     }
 
+    // MARK: - Webtoon reader
+
+    /// Auto-scroll interval in seconds (1–10)
+    var autoScrollSpeed: Double {
+        didSet { defaults.set(autoScrollSpeed, forKey: "autoScrollSpeed") }
+    }
+
+    /// Horizontal padding (points) applied to each image in Webtoon mode
+    var webtoonHorizontalPadding: Int {
+        didSet { defaults.set(webtoonHorizontalPadding, forKey: "webtoonHorizontalPadding") }
+    }
+
+    // MARK: - Tap zones
+
+    /// Tap zone layout for paged reader: "default" | "sides" | "disabled"
+    var tapZoneLayout: String {
+        didSet { defaults.set(tapZoneLayout, forKey: "tapZoneLayout") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -218,5 +237,8 @@ import Observation
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false
         excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
+        autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
+        webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
+        tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
     }
 }
