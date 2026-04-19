@@ -66,15 +66,15 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
 │       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 16 properties. colorScheme: ColorScheme? derived from theme. accentColor: String hex default #FF6B6B. fontSize default 18.0. libraryColumns: Int default 3. keepScreenOn: Bool default true. isIncognito: Bool default false. showUnreadBadge: Bool default true.
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 34 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
-├── PrivacyInfo.xcprivacy            # ❌ MISSING — required for App Store (iOS 17+). Must declare NSPrivacyAccessedAPICategoryUserDefaults.
+├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
-│   # Note: 7 production plugins (mangadex, asurascans, aquamanga, comick,
-│   # royalroad, scribblehub, novelfire) removed from binary in S19 for App Store
-│   # compliance. All plugins hosted on Firebase: https://yomi-plugins.web.app
+│   # Note: 9 production plugins (mangadex, asurascans, aquamanga, royalroad,
+│   # scribblehub, novelfire, freewebnovel, novelbin, novelfull) hosted on Firebase.
+│   # Binary ships zero plugin files for App Store compliance. https://yomi-plugins.web.app
 ├── ARQUITECTURA.md
 ├── METODOLOGIA.md
 └── ROADMAP.md
@@ -103,17 +103,20 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v11_novel_reading_status)
+### Current tables (migration v13_custom_cover)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
-              status TEXT (ReadingStatus enum: none/planToRead/reading/onHold/completed/dropped),
+              status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
               genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
-              readingSeconds INTEGER NOT NULL DEFAULT 0)
+              readingSeconds INTEGER NOT NULL DEFAULT 0,
+              readingStatus TEXT NOT NULL DEFAULT 'none',
+              customCoverPath TEXT)
 
 chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
               isDownloaded, downloadedAt, readAt, progress,
               readingSeconds INTEGER NOT NULL DEFAULT 0,
-              lastPageRead INTEGER NOT NULL DEFAULT 0)
+              lastPageRead INTEGER NOT NULL DEFAULT 0,
+              scanlator TEXT)
 
 category     (id, name, sort)
 
@@ -153,8 +156,10 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v9_novel_chapter_reading_time**: `ALTER TABLE novel_chapter ADD COLUMN readingSeconds INTEGER NOT NULL DEFAULT 0`
 - **v10_novel_category**: novel_category join table (novelId + categoryId, composite PK, ON DELETE CASCADE)
 - **v11_novel_reading_status**: `ALTER TABLE novel ADD COLUMN readingStatus TEXT NOT NULL DEFAULT 'none'`
+- **v12_scanlator**: `ALTER TABLE chapter ADD COLUMN scanlator TEXT`
+- **v13_custom_cover**: `ALTER TABLE manga ADD COLUMN customCoverPath TEXT`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v12_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v14_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
@@ -170,22 +175,47 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 `@ObservationIgnored` on the `defaults` ivar. `private init()` reads all values from UserDefaults
 with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 
+**Reader / display**
 - `readerMode: String` — "Manga (RTL)", "Manhwa (LTR)", or "Webtoon"
-- `fontSize: Double` — novel reader font size (points)
+- `fontSize: Double` — novel reader font size (points); default 18.0
 - `lineSpacing: Double` — novel reader line spacing multiplier
 - `theme: String` — "System", "Light", or "Dark"
 - `useSystemFont: Bool` — system font vs built-in reader font
+- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; applied via `.tint(Color(hex:))` on ContentView
+- `pureBlack: Bool` — OLED pure-black background in dark mode (S36); key "pureBlack"; default false
+- `autoWebtoonFromTags: Bool` — auto-switch to Webtoon mode if manga genres include "Manhwa"/"Manhua" (S37); default true
+- `tapZoneLayout: String` — reader tap zone config: "default"/"sides"/"disabled" (S39); default "default"
+- `webtoonHorizontalPadding: Int` — horizontal inset for webtoon pages in points: 0/8/16/24 (S39); default 0
+- `autoScrollSpeed: Double` — hold-to-auto-scroll interval in seconds (S39); default 3.0
+- `novelTheme: String` — novel reader theme: "light"/"dark"/"sepia" (S39); default "light"
+- `novelFontFamily: String` — novel reader font family name (S39); default system serif
+- `novelHorizontalPadding: Int` — novel reader horizontal padding (S39); default 16
+
+**Library**
+- `libraryColumns: Int` — grid columns in LibraryView; default 3; range 2–6
+- `showUnreadBadge: Bool` — show unread count capsule badge on library covers; default true
+- `excludedCategoryIds: [String]` — category IDs excluded from update checks (S38); default []
+
+**Library update skip filters (S38)**
+- `skipUpdateWithUnread: Bool` — skip manga with any unread chapters; default false
+- `skipUpdateNotStarted: Bool` — skip manga with no chapters read; default false
+- `skipUpdateCompleted: Bool` — skip manga with readingStatus == .completed; default false
+
+**Downloads**
+- `deleteDownloadAfterReading: Bool` — auto-delete downloaded chapter after reader closes (S38); default false
+- `concurrentDownloads: Int` — max parallel chapter downloads (S38); default 3; range 1–5
+
+**App behavior**
 - `showNSFW: Bool` — show NSFW sources and catalog entries
-- `hasRequestedNotifications: Bool` — flag to request permission only once
-- `novelSepia: Bool` — sepia mode toggle for TextReaderView
+- `hasRequestedNotifications: Bool` — flag to request notification permission only once
+- `hasSeenOnboarding: Bool` — set to true when user completes OnboardingView
 - `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
-- `hasSeenOnboarding: Bool` — UserDefaults flag; set to true when user completes OnboardingView
-- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; scrollable 10-swatch row + custom ColorPicker in SettingsView; applied via `.tint(Color(hex:))` on ContentView
-- `libraryColumns: Int` — grid columns in LibraryView; UserDefaults key "libraryColumns"; default 3; range 2–6
-- `keepScreenOn: Bool` — disables idle timer in ChapterReaderView; UserDefaults key "keepScreenOn"; default true
-- `isIncognito: Bool` — skip chapter read/progress persistence when true; UserDefaults key "isIncognito"; default false
-- `showUnreadBadge: Bool` — show unread count capsule badge on library covers; UserDefaults key "showUnreadBadge"; default true
-- `colorScheme: ColorScheme?` — computed; nil=system, .light, .dark; drives `.preferredColorScheme` at ContentView root
+- `keepScreenOn: Bool` — disables idle timer in ChapterReaderView; default true
+- `isIncognito: Bool` — skip chapter read/progress persistence when true; default false
+- `alternateIconName: String?` — nil = default icon; set to alternate icon asset name (S36); nil default
+
+**Appearance (computed)**
+- `colorScheme: ColorScheme?` — computed; nil=system, .light, .dark; derived from `theme`; drives `.preferredColorScheme` at ContentView root
 
 ### AppRouter (Yomi/Core/AppRouter.swift)
 `@Observable final class`, module-level: `nonisolated(unsafe) var appRouter = AppRouter()`
@@ -319,13 +349,16 @@ Injected via `injectRequireShim(into: ctx)` as an IIFE before plugin evaluation.
 public/
   index.json     ← plugin catalog ([PluginCatalogEntry] JSON array)
   mangadex.js
-  comick.js
   asurascans.js
   aquamanga.js
   royalroad.js
   scribblehub.js
   novelfire.js
+  freewebnovel.js
+  novelbin.js
+  novelfull.js
 ```
+Note: comick.js removed (Cloudflare 403 from non-browser clients). lightnovelworld.js removed (site permanently closed Jan 2026).
 
 Plugin IDs in index.json are `SHA256(fileURL).prefix(32)` — consistent with the ID scheme used by `ExtensionManager` for network-installed plugins.
 
@@ -511,11 +544,11 @@ Rule: SourceKit errors are noise. xcodebuild errors are signal.
 |--------|-------------|---------------|---------|
 | **Yomi Format A** | Global JS functions: getMangaList, getChapterList, getPageList, searchManga | Native | MangaDex, Comick, Asura, AquaManga |
 | **Yomi Format B (LNReader)** | `plugin` class: popularNovels, parseNovel, parseChapter, searchNovels | Native | Royal Road, ScribbleHub, NovelFire |
-| **Paperback** | TypeScript → esbuild JS. `Source` class export. getHomePageSections, getSearchResults, getChapterDetails | Needs JSBridge shim (S23 backlog) | ~100 iOS sources |
+| **Paperback** | TypeScript → esbuild JS. `Source` class export. getHomePageSections, getSearchResults, getChapterDetails | JSBridge shim implemented (S24) | ~100 iOS sources |
 | **Keiyoushi / Tachiyomi** | Kotlin → Android APK. Inter-process via PackageManager. | ❌ Impossible on iOS | N/A |
 | **Aidoku** | Swift → WebAssembly (.aix). WasmSwift runtime. | ❌ Requires WASM runtime | N/A |
 
-### Paperback shim design (planned S23)
+### Paperback shim design (implemented S24)
 Paperback extensions export: `export const sources = { MySource }` where `MySource` extends `Source`.
 The JSBridge shim would inject before plugin eval:
 ```javascript
@@ -576,7 +609,7 @@ Plugin declares `disqusShortname` field. Future feature, not S23.
 | require() shim over esbuild-only | Require esbuild for all plugins | Shim enables LNReader v2.x plugins to run without a build step; esbuild script available for TS authoring |
 | nonisolated GRDB access | Singleton property on MainActor | Module-level `nonisolated(unsafe) var appDatabase` is the official GRDB pattern for Swift 6 — avoids actor hops in *Queries |
 | UserDefaults for settings | CoreData / JSON file | Simple settings don't need a DB |
-| MAL token in UserDefaults | Keychain | Sufficient for MVP; migrate to Keychain before App Store |
+| MAL token in Keychain | UserDefaults | Migrated to Keychain in S24 for App Store compliance |
 | Manual JSON backup | CloudKit / iCloud Drive sync | No dependency on Apple services; portable across platforms |
 | MAL PKCE plain | PKCE S256 | MAL API only supports the plain method |
 | debounceTask (Task.sleep) | Combine debounce | Less code, no Combine dependency, sufficient for a TextField |
