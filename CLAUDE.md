@@ -20,27 +20,33 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S37 — 2026-04-16)
+## Current state (post S38 research — 2026-04-18)
 
-S37 = full 44-file audit + bug blitz. 3 critical bugs fixed. NovelFull plugin added. App Store deferred (user not paying $99 Developer Program yet). Focus: finish the app.
+S37 = full 44-file audit + bug blitz. 3 critical bugs fixed. NovelFull plugin added.
+S38 = Tachimanga competitive research (changelog + 809-string localization file). Multi-session feature roadmap written. Docs updated. No Swift code shipped yet this session.
 
-**S37 fixed:**
-- `PluginCatalogService.fetchCatalog()`: `CancellationError` now caught silently (was showing "Failed to load: cancelled")
-- `SourceBrowseView`: novel IDs now stable `"\(sourceId)_\(path)"` (was random UUID per load)
-- `MangaDetailView.loadChapters()`: `guard let ext` now clears spinner before return; `ChapterQueries.fetchAll` moved to `Task.detached`
-- `novelfull.js` + `index.json` entry written — **pending Firebase deploy** (user must `firebase login --reauth && firebase deploy --only hosting`)
+**S38 plan (ready to implement):**
+1. Auto webtoon from tags — read manga tags, auto-set reader mode
+2. Hold-to-scroll in WebtoonReaderView
+3. Delete download after reading (AppSettings toggle)
+4. Concurrent downloads setting
+5. Smart update skip conditions (unread / not-started / completed)
+6. Excluded categories from updates
+7. Chapter sort options (upload date + name)
+8. Random entry button in Library
+9. Text selection on manga/novel descriptions (`.textSelection(.enabled)`)
 
-**App Store status:** Deferred. User chose not to enroll in Apple Developer Program ($99/year) yet.
+**App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
-## Known issues / next session (S38)
+## Known issues / carry-forward
 
 | # | Issue | Notes |
 |---|-------|-------|
 | 1 | Firebase deploy pending | novelfull.js + updated index.json not yet live. Run: `firebase login --reauth && firebase deploy --only hosting` in `~/Projects/Yomi/Firebase` |
-| 2 | Chapters from Browse (partial) | Defensive fixes applied in S37. Root cause not fully confirmed — needs live device test with real plugins. |
+| 2 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
 | 3 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
-| 4 | Alternate icons need Xcode step | Drop PNGs into `AppIconDark.appiconset` + `AppIconMinimal.appiconset`, add `CFBundleAlternateIcons` in Xcode Target → Info. |
-| 5 | App Store deferred | User will enroll when ready. Age rating 18+, description, screenshots, support URL all pending. |
+| 4 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
+| 5 | App Store deferred | Age rating 18+, description, screenshots pending. |
 
 ## MCP tools — use these every session
 

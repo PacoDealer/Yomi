@@ -152,6 +152,38 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 35 | 2026-04-15 | Deep research session. RESEARCH.md created as permanent master research doc (replaces RESEARCH_S35.md). Research: Mihon iOS impossible, Paperback TS (S37), WASM (S40+), iOS 26 Liquid Glass icons, JSContext architecture correct, Apple xcrun mcpbridge available. S36–S38 plans written. Bug fixes at close: NovelFire removed from index.json (site under security attack — **restore when incident resolves**), TextReaderView error message improved. Source removal protocol added to methodology. |
 | 36 | 2026-04-16 | NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (AppSettings.pureBlack, ContentView tab bar, SettingsView toggle). Alternate icon infrastructure: AppSettings.alternateIconName, SettingsView picker (Default/Dark/Minimal), placeholder appiconsets — awaiting icon PNGs + Xcode CFBundleAlternateIcons step. RESEARCH.md NovelFire row corrected. Apple Developer account created — App Store unblocked. |
 | 37 | 2026-04-16 | Full 44-file Swift audit + bug blitz. Fixed: (1) PluginCatalogService.fetchCatalog() was swallowing CancellationError as user-visible error "cancelled" — added `catch is CancellationError` guard. (2) SourceBrowseView novel IDs were `UUID().uuidString` (random per loadContent call) — changed to stable `"\(sourceId)_\(item.path)"`. (3) MangaDetailView.loadChapters() `guard let ext else { return }` fired without clearing isLoadingChapters (spinner stuck) + ChapterQueries.fetchAll called synchronously on MainActor — both fixed. (4) NovelFull plugin written (novelfull.net, Format B, confirmed selectors). App Store deferred (user not paying $99 yet). Firebase deploy pending (user must reauth). |
+| 38 | 2026-04-18 | Tachimanga competitive research (full changelog v1.1–v4.15 + 809-string localization file from Weblate export). Multi-session feature roadmap written: S38 (9 quick-win items), S39 (reader polish + scanlators), S40 (security + migration), S41 (Yomi exclusives). XcodeBuildMCP session_set_defaults added to .claude/settings.local.json allow list. ROADMAP + METODOLOGIA updated with research and plan. |
+
+## Competitive research — S38 (Tachimanga)
+
+### Sources
+- Full changelog scraped: tachimanga.app/docs/changelogs.html (v1.1–v4.15, Apr 2026)
+- Full localization file: Weblate export ZIP — `tachimanga-intl-en.csv` (809 strings, Apr 19 2026 build)
+- The ARB file in the same ZIP is for Sorayomi (Flutter desktop client), not the iOS app
+
+### Key findings
+- Tachimanga is **Flutter-based** (not SwiftUI). Many features Yomi has natively (SwiftUI animations, iOS 26 Tab API) are harder for them.
+- **Premium paywall** on notes, sync, unlimited downloads. Yomi is fully free — strong competitive differentiator to highlight in App Store description.
+- **Features Yomi already has** at parity: OLED mode, incognito, backup/restore, reading insights, categories, multi-select, downloads, progress resume, page slider, unread badge, alternate icons, NSFW filter, MAL tracking, reading status, continue reading.
+- **Biggest gaps (S38):** auto webtoon from tags, hold-to-scroll, skip update conditions, concurrent downloads, delete-after-read, chapter sort options, random entry, text selection on descriptions.
+- **Medium gaps (S39):** scanlator filter/priority, reader tap zones, separate padding settings, auto-scroll, saved searches, custom covers.
+- **Long-term gaps (S40+):** app lock, Tachiyomi backup import, bulk migration, multiple extension repos.
+- **Yomi exclusives to build (S41):** WidgetKit, TTS for novels, manga notes (free), global search, tab reordering.
+
+### Tachimanga localization string keys worth knowing
+- `auto_webtoon_mode` / `auto_webtoon_mode_desc` — tags: 'webtoon', 'long strip', 'manhwa'
+- `hold_to_scroll` — only in webtoon + continuous modes
+- `remove_after_read` — delete download automatically when chapter marked read
+- `concurrent_download_title` / `concurrent_download_tips` — warn about IP bans from same-source concurrent
+- `skip_updating_titles_with_unread_chapters` / `that_havent_been_read` / `with_completed_status`
+- `exclude_categories` — categories excluded from global update
+- `action_open_random_manga` — random entry from library
+- `readerNavigationLayout*` — 6 tap zone layout modes (Default, Edge, Kindle-ish, L-Shape, Right&Left, Disabled + Invert toggle)
+- `readerPaddingWebtoon` / `readerPaddingPaged` — separate per mode
+- `scanlator_filter_label` / `scanlator_priority_label` — filter + priority per manga
+- `saved_searches` / `save_query_title` — persist named search queries
+- `repair_database` — dangerous DB repair tool
+- `liquid_glass_appearance_title` — iOS 26 Liquid Glass toggle
 
 ## Technical learnings — S37
 

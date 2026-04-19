@@ -439,22 +439,58 @@ All S28 P0/P1/P2/P3 items resolved.
 - [ ] Pick 2–3 Paperback sources to prioritize (browse Paperback community repos)
 - [ ] Test on real device after deploy (Cloudflare behavior may differ from simulator)
 
-## Planned: Session 38 — WidgetKit + Community Infrastructure
+## Planned: Session 38 — UX Feature Blitz (Tachimanga parity + exclusives)
 
-**Goal:** Home screen widget + foundation for community plugin contributions.
+**Source:** Deep research into Tachimanga changelog (v1.1–v4.15) and full localization file (809 strings extracted from Weblate export). Yomi is already at parity on ~15 features. S38 closes the remaining quick-win gaps.
 
-**Claude codes:**
+**S38 items (this session):**
 | # | Feature | Files |
 |---|---------|-------|
-| 1 | WidgetKit YomiWidget target (ContinueReadingWidget, small + medium, App Groups shared DB) | New target: YomiWidget/ |
-| 2 | App Groups shared DB path | DatabaseManager.swift, YomiApp.swift |
-| 3 | `yomi.d.ts` TypeScript type definitions | scripts/yomi.d.ts |
-| 4 | GitHub issue template for plugin submissions | .github/ISSUE_TEMPLATE/ |
+| 1 | Auto webtoon from tags | AppSettings.swift, MangaDetailView.swift, ChapterReaderView.swift |
+| 2 | Hold-to-scroll in WebtoonReaderView | WebtoonReaderView (in ChapterReaderView.swift) |
+| 3 | Delete download after reading | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
+| 4 | Concurrent downloads setting | AppSettings.swift, DownloadManager.swift, SettingsView.swift |
+| 5 | Smart update skip conditions | AppSettings.swift, UpdatesView.swift, SettingsView.swift |
+| 6 | Excluded categories from updates | AppSettings.swift, UpdatesView.swift, SettingsView.swift |
+| 7 | Chapter sort options (upload date + name) | MangaDetailView.swift |
+| 8 | Random entry button | LibraryView.swift, LibraryViewModel.swift |
+| 9 | Text selection on descriptions | MangaDetailView.swift, NovelDetailView.swift (1 modifier each) |
 
-**User actions:**
-- [ ] Add App Groups entitlement in Apple Developer Portal
-- [ ] Enable App Groups in Xcode → Signing & Capabilities for both targets
-- [ ] Decide: open source Firebase plugin repo for community contributions?
+## Planned: Session 39 — Reader Polish + Scanlators + Search
+
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | Scanlator filter + priority | DatabaseManager.swift (v12_ migration), ChapterQueries.swift, MangaDetailView.swift |
+| 2 | Reader tap zone layouts (Kindle-ish, Edge, L-Shape, Right&Left, Disabled, Invert) | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
+| 3 | Separate reader padding (webtoon vs paged, portrait vs landscape) | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
+| 4 | Auto-scroll (seconds-per-page timer) | AppSettings.swift, WebtoonReaderView, SettingsView.swift |
+| 5 | Saved searches | DatabaseManager.swift (new table), BrowseView.swift |
+| 6 | Custom manga covers | DatabaseManager.swift (v13_ migration), MangaDetailView.swift, MangaCoverCell.swift |
+| 7 | Source settings per extension | PluginsView.swift, ExtensionManager.swift |
+
+## Planned: Session 40 — Security + Migration + Power Features
+
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | App lock (Face ID / Touch ID / passcode) | New: AppLockView.swift, AppSettings.swift, YomiApp.swift |
+| 2 | Tachiyomi/Mihon backup import | New: TachiyomiBackupParser.swift |
+| 3 | Bulk source migration | New: MigrationView.swift |
+| 4 | Multiple extension repositories | PluginCatalogService.swift, SettingsView.swift |
+| 5 | Repair database tool | SettingsView.swift, DatabaseManager.swift |
+| 6 | Background downloads (BGProcessingTask, iOS 26) | DownloadManager.swift, YomiApp.swift |
+
+## Planned: Session 41 — Yomi Exclusives (not in Tachimanga)
+
+| # | Feature | Files |
+|---|---------|-------|
+| 1 | WidgetKit ContinueReadingWidget (small + medium) | New target: YomiWidget/ |
+| 2 | TTS for novels (AVSpeechSynthesizer) | TextReaderView.swift |
+| 3 | Manga notes (free — Tachimanga charges premium) | DatabaseManager.swift, MangaDetailView.swift |
+| 4 | Global search across all installed sources | New: GlobalSearchView.swift |
+| 5 | Tab reordering (iOS 26 native) | ContentView.swift, AppSettings.swift |
+| 6 | Opening tab setting | AppSettings.swift, ContentView.swift |
+| 7 | yomi.d.ts TypeScript definitions for plugin authors | scripts/yomi.d.ts |
+| 8 | GitHub issue template for community plugin submissions | .github/ISSUE_TEMPLATE/ |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 
