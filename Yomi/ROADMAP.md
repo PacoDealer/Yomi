@@ -1,8 +1,8 @@
 # Roadmap — Yomi
 
-## Current state (post S37 — 2026-04-16)
+## Current state (post S38 — 2026-04-19)
 
-App is feature-complete + polished. S37 full code audit + bug blitz: 3 critical bugs fixed. NovelFull plugin added. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
+App is feature-complete + polished. S38 UX feature blitz: 9 Tachimanga-parity items shipped. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -439,22 +439,21 @@ All S28 P0/P1/P2/P3 items resolved.
 - [ ] Pick 2–3 Paperback sources to prioritize (browse Paperback community repos)
 - [ ] Test on real device after deploy (Cloudflare behavior may differ from simulator)
 
-## Planned: Session 38 — UX Feature Blitz (Tachimanga parity + exclusives)
+## Session 38 — UX Feature Blitz (Tachimanga parity + exclusives) ✅ Complete
 
 **Source:** Deep research into Tachimanga changelog (v1.1–v4.15) and full localization file (809 strings extracted from Weblate export). Yomi is already at parity on ~15 features. S38 closes the remaining quick-win gaps.
 
-**S38 items (this session):**
-| # | Feature | Files |
-|---|---------|-------|
-| 1 | Auto webtoon from tags | AppSettings.swift, MangaDetailView.swift, ChapterReaderView.swift |
-| 2 | Hold-to-scroll in WebtoonReaderView | WebtoonReaderView (in ChapterReaderView.swift) |
-| 3 | Delete download after reading | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
-| 4 | Concurrent downloads setting | AppSettings.swift, DownloadManager.swift, SettingsView.swift |
-| 5 | Smart update skip conditions | AppSettings.swift, UpdatesView.swift, SettingsView.swift |
-| 6 | Excluded categories from updates | AppSettings.swift, UpdatesView.swift, SettingsView.swift |
-| 7 | Chapter sort options (upload date + name) | MangaDetailView.swift |
-| 8 | Random entry button | LibraryView.swift, LibraryViewModel.swift |
-| 9 | Text selection on descriptions | MangaDetailView.swift, NovelDetailView.swift (1 modifier each) |
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Auto webtoon from tags | ChapterReaderView.init checks manga.genres for manhwa/manhua/long strip → overrides to .verticalScroll. Gated by AppSettings.autoWebtoonFromTags (default on). |
+| 2 | ✅ Hold-to-scroll in WebtoonReaderView | Long-press (0.6s) toggles auto-scroll. Swift 6 `.task(id: isAutoScrolling)` loop advances visibleId every 600ms. Toast overlay shown while active. |
+| 3 | ✅ Delete download after reading | AppSettings.deleteDownloadAfterReading (Bool, default true). markChapterRead() gates delete behind setting. Capture before Task.detached. |
+| 4 | ✅ Concurrent downloads setting | AppSettings.concurrentDownloads (Int 1–5, default 3). DownloadManager.performDownload seeds initial batch with this value. |
+| 5 | ✅ Smart update skip conditions | AppSettings.skipUpdateWithUnread / skipUpdateNotStarted / skipUpdateCompleted. Early returns in checkUpdates(for:) before network call. |
+| 6 | ✅ Excluded categories from updates | AppSettings.excludedCategoryIds ([String]). CategoryQueries.categoriesForManga checked in checkUpdates. New ExcludedCategoriesView in SettingsView.swift. |
+| 7 | ✅ Chapter sort by name | MangaDetailView.ChapterSortOption enum (.chapterNumber / .name). Sort menu replaces simple direction toggle. Both sorted vars updated. |
+| 8 | ✅ Random entry button | Shuffle toolbar button in LibraryView. Sets randomMangaDest + showRandomManga, navigates to MangaDetailView. |
+| 9 | ✅ Text selection on descriptions | .textSelection(.enabled) on synopsis Text in MangaDetailView and NovelDetailView. |
 
 ## Planned: Session 39 — Reader Polish + Scanlators + Search
 

@@ -20,21 +20,20 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S38 research — 2026-04-18)
+## Current state (post S38 — 2026-04-19)
 
-S37 = full 44-file audit + bug blitz. 3 critical bugs fixed. NovelFull plugin added.
-S38 = Tachimanga competitive research (changelog + 809-string localization file). Multi-session feature roadmap written. Docs updated. No Swift code shipped yet this session.
+S38 = 9 UX features shipped (Tachimanga parity blitz). All 9 items implemented, built, and pushed.
 
-**S38 plan (ready to implement):**
-1. Auto webtoon from tags — read manga tags, auto-set reader mode
-2. Hold-to-scroll in WebtoonReaderView
-3. Delete download after reading (AppSettings toggle)
-4. Concurrent downloads setting
-5. Smart update skip conditions (unread / not-started / completed)
-6. Excluded categories from updates
-7. Chapter sort options (upload date + name)
-8. Random entry button in Library
-9. Text selection on manga/novel descriptions (`.textSelection(.enabled)`)
+**S38 shipped:**
+1. Auto-detect webtoon from tags — ChapterReaderView.init checks genres for manhwa/manhua/long strip → `.verticalScroll`
+2. Hold-to-scroll in WebtoonReaderView — long-press toggles `.task(id:)` async auto-scroll loop
+3. Delete download after reading — `AppSettings.deleteDownloadAfterReading` (default true), captured before Task.detached
+4. Concurrent downloads — `AppSettings.concurrentDownloads` (1–5, default 3), used in DownloadManager
+5. Smart update skip conditions — 3 AppSettings booleans, early returns in `checkUpdates(for:)`
+6. Excluded categories from updates — `AppSettings.excludedCategoryIds`, `ExcludedCategoriesView` in SettingsView.swift
+7. Chapter sort by name — `ChapterSortOption` enum, sort Menu in chapter section header
+8. Random entry — shuffle toolbar button in LibraryView, `navigationDestination(isPresented:)` (Manga is not Hashable)
+9. Text selection — `.textSelection(.enabled)` on synopsis in MangaDetailView + NovelDetailView
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
