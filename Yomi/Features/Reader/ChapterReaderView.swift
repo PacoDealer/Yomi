@@ -496,7 +496,7 @@ struct WebtoonReaderView: View {
         .task(id: isAutoScrolling) {
             guard isAutoScrolling else { return }
             while !Task.isCancelled && isAutoScrolling {
-                try? await Task.sleep(for: .milliseconds(600))
+                try? await Task.sleep(for: .milliseconds(3000))
                 guard !Task.isCancelled && isAutoScrolling else { break }
                 let next = (visibleId ?? 0) + 1
                 guard next < pages.count else { isAutoScrolling = false; break }
