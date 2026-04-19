@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-04-15 (S35) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-04-19 (S39 audit) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 
@@ -21,7 +21,7 @@ This file is the single source of truth for all Yomi research. It replaces all p
 ---
 
 ## 1. Competitive Landscape
-✅ RESEARCHED (S23 + S32 + S35, 2026-04-07 through 2026-04-15)
+✅ RESEARCHED (S23 + S32 + S35 + S39 audit, 2026-04-07 through 2026-04-19)
 
 ### iOS Manga Readers
 
@@ -44,6 +44,14 @@ This file is the single source of truth for all Yomi research. It replaces all p
 - Free, open-source. Reading statistics, background download, iCloud sync, built-in Kavita source.
 - No light novels. Smaller community than Paperback.
 - WASM-based source system (Rust SDK, .aix packages).
+
+**Mangayomi** — New cross-platform competitor (2025–2026)
+- Flutter-based: iOS, Android, Windows, macOS, Linux. Open-source.
+- Dual extension system: JavaScript plugins for manga, Dart plugins for anime (with video player).
+- Covers manga + novels + anime — more complete than Yomi or any iOS app.
+- Extension format: custom JS API with `client.get()`/`client.post()` HTTP calls. Not compatible with Yomi Format A or LNReader Format B without a shim.
+- Growing community; available on App Store as of late 2025.
+- **Implication for Yomi:** Yomi's manga+novel positioning is no longer unique if Mangayomi gains iOS traction. Yomi's competitive moat must shift to better iOS-native UX, performance, and App Store presence.
 
 **Others** — Suwatte, Panels, Manga Storm
 - None have light novels. All fragmented.
@@ -121,14 +129,14 @@ What users universally want:
 | MAL/AniList tracking | ✅ Implemented S8 |
 | Offline downloads | ✅ Implemented S12 |
 | iCloud sync | ❌ Not yet (S38+) |
-| Pure black OLED mode | ❌ Not yet (S36) |
-| Home screen widget | ❌ Not yet (S38) |
+| Pure black OLED mode | ✅ Implemented S36 |
+| Home screen widget | ❌ Not yet (future) |
 | Volume button page-turn | ❌ Not yet (future) |
 
 ---
 
 ## 3. Source Sites & Scraping
-✅ RESEARCHED (S23 + S32, 2026-04-14)
+✅ RESEARCHED (S23 + S32 + S39 audit, 2026-04-19)
 
 | Site | Type | API | Scraping | Status in Yomi | Notes |
 |------|------|-----|----------|----------------|-------|
@@ -138,10 +146,11 @@ What users universally want:
 | AquaManga | Aggregator | None | HTML | ✅ Working (aquamanga.js) | aquareader.net domain. |
 | Royal Road | Platform | None | Possible | ✅ Working (royalroad.js) | Web serials/LitRPG. Anti-scraping but accessible. |
 | ScribbleHub | Platform | None | Possible | ✅ Working (scribblehub.js) | Web serials. AJAX POST TOC. |
-| NovelFire | Aggregator | None | HTML | ⚠️ Temporarily removed | Site under active security attack (S35 — official notice posted on novelfire.net). novelfire.js exists and works. Restore to index.json once incident resolves. NOT a permanent Cloudflare block. |
+| NovelFire | Aggregator | None | HTML | ✅ Working (novelfire.js restored S36) | Was temporarily removed (S35) due to site security attack. Restored when site recovered. |
 | FreeWebNovel | Aggregator | None | HTML | ✅ Working (freewebnovel.js) | Fixed S34. |
 | NovelBin | Aggregator | None | HTML | ✅ Working (novelbin.js) | Uses text slugs not numeric IDs. Fixed S34. |
 | LightNovelWorld | Aggregator | None | HTML | ❌ Removed (site dead) | Permanently down. Removed from catalog S34. |
+| Bato.to | Aggregator | None | HTML | ❌ No plugin, site dead | Permanently shut down January 2026 by CODA (Chinese government takedown). Do not plan plugins for this source. |
 | LightNovelPub | Aggregator | None | Cloudflare | ❌ Removed (Cloudflare 403) | Removed from catalog S34. |
 | WuxiaWorld | Niche | None | Cloudflare | ❌ No plugin | Cloudflare — very hard to scrape. |
 | WebNovel | Platform | None | Cloudflare | ❌ No plugin | Licensed content. Cloudflare blocks. |
@@ -178,7 +187,7 @@ What users universally want:
 1. **Light** — white bg, black text (day reading) ✅ Implemented
 2. **Sepia** — #FFF8F0 bg, #2C1810 text (default for long sessions) ✅ Implemented  
 3. **Dark Gray** — #1C1C1E bg, #E8E8E8 text (night) ✅ Implemented
-4. **Pure Black / AMOLED** — #000000 bg (battery saving, OLED users) ❌ **Not yet (S36)**
+4. **Pure Black / AMOLED** — #000000 bg (battery saving, OLED users) ✅ **Implemented S36**
 
 ### Novel-Specific UX (distinct from manga)
 - Font size/family/weight/spacing/margin controls — critical differentiator ✅ Font size implemented
@@ -325,14 +334,14 @@ UIApplication.shared.setAlternateIconName(nil) // reset to default
 
 | Feature | Tachimanga | Aidoku | Paperback | **Yomi** |
 |---------|-----------|--------|-----------|---------|
-| Alternate app icons | ✅ Multiple sets | ❌ | ❌ | ❌ **S36** |
-| iOS 18/26 adaptive icons | ✅ v4.2 | ❓ | ❓ | ❌ **S36** |
+| Alternate app icons | ✅ Multiple sets | ❌ | ❌ | ✅ Infrastructure S36 (awaiting user PNGs) |
+| iOS 26 adaptive icons | ✅ v4.2 | ❓ | ❓ | ⚠️ Awaiting app icon design |
 | Custom themes (dark/sepia/light) | ✅ Premium | ✅ | ✅ | ✅ (reader only) |
-| Pure black OLED mode | ✅ | ❓ | ❓ | ❌ **S36** |
+| Pure black OLED mode | ✅ | ❓ | ❓ | ✅ **S36** |
 | Per-source custom colors | ❌ | ❌ | ❌ | N/A |
-| Tab bar customization | ✅ v4.13 | ❓ | ❓ | ❌ **S38+** |
-| Home screen widget | ❓ | ❓ | ❓ | ❌ **S38** |
-| App-wide themes (not just reader) | ✅ | ❓ | ❓ | ❌ **S36+** |
+| Tab bar customization | ✅ v4.13 | ❓ | ❓ | ❌ future |
+| Home screen widget | ❓ | ❓ | ❓ | ❌ future |
+| App-wide themes (not just reader) | ✅ | ❓ | ❓ | ❌ future |
 
 ---
 
@@ -473,51 +482,41 @@ Available Claude Code plugin types: Skills (slash commands), Agents (subagents),
 
 ## 11. Ranked Recommendations
 
+### Status: Completed through S39
+| Session | Features Shipped |
+|---------|-----------------|
+| S36 | OLED pure black mode, alternate icon infrastructure, NovelFire restored |
+| S37 | Paperback requestManager shim, NovelFull plugin, 9 code/audit fixes |
+| S38 | 9 UX features (Tachimanga parity blitz): scanlator prep, update filters, skip completed, download limit, delete-after-read, incognito toggle, unread badge toggle, category exclude from updates, reading status pill |
+| S39 | Scanlator filter UI, tap zone layouts, webtoon padding, auto-scroll speed, custom covers |
+
 ### Immediate — App Store Blockers (User Actions)
 | # | Action | Where | Time |
 |---|--------|-------|------|
-| 1 | Firebase deploy (fixed plugins) | `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi\ 2.0/yomi-firebase` | 5 min |
-| 2 | Uninstall LightNovelWorld | Yomi app → Extensions → swipe left on LightNovelWorld | 1 min |
-| 3 | App icon design (1024×1024 PNG) | Figma/Sketch/AI + Icon Composer for 3 layers | 30–60 min |
-| 4 | Age rating 18+ | App Store Connect → App Information | 5 min |
-| 5 | App description | Paste S33 draft into App Store Connect | 10 min |
-| 6 | Screenshots (6.9" iPhone + iPad) | Xcode Simulator → File → Take Screenshot | 20 min |
-| 7 | Support URL | GitHub repo URL in App Store Connect | 2 min |
+| 1 | Firebase deploy (novelfull.js + updated index.json not yet live) | `firebase login --reauth && firebase deploy --only hosting` in `~/Projects/Yomi/Firebase` | 5 min |
+| 2 | App icon design (1024×1024 PNG, 3-layer for iOS 26) | Figma/Sketch/AI + Icon Composer for background/midground/foreground layers | 30–60 min |
+| 3 | Age rating 18+ | App Store Connect → App Information | 5 min |
+| 4 | App description | Drafted S33 — paste into App Store Connect | 10 min |
+| 5 | Screenshots (6.9" iPhone + iPad) | Xcode Simulator → File → Take Screenshot | 20 min |
+| 6 | Support URL | GitHub repo URL in App Store Connect | 2 min |
 
-### S36 — App Store Push + Customization Polish (Claude codes)
+### S40 — App Store submission + Mangayomi response
 | # | Feature | Impact | Effort |
 |---|---------|--------|--------|
-| 1 | Alternate app icons (2–3 variants + SettingsView picker) | High — visual polish | Low–Medium |
-| 2 | Pure black OLED mode (`AppSettings.pureBlack`) | Medium — matches Tachimanga | Very Low |
-| 3 | NovelFire targeted WKWebView fallback (`requiresWebView` flag) | Medium — fixes synopsis | Medium |
-| 4 | App icon integration (user delivers PNG → Icon Composer layers → xcassets) | High — App Store blocker | Low (after user delivers) |
-| 5 | `xcrun mcpbridge` supplemental Xcode MCP | Low — SwiftUI previews | Very Low |
+| 1 | App icon PNGs → Xcode + alternate icons UI (user delivers layers) | High — App Store blocker | Low (after user delivers PNGs) |
+| 2 | iCloud CloudKit sync (Mangayomi has cross-platform sync) | High — competitive differentiator | High |
+| 3 | WidgetKit ContinueReading widget (App Groups + shared DB) | High — acquisition/retention | High |
+| 4 | Novel list view mode (novels UI distinct from manga) | Medium — UX quality | Low |
 
-### S37 — Paperback Ecosystem Unlock ~100 sources (Claude codes)
-| # | Feature | Impact | Effort |
-|---|---------|--------|--------|
-| 1 | JSBridge Format C full detection + Source class bridge | Very High — unlocks 100+ sources | Medium |
-| 2 | requestManager HTTP bridge compatibility | High — required for Paperback sources | Medium |
-| 3 | Test with 3 real Paperback sources | High — validation | Low |
-| 4 | 5–10 curated Paperback sources in Firebase catalog | High — user-facing | Low |
-
-### S38 — WidgetKit + Community Infrastructure (Claude codes)
-| # | Feature | Impact | Effort |
-|---|---------|--------|--------|
-| 1 | WidgetKit ContinueReading widget (App Groups + shared DB) | High — acquisition/retention | High |
-| 2 | `yomi.d.ts` TypeScript type definitions for plugin authors | Medium — community growth | Medium |
-| 3 | GitHub issue template for plugin submissions | Low — process | Very Low |
-
-### Long-term (S40+)
+### Long-term (S41+)
 | # | Feature | Impact | Effort |
 |---|---------|--------|--------|
 | 1 | WASM plugin runtime (wasm3/WasmKit) | High — security + perf | Very High |
-| 2 | iCloud CloudKit sync | High — cross-device | High |
-| 3 | Text-to-speech (Apple Spoken Content integration) | Medium — accessibility | Low–Medium |
-| 4 | Tab bar reordering | Low–Medium | Medium |
-| 5 | Novel list view (vs grid) | Low | Low |
-| 6 | Glossary / character notes (per novel) | Medium | High |
+| 2 | Text-to-speech (Apple Spoken Content integration) | Medium — accessibility | Low–Medium |
+| 3 | Tab bar reordering | Low–Medium | Medium |
+| 4 | Glossary / character notes (per novel) | Medium | High |
+| 5 | `yomi.d.ts` TypeScript type definitions for plugin authors | Medium — community growth | Medium |
 
 ---
 
-*End of RESEARCH.md — last compiled S35, 2026-04-15*
+*End of RESEARCH.md — last compiled S39 audit, 2026-04-19*

@@ -163,17 +163,20 @@ enum NovelQueries {
         }
     }
 
-    /// Acumula segundos de lectura en un capítulo y actualiza lastReadAt + readingSeconds en la novela
+    /// Acumula segundos de lectura en un capítulo y actualiza lastReadAt + readingSeconds en la novela.
+    /// Single atomic write — no read-modify-write race.
     nonisolated static func addReadingTime(chapterId: String, novelId: String, seconds: Int) throws {
         _ = try appDatabase.write { db in
             try NovelChapter
                 .filter(Column("id") == chapterId)
                 .updateAll(db, [Column("readingSeconds").set(to: Column("readingSeconds") + seconds)])
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [
+                    Column("readingSeconds").set(to: Column("readingSeconds") + seconds),
+                    Column("lastReadAt").set(to: Date())
+                ])
         }
-        guard var novel = try appDatabase.read({ db in try Novel.fetchOne(db, key: novelId) }) else { return }
-        novel.readingSeconds += seconds
-        novel.lastReadAt = Date()
-        _ = try appDatabase.write { db in try novel.update(db) }
     }
 
     /// Marca un capítulo como leído: isRead=true, readAt=ahora

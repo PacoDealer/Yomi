@@ -133,8 +133,9 @@ import Observation
         if let v = m.summary                  { d["summary"]       = v }
         if let v = m.author                   { d["author"]        = v }
         if let v = m.artist                   { d["artist"]        = v }
-        if let v = m.lastReadAt               { d["lastReadAt"]    = ISO8601DateFormatter().string(from: v) }
-        if let v = m.lastUpdatedAt            { d["lastUpdatedAt"] = ISO8601DateFormatter().string(from: v) }
+        if let v = m.lastReadAt               { d["lastReadAt"]       = ISO8601DateFormatter().string(from: v) }
+        if let v = m.lastUpdatedAt            { d["lastUpdatedAt"]    = ISO8601DateFormatter().string(from: v) }
+        if let v = m.customCoverPath          { d["customCoverPath"]  = v }
         return d
     }
 
@@ -150,7 +151,8 @@ import Observation
             "readingSeconds": c.readingSeconds
         ]
         if let v = c.chapterNumber { d["chapterNumber"] = v }
-        if let v = c.readAt        { d["readAt"] = ISO8601DateFormatter().string(from: v) }
+        if let v = c.readAt        { d["readAt"]        = ISO8601DateFormatter().string(from: v) }
+        if let v = c.scanlator     { d["scanlator"]     = v }
         return d
     }
 
@@ -179,7 +181,8 @@ import Observation
             isLocal:        d["isLocal"]    as? Bool ?? false,
             lastReadAt:     (d["lastReadAt"]    as? String).flatMap { fmt.date(from: $0) },
             lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
-            readingSeconds: d["readingSeconds"] as? Int ?? 0
+            readingSeconds: d["readingSeconds"] as? Int ?? 0,
+            customCoverPath: d["customCoverPath"] as? String
         )
     }
 
@@ -203,7 +206,8 @@ import Observation
             readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
             progress:       d["progress"]       as? Double ?? 0,
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
-            lastPageRead:   d["lastPageRead"]   as? Int ?? 0
+            lastPageRead:   d["lastPageRead"]   as? Int ?? 0,
+            scanlator:      d["scanlator"]      as? String
         )
     }
 

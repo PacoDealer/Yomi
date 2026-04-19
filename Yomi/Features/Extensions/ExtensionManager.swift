@@ -38,20 +38,20 @@ final class ExtensionManager {
 
     // MARK: - Seed Bundled Plugins
 
-    /// Copies bundled JS plugins from the app bundle into Documents/Extensions/ on every launch
-    /// (skips copy if the file is already on disk) and upserts the DB record.#imageLiteral(resourceName: "Screenshot 2026-03-23 at 12.37.05 AM.png")
+    /// Copies bundled JS plugins from the app bundle into Documents/Extensions/ and upserts DB records.
+    /// In production the .js files are not bundled, so all guard checks silently skip (safe no-op).
     func seedBundledPlugins() {
         let plugins: [(filename: String, name: String, isNSFW: Bool)] = [
-            ("mangadex",       "MangaDex",        false),
-            ("asurascans",     "Asura Scans",      true),
-            ("aquamanga",      "Aqua Manga",       false),
-            ("royalroad",      "Royal Road",       false),
-            ("scribblehub",    "ScribbleHub",      false),
-            ("novelfire",      "NovelFire",        false),
-            ("comick",         "Comick",           false),
-            ("freewebnovel",   "FreeWebNovel",     false),
-            ("lightnovelworld","LightNovelWorld",  false),
-            ("novelbin",       "NovelBin",         false)
+            ("mangadex",     "MangaDex",    false),
+            ("asurascans",   "Asura Scans",  true),
+            ("aquamanga",    "Aqua Manga",  false),
+            ("royalroad",    "Royal Road",  false),
+            ("scribblehub",  "ScribbleHub", false),
+            ("novelfire",    "NovelFire",   false),
+            ("freewebnovel", "FreeWebNovel",false),
+            ("novelbin",     "NovelBin",    false)
+            // comick: removed from catalog (Cloudflare 403 from non-browser clients)
+            // lightnovelworld: removed from catalog (site permanently closed Jan 2026)
         ]
 
         for plugin in plugins {
@@ -94,14 +94,11 @@ final class ExtensionManager {
         defer { isLoading = false }
 
         do {
-            // Download JS file
             let (data, _) = try await URLSession.shared.data(from: ext.sourceListURL)
 
-            // Save to local filesystem
             let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
             try data.write(to: localURL)
 
-            // Persist to database
             let updated = Extension(
                 id:            ext.id,
                 name:          ext.name,
