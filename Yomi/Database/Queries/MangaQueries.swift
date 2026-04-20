@@ -134,6 +134,15 @@ enum MangaQueries {
         }
     }
 
+    /// Guarda las notas personales del usuario para un manga
+    nonisolated static func updateNotes(mangaId: String, notes: String?) throws {
+        _ = try appDatabase.write { db in
+            try Manga
+                .filter(Column("id") == mangaId)
+                .updateAll(db, [Column("notes").set(to: notes)])
+        }
+    }
+
     // MARK: - Eliminación
 
     /// Elimina el manga con el id indicado (no lanza error si no existe)
