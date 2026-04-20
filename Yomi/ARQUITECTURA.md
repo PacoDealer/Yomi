@@ -26,11 +26,11 @@ Yomi/
 │   └── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 ├── Features/
 │   ├── Library/
-│   │   ├── LibraryView.swift        # Saved manga grid + category chips + ContinueReadingRow + multi-select (long-press, Cancel/SelectAll toolbar, bulk Remove)
+│   │   ├── LibraryView.swift        # Saved manga grid/list (AppSettings.libraryDisplayMode toggle) + category chips + ContinueReadingRow + multi-select
 │   │   ├── LibraryViewModel.swift   # State, filtering, SortOrder (lastRead/alphabetical/lastUpdated/unreadCount); unreadCounts dict from single GROUP BY query
 │   │   ├── CategoryView.swift       # Category CRUD UI (create, rename, reorder, delete)
 │   │   ├── ContinueReadingRow.swift # Horizontal scrollable row of recently read manga
-│   │   ├── MangaCoverCell.swift     # Cover cell + shimmer skeleton + selection mode (isSelecting/isSelected overlays, long press enters select)
+│   │   ├── MangaCoverCell.swift     # Cover cell + shimmer skeleton + selection mode (isSelecting/isSelected overlays, long press enters select) + MangaListRow (list mode)
 │   │   └── MangaDetailView.swift    # Detail + chapter list + heart button + ReadingStatusMenu pill + category sheet
 │   │                                # Chapter selection mode (long-press → isSelectingChapters, bottom action bar). Download sub-menu. Per-chapter download button. Overflow menu.
 │   │                                # loadChapters() calls insertAllIgnoringConflicts() after JSBridge fetch — chapters persisted before DB merge
@@ -53,7 +53,8 @@ Yomi/
 │   ├── More/
 │   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Installed plugins + Browse catalog (PluginCatalogService, Install button per entry) + NSFW filter
-│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Developer (catalog URL)
+│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Plugin Repos / Suwayomi / Advanced (NavigationLink)
+│   │   ├── AdvancedSettingsView.swift # Cache (image/plugin/WebView), Network (read-only), Database (log export), Build info
 │   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + per-manga time list
 │   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
@@ -65,8 +66,10 @@ Yomi/
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
-│       └── PluginCatalogService.swift  # @Observable singleton; fetches remote index.json; PluginCatalogEntry Codable struct
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 34 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon.
+│       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache()
+│       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
+│       └── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 36 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon, libraryDisplayMode ("grid"/"list"), suwayomiURL.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
 ├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults.
