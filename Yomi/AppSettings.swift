@@ -201,6 +201,20 @@ import Observation
         didSet { defaults.set(tapZoneLayout, forKey: "tapZoneLayout") }
     }
 
+    // MARK: - Library display mode
+
+    /// Library display mode: "grid" | "list"
+    var libraryDisplayMode: String {
+        didSet { defaults.set(libraryDisplayMode, forKey: "libraryDisplayMode") }
+    }
+
+    // MARK: - Suwayomi
+
+    /// Suwayomi server base URL, e.g. "http://192.168.1.100:4567". Empty = disabled.
+    var suwayomiURL: String {
+        didSet { defaults.set(suwayomiURL, forKey: "suwayomiURL") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -251,5 +265,7 @@ import Observation
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
         tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
+        libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
+        suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
     }
 }

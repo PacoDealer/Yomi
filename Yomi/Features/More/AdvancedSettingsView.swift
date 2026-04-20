@@ -1,0 +1,112 @@
+import SwiftUI
+import WebKit
+
+// MARK: - AdvancedSettingsView
+
+struct AdvancedSettingsView: View {
+    @State private var showClearConfirm = false
+
+    var body: some View {
+        List {
+            cacheSection
+            networkSection
+            databaseSection
+            aboutSection
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Advanced")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Cache
+
+    private var cacheSection: some View {
+        Section("Cache") {
+            Button("Clear image cache") {
+                URLCache.shared.removeAllCachedResponses()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            .foregroundStyle(.primary)
+
+            Button("Clear plugin catalog cache") {
+                PluginCatalogService.shared.invalidateCache()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            .foregroundStyle(.primary)
+
+            Button("Clear WebView cookies & cache") {
+                WKWebsiteDataStore.default().removeData(
+                    ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                    modifiedSince: .distantPast
+                ) { }
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            .foregroundStyle(.primary)
+        }
+    }
+
+    // MARK: - Network
+
+    private var networkSection: some View {
+        Section {
+            LabeledContent("User Agent") {
+                Text("iPhone Safari")
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+            }
+            LabeledContent("Request timeout") {
+                Text("30s")
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+            }
+        } header: {
+            Text("Network")
+        } footer: {
+            Text("User agent and timeout are fixed in this version.")
+                .font(.caption)
+        }
+    }
+
+    // MARK: - Database
+
+    private var databaseSection: some View {
+        Section("Database") {
+            Button("Export diagnostic log") {
+                exportLog()
+            }
+            .foregroundStyle(.primary)
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutSection: some View {
+        Section("Build") {
+            LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+            LabeledContent("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
+            LabeledContent("iOS", value: UIDevice.current.systemVersion)
+            LabeledContent("Device", value: UIDevice.current.model)
+        }
+    }
+
+    // MARK: - Log export
+
+    private func exportLog() {
+        let info = [
+            "Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")",
+            "Build: \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?")",
+            "iOS: \(UIDevice.current.systemVersion)",
+            "Installed plugins: \(ExtensionManager.shared.installed.count)",
+            "Suwayomi enabled: \(SuwayomiService.shared.isEnabled)",
+        ].joined(separator: "\n")
+
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("yomi-diagnostic.txt")
+        try? info.write(to: url, atomically: true, encoding: .utf8)
+
+        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(av, animated: true)
+        }
+    }
+}

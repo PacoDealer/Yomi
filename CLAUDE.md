@@ -20,19 +20,20 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S40 — 2026-04-20)
+## Current state (post S41 — 2026-04-20)
 
-S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 next: Suwayomi integration + CF bypass + power features.
+S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings.
 
-**S40 shipped:**
-1. `pluginCatalogURLs: [String]` — multi-repo catalog with UserDefaults migration from legacy single key
-2. PluginCatalogService parallel fetch + merge dedup by id + `invalidateCache()`
-3. SettingsView "Plugin Repositories" section — swipe delete + add sheet
-4. 6 new novel TypeScript plugins: LightNovelPub, BoxNovel, MTLNovel, BabelNovel, NovelHall, ReadWN
-5. build-plugins.mjs merge strategy — preserves existing Firebase entries
-6. Firebase deployed: 15 plugins live (3 manga + 12 novel)
+**S41 shipped:**
+1. `SuwayomiService.swift` — REST client for Suwayomi server (fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga). ID: `"suwayomi_{sourceId}_{mangaId}"`
+2. `SuwayomiBrowseView.swift` — browse/search one Suwayomi source with infinite scroll
+3. `BrowseView.swift` — Section("Suwayomi Server") when `SuwayomiService.shared.isEnabled`
+4. `AppSettings.suwayomiURL` + `AppSettings.libraryDisplayMode` ("grid"/"list")
+5. Library list view: `MangaListRow` in MangaCoverCell.swift + toggle button in LibraryView
+6. `AdvancedSettingsView.swift` — cache/network/DB/build sections, log export
+7. SettingsView: suwayomiSection + advancedSection as NavigationLink
 
-**S41 priorities:** Suwayomi server integration, Cloudflare bypass, Tachiyomi backup import, library list view, Advanced settings.
+**S42 priorities:** Cloudflare bypass (CFBypassManager), Tachiyomi backup import, Yomi exclusives (WidgetKit, TTS, App Lock).
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
@@ -144,15 +145,19 @@ Yomi/Database/Queries/NovelQueries.swift       # fetchLibrary() EXISTS but is ne
 Yomi/Database/Queries/ExtensionQueries.swift
 Yomi/Features/Extensions/JSBridge.swift        # JavaScriptCore bridge, shims, require(), getLatestManga(), supportsLatest
 Yomi/Features/Extensions/ExtensionManager.swift
-Yomi/Features/Extensions/PluginCatalogService.swift
-Yomi/Features/Library/LibraryView.swift        # Uses settings.libraryColumns for grid columns
+Yomi/Features/Extensions/PluginCatalogService.swift  # multi-URL parallel fetch, dedup by id, invalidateCache()
+Yomi/Features/Extensions/SuwayomiService.swift       # Suwayomi REST client; SuwayomiSource/MangaPage/ChapterItem structs; isEnabled check
+Yomi/Features/Extensions/SuwayomiBrowseView.swift    # Browse one Suwayomi source (infinite scroll, search, isPresented: nav)
+Yomi/Features/Library/LibraryView.swift        # grid/list toggle (settings.libraryDisplayMode), grid columns, multi-select
 Yomi/Features/Library/LibraryViewModel.swift   # novels field + NovelQueries.fetchLibrary() call still missing
 Yomi/Features/Library/MangaDetailView.swift    # Chapter tap→reader via navigationDestination(item:). insertAllIgnoringConflicts in loadChapters.
-Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse
+Yomi/Features/Library/MangaCoverCell.swift     # Cover cell + MangaListRow struct (for list mode)
+Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse; Suwayomi section
 Yomi/Features/Reader/ChapterReaderView.swift   # Auto-mark read, incognito guard, lastPageRead save/resume
 Yomi/Features/Reader/TextReaderView.swift      # Novel reader; overlay opacity animation; dynamic colorScheme (sepia/dark/light)
 Yomi/Features/More/PluginsView.swift
-Yomi/Features/More/SettingsView.swift          # Incognito toggle + unread badge toggle added
+Yomi/Features/More/SettingsView.swift          # Plugin Repos section, Suwayomi section, Advanced → NavigationLink
+Yomi/Features/More/AdvancedSettingsView.swift  # Cache, Network (read-only), Database (log export), Build info
 Yomi/Features/More/InsightsView.swift          # ScrollView + LazyVGrid StatCards redesign
 Yomi/Features/Onboarding/OnboardingView.swift
 Yomi/Resources/                                # JS plugins (test-source.js only; production on Firebase)

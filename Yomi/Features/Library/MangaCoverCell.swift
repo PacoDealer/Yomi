@@ -184,6 +184,45 @@ private struct SkeletonView: View {
     }
 }
 
+// MARK: - MangaListRow
+
+struct MangaListRow: View {
+    let manga: Manga
+    let unreadCount: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AsyncImage(url: manga.coverURL) { img in
+                img.resizable().scaledToFill()
+            } placeholder: {
+                Color.secondary.opacity(0.15)
+            }
+            .frame(width: 48, height: 68)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(manga.title)
+                    .font(.body)
+                    .lineLimit(2)
+                Text(manga.author ?? manga.sourceId)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if unreadCount > 0 {
+                    Text("\(unreadCount) unread")
+                        .font(.caption2)
+                        .foregroundStyle(.tint)
+                }
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
 // MARK: - Preview
 
 #Preview {

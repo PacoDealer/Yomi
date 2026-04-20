@@ -70,32 +70,46 @@ struct LibraryView: View {
                                         .padding(.horizontal, 16)
                                         .padding(.top, 8)
                                 }
-                                LazyVGrid(columns: columns, spacing: 12) {
-                                    ForEach(viewModel.displayedManga) { manga in
-                                        MangaCoverCell(
-                                            manga: manga,
-                                            isSelecting: isSelecting,
-                                            isSelected: selectedIds.contains(manga.id),
-                                            onLongPress: {
-                                                withAnimation(.spring(duration: 0.2)) {
-                                                    isSelecting = true
-                                                    selectedIds.insert(manga.id)
-                                                }
-                                            },
-                                            onSelect: {
-                                                withAnimation(.spring(duration: 0.15)) {
-                                                    if selectedIds.contains(manga.id) {
-                                                        selectedIds.remove(manga.id)
-                                                    } else {
+                                if settings.libraryDisplayMode == "list" {
+                                    LazyVStack(spacing: 0) {
+                                        ForEach(viewModel.displayedManga) { manga in
+                                            NavigationLink(destination: MangaDetailView(manga: manga)) {
+                                                MangaListRow(manga: manga,
+                                                             unreadCount: viewModel.unreadCounts[manga.id] ?? 0)
+                                            }
+                                            .buttonStyle(.plain)
+                                            Divider().padding(.leading, 76)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                } else {
+                                    LazyVGrid(columns: columns, spacing: 12) {
+                                        ForEach(viewModel.displayedManga) { manga in
+                                            MangaCoverCell(
+                                                manga: manga,
+                                                isSelecting: isSelecting,
+                                                isSelected: selectedIds.contains(manga.id),
+                                                onLongPress: {
+                                                    withAnimation(.spring(duration: 0.2)) {
+                                                        isSelecting = true
                                                         selectedIds.insert(manga.id)
                                                     }
+                                                },
+                                                onSelect: {
+                                                    withAnimation(.spring(duration: 0.15)) {
+                                                        if selectedIds.contains(manga.id) {
+                                                            selectedIds.remove(manga.id)
+                                                        } else {
+                                                            selectedIds.insert(manga.id)
+                                                        }
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
+                                    .padding(.horizontal, 12)
+                                    .padding(.top, 4)
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.top, 4)
                             }
                             if !isSelecting && !viewModel.displayedNovels.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -155,6 +169,13 @@ struct LibraryView: View {
                         }
                     }
                 } else {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            settings.libraryDisplayMode = settings.libraryDisplayMode == "grid" ? "list" : "grid"
+                        } label: {
+                            Image(systemName: settings.libraryDisplayMode == "grid" ? "list.bullet" : "square.grid.2x2")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             if let pick = viewModel.displayedManga.randomElement() {
