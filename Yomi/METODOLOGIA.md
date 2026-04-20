@@ -188,6 +188,32 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 - `repair_database` — dangerous DB repair tool
 - `liquid_glass_appearance_title` — iOS 26 Liquid Glass toggle
 
+## Technical learnings — S39 visual audit
+
+### Tachimanga is a Flutter+JVM app, not a native iOS JS app
+The "credits" screen of Tachimanga reveals its architecture: it is built on Tachidesk-Server (Kotlin/JVM, fork of Suwayomi-Server) + Tachidesk-Sorayomi (Flutter UI). The app bundles an embedded JVM that runs as a local HTTP server, executing real Mihon/Tachiyomi Kotlin extensions. The Flutter UI communicates with the server via REST.
+
+**Why this matters:**
+- Tachimanga's 100+ sources come from Kotlin APK extensions — not JS plugins. We cannot run them.
+- Their architecture requires ~100MB+ JVM bundle; Yomi is fully native Swift with no server.
+- The architectural gap is not closeable by writing more plugins. Our response must be quality over quantity.
+- Tachimanga is Flutter-based, so it cannot use SwiftUI, iOS 26 APIs, or native animations. This is a UI quality moat for Yomi.
+
+### Cloudflare bypass pattern (from Tachimanga Advanced settings)
+Tachimanga's "Bypassing Cloudflare automatically" toggle works by:
+1. Opening a hidden `WKWebView` to the blocked domain
+2. Waiting for WKWebView to complete the JS challenge (authentic browser fingerprint)
+3. Extracting `cf_clearance` cookie + User-Agent via `WKWebView.configuration.websiteDataStore.httpCookieStore`
+4. Injecting both into subsequent `URLSession` requests for that domain
+
+This is implementable in Yomi. The 403 from SOURCE.fetch triggers the bypass flow; subsequent retries with the extracted cookies succeed. Comick and ~5 other sources would be unblocked.
+
+### Keiyoushi extensions are Kotlin APKs — not usable in Yomi
+The keiyoushi extension repo (`raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json`) lists 1000+ extensions but they are Kotlin `.apk` files compiled for Android/JVM. Tachimanga runs them via its embedded JVM. Yomi cannot load them. Do not attempt Kotlin extension compatibility — it requires bundling a JVM runtime which is impractical for App Store distribution.
+
+### Tachimanga premium paywall — our opportunity
+Many features Tachimanga charges for, Yomi provides free: OLED mode, app lock (planned S41), notes (planned S41), tracking (MAL already free), tab reordering (planned S41). The paywall is a genuine user pain point (visible in App Store reviews). Yomi's "fully free" positioning is a real competitive differentiator worth highlighting in App Store description.
+
 ## Technical learnings — S37
 
 ### CancellationError must always be caught before the general catch
