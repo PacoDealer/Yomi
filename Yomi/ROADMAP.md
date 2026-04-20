@@ -467,29 +467,34 @@ All S28 P0/P1/P2/P3 items resolved.
 | 6 | ✅ Custom manga covers | v13_ migration (manga.customCoverPath column). MangaDetailView ellipsis menu: "Change cover" → PhotosPicker, saves JPEG to Documents/Covers/{id}.jpg, updates DB. MangaCoverCell shows custom cover if path set. |
 | 7 | ⏭ Source settings per extension | Deferred — too complex for this session. |
 
-## Planned: Session 40 — Security + Migration + Power Features
+## Planned: Session 40 — Cloudflare Bypass + Power Features + App Store Prep
 
-| # | Feature | Files |
-|---|---------|-------|
-| 1 | App lock (Face ID / Touch ID / passcode) | New: AppLockView.swift, AppSettings.swift, YomiApp.swift |
-| 2 | Tachiyomi/Mihon backup import | New: TachiyomiBackupParser.swift |
-| 3 | Bulk source migration | New: MigrationView.swift |
-| 4 | Multiple extension repositories | PluginCatalogService.swift, SettingsView.swift |
-| 5 | Repair database tool | SettingsView.swift, DatabaseManager.swift |
-| 6 | Background downloads (BGProcessingTask, iOS 26) | DownloadManager.swift, YomiApp.swift |
+**Source:** Visual comparison vs Tachimanga (S39 audit) + web research on Suwayomi/Tachidesk architecture.
+
+**Key insight from audit:** Tachimanga bundles an embedded Kotlin/JVM server (Tachidesk-Server fork) to run Mihon extensions — that's how they get 100+ sources. We cannot/should not replicate this. Our response is better native UX, free features (vs their premium paywall), and novels.
+
+| # | Feature | Detail | Files |
+|---|---------|--------|-------|
+| 1 | **Cloudflare bypass** (WKWebView cookie bridge) | Hidden WKWebView completes JS challenge → extracts `cf_clearance` + User-Agent → injects into URLSession. Restores Comick + unlocks ~5 more CF-blocked sources. Tachimanga calls it "Bypassing Cloudflare automatically" in Advanced settings. | New: CFBypassManager.swift; JSBridge.swift (inject cookies on 403); SettingsView.swift (toggle) |
+| 2 | **Multiple extension repositories** | Change `pluginCatalogURL: String` → `pluginCatalogURLs: [String]`. Accept GitHub `username/repo` slug (auto-expand to raw URL) OR full URL ending in `index.min.json`. Merge all catalogs, dedup by id. SettingsView: add/remove repo list. | PluginCatalogService.swift, AppSettings.swift, SettingsView.swift |
+| 3 | **Tachiyomi/Mihon backup import** | Parse `.tachibk` (protobuf-based JSON or binary) — Tachimanga also supports this for Android→iOS migration. Read backup format spec from Mihon GitHub. Map manga title + source to existing Yomi plugin. | New: TachiyomiBackupParser.swift, BackupView.swift |
+| 4 | **3 more tap zone layouts** (L-Shaped, Edge, Kindle-ish) | Tachimanga has 5 layouts vs Yomi's 3. L-Shaped: left column = prev, rest = next. Edge: narrow strips on far left/right, center = overlay. Kindle-ish: left 30% = prev, right 70% = next. | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
+| 5 | **Library list/descriptive view** | Tachimanga: Settings → Library → Display Mode → "Descriptive List". For novels especially — shows title + author + chapter count in list rows. LibraryView toggle between grid and list. | LibraryView.swift, AppSettings.swift |
+| 6 | **Advanced settings screen** | Tachimanga has dedicated "Advanced" under General: Clear Cache, Clear Cookies (WKWebView), User Agent selector (Mobile Safari / Desktop Safari / Chrome), Receive timeout interval (10/20/30s), Repair Database, Enable/Export log. Most of these are low effort. | New: AdvancedSettingsView.swift |
+| 7 | **App icon + App Store submission** | User delivers PNG layers → drop into appiconsets + add CFBundleAlternateIcons in Xcode Target Info. Then: age rating 18+, description, screenshots, support URL. | Assets.xcassets, Info.plist |
 
 ## Planned: Session 41 — Yomi Exclusives (not in Tachimanga)
 
-| # | Feature | Files |
-|---|---------|-------|
-| 1 | WidgetKit ContinueReadingWidget (small + medium) | New target: YomiWidget/ |
-| 2 | TTS for novels (AVSpeechSynthesizer) | TextReaderView.swift |
-| 3 | Manga notes (free — Tachimanga charges premium) | DatabaseManager.swift, MangaDetailView.swift |
-| 4 | Global search across all installed sources | New: GlobalSearchView.swift |
-| 5 | Tab reordering (iOS 26 native) | ContentView.swift, AppSettings.swift |
-| 6 | Opening tab setting | AppSettings.swift, ContentView.swift |
-| 7 | yomi.d.ts TypeScript definitions for plugin authors | scripts/yomi.d.ts |
-| 8 | GitHub issue template for community plugin submissions | .github/ISSUE_TEMPLATE/ |
+| # | Feature | Detail | Files |
+|---|---------|--------|-------|
+| 1 | **WidgetKit ContinueReadingWidget** (small + medium) | App Groups shared SQLite access, shows last-read manga/novel cover + chapter. Tachimanga has no widget. | New target: YomiWidget/ |
+| 2 | **TTS for novels** (AVSpeechSynthesizer) | Read aloud novel chapters. Tachimanga has no TTS. Play/pause/speed in TextReaderView overlay. | TextReaderView.swift |
+| 3 | **Manga notes** (free — Tachimanga charges premium) | Per-manga text notes stored in DB. Tachimanga has this but behind paywall. | DatabaseManager.swift (v14_ migration), MangaDetailView.swift |
+| 4 | **Global search across all installed sources** | Search query sent to all installed sources simultaneously, results merged. Unique to Yomi. | New: GlobalSearchView.swift |
+| 5 | **Tab reordering** (iOS 26 native) | iOS 26 TabView supports drag-to-reorder. AppSettings stores custom order. Tachimanga has this as premium. | ContentView.swift, AppSettings.swift |
+| 6 | **Opening tab setting** | AppSettings.defaultTab (0–4). On launch, AppRouter.selectedTab set from setting. | AppSettings.swift, YomiApp.swift |
+| 7 | **yomi.d.ts** TypeScript definitions for plugin authors | Documents Format A and B types. Enables IDE autocomplete for plugin authors. | scripts/yomi.d.ts |
+| 8 | **App lock** (Face ID / Touch ID / passcode) | Tachimanga charges for this. Yomi provides it free. LAContext for biometrics. | New: AppLockView.swift, AppSettings.swift, YomiApp.swift |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 

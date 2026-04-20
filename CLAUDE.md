@@ -20,9 +20,9 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S39 — 2026-04-19)
+## Current state (post S39 audit — 2026-04-19)
 
-S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + scanlators + custom covers shipped.
+S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + scanlators + custom covers shipped. Post-S39 = full audit (5 bugs fixed) + visual comparison research vs Tachimanga + Suwayomi architecture findings.
 
 **S39 shipped:**
 1. Scanlator filter — v12_ migration (chapter.scanlator), JSBridge Format A shim, chip row in MangaDetailView
@@ -30,6 +30,10 @@ S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + sca
 3. Webtoon padding — AppSettings.webtoonHorizontalPadding (0/8/16/24), applied to LazyVStack in WebtoonReaderView
 4. Auto-scroll speed — AppSettings.autoScrollSpeed (default 3.0s), hold-to-scroll loop uses setting
 5. Custom covers — v13_ migration (manga.customCoverPath), PhotosPicker in MangaDetailView, MangaCoverCell renders custom path
+
+**Tachimanga architecture finding:** Tachimanga bundles an embedded Kotlin/JVM server (Tachidesk-Server fork) to run Mihon extensions — that's their 100+ sources. NOT replicable in Yomi without JVM. Our advantage: SwiftUI native, fully offline, novels, fully free.
+
+**S40 priorities (from visual audit):** Cloudflare bypass (WKWebView cookie bridge), multiple plugin repos, Tachiyomi backup import, more tap zone layouts, library list view, Advanced settings screen.
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 

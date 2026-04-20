@@ -330,18 +330,94 @@ UIApplication.shared.setAlternateIconName(nil) // reset to default
 ---
 
 ## 7. App Customization — Competitor Comparison
-✅ RESEARCHED (S35, 2026-04-15)
+✅ RESEARCHED (S35 + S39 visual audit, 2026-04-19)
 
 | Feature | Tachimanga | Aidoku | Paperback | **Yomi** |
 |---------|-----------|--------|-----------|---------|
 | Alternate app icons | ✅ Multiple sets | ❌ | ❌ | ✅ Infrastructure S36 (awaiting user PNGs) |
 | iOS 26 adaptive icons | ✅ v4.2 | ❓ | ❓ | ⚠️ Awaiting app icon design |
 | Custom themes (dark/sepia/light) | ✅ Premium | ✅ | ✅ | ✅ (reader only) |
-| Pure black OLED mode | ✅ | ❓ | ❓ | ✅ **S36** |
+| Pure black OLED mode | ✅ Premium | ❓ | ❓ | ✅ **S36 (free)** |
+| Color blend level slider | ✅ | ❌ | ❌ | ❌ future |
+| Named color theme presets | ✅ Default/Green Apple/Lavender | ❌ | ❌ | ❌ future (Yomi has hex picker) |
 | Per-source custom colors | ❌ | ❌ | ❌ | N/A |
-| Tab bar customization | ✅ v4.13 | ❓ | ❓ | ❌ future |
+| Tab bar customization | ✅ Premium v4.13 | ❓ | ❓ | ❌ future |
 | Home screen widget | ❓ | ❓ | ❓ | ❌ future |
 | App-wide themes (not just reader) | ✅ | ❓ | ❓ | ❌ future |
+| Cloudflare bypass toggle | ✅ Advanced settings | ❌ | ❌ | ❌ S40 |
+| Multiple extension repositories | ✅ by GitHub slug or URL | ❌ | ❌ | ❌ S40 |
+| Tachiyomi backup import | ✅ | ❌ | ❌ | ❌ S40 |
+| Date format options | ✅ 7 formats | ❌ | ❌ | ❌ future |
+| Library list/descriptive view | ✅ | ❌ | ❌ | ❌ S40 |
+| Tap zone layouts | ✅ 5 (L-Shaped/Edge/Right&Left/Kindle-ish/Disabled) | ❌ | ❌ | ⚠️ 3 (Default/Sides/Disabled) — S40 |
+| Auto-refresh when viewing title | ✅ | ❌ | ❌ | ✅ (loadChapters on appear, unlabeled) |
+
+### Visual Audit Findings (S39 screenshots — 2026-04-19)
+Direct side-by-side comparison of Yomi simulator vs Tachimanga real device:
+
+**Browse**: Yomi flat list; Tachimanga groups into "Last used / Pinned / English" sections. Tachimanga shows 100+ sources vs Yomi's 8.
+
+**Settings depth**: Tachimanga has a full **Advanced** screen (Data usage / Network / Troubleshoot / Logs). Key items: "Bypassing Cloudflare automatically" toggle (WKWebView cookie bridge), "User Agent" selector, "Receive timeout interval", "Repair Database", "Enable/Export log". Yomi has none of these — gap.
+
+**Tachimanga Backup & Restore**: Own format + Tachiyomi-compatible format + iCloud Drive automated backups (premium). Yomi has manual JSON export only.
+
+**Extension repos**: Tachimanga accepts `username/repo` (auto-resolves to GitHub raw keiyoushi URL) or full URL ending in `index.min.json`. Field is the same as Yomi's `pluginCatalogURL` but supports multiple entries.
+
+**Tachimanga More screen**: Incognito toggle visible directly on the main More page (not buried in Settings). Premium banner at top. Account email + "Sync now" status visible inline.
+
+---
+
+## 7b. Tachimanga Architecture Deep Dive
+✅ RESEARCHED (S39 audit + web search, 2026-04-19)
+
+### How Tachimanga gets 100+ sources on iOS
+
+Tachimanga is NOT a native iOS app running JS plugins. It is a **Flutter frontend** (`tachimanga/Tachidesk-Sorayomi`, fork of `Suwayomi/Tachidesk-Sorayomi`) bundled with an embedded **Kotlin/JVM server** (`tachimanga/Tachidesk-Server`, fork of `Suwayomi/Suwayomi-Server`).
+
+```
+[Tachimanga iOS app]
+    Flutter UI (Tachidesk-Sorayomi fork)
+    ↕ HTTP (localhost)
+    Embedded JVM server (Tachidesk-Server fork, Kotlin + Javalin)
+    ↕
+    Tachiyomi/Mihon Kotlin extensions (keiyoushi repo APKs)
+```
+
+The JVM server runs **real Mihon/Tachiyomi Kotlin APK extensions** — the same 1000+ extensions from the keiyoushi repository. The app bundles the JVM runtime, starts a localhost HTTP server on launch, and the Flutter UI talks to it via REST.
+
+**Implication for Yomi:** This approach is architecturally opposite to Yomi:
+- Tachimanga: 100+ sources, any Kotlin extension works, requires bundled JVM (~100MB+)
+- Yomi: JS plugins only, 8 sources, runs fully offline with no server, native Swift performance
+
+**We cannot replicate their source count without bundling a JVM.** This is not worth pursuing. Yomi's competitive response is:
+1. Better iOS-native UX (SwiftUI vs Flutter)
+2. Better offline/no-server experience
+3. Novels (Tachimanga has zero novel support)
+4. Free features vs Tachimanga's premium paywall
+
+### How Tachimanga's Cloudflare bypass works
+From the Advanced settings "Bypassing Cloudflare automatically" toggle:
+- Opens a hidden `WKWebView` pointing to the blocked URL
+- WKWebView completes the Cloudflare JS challenge (browser fingerprint is authentic)
+- Extracts `cf_clearance` cookie + matched User-Agent string
+- Injects both into `URLSession` requests for subsequent fetches on that domain
+- Result: Comick, Webtoons.com, and other CF-blocked sources work
+
+**This IS replicable in Yomi** without a JVM. Implementation sketch:
+```swift
+// CFBypassManager.swift
+// 1. On 403 from SOURCE.fetch, open hidden WKWebView to domain
+// 2. WKNavigationDelegate.didFinish: extract cookies via WKWebView.configuration.websiteDataStore
+// 3. Store cf_clearance + User-Agent per domain in memory
+// 4. Inject into JSBridge SOURCE.fetch headers for that domain
+```
+This would restore Comick and unlock ~5+ more sources currently blocked by Cloudflare.
+
+### Keiyoushi repo format (for reference, not for direct use)
+Tachimanga accepts repos as `username/repo` (e.g., `keiyoushi/extensions`) which it converts to:
+`https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json`
+
+The keiyoushi extensions themselves are Android Kotlin APKs — **Yomi cannot run them**. But the repo URL pattern is worth adopting for Yomi's own plugin catalog multi-repo feature, using the same `index.min.json` naming convention for community repos.
 
 ---
 
