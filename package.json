@@ -1,0 +1,16 @@
+{
+  "name": "yomi-plugins",
+  "version": "1.0.0",
+  "description": "Yomi plugin build toolchain",
+  "scripts": {
+    "build": "BUILD_FIREBASE_DIR=$HOME/Projects/Yomi/Firebase/public node scripts/build-plugins.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PacoDealer/Yomi.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

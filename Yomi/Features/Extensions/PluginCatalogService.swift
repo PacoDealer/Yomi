@@ -33,7 +33,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
 
     // MARK: - Fetch
 
-    /// Fetches the catalog from Firebase. Skipped if data is fresh (< 1 hour old).
+    /// Fetches catalogs from all configured URLs in parallel, merges by id (first-wins), sorts by name.
     /// Pass `force: true` to bypass TTL (e.g. pull-to-refresh).
     func fetchCatalog(force: Bool = false) async {
         guard !isLoading else { return }
@@ -45,18 +45,47 @@ struct PluginCatalogEntry: Codable, Identifiable {
             errorMessage = nil
         }
 
-        do {
-            guard let url = URL(string: AppSettings.shared.pluginCatalogURL) else {
-                await MainActor.run {
-                    errorMessage = "Invalid catalog URL"
-                    isLoading = false
-                }
-                return
-            }
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let decoded = try JSONDecoder().decode([PluginCatalogEntry].self, from: data)
+        let urls = AppSettings.shared.pluginCatalogURLs
+            .compactMap { URL(string: $0) }
+
+        guard !urls.isEmpty else {
             await MainActor.run {
-                entries = decoded
+                errorMessage = "No catalog URLs configured"
+                isLoading = false
+            }
+            return
+        }
+
+        do {
+            // Fetch all catalogs concurrently
+            let results: [[PluginCatalogEntry]] = try await withThrowingTaskGroup(of: [PluginCatalogEntry].self) { group in
+                for url in urls {
+                    group.addTask {
+                        let (data, _) = try await URLSession.shared.data(from: url)
+                        return try JSONDecoder().decode([PluginCatalogEntry].self, from: data)
+                    }
+                }
+                var all: [[PluginCatalogEntry]] = []
+                for try await result in group {
+                    all.append(result)
+                }
+                return all
+            }
+
+            // Merge: first-wins dedup by id, sorted by name
+            var seen = Set<String>()
+            var merged: [PluginCatalogEntry] = []
+            for batch in results {
+                for entry in batch {
+                    if seen.insert(entry.id).inserted {
+                        merged.append(entry)
+                    }
+                }
+            }
+            merged.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            await MainActor.run {
+                entries = merged
                 lastFetchedAt = Date()
                 isLoading = false
             }
@@ -74,5 +103,9 @@ struct PluginCatalogEntry: Codable, Identifiable {
 
     func isInstalled(_ entry: PluginCatalogEntry) -> Bool {
         ExtensionManager.shared.installed.contains(where: { $0.name == entry.name })
+    }
+
+    func invalidateCache() {
+        lastFetchedAt = nil
     }
 }

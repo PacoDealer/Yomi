@@ -4,36 +4,38 @@
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
-  // scripts/plugins-src/lightnovelpub.ts
-  var require_lightnovelpub = __commonJS({
-    "scripts/plugins-src/lightnovelpub.ts"() {
-      var BASE_URL = "https://www.lightnovelpub.com";
+  // scripts/plugins-src/readwn.ts
+  var require_readwn = __commonJS({
+    "scripts/plugins-src/readwn.ts"() {
+      var BASE_URL = "https://www.readwn.com";
       var plugin = {
         popularNovels(pageNo) {
-          const url = `${BASE_URL}/browse/genre-all-25060123/order-popular/status-all?pg=${pageNo}`;
+          const url = `${BASE_URL}/list/all/all-newstime-${pageNo}.html`;
           const html = SOURCE.fetch(url);
           const $ = cheerio.load(html);
           const novels = [];
           $("li.novel-item").each((_i, el) => {
             const $el = $(el);
-            const $a = $el.find(".novel-title a");
+            const $a = $el.find("h4 a, .novel-title a").first();
             const title = $a.text().trim();
-            const path = $a.attr("href") || "";
+            const href = $a.attr("href") || "";
+            const path = href.startsWith("http") ? href.replace(BASE_URL, "") : href;
             const cover = $el.find("img").attr("data-src") || $el.find("img").attr("src") || "";
             if (title && path) novels.push({ name: title, path, cover });
           });
           return novels;
         },
         searchNovels(query, pageNo) {
-          const url = `${BASE_URL}/search?input=${encodeURIComponent(query)}&page=${pageNo}`;
+          const url = `${BASE_URL}/search.html?searchkey=${encodeURIComponent(query)}&page=${pageNo}`;
           const html = SOURCE.fetch(url);
           const $ = cheerio.load(html);
           const novels = [];
-          $("li.novel-item").each((_i, el) => {
+          $("li.novel-item, div.novel-list li").each((_i, el) => {
             const $el = $(el);
-            const $a = $el.find(".novel-title a");
+            const $a = $el.find("h4 a, .novel-title a").first();
             const title = $a.text().trim();
-            const path = $a.attr("href") || "";
+            const href = $a.attr("href") || "";
+            const path = href.startsWith("http") ? href.replace(BASE_URL, "") : href;
             const cover = $el.find("img").attr("data-src") || $el.find("img").attr("src") || "";
             if (title && path) novels.push({ name: title, path, cover });
           });
@@ -44,24 +46,18 @@
           const html = SOURCE.fetch(url);
           const $ = cheerio.load(html);
           const name = $("h1.novel-title").text().trim() || $("title").text().split("|")[0].trim();
-          const cover = $("figure.cover img").attr("data-src") || $("figure.cover img").attr("src") || "";
-          const author = $('span[itemprop="author"]').text().trim() || $("a.author").text().trim() || "";
-          const summary = $("p.summary").text().trim() || $("div.summary").text().trim() || "";
+          const cover = $("figure.cover img").attr("data-src") || $("figure.cover img").attr("src") || $("img.novel-cover").attr("src") || "";
+          const author = $("span.author a, .info-meta .author a").first().text().trim() || "";
+          const summary = $("div.synopsis p").text().trim() || $("div.summary p").text().trim() || "";
           const statusText = $("span.status").first().text().trim() || "Ongoing";
           const chapters = [];
-          $("ul.chapter-list li").each((i, el) => {
-            const $el = $(el);
-            const $a = $el.find("a");
-            const chName = $a.find(".chapter-title").text().trim() || $a.text().trim();
-            const chPath = $a.attr("href") || "";
+          $("div.chapter-list ul li a, ul.chapter-list li a").each((i, el) => {
+            const $a = $(el);
+            const chName = $a.text().trim();
+            const href = $a.attr("href") || "";
+            const chPath = href.startsWith("http") ? href.replace(BASE_URL, "") : href;
             if (chName && chPath) {
-              chapters.push({
-                id: chPath,
-                path: chPath,
-                name: chName,
-                chapterNumber: i + 1,
-                releaseDate: $el.find("time").attr("datetime") || ""
-              });
+              chapters.push({ id: chPath, path: chPath, name: chName, chapterNumber: i + 1, releaseDate: "" });
             }
           });
           return { name, path: novelPath, cover, author, summary, status: statusText, chapters };
@@ -70,11 +66,11 @@
           const url = `${BASE_URL}${chapterPath}`;
           const html = SOURCE.fetch(url);
           const $ = cheerio.load(html);
-          return $("div.chapter-content").html() || $("div#chapter-container").html() || "";
+          return $("div.chapter-content, div#chapter-article").html() || "";
         }
       };
       globalThis.plugin = plugin;
     }
   });
-  require_lightnovelpub();
+  require_readwn();
 })();
