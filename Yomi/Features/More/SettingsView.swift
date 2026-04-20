@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsView: View {
     @State private var settings = AppSettings.shared
     @State private var showCustomColorPicker = false
+    @State private var newRepoURL: String = ""
+    @State private var showAddRepo = false
 
     // Alternate icons: key = display name, value = CFBundleAlternateIcons key (nil = default)
     private let alternateIcons: [(label: String, key: String?)] = [
@@ -36,6 +38,7 @@ struct SettingsView: View {
             updatesSection
             novelReaderSection
             appearanceSection
+            pluginRepositoriesSection
             advancedSection
             aboutSection
         }
@@ -389,6 +392,71 @@ struct SettingsView: View {
                 // Add the icon entries in Xcode: Target → Info → CFBundleIcons → CFBundleAlternateIcons.
             }
         }
+    }
+
+    // MARK: - Plugin Repositories
+
+    private var pluginRepositoriesSection: some View {
+        Section {
+            ForEach(settings.pluginCatalogURLs, id: \.self) { url in
+                Text(url)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .onDelete { offsets in
+                settings.pluginCatalogURLs.remove(atOffsets: offsets)
+                PluginCatalogService.shared.invalidateCache()
+            }
+
+            Button {
+                newRepoURL = ""
+                showAddRepo = true
+            } label: {
+                Label("Add repository", systemImage: "plus")
+            }
+            .sheet(isPresented: $showAddRepo) {
+                addRepoSheet
+            }
+        } header: {
+            Text("Plugin Repositories")
+        } footer: {
+            Text("Catalogs are merged. Duplicate plugin IDs: first catalog wins.")
+                .font(.caption)
+        }
+    }
+
+    private var addRepoSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Catalog URL") {
+                    TextField("https://example.com/index.json", text: $newRepoURL)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+            }
+            .navigationTitle("Add Repository")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddRepo = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let trimmed = newRepoURL.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) {
+                            settings.pluginCatalogURLs.append(trimmed)
+                            PluginCatalogService.shared.invalidateCache()
+                        }
+                        showAddRepo = false
+                    }
+                    .disabled(newRepoURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     // MARK: - Advanced
