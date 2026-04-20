@@ -20,18 +20,22 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S43 — 2026-04-20)
+## Current state (post S44 pre-session work — 2026-04-20)
 
-S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings. S42 = 4 Yomi exclusives (Manga Notes, App Lock, TTS, Global Search). S43 = Tachiyomi/Mihon backup import + tab reordering.
+S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins. S41 = Suwayomi integration. S42 = Manga Notes, App Lock, TTS, Global Search. S43 = Tachiyomi/Mihon backup import + tab reordering. S44 pre-session = new user onboarding + catalog multi-format fix + deep research.
 
-**S43 shipped:**
-1. `Yomi/Yomi-Bridging-Header.h` — `#import <zlib.h>` bridging header. `SWIFT_OBJC_BRIDGING_HEADER` added to both Debug + Release in `project.pbxproj`.
-2. `TachiyomiBackupParser.swift` — hand-written protobuf3 decoder (`ProtoReader`) + gzip decompressor (libz C API, `inflateInit2_` windowBits=47). Decodes `.tachibk` → `ImportResult` (mangas + chapters). Source map `[UInt64: String]` for known sources; unmapped → `"tachiyomi_{id}"` placeholder.
-3. `BackupManager.importTachiyomiBackup(from:)` — calls parser, upserts all manga + chapters, sets `lastTachiyomiImportSummary`.
-4. `BackupView.swift` — new "Import from Tachiyomi / Mihon" section, `.fileImporter` accepting `.tachibk` UTType, result alert with summary.
-5. `ContentView.swift` — tab reordering via `TabViewCustomization` + `@AppStorage` + `.customizationID()` on each Tab.
+**S44 pre-session shipped:**
+1. `PluginsView.swift` — toolbar `+` → menu (Add Repository / Install from URL). `AddRepoSheet` with LNReader featured repo (one-tap add) + custom URL + GitHub guide link. Empty state shows featured repos inline.
+2. `PluginCatalogService.swift` — multi-format parser: tries Yomi native format, falls back to LNReader format (`lang`/`url`/`iconUrl`). Per-URL failures are silent (no longer breaks catalog). `LNReaderEntry` private struct + `nonisolated` parser.
+3. `SettingsView.swift` — addRepoSheet now includes GitHub guide link.
+4. `README.md` — GitHub README with 3-repo comparison table, quick start, step-by-step guide.
 
-**S44 priorities:** Cloudflare bypass (WKWebView cookie extraction), WidgetKit ContinueReadingWidget.
+**S44 remaining work (start here):** Format D (Mangayomi JS shim) + complete Paperback shim.
+
+**Key architecture facts learned this session:**
+- Tachimanga uses a **DEX bytecode interpreter** (C library, no JIT) — NOT a full JVM. This is App Store compliant because interpreted code is allowed (same as JSC/Python). Building a DEX interpreter for Yomi = 2–4 months of work — possible but not urgent while Suwayomi bridges it.
+- Keiyoushi = Android APKs. No JS version exists. Access via: (1) Suwayomi server (already integrated S41), (2) future DEX interpreter. Do NOT list as a catalog URL.
+- Mihon forks (J2K/SY/AZ/Yōkai/Komikku) all use same Keiyoushi extensions. None open new iOS paths.
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 

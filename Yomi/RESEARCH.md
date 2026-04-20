@@ -372,22 +372,34 @@ Direct side-by-side comparison of Yomi simulator vs Tachimanga real device:
 ---
 
 ## 7b. Tachimanga Architecture Deep Dive
-✅ RESEARCHED (S39 audit + web search, 2026-04-19)
+✅ RESEARCHED (S39 audit + web search + S44 DEX research, 2026-04-20)
 
-### How Tachimanga gets 100+ sources on iOS
+### How Tachimanga gets 100+ sources on iOS — CORRECTED
 
-Tachimanga is NOT a native iOS app running JS plugins. It is a **Flutter frontend** (`tachimanga/Tachidesk-Sorayomi`, fork of `Suwayomi/Tachidesk-Sorayomi`) bundled with an embedded **Kotlin/JVM server** (`tachimanga/Tachidesk-Server`, fork of `Suwayomi/Suwayomi-Server`).
+Tachimanga is a **Flutter app** with a **DEX bytecode interpreter** embedded as a native C library inside the binary. It runs real Keiyoushi Kotlin APK extensions on iOS without a full JVM.
 
 ```
 [Tachimanga iOS app]
     Flutter UI (Tachidesk-Sorayomi fork)
-    ↕ HTTP (localhost)
-    Embedded JVM server (Tachidesk-Server fork, Kotlin + Javalin)
-    ↕
-    Tachiyomi/Mihon Kotlin extensions (keiyoushi repo APKs)
+    ↕ function calls
+    Native DEX interpreter (C library, AOT-compiled into the binary)
+    ↕ interprets bytecode instruction-by-instruction (NO JIT — App Store compliant)
+    Tachiyomi/Mihon Kotlin APK extensions (keiyoushi repo, downloaded at runtime)
+    ↕ Android API stubs (OkHttp → URLSession bridge, JSoup HTML parsing)
+    Source websites
 ```
 
-The JVM server runs **real Mihon/Tachiyomi Kotlin APK extensions** — the same 1000+ extensions from the keiyoushi repository. The app bundles the JVM runtime, starts a localhost HTTP server on launch, and the Flutter UI talks to it via REST.
+**Why no JIT?** Apple forbids third-party JIT compilation on iOS (only Safari's JS engine gets this). The DEX interpreter runs bytecode in **interpreted mode only** — similar to how Pythonista runs Python scripts on iOS. This is explicitly allowed.
+
+**Why this is App Store compliant:**
+- Interpreted code (like Python/Lua/JS interpreters) is allowed — it's not "downloading and running native code"
+- The interpreter itself is native C code compiled into the binary at submission time
+- Downloaded extensions are bytecode data, not native code
+- Analogous to JavaScriptCore (Yomi's approach) — both are sanctioned interpreter patterns
+
+**What extensions are:** When the user adds `keiyoushi/extensions` as a repo, Tachimanga downloads `.apk` files, extracts DEX bytecode, and runs it through the interpreter. HTTP calls in extensions use OkHttp API stubs that forward to `URLSession` underneath.
+
+**The previous claim ("embedded JVM/Suwayomi-Server") was wrong.** A full JVM would be ~200MB+ and Tachimanga is much smaller. The Suwayomi-Server approach (which Sorayomi uses for external server connections) is different from Tachimanga's embedded approach.
 
 **Implication for Yomi:** This approach is architecturally opposite to Yomi:
 - Tachimanga: 100+ sources, any Kotlin extension works, requires bundled JVM (~100MB+)
@@ -508,8 +520,9 @@ Community extension repos for Mangayomi:
 - Aidoku v0.8 on App Store with iOS 26 support, active community
 - Not worth porting — different runtime entirely
 
-### Tachiyomi/Mihon Kotlin APKs — Still impossible, still not worth pursuing
-The only path remains Suwayomi as a bridge server.
+### Tachiyomi/Mihon Kotlin APKs — Two viable paths exist (neither is urgent)
+1. **Suwayomi bridge** (already integrated, S41) — user self-hosts, Yomi connects via REST. Zero engineering cost. Power-user path.
+2. **DEX interpreter** (Tachimanga's approach) — embed a C DEX interpreter in Yomi binary, run Keiyoushi APKs natively. Estimated 2–4 months of hard work. App Store compliant (interpreted code is allowed). The "correct" long-term path if Yomi wants to compete head-to-head with Tachimanga without requiring a server. Not urgent while Suwayomi covers this use case.
 
 ### App Store compliance across all formats
 All JS-based formats (A, B, C, D) run in JavaScriptCore — explicitly approved by Apple. 
@@ -826,4 +839,82 @@ No GRDB migration needed. No new Swift files needed beyond JSBridge update.
 
 ---
 
-*End of RESEARCH.md — last compiled S44 deep audit, 2026-04-20*
+---
+
+## 16. Mihon Forks Landscape
+✅ RESEARCHED (S44, 2026-04-20)
+
+These are Android forks of Mihon (itself the Tachiyomi successor). All use the same **Keiyoushi APK extension system**. None have iOS versions. None open new source compatibility paths for Yomi — the only way to access their sources from iOS remains Suwayomi.
+
+| Fork | Repo | Stars | Key feature vs Mihon | Useful for Yomi? |
+|------|------|-------|----------------------|-----------------|
+| **TachiyomiJ2K** | `Jays2Kings/tachiyomiJ2K` | ~5.2k | Tablet dual-page reader, modernized toolbar | UX inspiration: dual-page layout for iPad |
+| **TachiyomiSY** | `jobobby04/TachiyomiSY` | ~3.8k | Merges J2K + enhanced tracking, per-source settings, enhanced metadata | Per-source settings pattern worth studying |
+| **TachiyomiAZ** | `az4521/TachiyomiAZ` | Low | Old Tachiyomi hamburger menu design | No — design is legacy |
+| **Yōkai** | `null2264/yokai` | ~1.7k | Best-of J2K + infrastructure modernization | No practical value for Yomi |
+| **Komikku** | `komikku-app/komikku` | ~3.7k | Auto webtoon detection, dynamic theme colors, features from SY | Auto webtoon detection (Yomi S38 already has this) |
+
+**Key finding:** All forks share the same Keiyoushi extension ecosystem. Source count differences between forks are zero — they all have access to the same 1000+ sources. Differences are purely UX/feature-level.
+
+**What Yomi can take from this research:**
+- J2K dual-page reader for iPad → worth adding when iPad support is prioritized
+- SY's per-source settings (custom headers, login, filters per source) → advanced power-user feature worth noting for a future session
+- Komikku's dynamic theme colors (extracts accent from cover art) → attractive UX feature
+
+**What NOT to do:** Fork any of these or try to run their extension system directly. All paths lead to the same Keiyoushi APKs, accessible via Suwayomi today.
+
+---
+
+## 17. Plugin Catalog Format: Multi-Format Support
+✅ RESEARCHED + FIXED (S44, 2026-04-20)
+
+### The problem
+`PluginCatalogService` expected a single JSON format (Yomi native). When users added the LNReader catalog URL, the Extensions tab in Browse showed "Failed to load: The data couldn't be read because it is missing." This was a `JSONDecoder` failure — LNReader uses different field names.
+
+### Format differences
+
+| Field | Yomi native | LNReader (`plugins.min.json`) |
+|-------|-------------|-------------------------------|
+| Language | `language` | `lang` |
+| Plugin file URL | `fileURL` | `url` |
+| Icon URL | `iconURL` | `iconUrl` |
+| Description | `description` (required) | absent |
+| NSFW flag | `isNSFW` (required) | absent (default `false`) |
+| Site name | absent | `site` (optional) |
+
+### Fix (shipped S44)
+- `PluginCatalogEntry.description` made optional (`String?`)
+- Added `LNReaderEntry` private struct that decodes LNReader format and maps to `PluginCatalogEntry`
+- `parseEntries(from:)` tries Yomi format first, falls back to LNReader format
+- **Per-URL errors are now silent** — if one catalog URL fails (wrong format, network error), other catalogs still load. Only shows error if ALL catalogs fail.
+- `LNReaderEntry.toEntry()` and `parseEntries` marked `nonisolated` to avoid Swift 6 actor isolation warnings
+
+### Impact
+Adding the LNReader catalog URL (`raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json`) now works correctly and shows 500+ novel plugins in the catalog.
+
+---
+
+## 18. Three-Repo Strategy for New Users
+✅ DECIDED (S44, 2026-04-20)
+
+Yomi presents users with three clear source choices:
+
+| Repo | Content | Access method |
+|------|---------|--------------|
+| **Yomi Catalog** | Curated manga + novels (best sources, hand-picked quality) | Pre-installed |
+| **LNReader Novels** | 500+ novel sources, 18 languages | One-tap "Add" in PluginsView or paste URL |
+| **Keiyoushi** | 1000+ manga (via Suwayomi server) | Settings → Suwayomi Server URL |
+
+**Why this structure:** Yomi Catalog = curated zero-friction entry. LNReader = the massive novel catalog unlock (Yomi's core differentiator). Keiyoushi = power-user path requiring a server, presented separately because it's not a plugin catalog URL.
+
+**In the app (shipped S44):**
+- PluginsView empty state shows LNReader as a one-tap featured repo
+- AddRepoSheet (toolbar `+` → "Add Repository") shows LNReader with checkmark when already added
+- Keiyoushi is mentioned in README and SettingsView Suwayomi section — not as a catalog URL
+- GitHub README (`github.com/PacoDealer/Yomi`) has the comparison table and step-by-step guide
+
+**Suwayomi self-hosting removed from user-facing docs** per usability research — the setup instructions were too technical for most users. Brief mention remains with a link to the Suwayomi GitHub.
+
+---
+
+*End of RESEARCH.md — last compiled S44, 2026-04-20*
