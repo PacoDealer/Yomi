@@ -1,8 +1,29 @@
 # Roadmap — Yomi
 
+## Strategic Goal (defined S44 research audit, 2026-04-20)
+
+> **Make Yomi the most source-diverse iOS manga + novel reader by running plugins from every existing ecosystem — without maintaining them ourselves.**
+
+The research audit revealed that 800+ sources are already available across four compatible JS plugin formats. Yomi currently deploys 15 hand-written plugins from Firebase. The correct strategy is not to write more plugins — it is to unlock the community ecosystems that already exist:
+
+| Ecosystem | Format | Sources available | Yomi status |
+|-----------|--------|-------------------|-------------|
+| Yomi Firebase | Format A | 15 | ✅ Live |
+| LNReader | Format B | **500+ novels** | ✅ Native, needs UX/docs |
+| Paperback | Format C | ~100 manga | ⚠️ Partial shim |
+| Mangayomi | Format D (new) | **195+ manga+novel** | ❌ Needs small shim |
+| keiyoushi/Suwayomi | Backend | Hundreds manga | ✅ S41 integrated |
+| Kavita/Komga | OPDS | User's local library | ❌ Not yet |
+
+**No architecture rebuild needed.** JSBridge already handles multi-format detection. Format D (Mangayomi) requires a `Client` class shim + class-based plugin detection — one session of work.
+
+**Novel support remains Yomi's exclusive differentiator.** Zero other iOS App Store apps support light novels with a plugin system. LNReader (Android, 500+ sources) has no iOS equivalent except Yomi.
+
+---
+
 ## Current state (post S43 — 2026-04-20)
 
-App is feature-complete + polished. S43: Tachiyomi/Mihon `.tachibk` backup import (full protobuf3+gzip decoder, no external deps) + tab reordering (iOS 26 `TabViewCustomization`). S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
+App is feature-rich and polished. S43: Tachiyomi/Mihon `.tachibk` backup import (full protobuf3+gzip decoder, no external deps) + tab reordering (iOS 26 `TabViewCustomization`). S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -524,12 +545,83 @@ All S28 P0/P1/P2/P3 items resolved.
 - Cloudflare bypass (WKWebView cookie extraction → URLSession injection)
 - WidgetKit ContinueReadingWidget (App Groups + shared JSON file)
 
-## Planned: Session 44 — Cloudflare Bypass + WidgetKit
+## Planned: Session 44 — Ecosystem Unlock Phase 1
+
+**Goal:** Unlock Mangayomi JS format (Format D) + complete Paperback shim + point users to LNReader repo.
+Outcome: Yomi goes from 15 sources to 300+ sources available without writing a single new plugin.
+
+### Part A — Format D: Mangayomi JS plugin support
+Files: `JSBridge.swift`, `PluginCatalogService.swift`
+
+1. Inject `Client` class into JSContext before plugin eval:
+   ```javascript
+   class Client {
+     get(url, headers) { return Promise.resolve({ body: SOURCE._fetchSync(url, {headers}) }) }
+     post(url, headers, body) { return Promise.resolve({ body: SOURCE._fetchSync(url, {method:'POST',body,headers}) }) }
+   }
+   ```
+2. Detect Mangayomi plugins: check `typeof plugin.getDetail === 'function'` AND `typeof plugin.getPopular === 'function'` post-eval
+3. Adapter: map `getPopular(page)` → `getMangaList`, `getDetail(url)` → manga detail, `getPageList(url)` → page URLs
+4. Add Mangayomi's index URL as a default entry in Plugin Repositories
+5. Test against 3 real Mangayomi plugins (MangaDex, Asura, one novel source)
+
+### Part B — Complete Paperback Format C shim
+Files: `JSBridge.swift`
+- Wire `requestManager.schedule({ url, method, headers, data })` fully for POST + custom headers
+- Test against 3 Paperback sources (TheNetsky/community-extensions)
+
+### Part C — LNReader repo UX
+- Add to PluginsView "Featured Repositories" section: a one-tap button to add the official LNReader catalog URL
+- URL: `https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json`
+- No code complexity — just a pre-filled AddRepoSheet with this URL
+
+### Part D — GitHub wiki (user action)
+Create `github.com/PacoDealer/Yomi/wiki` with:
+- "How to add sources" guide (copy the Plugin Repositories URL, paste in app)
+- Listed repos: LNReader, Mangayomi extensions, Paperback community
+- This becomes the App Store support URL
+
+---
+
+## Planned: Session 45 — App Store Push + Cloudflare Bypass
+
+### Part A — App Store submission (user actions)
+| # | Action | Notes |
+|---|--------|-------|
+| 1 | App icon (user delivers PNG) | 3-layer 1024×1024 for iOS 26 Liquid Glass |
+| 2 | Age rating 18+ | App Store Connect |
+| 3 | App description | Drafted S33 — frame as "extensible reader with community sources" |
+| 4 | Screenshots 6.9" iPhone | Simulator, neutral content only |
+| 5 | Support URL | GitHub repo |
+
+### Part B — Cloudflare bypass (CFBypassManager)
+```swift
+// Hidden WKWebView → completes JS challenge → extracts cf_clearance cookie
+// Injected into JSBridge SOURCE.fetch for that domain
+// Re-enables: Comick, LightNovelPub, WuxiaWorld, ~5 more CF-blocked sources
+```
+
+---
+
+## Planned: Session 46 — Power User Backends
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | **Cloudflare bypass** | Hidden `WKWebView` loads blocked URL, `WKHTTPCookieStore.getAllCookies()` extracts `cf_clearance`, injected into `URLSession` via `HTTPCookieStorage.shared` + matching User-Agent. `CFBypassManager` singleton. |
-| 2 | **WidgetKit** | New Xcode widget extension target + App Groups entitlement. Shared flat JSON file (NOT shared SQLite — GRDB author warns against). `TimelineProvider` reads recently-read manga from shared JSON. Cover image cached to App Group container. |
+| 1 | **Suwayomi onboarding** | Setup guide link + "Test connection" → show source count. Better UX for the self-hosted angle. |
+| 2 | **OPDS client** | Connect to Kavita or Komga. `OPDSService.swift` — fetches catalog, maps to Manga model, reads local files. Appears as source in Browse. |
+| 3 | **WidgetKit** | App Groups + shared flat JSON. `TimelineProvider` for ContinueReading widget. Cover image cached to App Group container. |
+
+---
+
+## Planned: Session 47 — Growth + Polish
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | iCloud CloudKit sync | CloudKit container, `CKRecord` for manga/novel library state, conflict resolution |
+| 2 | AniList tracking | OAuth, auto-update on chapter finish (mirrors MAL) |
+| 3 | Volume button page-turn | Use `AVAudioSession` remote control events |
+| 4 | Novel text justification toggle | `.textAlignment` in TextReaderView HTML CSS |
+| 5 | Estimated reading time per chapter | Word count from HTML → WPM estimate |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 

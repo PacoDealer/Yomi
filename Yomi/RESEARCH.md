@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-04-19 (S39 audit) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-04-20 (S44 deep audit) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 
@@ -16,7 +16,11 @@ This file is the single source of truth for all Yomi research. It replaces all p
 8. [Plugin Ecosystem — Platform Compatibility](#8-plugin-ecosystem--platform-compatibility)
 9. [Architecture Audit — Plugin Execution Runtimes](#9-architecture-audit--plugin-execution-runtimes)
 10. [Claude Code Workflow & MCP Stack](#10-claude-code-workflow--mcp-stack)
-11. [Ranked Recommendations](#11-ranked-recommendations)
+11. [Strategic Roadmap — Ranked Recommendations](#11-strategic-roadmap--ranked-recommendations)
+12. [Suwayomi / Tachidesk Deep Dive](#12-suwayomi--tachidesk-deep-dive)
+13. [LNReader Plugin Ecosystem — Full Picture](#13-lnreader-plugin-ecosystem--full-picture)
+14. [Full iOS Manga/Novel Reader Landscape (2026)](#14-full-ios-mangannovel-reader-landscape-2026)
+15. [App Store Strategy for Plugin-Based Apps](#15-app-store-strategy-for-plugin-based-apps)
 
 ---
 
@@ -387,13 +391,20 @@ The JVM server runs **real Mihon/Tachiyomi Kotlin APK extensions** — the same 
 
 **Implication for Yomi:** This approach is architecturally opposite to Yomi:
 - Tachimanga: 100+ sources, any Kotlin extension works, requires bundled JVM (~100MB+)
-- Yomi: JS plugins only, 8 sources, runs fully offline with no server, native Swift performance
+- Yomi: JS plugins, native Swift, runs offline with no server required
 
-**We cannot replicate their source count without bundling a JVM.** This is not worth pursuing. Yomi's competitive response is:
-1. Better iOS-native UX (SwiftUI vs Flutter)
-2. Better offline/no-server experience
-3. Novels (Tachimanga has zero novel support)
-4. Free features vs Tachimanga's premium paywall
+**Bundling a JVM is not necessary.** Yomi's path to comparable source count:
+1. Add Mangayomi JS format → 195+ sources (small shim, no JVM)
+2. Complete Paperback shim → 100+ manga sources
+3. LNReader repos → 500+ novel sources (already compatible, users just need the URL)
+4. Suwayomi integration (S41) → hundreds of keiyoushi sources for power users
+
+**Yomi's competitive advantages over Tachimanga:**
+1. iOS-native SwiftUI vs Flutter (better performance, animations, iOS system integration)
+2. Light novels — Tachimanga has ZERO novel support
+3. Free features vs Tachimanga's premium paywall (App Lock, Notes, etc.)
+4. No mandatory server — works offline with JS plugins
+5. Community-driven plugin ecosystem rather than one dev's sources
 
 ### How Tachimanga's Cloudflare bypass works
 From the Advanced settings "Bypassing Cloudflare automatically" toggle:
@@ -422,48 +433,252 @@ The keiyoushi extensions themselves are Android Kotlin APKs — **Yomi cannot ru
 ---
 
 ## 8. Plugin Ecosystem — Platform Compatibility
-✅ RESEARCHED (S23 + S32 + S35, 2026-04-15)
+✅ RESEARCHED (S23 + S32 + S35 + **S44 deep audit**, 2026-04-20)
 
-### Tachiyomi/Mihon → iOS: NOT VIABLE
+### The Correct Mental Model
+Yomi does not need to choose one plugin format. JSBridge already detects multiple formats at eval time. The strategy is **multi-format compatibility** — run plugins from every ecosystem by adding thin detection + shim layers. No architecture rebuild required.
 
-| Approach | Verdict | Reason |
-|----------|---------|--------|
-| Direct APK execution | ❌ Impossible | Dalvik/ART doesn't exist on iOS |
-| Kotlin Multiplatform (KMP) | ❌ Not applicable | KMP shares business logic, not plugin execution environments |
-| Kotlin/Wasm | ❌ Wrong target | Targets browsers via WasmGC, not embedded in-app runtimes |
-| JS transpilation of Kotlin | ❌ No tooling | No mature Kotlin→JS pipeline that preserves Android API calls |
+### Total available sources by format (April 2026)
 
-**Conclusion:** No action needed. No iOS reader has solved this, and it's not solvable with current tooling.
+| Format | Ecosystem | Available Sources | Yomi Support | Effort to unlock |
+|--------|-----------|-------------------|--------------|-----------------|
+| **Format A** | Hand-written Yomi | 15 (Firebase catalog) | ✅ Native | — |
+| **Format B** | LNReader/lnreader-plugins | **500+ novel sources**, 18+ languages | ✅ Native | — (already working) |
+| **Format C** | Paperback 0.8 (TypeScript) | ~100+ manga sources | ⚠️ Partial shim (S24) | Medium — complete requestManager |
+| **Format D** | Mangayomi JS extensions | **195+ manga+novel sources** | ❌ Not yet | Low — small shim (see below) |
+| **Suwayomi** | keiyoushi/Mihon extensions | **Hundreds** manga sources | ✅ S41 integrated | — (optional self-hosted) |
+| **OPDS** | Kavita / Komga servers | User's local library | ❌ Not yet | Medium |
 
-### iOS Plugin Format Comparison
+**Realistic source count if all formats unlocked: 800+ sources across manga and novels, across 20+ languages.** No other iOS app achieves this.
 
-| App | Format | Language for Authors | Yomi Support |
-|-----|--------|---------------------|--------------|
-| **Yomi (Format A)** | Global JS functions (IIFE) | JavaScript | ✅ Native |
-| **Yomi (Format B)** | LNReader JS class on `plugin` global | JavaScript/TypeScript | ✅ Native |
-| **Paperback** | TypeScript → IIFE bundle, `Source` class export | TypeScript | ⚠️ Shim in S24 (partial) |
-| **Aidoku** | `.aix` packages (WASM) | Rust (aidoku-rs SDK + aidoku-cli) | ❌ Not viable |
-| **Mihon** | Kotlin APK | Kotlin | ❌ Impossible |
+### Format D: Mangayomi JS — HIGHEST NEW LEVERAGE
+Mangayomi JS plugins use a class-based API very close to Format B. Delta from current JSBridge is small:
 
-### Paperback Compatibility — HIGHEST LEVERAGE UNLOCK (S37)
-- Paperback has ~100+ community TypeScript sources already written
-- Format: TypeScript → IIFE bundle exporting `Source` class
-- **S24 foundation already exists**: `require('paperback-extensions-common')` shim in JSBridge, `injectPaperbackAdapter()` post-eval detection
-- **Gap**: HTTP bridge via `requestManager.schedule()` pattern not fully wired for all source types
-- **S37 target**: Full Format C support, tested against 3+ real Paperback sources, 5–10 catalog entries added
+```javascript
+// Mangayomi plugin structure (class, not global)
+class MProvider {
+  async getPopular(page) { return { list: [...], hasNextPage: bool } }
+  async getLatest(page)  { return { list: [...], hasNextPage: bool } }
+  async search(query, page, filters) { return { list: [...], hasNextPage: bool } }
+  async getDetail(url)   { return { title, author, genre, status, chapters: [...] } }
+  async getPageList(chapterUrl) { return [...urls] }
+}
 
-### LNReader (Format B) — Already Working
-- Yomi Format B implements the full LNReader plugin API
-- Sources available today without code changes: Royal Road ✅, ScribbleHub ✅, NovelFire ✅, FreeWebNovel ✅, NovelBin ✅
-- Unimplemented LNReader gaps:
-  - `latestUpdates()` not called by Yomi's UpdatesView (low priority)
-  - `plugin.options` (per-source settings) not surfaced in UI (low priority)
+// HTTP client (async, not DispatchSemaphore)
+const client = new Client();
+const res = await client.get(url, headers);
+const res = await client.post(url, headers, body);
+// res.body is a string
+```
 
-### WASM Runtime (Aidoku's approach) — Long-term only
-- Requires embedding `wasm3` or `WasmKit` (~500KB–2MB binary addition)
-- Plugin authors must know Rust — high barrier vs. plain JS
-- All 8 existing plugins would need complete rewrite
-- **Verdict:** Best architecture for security + performance at scale. Revisit S40+.
+Config fields: `name`, `baseUrl`, `lang`, `id`, `iconUrl`, `version`, `isManga` (bool), `isNsfw` (bool)
+
+**To support Mangayomi plugins in Yomi:**
+1. Detect `new Client()` pattern at eval time or check `plugin.getDetail` vs `global.getMangaList`
+2. Inject a `Client` class shim that wraps `SOURCE._fetchSync` with async wrapper
+3. Map `getDetail → getMangaDetail`, `getPageList → getPageList`, `getPopular → getMangaList`
+4. Mangayomi extension repos expose an `index.json` with entries → add to PluginCatalogService
+
+Community extension repos for Mangayomi:
+- Official: `github.com/kodjodevf/mangayomi-extensions` (195+ sources)
+- Community: multiple repos tagged `mangayomi-extensions` on GitHub
+- Index URL pattern: `raw.githubusercontent.com/{user}/{repo}/main/index.json`
+
+### LNReader (Format B) — Already Working, 500+ sources available
+- Official repo: `github.com/LNReader/lnreader-plugins` — 285 stars, 242 forks, 500+ plugins
+- Also: `github.com/CD-Z/lnreader-sources` (alternative community repo)
+- Sources: Royal Road ✅, ScribbleHub ✅, NovelFire ✅, FreeWebNovel ✅, NovelBin ✅ + 495 more
+- Languages: English, Chinese, Russian, Spanish, Portuguese, French, Turkish, Vietnamese, Japanese, Korean, Arabic, Thai, Indonesian, Ukrainian, Polish, and more
+- **Key gap**: Yomi only deploys 12 of these 500+ to Firebase. We should let users add the LNReader repo URL directly in Plugin Repositories settings.
+- LNReader catalog index: `raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json`
+
+### Paperback (Format C) — Partial shim, ~100+ sources
+- App: Paperback 0.8.11 (updated April 1, 2026) — active, on App Store (id1626613373)
+- Official community repo: `github.com/TheNetsky/community-extensions` 
+- Many community repos tagged `paperback-source` on GitHub
+- Extensions: generic MangaStream, MangaReader, MangaBox, Madara CMS types → covers many scanlation sites
+- Yomi S24 shim: `require('paperback-extensions-common')` + `injectPaperbackAdapter()` post-eval
+- **Remaining gap**: `requestManager.schedule()` args not fully wired for all source patterns
+
+### Suwayomi/Tachidesk — Already Integrated (S41), Hundreds of keiyoushi sources
+- Detailed in Section 12 below
+
+### Aidoku (WASM) — Not viable for Yomi
+- `.aix` packages require Rust/WASM runtime — full rewrite of all plugins
+- Aidoku v0.8 on App Store with iOS 26 support, active community
+- Not worth porting — different runtime entirely
+
+### Tachiyomi/Mihon Kotlin APKs — Still impossible, still not worth pursuing
+The only path remains Suwayomi as a bridge server.
+
+### App Store compliance across all formats
+All JS-based formats (A, B, C, D) run in JavaScriptCore — explicitly approved by Apple. 
+Precedent: Paperback (TypeScript/JS extensions) and Tachimanga (embedded JVM) are both on App Store.
+Key framing: "community source scripts" not "plugins that download executable code".
+
+---
+
+## 12. Suwayomi / Tachidesk Deep Dive
+✅ RESEARCHED (S41 integration + S44 deep audit, 2026-04-20)
+
+### Name history
+- **Tachidesk** = old name of the project (abandoned ~2023)
+- **Suwayomi-Server** = current name (rebranded for clarity). "Suwayomi" = short for "suwariyomi" (seated reading in Japanese)
+- The Suwayomi GitHub org maintains both server and clients: `github.com/Suwayomi`
+
+### What Suwayomi-Server is
+A free, open-source manga reader **server** (not an app) that runs Tachiyomi/Mihon Kotlin extensions on a JVM. Any platform that runs Java 21+ can run it. ~6,800 GitHub stars, last updated April 19, 2026. Actively maintained.
+
+```
+[Any HTTP client — browser, iOS app, Android app]
+          ↕ GraphQL / REST / OPDS
+    [Suwayomi-Server (Java 21, Javalin)]
+          ↕ AndroidCompat JVM layer
+    [Tachiyomi/Mihon Kotlin APK extensions]
+          ↕
+    [Any manga source: MangaDex, Webtoon, etc.]
+```
+
+### Architecture layers
+1. **AndroidCompat** — emulates Android APIs (Context, SharedPreferences, OkHttp) in JVM
+2. **Server Core** — Javalin-based HTTP server
+3. **Extension System** — converts APK→JAR, patches bytecode to run on JVM
+4. **Storage** — H2 (default) or PostgreSQL + filesystem
+5. **APIs** — GraphQL (primary), REST (deprecated), OPDS 1.2
+
+### API endpoints
+- `POST /api/graphql` — primary API, full schema (queries + mutations + subscriptions)
+- `GET /api/graphql` — GraphiQL IDE for interactive exploration
+- `/api/v1` — REST (deprecated, still works)
+- `/api/opds/v1.2` — OPDS feed for any e-reader/manga app
+
+### Clients that connect to Suwayomi
+| Client | Platform | Distribution | Notes |
+|--------|----------|--------------|-------|
+| Suwayomi-WebUI | Web | Bundled with server | React, default UI |
+| Tachidesk-Sorayomi | iOS/Android/macOS/Windows/Linux | IPA via AltStore (v0.6.3, Feb 2025), **NOT on App Store** | Flutter, free |
+| Suwayomi-JUI | Desktop | GitHub | Compose Multiplatform |
+| **Tachimanga** (commercial fork) | iOS | App Store | Flutter + embedded JVM. Paid features. |
+| **Yomi** | iOS | App Store (planned) | Swift/SwiftUI, S41 integrated |
+| Any OPDS reader | Multiple | — | Panels (iOS), KedaReader (iOS), etc. |
+
+### Key insight: Tachidesk-Sorayomi vs Tachimanga
+- **Sorayomi** (open-source, Suwayomi org): requires external server, IPA sideload only
+- **Tachimanga** (commercial, `tachimanga/Tachidesk-Sorayomi` fork): bundles embedded JVM server inside the iOS app → App Store compliant. This is the "trick" — the server is embedded, not remote.
+
+### What Yomi's Suwayomi integration already does (S41)
+- `SuwayomiService.swift` connects to a user-provided URL (`AppSettings.suwayomiURL`)
+- Fetches sources, popular, search, manga detail, chapters, page URLs via REST
+- Sources appear in BrowseView under "Suwayomi Server" section
+- Reader works end-to-end for Suwayomi-sourced manga
+
+### What Suwayomi integration could become
+Users who self-host Suwayomi (on Mac, NAS, homelab, VPS) get access to ALL keiyoushi extensions. This is a power-user feature. The right approach is:
+1. Make Suwayomi setup frictionless in Yomi (URL + test connection already done)
+2. Promote it as "Connect to your own Suwayomi server for 1000+ sources"
+3. Link to a setup guide from within the app or GitHub wiki
+4. Optionally: show Suwayomi sources alongside native JS plugin sources in Browse
+
+### Extension count
+Keiyoushi (`github.com/keiyoushi/extensions`) maintains "hundreds" of APK extensions organized by language (`en`, `zh`, `es`, `pt-BR`, `ja`, `fr`, `vi`, etc.). Each extension can expose multiple sources. Total source count accessible via Suwayomi: 500–1000+ (varies as sites go down/up).
+
+---
+
+## 13. LNReader Plugin Ecosystem — Full Picture
+✅ RESEARCHED (S44 deep audit, 2026-04-20)
+
+### What LNReader is
+Android-only light novel reader. Closest Android equivalent to what Yomi is for iOS — and **no iOS equivalent exists**. This is Yomi's blue ocean: 0 competitors on iOS.
+
+### Official plugin repo: `github.com/LNReader/lnreader-plugins`
+- **285 stars, 242 forks** — healthy community
+- **500+ plugins** across 18+ languages (confirmed from `lnreader.app/plugins` listing)
+- TypeScript-based, 94.8% of codebase
+- Active: 438 open issues, 10 PRs, 737 commits
+- Automated GitHub Actions for publishing — plugins are built and hosted as JS bundles
+- Secondary community repo: `github.com/CD-Z/lnreader-sources`
+
+### Plugin catalog format
+Published at: `raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json`
+
+Each entry: `{ id, name, version, url, lang, icon }` — nearly identical to Yomi's catalog entry format.
+
+### Notable sources (Format B, Yomi-compatible today)
+Royal Road, ScribbleHub, NovelFull, ReadNovelFull, FreeWebNovel, NovelBin, NovelFire, RanobeLib (Russian), WuxiaWorld (some CF), multiple Chinese/Korean/Vietnamese sources.
+
+### Current gap
+Yomi deploys 12 of these 500+ plugins to Firebase. **The fix is simple: add the LNReader repo URL to Yomi's Plugin Repositories settings.** Users can then install any of the 500+ plugins directly. Yomi already supports Format B natively — zero code changes needed.
+
+### App Store compliance for LNReader plugins in Yomi
+LNReader plugins are TypeScript → transpiled JS bundles. They run in Yomi's existing JSContext. Same compliance story as Format A plugins. ✅
+
+---
+
+## 14. Full iOS Manga/Novel Reader Landscape (2026)
+✅ RESEARCHED (S44 deep audit, 2026-04-20)
+
+### iOS readers with plugin/extension systems
+
+| App | On App Store | Format | Source Count | Novels | Open Source | Notes |
+|-----|-------------|--------|--------------|--------|-------------|-------|
+| **Tachimanga** | ✅ | Embedded JVM (keiyoushi APKs) | 100+ | ❌ | ❌ (forks are) | Premium paywall. Flutter. |
+| **Paperback** | ✅ | TypeScript/JS | ~100+ | ❌ | ✅ | Active (0.8.11 Apr 2026). |
+| **Aidoku** | ✅ | WASM/Rust `.aix` | ~100+ | ❌ | ✅ | v0.8 with iOS 26 UI updates. |
+| **Sora** | ✅ | JS modules | ~50+ | ❌ | — | Less community data. |
+| **Suwatte** | ✅ | JS (v6/v7) | ~50+ | ❌ | — | Less community data. |
+| **Mangayomi** | ❌ Not on App Store | JS (`new Client()`) | 195+ | ✅ | ✅ | Flutter, sideload only. |
+| **Yomi** | ❌ Not yet | JS (Formats A/B/C) | 15 deployed (500+ compatible) | ✅ | ❌ | Swift/SwiftUI, best iOS UX |
+
+### Key competitive gap: novel support
+**Zero iOS apps on the App Store support light novels with a plugin system.** LNReader (Android) has 500+ plugins. Yomi is the only iOS app in this space. This is the primary positioning that no competitor can copy quickly.
+
+### Community discussion findings (2025–2026)
+- Reddit + tech articles consistently list: Tachimanga → Paperback → Aidoku as the iOS manga reader hierarchy
+- "All Light Novel" app removed from App Store March 30, 2026 — confirms iOS novel reader gap widening
+- Mangayomi not on App Store (iOS app doesn't work reliably) — Flutter limitations
+- Users repeatedly ask: "Is there a Tachiyomi for iOS?" — Yomi answers this better than anything else if source count increases
+
+### Self-hosted library servers (local content)
+| Server | API | OPDS | iOS clients today |
+|--------|-----|------|------------------|
+| **Kavita** | REST + rich API | ✅ | Panels, KedaReader, Tachimanga (Komga only) |
+| **Komga** | REST + rich API | ✅ | Paperback (official extension), Panels, KedaReader |
+| **Suwayomi** | GraphQL + REST + OPDS | ✅ | Sorayomi (sideload), Yomi (S41), OPDS readers |
+
+**Opportunity:** Adding OPDS support to Yomi lets users read from Kavita or Komga local libraries. This covers the offline/local collection use case and appeals to power users who already self-host.
+
+---
+
+## 15. App Store Strategy for Plugin-Based Apps
+✅ RESEARCHED (S44 deep audit, 2026-04-20)
+
+### What is allowed (confirmed by approved apps)
+- **JavaScriptCore** for running JS scripts: ✅ Apple-approved. Paperback (TypeScript→JS), Yomi use this.
+- **WASM runtime** for running `.aix` packages: ✅ Aidoku is on App Store.
+- **Embedded JVM** running Kotlin extensions: ✅ Tachimanga is on App Store.
+- **Downloading JS scripts at runtime** from user-provided URLs: ✅ Paperback, Yomi do this.
+
+**Guideline 2.5.2** ("Apps should not download, install, or execute code which introduces or changes features or functionality of the app") has a JS/WebKit exemption. The key: scripts must not change the app's **primary purpose** — in Yomi's case the primary purpose IS reading from sources, so adding sources via scripts is consistent with the purpose.
+
+### How approved apps frame it (language to copy)
+- **Paperback**: "Supports an extensive scripting API using TypeScript/JavaScript to extend app functionality" + "Set up and choose what repos or extensions you'd prefer"
+- **Aidoku**: "Modular architecture with WebAssembly-based sources"
+- **Tachimanga**: Never explicitly mentions "plugin" — says "supports reading from hundreds of sources"
+
+### Recommended Yomi App Store framing
+- ✅ "Extensible manga and novel reader with community source scripts"
+- ✅ "Install community-maintained sources from GitHub repositories"
+- ✅ "Supports Royal Road, ScribbleHub, MangaDex, and hundreds more via community sources"
+- ❌ Never say "download and execute third-party plugins" or "extension system"
+- ❌ Never show piracy-adjacent content in screenshots
+
+### GitHub as the community hub (standard practice)
+All major iOS manga readers (Paperback, Aidoku, Suwatte) use GitHub as their community + documentation hub:
+- Extension repos tagged with `paperback-source`, `aidoku-source`, etc.
+- Official documentation wiki linked from App Store support URL
+- No app review issues from GitHub links
+
+**For Yomi:** GitHub wiki should explain how to add plugin repos. App Store listing support URL = GitHub repo. This is industry-standard and Apple-accepted.
 
 ---
 
@@ -556,43 +771,59 @@ Available Claude Code plugin types: Skills (slash commands), Agents (subagents),
 
 ---
 
-## 11. Ranked Recommendations
+## 11. Strategic Roadmap — Ranked Recommendations
+✅ UPDATED (S44 deep audit, 2026-04-20)
 
-### Status: Completed through S39
-| Session | Features Shipped |
-|---------|-----------------|
-| S36 | OLED pure black mode, alternate icon infrastructure, NovelFire restored |
-| S37 | Paperback requestManager shim, NovelFull plugin, 9 code/audit fixes |
-| S38 | 9 UX features (Tachimanga parity blitz): scanlator prep, update filters, skip completed, download limit, delete-after-read, incognito toggle, unread badge toggle, category exclude from updates, reading status pill |
-| S39 | Scanlator filter UI, tap zone layouts, webtoon padding, auto-scroll speed, custom covers |
+### The goal
+**Make Yomi the most source-diverse iOS manga+novel reader by unlocking every existing JS plugin ecosystem.** Not by writing plugins — by making Yomi run plugins from LNReader (500+), Paperback (~100), Mangayomi (195+), and Suwayomi. Our 15 Firebase plugins become a curated fallback, not the primary catalog.
 
-### Immediate — App Store Blockers (User Actions)
-| # | Action | Where | Time |
-|---|--------|-------|------|
-| 1 | Firebase deploy (novelfull.js + updated index.json not yet live) | `firebase login --reauth && firebase deploy --only hosting` in `~/Projects/Yomi/Firebase` | 5 min |
-| 2 | App icon design (1024×1024 PNG, 3-layer for iOS 26) | Figma/Sketch/AI + Icon Composer for background/midground/foreground layers | 30–60 min |
-| 3 | Age rating 18+ | App Store Connect → App Information | 5 min |
-| 4 | App description | Drafted S33 — paste into App Store Connect | 10 min |
-| 5 | Screenshots (6.9" iPhone + iPad) | Xcode Simulator → File → Take Screenshot | 20 min |
-| 6 | Support URL | GitHub repo URL in App Store Connect | 2 min |
+### Priority 1 — Immediate source expansion (low-hanging fruit, no architecture changes)
+| # | Action | Sources unlocked | Effort |
+|---|--------|-----------------|--------|
+| 1 | Add LNReader catalog URL to Plugin Repositories docs + app | 500+ novel plugins (Format B already works) | None — just docs + UX |
+| 2 | Add Mangayomi catalog URL to Plugin Repositories | 195+ manga+novel (after Format D shim) | Low — 1 session |
+| 3 | Complete Paperback requestManager shim | ~100 manga sources | Medium — 1 session |
+| 4 | Add `yomi.d.ts` + GitHub wiki for plugin authors | Community growth | Low |
 
-### S40 — App Store submission + Mangayomi response
-| # | Feature | Impact | Effort |
-|---|---------|--------|--------|
-| 1 | App icon PNGs → Xcode + alternate icons UI (user delivers layers) | High — App Store blocker | Low (after user delivers PNGs) |
-| 2 | iCloud CloudKit sync (Mangayomi has cross-platform sync) | High — competitive differentiator | High |
-| 3 | WidgetKit ContinueReading widget (App Groups + shared DB) | High — acquisition/retention | High |
-| 4 | Novel list view mode (novels UI distinct from manga) | Medium — UX quality | Low |
+### Priority 2 — Format D (Mangayomi JS) shim
+Mangayomi plugins use `new Client()` async HTTP + class-based structure. Required JSBridge changes:
+1. Inject `Client` class shim (wraps SOURCE._fetchSync with async-compatible interface)
+2. Detect class-based plugins at eval time (check for `prototype.getDetail`)
+3. Map `getDetail` → Manga model, `getPopular`/`getLatest` → `getMangaList`, `search` → `searchManga`
+4. Register Mangayomi's `index.json` URL as an addable catalog
+No GRDB migration needed. No new Swift files needed beyond JSBridge update.
 
-### Long-term (S41+)
-| # | Feature | Impact | Effort |
-|---|---------|--------|--------|
-| 1 | WASM plugin runtime (wasm3/WasmKit) | High — security + perf | Very High |
-| 2 | Text-to-speech (Apple Spoken Content integration) | Medium — accessibility | Low–Medium |
-| 3 | Tab bar reordering | Low–Medium | Medium |
-| 4 | Glossary / character notes (per novel) | Medium | High |
-| 5 | `yomi.d.ts` TypeScript type definitions for plugin authors | Medium — community growth | Medium |
+### Priority 3 — App Store submission
+| # | Action | Status |
+|---|--------|--------|
+| 1 | App icon 1024×1024 PNG (user designing) | ❌ Blocking |
+| 2 | Age rating 18+ in App Store Connect | ❌ Blocking |
+| 3 | App description (drafted S33) | ❌ Blocking |
+| 4 | Screenshots 6.9" iPhone | ❌ Blocking |
+| 5 | Support URL = GitHub repo | ❌ Blocking |
+| 6 | GitHub wiki with source installation guide | ❌ Needed pre-launch |
+
+### Priority 4 — Power-user backends
+| # | Feature | Value | Effort |
+|---|---------|-------|--------|
+| 1 | OPDS client (Kavita + Komga) | Local library readers | Medium |
+| 2 | Suwayomi onboarding (setup guide + source discovery UX) | Power users: 1000+ keiyoushi sources | Low (integration exists, need UX) |
+| 3 | Cloudflare bypass (CFBypassManager) | Restores Comick + 5 more | Medium |
+
+### Priority 5 — Growth features
+| # | Feature | Value | Effort |
+|---|---------|-------|--------|
+| 1 | WidgetKit ContinueReading widget | Acquisition/retention | High |
+| 2 | iCloud CloudKit sync | Cross-device | Very High |
+| 3 | AniList tracking | Complements MAL | Medium |
+| 4 | Volume button page-turn | Reader polish | Low |
+
+### What NOT to prioritize
+- **WASM runtime**: Overkill for Yomi's scale. Revisit if 10k+ users.
+- **Bundling JVM/Suwayomi-Server**: Tachimanga already does this and we can connect to existing installs
+- **Writing more hand-crafted plugins**: Community ecosystem already has 500–800+ — focus on unlocking them
+- **Paperback Format C (beyond completing shim)**: Paperback itself is stagnating; Mangayomi format is higher leverage
 
 ---
 
-*End of RESEARCH.md — last compiled S39 audit, 2026-04-19*
+*End of RESEARCH.md — last compiled S44 deep audit, 2026-04-20*
