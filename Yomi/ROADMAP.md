@@ -1,8 +1,8 @@
 # Roadmap — Yomi
 
-## Current state (post S42 — 2026-04-20)
+## Current state (post S43 — 2026-04-20)
 
-App is feature-complete + polished. S42: Manga Notes, App Lock, TTS for novels, and Global Search across all installed sources. All free — Tachimanga charges premium for Notes and App Lock. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
+App is feature-complete + polished. S43: Tachiyomi/Mihon `.tachibk` backup import (full protobuf3+gzip decoder, no external deps) + tab reordering (iOS 26 `TabViewCustomization`). S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -512,14 +512,24 @@ All S28 P0/P1/P2/P3 items resolved.
 - WidgetKit ContinueReadingWidget (App Groups + shared SQLite)
 - Tab reordering (iOS 26 TabView drag API)
 
-## Planned: Session 43 — Research + Complex Features
+## Session 43 — Tachiyomi Backup Import + Tab Reordering ✅ Complete (2026-04-20)
 
-| # | Feature | Research needed |
-|---|---------|----------------|
-| 1 | **Cloudflare bypass** | WKWebView cookie extraction, `cf_clearance` injection into URLSession, timing/retry strategy |
-| 2 | **Tachiyomi backup import** | `.tachibk` format (protobuf wrapped in gzip), manga title→source matching heuristic, chapter progress mapping |
-| 3 | **WidgetKit** | App Groups entitlement, shared SQLite access from extension, `TimelineProvider`, cover image caching for widget |
-| 4 | **Tab reordering** | iOS 26 `TabView` drag-to-reorder API surface, AppSettings persistence of custom tab order |
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Tachiyomi / Mihon backup import | `TachiyomiBackupParser.swift`: hand-written protobuf3 binary decoder + gzip decompressor (libz via bridging header). `ProtoReader` class parses varint/length-delimited/fixed32 wire types. Decodes `BackupManga` (fields 1–100) + `BackupChapter` (fields 1–10) matching Mihon proto schema. Source ID map: `[UInt64: String]` maps Tachiyomi int64 → Yomi plugin ID (currently MangaDex). Unmapped sources: `"tachiyomi_{id}"` placeholder — library fully imported, even without matching plugin. `BackupManager.importTachiyomiBackup(from:)` calls `MangaQueries.upsert()` + `ChapterQueries.upsert()` for each item. `BackupView.swift`: new "Import from Tachiyomi / Mihon" section with `fileImporter` accepting `.tachibk` files. Result alert shows summary string (N manga imported, M matched vs unrecognized). |
+| 2 | ✅ Tab reordering | `ContentView.swift`: `@AppStorage("tabViewCustomization") private var customization = TabViewCustomization()`. Each `Tab(...)` gets `.customizationID("com.Yomi.<Tab>")`. `TabView` gets `.tabViewCustomization($customization)`. Users can long-press tabs and drag to reorder — persisted via `@AppStorage`. |
+| 3 | ✅ Bridging header for zlib | `Yomi/Yomi-Bridging-Header.h` created (`#import <zlib.h>`). `SWIFT_OBJC_BRIDGING_HEADER` added to both Debug + Release `XCBuildConfiguration` blocks in `project.pbxproj`. Enables zlib C API (`z_stream`, `inflateInit2_`, `inflate`, `inflateEnd`, `Z_OK`, `Z_STREAM_END`, `uInt`, `ZLIB_VERSION`) in Swift. |
+
+**Deferred to S44:**
+- Cloudflare bypass (WKWebView cookie extraction → URLSession injection)
+- WidgetKit ContinueReadingWidget (App Groups + shared JSON file)
+
+## Planned: Session 44 — Cloudflare Bypass + WidgetKit
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **Cloudflare bypass** | Hidden `WKWebView` loads blocked URL, `WKHTTPCookieStore.getAllCookies()` extracts `cf_clearance`, injected into `URLSession` via `HTTPCookieStorage.shared` + matching User-Agent. `CFBypassManager` singleton. |
+| 2 | **WidgetKit** | New Xcode widget extension target + App Groups entitlement. Shared flat JSON file (NOT shared SQLite — GRDB author warns against). `TimelineProvider` reads recently-read manga from shared JSON. Cover image cached to App Group container. |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 

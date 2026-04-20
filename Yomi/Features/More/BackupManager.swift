@@ -12,6 +12,35 @@ import Observation
     var isImporting = false
     var lastBackupDate: Date? = nil
     var errorMessage: String? = nil
+    var lastTachiyomiImportSummary: String? = nil
+
+    // MARK: - Tachiyomi Import
+
+    func importTachiyomiBackup(from url: URL) async {
+        isImporting = true
+        errorMessage = nil
+        lastTachiyomiImportSummary = nil
+        defer { isImporting = false }
+
+        do {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
+            let data = try Data(contentsOf: url)
+            let result = try TachiyomiBackupParser.parse(data)
+
+            for manga in result.mangas {
+                try MangaQueries.upsert(manga)
+            }
+            for chapter in result.chapters {
+                try ChapterQueries.upsert(chapter)
+            }
+
+            lastTachiyomiImportSummary = "\(result.mangas.count) manga imported (\(result.mappedCount) matched, \(result.unmappedCount) unrecognized sources)"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 
     // MARK: - Export
 
