@@ -3,7 +3,7 @@
 ## What this app is
 iOS manga, manhwa, manhua, and light novel reader. Plugin-based architecture:
 JS plugins run in JavaScriptCore. Two plugin formats: Format A (manga) and Format B (LNReader/novels).
-Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files (App Store compliance).
+Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files (App Store compliance).
 
 ## Tech stack
 - **Swift + SwiftUI — iOS 26.2 deployment target. No iOS 18 fallbacks. Ever.**
@@ -20,20 +20,19 @@ Firebase CDN hosts all 8 production plugins. App binary ships zero plugin files 
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S39 audit — 2026-04-19)
+## Current state (post S40 — 2026-04-20)
 
-S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + scanlators + custom covers shipped. Post-S39 = full audit (5 bugs fixed) + visual comparison research vs Tachimanga + Suwayomi architecture findings.
+S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 next: Suwayomi integration + CF bypass + power features.
 
-**S39 shipped:**
-1. Scanlator filter — v12_ migration (chapter.scanlator), JSBridge Format A shim, chip row in MangaDetailView
-2. Tap zone layouts — AppSettings.tapZoneLayout ("default"/"sides"/"disabled"), tapZoneOverlay in MangaReaderView
-3. Webtoon padding — AppSettings.webtoonHorizontalPadding (0/8/16/24), applied to LazyVStack in WebtoonReaderView
-4. Auto-scroll speed — AppSettings.autoScrollSpeed (default 3.0s), hold-to-scroll loop uses setting
-5. Custom covers — v13_ migration (manga.customCoverPath), PhotosPicker in MangaDetailView, MangaCoverCell renders custom path
+**S40 shipped:**
+1. `pluginCatalogURLs: [String]` — multi-repo catalog with UserDefaults migration from legacy single key
+2. PluginCatalogService parallel fetch + merge dedup by id + `invalidateCache()`
+3. SettingsView "Plugin Repositories" section — swipe delete + add sheet
+4. 6 new novel TypeScript plugins: LightNovelPub, BoxNovel, MTLNovel, BabelNovel, NovelHall, ReadWN
+5. build-plugins.mjs merge strategy — preserves existing Firebase entries
+6. Firebase deployed: 15 plugins live (3 manga + 12 novel)
 
-**Tachimanga architecture finding:** Tachimanga bundles an embedded Kotlin/JVM server (Tachidesk-Server fork) to run Mihon extensions — that's their 100+ sources. NOT replicable in Yomi without JVM. Our advantage: SwiftUI native, fully offline, novels, fully free.
-
-**S40 priorities (from visual audit):** Cloudflare bypass (WKWebView cookie bridge), multiple plugin repos, Tachiyomi backup import, more tap zone layouts, library list view, Advanced settings screen.
+**S41 priorities:** Suwayomi server integration, Cloudflare bypass, Tachiyomi backup import, library list view, Advanced settings.
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
@@ -41,11 +40,10 @@ S38 = 9 UX features shipped (Tachimanga parity blitz). S39 = reader polish + sca
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Firebase deploy pending | novelfull.js + updated index.json not yet live. Run: `firebase login --reauth && firebase deploy --only hosting` in `~/Projects/Yomi/Firebase` |
-| 2 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
-| 3 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
-| 4 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
-| 5 | App Store deferred | Age rating 18+, description, screenshots pending. |
+| 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
+| 2 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
+| 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
+| 4 | App Store deferred | Age rating 18+, description, screenshots pending. |
 
 ## MCP tools — use these every session
 
