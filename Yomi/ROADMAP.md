@@ -1,8 +1,8 @@
 # Roadmap — Yomi
 
-## Current state (post S39 — 2026-04-19)
+## Current state (post S40 — 2026-04-20)
 
-App is feature-complete + polished. S38 UX feature blitz: 9 Tachimanga-parity items shipped. S39 reader polish + scanlators + custom covers shipped. App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
+App is feature-complete + polished. S40: multi-repo plugin catalog + 6 new novel plugins shipped + Firebase deployed (15 plugins total). App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -467,23 +467,33 @@ All S28 P0/P1/P2/P3 items resolved.
 | 6 | ✅ Custom manga covers | v13_ migration (manga.customCoverPath column). MangaDetailView ellipsis menu: "Change cover" → PhotosPicker, saves JPEG to Documents/Covers/{id}.jpg, updates DB. MangaCoverCell shows custom cover if path set. |
 | 7 | ⏭ Source settings per extension | Deferred — too complex for this session. |
 
-## Planned: Session 40 — Cloudflare Bypass + Power Features + App Store Prep
+## Session 40 — Novel Plugin Blitz + Multi-Repo Catalog ✅ Complete (2026-04-20)
 
-**Source:** Visual comparison vs Tachimanga (S39 audit) + web research on Suwayomi/Tachidesk architecture.
+**Source:** LNReader plugin ecosystem research + Suwayomi/Tachidesk architecture findings.
 
-**Key insight from audit:** Tachimanga bundles an embedded Kotlin/JVM server (Tachidesk-Server fork) to run Mihon extensions — that's how they get 100+ sources. We cannot/should not replicate this. Our response is better native UX, free features (vs their premium paywall), and novels.
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Multi-repo catalog | `pluginCatalogURL: String` → `pluginCatalogURLs: [String]` with UserDefaults migration (JSONEncoder). PluginCatalogService fetches all URLs in parallel via `withThrowingTaskGroup`, merges dedup by id (first-wins), sorts by name. `invalidateCache()` public method. |
+| 2 | ✅ Plugin Repositories settings UI | SettingsView "Plugin Repositories" section with swipe-to-delete + sheet to add new URL. `invalidateCache()` called on add/delete to force refresh. |
+| 3 | ✅ 6 new novel TypeScript plugins | LightNovelPub, BoxNovel, MTLNovel, BabelNovel (JSON API), NovelHall, ReadWN. Pattern: TypeScript → esbuild IIFE → `(globalThis as any).plugin = plugin` for JSC global access. |
+| 4 | ✅ build-plugins.mjs merge fix | Now merges with existing Firebase index.json instead of overwriting. Preserves hand-built entries (9 existing). Only overrides entries with matching fileURL. |
+| 5 | ✅ npm/esbuild setup | `package.json` + `node_modules/` (gitignored). `npm run build` command. esbuild 0.28.x. |
+| 6 | ✅ Firebase deployed | 15 plugins live: 3 manga (MangaDex, Asura, AquaManga) + 12 novel (RR, SH, NovelFire, FreeWebNovel, NovelBin, NovelFull + 6 new). |
+
+## Planned: Session 41 — Suwayomi Integration + Power Features
+
+**Source:** Suwayomi REST API research + remaining S40 roadmap items.
 
 | # | Feature | Detail | Files |
 |---|---------|--------|-------|
-| 1 | **Cloudflare bypass** (WKWebView cookie bridge) | Hidden WKWebView completes JS challenge → extracts `cf_clearance` + User-Agent → injects into URLSession. Restores Comick + unlocks ~5 more CF-blocked sources. Tachimanga calls it "Bypassing Cloudflare automatically" in Advanced settings. | New: CFBypassManager.swift; JSBridge.swift (inject cookies on 403); SettingsView.swift (toggle) |
-| 2 | **Multiple extension repositories** | Change `pluginCatalogURL: String` → `pluginCatalogURLs: [String]`. Accept GitHub `username/repo` slug (auto-expand to raw URL) OR full URL ending in `index.min.json`. Merge all catalogs, dedup by id. SettingsView: add/remove repo list. | PluginCatalogService.swift, AppSettings.swift, SettingsView.swift |
-| 3 | **Tachiyomi/Mihon backup import** | Parse `.tachibk` (protobuf-based JSON or binary) — Tachimanga also supports this for Android→iOS migration. Read backup format spec from Mihon GitHub. Map manga title + source to existing Yomi plugin. | New: TachiyomiBackupParser.swift, BackupView.swift |
-| 4 | **3 more tap zone layouts** (L-Shaped, Edge, Kindle-ish) | Tachimanga has 5 layouts vs Yomi's 3. L-Shaped: left column = prev, rest = next. Edge: narrow strips on far left/right, center = overlay. Kindle-ish: left 30% = prev, right 70% = next. | AppSettings.swift, ChapterReaderView.swift, SettingsView.swift |
-| 5 | **Library list/descriptive view** | Tachimanga: Settings → Library → Display Mode → "Descriptive List". For novels especially — shows title + author + chapter count in list rows. LibraryView toggle between grid and list. | LibraryView.swift, AppSettings.swift |
-| 6 | **Advanced settings screen** | Tachimanga has dedicated "Advanced" under General: Clear Cache, Clear Cookies (WKWebView), User Agent selector (Mobile Safari / Desktop Safari / Chrome), Receive timeout interval (10/20/30s), Repair Database, Enable/Export log. Most of these are low effort. | New: AdvancedSettingsView.swift |
-| 7 | **App icon + App Store submission** | User delivers PNG layers → drop into appiconsets + add CFBundleAlternateIcons in Xcode Target Info. Then: age rating 18+, description, screenshots, support URL. | Assets.xcassets, Info.plist |
+| 1 | **Suwayomi Server integration** | Optional power-user feature: user runs Suwayomi locally, Yomi connects via REST (`GET /api/v1/source/list`, `/source/{id}/popular`, `/manga/{id}/chapters`, `/chapter/{id}/` for pages). New `suwayomiURL` setting. Maps to same Manga/Chapter internal structs. | New: SuwayomiService.swift, SuwayomiSource.swift; AppSettings.swift; SettingsView.swift |
+| 2 | **Cloudflare bypass** (WKWebView cookie bridge) | Hidden WKWebView completes JS challenge → extracts `cf_clearance` + User-Agent → injects into URLSession. Restores Comick + unlocks CF-blocked novel sources. | New: CFBypassManager.swift; JSBridge.swift; SettingsView.swift |
+| 3 | **Tachiyomi/Mihon backup import** | Parse `.tachibk` (protobuf-based JSON) — Android→iOS migration. Map manga title + source to existing Yomi plugin. | New: TachiyomiBackupParser.swift |
+| 4 | **Library list view** | Toggle between grid and descriptive list in LibraryView. Shows title + author + chapter count in list rows. | LibraryView.swift, AppSettings.swift |
+| 5 | **Advanced settings screen** | Clear Cache, Clear WKWebView Cookies, User Agent selector, log export. | New: AdvancedSettingsView.swift |
+| 6 | **App icon + App Store submission** | User delivers PNG layers → drop into appiconsets. Age rating 18+, description, screenshots. | Assets.xcassets |
 
-## Planned: Session 41 — Yomi Exclusives (not in Tachimanga)
+## Planned: Session 42 — Yomi Exclusives (not in Tachimanga)
 
 | # | Feature | Detail | Files |
 |---|---------|--------|-------|

@@ -72,8 +72,9 @@ Yomi/
 ├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
-│   # Note: 9 production plugins (mangadex, asurascans, aquamanga, royalroad,
-│   # scribblehub, novelfire, freewebnovel, novelbin, novelfull) hosted on Firebase.
+│   # Note: 15 production plugins hosted on Firebase (S40). Manga: mangadex, asurascans, aquamanga.
+│   # Novel: royalroad, scribblehub, novelfire, freewebnovel, novelbin, novelfull,
+│   #        lightnovelpub, boxnovel, mtlnovel, babelnovel, novelhall, readwn.
 │   # Binary ships zero plugin files for App Store compliance. https://yomi-plugins.web.app
 ├── ARQUITECTURA.md
 ├── METODOLOGIA.md
@@ -209,7 +210,7 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `showNSFW: Bool` — show NSFW sources and catalog entries
 - `hasRequestedNotifications: Bool` — flag to request notification permission only once
 - `hasSeenOnboarding: Bool` — set to true when user completes OnboardingView
-- `pluginCatalogURL: String` — remote index.json URL; default `https://yomi-plugins.web.app/index.json`
+- `pluginCatalogURLs: [String]` — remote catalog URLs (multi-repo); default `["https://yomi-plugins.web.app/index.json"]`. Stored as JSON Data in UserDefaults. Migrates from legacy `pluginCatalogURL` String key on first launch.
 - `keepScreenOn: Bool` — disables idle timer in ChapterReaderView; default true
 - `isIncognito: Bool` — skip chapter read/progress persistence when true; default false
 - `alternateIconName: String?` — nil = default icon; set to alternate icon asset name (S36); nil default
@@ -234,7 +235,7 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 `@Observable final class`, accessed via `PluginCatalogService.shared`
 - `entries: [PluginCatalogEntry]` — decoded catalog from remote index.json
 - `isLoading: Bool` / `errorMessage: String?` — fetch state
-- `fetchCatalog() async` — fetches `AppSettings.shared.pluginCatalogURL`, decodes `[PluginCatalogEntry]`
+- `fetchCatalog(force:) async` — fetches all `AppSettings.shared.pluginCatalogURLs` in parallel via `withThrowingTaskGroup`, merges dedup by id (first-wins), sorts by name. 1-hour TTL. `invalidateCache()` resets TTL.
 - `isInstalled(_ entry:) -> Bool` — cross-references `ExtensionManager.shared.installed` by name
 - `PluginCatalogEntry`: `Codable + Identifiable`; fields: `id`, `name`, `version`, `language`, `description`, `iconURL: String?`, `fileURL`, `isNSFW`
 
@@ -382,7 +383,7 @@ BrowseView
 ### Plugin catalog install (OTA)
 PluginsView Browse tab
 → .onAppear { Task { await PluginCatalogService.shared.fetchCatalog() } }  // fires on every tab activation (S20)
-→ GET AppSettings.shared.pluginCatalogURL (index.json)
+→ GET all AppSettings.shared.pluginCatalogURLs in parallel (merged index.json)
 → [PluginCatalogEntry] listed with Install button
 → installEntry(_:) builds Extension(id: entry.id, sourceListURL: URL(entry.fileURL))
 → extensionManager.install(ext)
