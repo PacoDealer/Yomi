@@ -545,9 +545,23 @@ All S28 P0/P1/P2/P3 items resolved.
 - Cloudflare bypass (WKWebView cookie extraction → URLSession injection)
 - WidgetKit ContinueReadingWidget (App Groups + shared JSON file)
 
+## Session 44 — Research + Onboarding + Catalog Bug Fix (2026-04-20) ✅ Partially complete
+
+### Pre-session research shipped:
+| # | Item | Detail |
+|---|------|--------|
+| 1 | ✅ New user onboarding | PluginsView: toolbar `+` opens menu (Add Repository / Install from URL). `AddRepoSheet` with LNReader featured repo (one-tap add), custom URL field, GitHub guide link. Empty installed state shows LNReader inline + "Plugin setup guide →". |
+| 2 | ✅ Catalog multi-format parser | `PluginCatalogService` now handles LNReader format (`lang`/`url`/`iconUrl`) in addition to Yomi native. Per-URL failures are silent. Fixes "Failed to load" error when LNReader repo is added. |
+| 3 | ✅ README.md | GitHub README at `github.com/PacoDealer/Yomi`: Quick start, 3-repo table (Yomi/LNReader/Keiyoushi), step-by-step guide, Tachiyomi migration section. |
+| 4 | ✅ SettingsView addRepoSheet | Added "Browse community repos →" GitHub guide link. |
+| 5 | ✅ Tachimanga DEX research | Corrected architecture: Tachimanga uses a DEX bytecode interpreter (no JIT), not a full JVM. App Store compliant because it's interpretation. RESEARCH.md updated. |
+| 6 | ✅ Mihon forks research | TachiyomiJ2K, TachiyomiSY, TachiyomiAZ, Yōkai, Komikku all researched. All use Keiyoushi APKs. None open new iOS paths. UX patterns (J2K dual-page, SY per-source settings) noted. |
+
+### Remaining S44 work (next session):
+
 ## Planned: Session 44 — Ecosystem Unlock Phase 1
 
-**Goal:** Unlock Mangayomi JS format (Format D) + complete Paperback shim + point users to LNReader repo.
+**Goal:** Unlock Mangayomi JS format (Format D) + complete Paperback shim.
 Outcome: Yomi goes from 15 sources to 300+ sources available without writing a single new plugin.
 
 ### Part A — Format D: Mangayomi JS plugin support
