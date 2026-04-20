@@ -136,6 +136,7 @@ import Observation
         if let v = m.lastReadAt               { d["lastReadAt"]       = ISO8601DateFormatter().string(from: v) }
         if let v = m.lastUpdatedAt            { d["lastUpdatedAt"]    = ISO8601DateFormatter().string(from: v) }
         if let v = m.customCoverPath          { d["customCoverPath"]  = v }
+        if let v = m.notes                    { d["notes"]            = v }
         return d
     }
 
@@ -182,7 +183,8 @@ import Observation
             lastReadAt:     (d["lastReadAt"]    as? String).flatMap { fmt.date(from: $0) },
             lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
-            customCoverPath: d["customCoverPath"] as? String
+            customCoverPath: d["customCoverPath"] as? String,
+            notes: d["notes"] as? String
         )
     }
 

@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import AVFoundation
 
 // MARK: - NovelTheme
 
@@ -86,6 +87,10 @@ struct TextReaderView: View {
     @State private var showOverlay = true
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
+
+    // TTS
+    @State private var isSpeaking = false
+    @State private var ttsDelegate: TTSDelegate? = nil
 
     init(novel: Novel, bridge: JSBridge, chapters: [NovelChapter], startIndex: Int = 0) {
         self.novel   = novel
@@ -206,11 +211,13 @@ struct TextReaderView: View {
                 fontFamily:       $fontFamily,
                 hPadding:         $hPadding,
                 showOverlay:      $showOverlay,
+                isSpeaking:       $isSpeaking,
                 hasPrevChapter:   hasPrevChapter,
                 hasNextChapter:   hasNextChapter,
                 onDismiss:        { dismiss() },
                 onPrevChapter:    { navigateToChapter(currentChapterIndex - 1) },
-                onNextChapter:    { navigateToChapter(currentChapterIndex + 1) }
+                onNextChapter:    { navigateToChapter(currentChapterIndex + 1) },
+                onToggleTTS:      { toggleTTS() }
             )
         }
         .navigationBarHidden(true)
@@ -229,7 +236,10 @@ struct TextReaderView: View {
             sessionStart  = Date()
             readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
         }
-        .onDisappear { flushReadingTime() }
+        .onDisappear {
+            stopTTS()
+            flushReadingTime()
+        }
     }
 
     // MARK: - Reading Time
@@ -251,6 +261,7 @@ struct TextReaderView: View {
     private func navigateToChapter(_ index: Int) {
         guard index >= 0, index < chapters.count else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        stopTTS()
         flushReadingTime()
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
@@ -260,6 +271,45 @@ struct TextReaderView: View {
         isLoading     = true
         errorMessage  = nil
         currentChapterIndex = index
+    }
+
+    // MARK: - TTS
+
+    private func toggleTTS() {
+        if isSpeaking {
+            stopTTS()
+        } else {
+            startTTS()
+        }
+    }
+
+    private func startTTS() {
+        guard !rawContent.isEmpty else { return }
+        let plain = rawContent
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !plain.isEmpty else { return }
+        let utterance = AVSpeechUtterance(string: plain)
+        utterance.rate = AppSettings.shared.ttsSpeechRate
+        utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.language.languageCode?.identifier ?? "en")
+        let delegate = TTSDelegate { self.isSpeaking = false }
+        ttsDelegate = delegate
+        let synth = AVSpeechSynthesizer()
+        synth.delegate = delegate
+        delegate.synthesizer = synth
+        isSpeaking = true
+        synth.speak(utterance)
+    }
+
+    private func stopTTS() {
+        ttsDelegate?.synthesizer?.stopSpeaking(at: .immediate)
+        ttsDelegate = nil
+        isSpeaking = false
     }
 
     // MARK: - Load Content
@@ -386,11 +436,13 @@ struct TextReaderOverlayView: View {
     @Binding var fontFamily:  String
     @Binding var hPadding:    Int
     @Binding var showOverlay: Bool
+    @Binding var isSpeaking:  Bool
     var hasPrevChapter:  Bool = false
     var hasNextChapter:  Bool = false
     let onDismiss:       () -> Void
     var onPrevChapter:   (() -> Void)? = nil
     var onNextChapter:   (() -> Void)? = nil
+    var onToggleTTS:     (() -> Void)? = nil
 
     private let paddingOptions: [(label: String, value: Int)] = [
         ("Narrow", 8), ("Normal", 16), ("Wide", 28)
@@ -510,7 +562,7 @@ struct TextReaderOverlayView: View {
                         Spacer()
                     }
 
-                    // Row 4: Prev / Next chapter
+                    // Row 4: Prev / TTS / Next chapter
                     HStack(spacing: 0) {
                         Button { onPrevChapter?() } label: {
                             Image(systemName: "chevron.left.2")
@@ -522,11 +574,11 @@ struct TextReaderOverlayView: View {
 
                         Spacer()
 
-                        Text(chapter.name)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(1)
-                            .frame(maxWidth: 200)
+                        Button { onToggleTTS?() } label: {
+                            Image(systemName: isSpeaking ? "stop.circle.fill" : "play.circle")
+                                .font(.title2)
+                                .foregroundStyle(isSpeaking ? Color.accentColor : .white.opacity(0.7))
+                        }
 
                         Spacer()
 
@@ -546,6 +598,21 @@ struct TextReaderOverlayView: View {
         .opacity(showOverlay ? 1 : 0)
         .allowsHitTesting(showOverlay)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)
+    }
+}
+
+// MARK: - TTSDelegate
+
+private final class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    var onFinish: () -> Void
+    var synthesizer: AVSpeechSynthesizer?
+
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { self.onFinish() }
     }
 }
 

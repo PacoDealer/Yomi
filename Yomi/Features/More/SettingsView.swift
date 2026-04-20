@@ -53,6 +53,14 @@ struct SettingsView: View {
     private var generalSection: some View {
         Section("General") {
             Toggle("Show NSFW content", isOn: $settings.showNSFW)
+            Toggle(isOn: $settings.appLockEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("App Lock", systemImage: "lock.fill")
+                    Text("Require Face ID / Touch ID when opening Yomi")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -210,6 +218,21 @@ struct SettingsView: View {
                 Text("Narrow").tag(8)
                 Text("Normal").tag(16)
                 Text("Wide").tag(28)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(settings.ttsSpeechRate) },
+                    set: { settings.ttsSpeechRate = Float($0) }
+                ),
+                in: 0.1...1.0,
+                step: 0.1
+            ) {
+                Text("TTS Speed: \(String(format: "%.1f×", settings.ttsSpeechRate))")
+            } minimumValueLabel: {
+                Text("0.1×").font(.caption)
+            } maximumValueLabel: {
+                Text("1.0×").font(.caption)
             }
         }
     }

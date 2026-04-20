@@ -49,6 +49,10 @@ struct MangaDetailView: View {
     @State private var showCoverPicker = false
     @State private var selectedCoverItem: PhotosPickerItem? = nil
 
+    // Feature 7 — Notes
+    @State private var showNotesSheet = false
+    @State private var notesText: String = ""
+
     init(manga: Manga) {
         _manga = State(initialValue: manga)
     }
@@ -201,6 +205,22 @@ struct MangaDetailView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
                 }
+            }
+
+            // MARK: Notes
+            Section("Notes") {
+                if let notes = manga.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+                Button(manga.notes?.isEmpty == false ? "Edit note" : "Add a note") {
+                    notesText = manga.notes ?? ""
+                    showNotesSheet = true
+                }
+                .font(.subheadline)
+                .foregroundStyle(.tint)
             }
 
             // MARK: Chapters
@@ -432,6 +452,15 @@ struct MangaDetailView: View {
         .task { await touchLastRead() }
         .task { await loadCategories() }
         .task { computeStorageSize() }
+        .task { notesText = manga.notes ?? "" }
+        .sheet(isPresented: $showNotesSheet) {
+            NotesEditorSheet(mangaTitle: manga.title, text: $notesText) {
+                let id = manga.id
+                let saved = notesText.isEmpty ? nil : notesText
+                manga.notes = saved
+                Task.detached { try? MangaQueries.updateNotes(mangaId: id, notes: saved) }
+            }
+        }
         .photosPicker(isPresented: $showCoverPicker, selection: $selectedCoverItem, matching: .images)
         .onChange(of: selectedCoverItem) { _, item in
             guard let item else { return }
@@ -1142,6 +1171,38 @@ private struct StatusBadge: View {
         case .cancelled: .red
         case .unknown:   .gray
         }
+    }
+}
+
+// MARK: - NotesEditorSheet
+
+private struct NotesEditorSheet: View {
+    let mangaTitle: String
+    @Binding var text: String
+    let onSave: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $text)
+                .padding(12)
+                .navigationTitle("Notes")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Save") {
+                            onSave()
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

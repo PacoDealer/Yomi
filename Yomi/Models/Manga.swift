@@ -79,4 +79,6 @@ struct Manga: Identifiable, Codable {
     var readingStatus: ReadingStatus = .none
     /// Ruta local a portada personalizada (nil = usar coverURL de la fuente)
     var customCoverPath: String? = nil
+    /// Notas personales del usuario sobre esta obra
+    var notes: String? = nil
 }
