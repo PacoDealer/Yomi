@@ -8,6 +8,8 @@ struct BrowseView: View {
     @State private var settings         = AppSettings.shared
     @State private var selectedTab: BrowseTab = .sources
     @State private var installingID: String? = nil
+    @State private var suwayomiSources: [SuwayomiSource] = []
+    @State private var suwayomiLoading = false
 
     enum BrowseTab: String, CaseIterable {
         case sources    = "Sources"
@@ -48,20 +50,85 @@ struct BrowseView: View {
 
     @ViewBuilder
     private var sourcesTab: some View {
-        if extensionManager.installed.isEmpty {
+        let hasSuwayomi = SuwayomiService.shared.isEnabled
+        if extensionManager.installed.isEmpty && !hasSuwayomi {
             ContentUnavailableView(
                 "No sources installed",
                 systemImage: "puzzlepiece.extension",
                 description: Text("Browse Extensions to discover and install reading sources.")
             )
         } else {
-            List(extensionManager.installed) { ext in
-                NavigationLink {
-                    SourceBrowseView(ext: ext)
-                } label: {
-                    ExtensionRow(ext: ext)
+            List {
+                if !extensionManager.installed.isEmpty {
+                    Section("Installed Plugins") {
+                        ForEach(extensionManager.installed) { ext in
+                            NavigationLink {
+                                SourceBrowseView(ext: ext)
+                            } label: {
+                                ExtensionRow(ext: ext)
+                            }
+                        }
+                    }
+                }
+                if hasSuwayomi {
+                    Section {
+                        if suwayomiLoading {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else if suwayomiSources.isEmpty {
+                            Button("Load sources") {
+                                Task { await loadSuwayomiSources() }
+                            }
+                        } else {
+                            ForEach(suwayomiSources) { src in
+                                NavigationLink {
+                                    SuwayomiBrowseView(source: src)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        AsyncImage(url: URL(string: "\(SuwayomiService.shared.baseURL)\(src.iconUrl)")) { img in
+                                            img.resizable().scaledToFill()
+                                        } placeholder: {
+                                            Image(systemName: "network").foregroundStyle(.secondary)
+                                        }
+                                        .frame(width: 32, height: 32)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(src.name).font(.body)
+                                            Text(src.lang.uppercased())
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Suwayomi Server")
+                    } footer: {
+                        Text(SuwayomiService.shared.baseURL)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
+            .task {
+                if hasSuwayomi && suwayomiSources.isEmpty {
+                    await loadSuwayomiSources()
+                }
+            }
+        }
+    }
+
+    private func loadSuwayomiSources() async {
+        suwayomiLoading = true
+        do {
+            let sources = try await SuwayomiService.shared.fetchSources()
+            await MainActor.run {
+                suwayomiSources = sources.filter { !$0.isNsfw || settings.showNSFW }
+                suwayomiLoading = false
+            }
+        } catch {
+            await MainActor.run { suwayomiLoading = false }
         }
     }
 

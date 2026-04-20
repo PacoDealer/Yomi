@@ -39,6 +39,7 @@ struct SettingsView: View {
             novelReaderSection
             appearanceSection
             pluginRepositoriesSection
+            suwayomiSection
             advancedSection
             aboutSection
         }
@@ -459,15 +460,29 @@ struct SettingsView: View {
         .presentationDetents([.medium])
     }
 
+    // MARK: - Suwayomi Server
+
+    private var suwayomiSection: some View {
+        Section {
+            TextField("http://192.168.1.x:4567", text: $settings.suwayomiURL)
+                .keyboardType(.URL)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+        } header: {
+            Text("Suwayomi Server")
+        } footer: {
+            Text("Connect to your self-hosted Suwayomi server to browse 1000+ Mihon sources. Leave empty to disable.")
+                .font(.caption)
+        }
+    }
+
     // MARK: - Advanced
 
     private var advancedSection: some View {
         Section("Advanced") {
-            Button("Clear image cache") {
-                URLCache.shared.removeAllCachedResponses()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            NavigationLink("Advanced settings") {
+                AdvancedSettingsView()
             }
-            .foregroundStyle(.primary)
         }
     }
 
