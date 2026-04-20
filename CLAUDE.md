@@ -20,18 +20,18 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S42 — 2026-04-20)
+## Current state (post S43 — 2026-04-20)
 
-S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings. S42 = 4 Yomi exclusives (Manga Notes, App Lock, TTS, Global Search).
+S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings. S42 = 4 Yomi exclusives (Manga Notes, App Lock, TTS, Global Search). S43 = Tachiyomi/Mihon backup import + tab reordering.
 
-**S42 shipped:**
-1. `Manga.notes: String?` + v14_manga_notes GRDB migration + `MangaQueries.updateNotes()` + Notes section in MangaDetailView + BackupManager updated
-2. `AppLockView.swift` — LAContext biometric/passcode auth, auto-auth on appear, FaceID/TouchID icon detection
-3. `YomiApp.swift` — `@State isLocked` + `.fullScreenCover(AppLockView)` + re-lock on `scenePhase == .background`
-4. `TextReaderView.swift` — TTS via `AVSpeechSynthesizer` + `TTSDelegate` (delegate pattern, strong ref), HTML stripping, play/stop button in overlay
-5. `BrowseView.swift` — `GlobalSearchView` replaces `SearchView`: `withTaskGroup` parallel search, per-source sections, Format A + B, streaming results
+**S43 shipped:**
+1. `Yomi/Yomi-Bridging-Header.h` — `#import <zlib.h>` bridging header. `SWIFT_OBJC_BRIDGING_HEADER` added to both Debug + Release in `project.pbxproj`.
+2. `TachiyomiBackupParser.swift` — hand-written protobuf3 decoder (`ProtoReader`) + gzip decompressor (libz C API, `inflateInit2_` windowBits=47). Decodes `.tachibk` → `ImportResult` (mangas + chapters). Source map `[UInt64: String]` for known sources; unmapped → `"tachiyomi_{id}"` placeholder.
+3. `BackupManager.importTachiyomiBackup(from:)` — calls parser, upserts all manga + chapters, sets `lastTachiyomiImportSummary`.
+4. `BackupView.swift` — new "Import from Tachiyomi / Mihon" section, `.fileImporter` accepting `.tachibk` UTType, result alert with summary.
+5. `ContentView.swift` — tab reordering via `TabViewCustomization` + `@AppStorage` + `.customizationID()` on each Tab.
 
-**S43 priorities (research first):** Cloudflare bypass, Tachiyomi backup import, WidgetKit, Tab reordering.
+**S44 priorities:** Cloudflare bypass (WKWebView cookie extraction), WidgetKit ContinueReadingWidget.
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
