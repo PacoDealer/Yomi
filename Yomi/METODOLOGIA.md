@@ -160,6 +160,44 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 41 | 2026-04-20 | Suwayomi integration + library list view + advanced settings. New files: `SuwayomiService.swift` (REST client — `fetchSources`, `fetchPopular`, `fetchSearch`, `fetchMangaDetail`, `fetchChapters`, `pageURLs`, `toManga`; ID format `"suwayomi_{sourceId}_{mangaId}"`), `SuwayomiBrowseView.swift` (infinite-scroll browse + search; uses `isPresented:` navigation — Manga not Hashable), `AdvancedSettingsView.swift` (cache/network/DB/build info sections, log export via UIActivityViewController). Modified: `AppSettings.swift` (+ `libraryDisplayMode`, `suwayomiURL`), `BrowseView.swift` (Section("Suwayomi Server") when isEnabled), `SettingsView.swift` (suwayomiSection, advancedSection → NavigationLink), `LibraryView.swift` (grid/list toggle toolbar, LazyVStack list mode), `MangaCoverCell.swift` (+ MangaListRow struct). Build succeeded. Cloudflare bypass + Tachiyomi backup import deferred to S42. |
 | 42 | 2026-04-20 | Yomi exclusives. (1) Manga Notes: `notes: String?` field on Manga model, v14_manga_notes GRDB migration, `MangaQueries.updateNotes()`, Notes section in MangaDetailView with `NotesEditorSheet`, BackupManager encode/decode updated. (2) App Lock: `AppSettings.appLockEnabled` + `ttsSpeechRate`, new `AppLockView.swift` (LAContext `.deviceOwnerAuthentication`, FaceID/TouchID icon, auto-auth on appear), YomiApp `@State isLocked` + `.fullScreenCover` + `.onChange(of: scenePhase)` re-lock. (3) TTS for novels: HTML stripping with regex, `AVSpeechSynthesizer` + `TTSDelegate` (NSObject+AVSpeechSynthesizerDelegate, strong synth ref prevents ARC dealloc), play/stop button in TextReaderView overlay Row 4, stops on navigate/disappear, TTS speed slider in Settings. (4) Global Search: replaced `SearchView` in BrowseView with `GlobalSearchView`; `withTaskGroup` parallel search across all installed sources; results stream per-source to MainActor; per-source section headers; Format A (`searchManga`) + Format B (`searchNovels`); `NovelCoverCell` for novel results; pending count spinner. All 4 built cleanly first attempt (except TTS — initial `didFinishSpeechUtteranceNotification` doesn't exist → switched to delegate pattern). |
 
+## Research methodology — lessons learned (post S42)
+
+### The Suwayomi blind spot: "impossible" is never the final answer
+
+For 40 sessions, every question about Keiyoushi/Tachiyomi/Mihon extensions received the same answer: **"impossible — Kotlin APKs, Android-only runtime, no iOS path."** This was technically correct for *direct integration* but missed the actual solution entirely.
+
+**What was missed:** Suwayomi/Tachidesk is a self-hosted Java server that runs all 1000+ Keiyoushi Kotlin extensions server-side and exposes them as a REST+GraphQL API. The iOS app needs zero Kotlin — just URLSession. This was available from S1. It shipped in S41.
+
+**Root cause of the miss:** Research stopped at the first-order question ("can Kotlin run on iOS?") and never asked the second-order question: **"what server-side bridges or proxies exist in this ecosystem?"**
+
+### Rule for all future research
+
+> When a direct implementation path is blocked, ALWAYS ask: **"Does a proxy, bridge, or server exist that exposes this through an API Yomi can consume?"**
+
+Checklist to run before concluding "impossible":
+1. Is there a self-hosted server that wraps this ecosystem? (Suwayomi for Keiyoushi, Komga for CBZ libraries)
+2. Is there a REST/GraphQL API maintained by a third party?
+3. Is there a web interface that could be scraped or automated?
+4. Does any competing iOS app already support this — and if so, how?
+
+**Point 4 is the most reliable signal.** If Paperback, Aidoku, or any other iOS reader already supports a feature or ecosystem, there is a path. Find out how they did it before concluding it's impossible.
+
+### Implication for web search
+
+Never rely on training-data knowledge alone for ecosystem research. Training data has a cutoff and may not reflect current tools, servers, or bridges. Use `WebSearch` for:
+- "X iOS reader how does it support Y extensions"
+- "Y extension format iOS bridge"
+- "self-hosted server for Y manga/novel sources"
+
+### What this means for the current app
+
+Suwayomi is already integrated (S41). The same second-order thinking applies to every future "impossible" claim:
+- "Kindle books can't be read" → is there a Calibre REST API?
+- "Cloudflare blocks everything" → is there a FlareSolverr proxy?
+- "Mangayomi uses Flutter+Dart plugins" → is there a server bridge or REST API?
+
+Always ask the second question.
+
 ## Technical learnings — S40 plugin build system
 
 ### esbuild IIFE format + JSC global scope
