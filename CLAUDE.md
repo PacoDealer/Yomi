@@ -94,6 +94,17 @@ mcp__apple-docs__get_apple_doc_content  — fetch full doc page
 mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 ```
 
+## Research rule — never say "impossible" without asking the second question
+
+For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answer. Suwayomi — a self-hosted server that exposes all 1000+ extensions via REST — was always the solution. It shipped in S41.
+
+**Before concluding any ecosystem integration is impossible:**
+1. Does a self-hosted server/proxy expose it via REST? (Suwayomi for Keiyoushi, FlareSolverr for Cloudflare, Komga for local libraries)
+2. Does any competing iOS app (Paperback, Aidoku, Tachimanga) already support it? If yes, find out how.
+3. Use `WebSearch` — never rely on training-data knowledge alone for ecosystem research.
+
+"X format is impossible to run on iOS" ≠ "there is no path." Always ask: **what bridge, proxy, or server exists?**
+
 ## ABSOLUTE RULES — never violate
 
 ### Swift 6 + concurrency
