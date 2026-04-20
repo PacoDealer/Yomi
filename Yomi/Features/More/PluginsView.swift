@@ -22,6 +22,9 @@ private let featuredRepos: [FeaturedRepo] = [
     ),
 ]
 
+// Keiyoushi (1000+ manga via Suwayomi server) is surfaced in Settings → Suwayomi Server,
+// not as a catalog URL, because it requires a REST bridge rather than a JS plugin catalog.
+
 // MARK: - PluginsView
 
 struct PluginsView: View {
