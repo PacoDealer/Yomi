@@ -100,8 +100,12 @@ import Observation
 
     // MARK: - Plugins
 
-    var pluginCatalogURL: String {
-        didSet { defaults.set(pluginCatalogURL, forKey: "pluginCatalogURL") }
+    var pluginCatalogURLs: [String] {
+        didSet {
+            if let data = try? JSONEncoder().encode(pluginCatalogURLs) {
+                defaults.set(data, forKey: "pluginCatalogURLs")
+            }
+        }
     }
 
     // MARK: - Library display
@@ -223,7 +227,14 @@ import Observation
         novelFontFamily         = d.string(forKey: "novelFontFamily")              ?? "Serif"
         novelHorizontalPadding  = d.object(forKey: "novelHorizontalPadding") as? Int ?? 16
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
-        pluginCatalogURL        = d.string(forKey: "pluginCatalogURL")       ?? "https://yomi-plugins.web.app/index.json"
+        // Migrate from legacy single-URL key if multi-URL key is not yet stored
+        if let data = d.data(forKey: "pluginCatalogURLs"),
+           let decoded = try? JSONDecoder().decode([String].self, from: data) {
+            pluginCatalogURLs = decoded
+        } else {
+            let legacy = d.string(forKey: "pluginCatalogURL") ?? "https://yomi-plugins.web.app/index.json"
+            pluginCatalogURLs = [legacy]
+        }
         libraryColumns          = d.object(forKey: "libraryColumns") as? Int ?? 3
         keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
         isIncognito             = d.bool(forKey: "isIncognito")

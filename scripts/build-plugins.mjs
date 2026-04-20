@@ -117,12 +117,26 @@ for (const tsFile of tsFiles) {
     }
 }
 
-// ── Write index.json ──────────────────────────────────────────────────────────
+// ── Merge with existing catalog (preserve hand-built entries) ─────────────────
 
 const indexPath = join(FIREBASE_DIR, 'index.json');
-writeFileSync(indexPath, JSON.stringify(catalogEntries, null, 2), 'utf8');
+let existingEntries = [];
+if (existsSync(indexPath)) {
+    try {
+        existingEntries = JSON.parse(readFileSync(indexPath, 'utf8'));
+    } catch { /* invalid JSON — start fresh */ }
+}
+
+// New TS-built entries override existing by fileURL; otherwise keep existing
+const newURLs = new Set(catalogEntries.map(e => e.fileURL));
+const preserved = existingEntries.filter(e => !newURLs.has(e.fileURL));
+const merged = [...preserved, ...catalogEntries].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+);
+
+writeFileSync(indexPath, JSON.stringify(merged, null, 2), 'utf8');
 console.log(`\n📋 index.json written → ${indexPath}`);
-console.log(`   ${catalogEntries.length} plugin(s) listed.`);
+console.log(`   ${merged.length} plugin(s) listed (${preserved.length} existing + ${catalogEntries.length} new).`);
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
