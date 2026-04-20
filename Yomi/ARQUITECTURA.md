@@ -162,8 +162,9 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v11_novel_reading_status**: `ALTER TABLE novel ADD COLUMN readingStatus TEXT NOT NULL DEFAULT 'none'`
 - **v12_scanlator**: `ALTER TABLE chapter ADD COLUMN scanlator TEXT`
 - **v13_custom_cover**: `ALTER TABLE manga ADD COLUMN customCoverPath TEXT`
+- **v14_manga_notes**: `ALTER TABLE manga ADD COLUMN notes TEXT`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v14_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v15_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control

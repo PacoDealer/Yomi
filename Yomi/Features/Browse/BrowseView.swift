@@ -32,7 +32,7 @@ struct BrowseView: View {
                 switch selectedTab {
                 case .sources:    sourcesTab
                 case .extensions: extensionsTab
-                case .search:     SearchView()
+                case .search:     GlobalSearchView()
                 }
             }
             .navigationTitle("Browse")
@@ -219,21 +219,25 @@ struct BrowseView: View {
     }
 }
 
-// MARK: - SearchView
+// MARK: - GlobalSearchView
 
-private struct SearchView: View {
+private struct GlobalSearchView: View {
     @State private var extensionManager = ExtensionManager.shared
-    @State private var searchQuery: String = ""
-    @State private var searchResults: [Manga] = []
-    @State private var isSearching: Bool = false
-    @State private var selectedSource: Extension? = nil
+    @State private var searchQuery = ""
+    @State private var sections: [SearchSection] = []
+    @State private var pendingCount = 0
     @State private var debounceTask: Task<Void, Never>? = nil
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
-    ]
+    struct SearchSection: Identifiable {
+        let id: String
+        let sourceName: String
+        let isNovel: Bool
+        let mangas: [Manga]
+        let novels: [NovelItem]
+        let bridge: JSBridge
+    }
 
-    // MARK: Body
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
 
     var body: some View {
         Group {
@@ -243,21 +247,20 @@ private struct SearchView: View {
                     systemImage: "puzzlepiece.extension",
                     description: Text("Install a source from More → Plugins before searching.")
                 )
-            } else if isSearching {
+            } else if pendingCount > 0 && sections.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if !searchResults.isEmpty {
-                resultsGrid
+            } else if !sections.isEmpty {
+                resultsList
             } else if searchQuery.count >= 2 {
                 ContentUnavailableView.search(text: searchQuery)
             } else if searchQuery.isEmpty {
                 ContentUnavailableView(
-                    "Search titles",
+                    "Search all sources",
                     systemImage: "magnifyingglass",
-                    description: Text("Results from your installed sources will appear here.")
+                    description: Text("Results stream in from all your installed sources.")
                 )
             } else {
-                // 1 character typed
                 ContentUnavailableView(
                     "Keep typing",
                     systemImage: "magnifyingglass",
@@ -265,75 +268,119 @@ private struct SearchView: View {
                 )
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if extensionManager.installed.count > 1 {
-                Picker("Source", selection: $selectedSource) {
-                    Text("All").tag(Optional<Extension>.none)
-                    ForEach(extensionManager.installed) { ext in
-                        Text(ext.name).tag(Optional(ext))
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(.bar)
-            }
-        }
         .searchable(text: $searchQuery, prompt: "Search titles")
         .onChange(of: searchQuery) { _, newValue in
-            runSearch(query: newValue, debounce: true)
-        }
-        .onChange(of: selectedSource) { _, _ in
-            guard searchQuery.count >= 2 else { return }
-            runSearch(query: searchQuery, debounce: false)
+            scheduleSearch(query: newValue)
         }
     }
 
-    private func runSearch(query: String, debounce: Bool) {
-        debounceTask?.cancel()
-        guard query.count >= 2 else {
-            searchResults = []
-            isSearching = false
-            return
-        }
-        isSearching = true
-        let sources = selectedSource.map { [$0] } ?? extensionManager.installed
-        let bridgeFn: (Extension) -> JSBridge? = { ext in
-            let docs = FileManager.default.urls(
-                for: .documentDirectory, in: .userDomainMask)[0]
-            let url = docs
-                .appendingPathComponent("Extensions", isDirectory: true)
-                .appendingPathComponent("\(ext.id).js")
-            return JSBridge(scriptURL: url)
-        }
-        debounceTask = Task {
-            if debounce { try? await Task.sleep(for: .milliseconds(500)) }
-            guard !Task.isCancelled else { return }
-            let results = await Task.detached(priority: .userInitiated) {
-                sources.flatMap { ext in
-                    bridgeFn(ext)?
-                        .searchManga(query: query, page: 1, sourceId: ext.id)
-                    ?? []
-                }
-            }.value
-            await MainActor.run {
-                searchResults = results
-                isSearching = false
-            }
-        }
-    }
+    // MARK: Results
 
-    // MARK: Results Grid
-
-    private var resultsGrid: some View {
+    private var resultsList: some View {
         ScrollView {
+            LazyVStack(alignment: .leading, spacing: 24, pinnedViews: [.sectionHeaders]) {
+                ForEach(sections) { section in
+                    sectionView(section)
+                }
+                if pendingCount > 0 {
+                    HStack {
+                        ProgressView()
+                        Text("Searching \(pendingCount) more…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionView(_ section: SearchSection) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(section.sourceName)
+                .font(.headline)
+                .padding(.horizontal, 16)
+
             LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(searchResults) { manga in
-                    MangaCoverCell(manga: manga)
+                if section.isNovel {
+                    ForEach(section.novels, id: \.path) { item in
+                        let novel = Novel(
+                            id: "\(section.id)_\(item.path)",
+                            path: item.path,
+                            sourceId: section.id,
+                            title: item.name,
+                            coverURL: URL(string: item.cover ?? ""),
+                            summary: nil, author: nil,
+                            status: "unknown", genres: [],
+                            inLibrary: false, lastReadAt: nil,
+                            lastUpdatedAt: nil, readingSeconds: 0,
+                            readingStatus: .none
+                        )
+                        NovelCoverCell(novel: novel, bridge: section.bridge)
+                    }
+                } else {
+                    ForEach(section.mangas) { manga in
+                        MangaCoverCell(manga: manga)
+                    }
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.top, 8)
+        }
+    }
+
+    // MARK: Search logic
+
+    private func scheduleSearch(query: String) {
+        debounceTask?.cancel()
+        guard query.count >= 2 else {
+            sections = []
+            pendingCount = 0
+            return
+        }
+        sections = []
+        debounceTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await runParallelSearch(query: query)
+        }
+    }
+
+    private func runParallelSearch(query: String) async {
+        let sources = extensionManager.installed
+        await MainActor.run { pendingCount = sources.count }
+
+        await withTaskGroup(of: SearchSection?.self) { group in
+            for ext in sources {
+                group.addTask {
+                    let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    let url = docs
+                        .appendingPathComponent("Extensions", isDirectory: true)
+                        .appendingPathComponent("\(ext.id).js")
+                    guard let bridge = JSBridge(scriptURL: url) else { return nil }
+                    if bridge.isLNReaderPlugin {
+                        let items = bridge.searchNovels(query: query, page: 1)
+                        guard !items.isEmpty else { return nil }
+                        return SearchSection(id: ext.id, sourceName: ext.name, isNovel: true,
+                                            mangas: [], novels: items, bridge: bridge)
+                    } else {
+                        let items = bridge.searchManga(query: query, page: 1, sourceId: ext.id)
+                        guard !items.isEmpty else { return nil }
+                        return SearchSection(id: ext.id, sourceName: ext.name, isNovel: false,
+                                            mangas: items, novels: [], bridge: bridge)
+                    }
+                }
+            }
+            for await result in group {
+                await MainActor.run {
+                    pendingCount = max(0, pendingCount - 1)
+                    if let section = result {
+                        sections.append(section)
+                    }
+                }
+            }
         }
     }
 }

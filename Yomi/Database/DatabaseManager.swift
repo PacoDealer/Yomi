@@ -218,6 +218,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v14_manga_notes") { db in
+            try db.alter(table: "manga") { t in
+                t.add(column: "notes", .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -247,6 +253,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         readingSeconds  = row["readingSeconds"] ?? 0
         readingStatus   = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
         customCoverPath = row["customCoverPath"]
+        notes           = row["notes"]
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -269,6 +276,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         container["readingSeconds"]  = readingSeconds
         container["readingStatus"]   = readingStatus.rawValue
         container["customCoverPath"] = customCoverPath
+        container["notes"]           = notes
     }
 }
 

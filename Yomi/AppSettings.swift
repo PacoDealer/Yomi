@@ -215,6 +215,20 @@ import Observation
         didSet { defaults.set(suwayomiURL, forKey: "suwayomiURL") }
     }
 
+    // MARK: - App Lock
+
+    /// Require biometric/passcode authentication when app enters foreground
+    var appLockEnabled: Bool {
+        didSet { defaults.set(appLockEnabled, forKey: "appLockEnabled") }
+    }
+
+    // MARK: - TTS
+
+    /// AVSpeechSynthesizer rate for novel TTS (0.1 slow – 0.5 default – 1.0 fast)
+    var ttsSpeechRate: Float {
+        didSet { defaults.set(ttsSpeechRate, forKey: "ttsSpeechRate") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -267,5 +281,7 @@ import Observation
         tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
+        appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
+        ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
     }
 }

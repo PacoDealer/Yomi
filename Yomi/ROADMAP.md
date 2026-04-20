@@ -1,8 +1,8 @@
 # Roadmap — Yomi
 
-## Current state (post S40 — 2026-04-20)
+## Current state (post S42 — 2026-04-20)
 
-App is feature-complete + polished. S40: multi-repo plugin catalog + 6 new novel plugins shipped + Firebase deployed (15 plugins total). App Store submission deferred (user not enrolling in Apple Developer Program yet). Focus is finishing the app.
+App is feature-complete + polished. S42: Manga Notes, App Lock, TTS for novels, and Global Search across all installed sources. All free — Tachimanga charges premium for Notes and App Lock. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -497,18 +497,29 @@ All S28 P0/P1/P2/P3 items resolved.
 - Cloudflare bypass (CFBypassManager) — deferred to S42
 - Tachiyomi backup import — deferred to S42
 
-## Planned: Session 42 — Yomi Exclusives + Cloudflare Bypass
+## Session 42 — Yomi Exclusives ✅ Complete (2026-04-20)
 
-| # | Feature | Detail | Files |
-|---|---------|--------|-------|
-| 1 | **Cloudflare bypass** (WKWebView cookie bridge) | Hidden WKWebView completes JS challenge → extracts `cf_clearance` + User-Agent → injects into URLSession. Restores Comick + CF-blocked novel sources. | New: CFBypassManager.swift; JSBridge.swift |
-| 2 | **Tachiyomi/Mihon backup import** | Parse `.tachibk` (protobuf-based JSON) — Android→iOS migration. Map manga title + source to existing Yomi plugin. | New: TachiyomiBackupParser.swift |
-| 3 | **WidgetKit ContinueReadingWidget** (small + medium) | App Groups shared SQLite access, shows last-read manga/novel cover + chapter. Tachimanga has no widget. | New target: YomiWidget/ |
-| 4 | **TTS for novels** (AVSpeechSynthesizer) | Read aloud novel chapters. Tachimanga has no TTS. Play/pause/speed in TextReaderView overlay. | TextReaderView.swift |
-| 5 | **Manga notes** (free — Tachimanga charges premium) | Per-manga text notes stored in DB. Tachimanga has this but behind paywall. | DatabaseManager.swift (v14_ migration), MangaDetailView.swift |
-| 6 | **Global search across all installed sources** | Search query sent to all installed sources simultaneously, results merged. Unique to Yomi. | New: GlobalSearchView.swift |
-| 7 | **Tab reordering** (iOS 26 native) | iOS 26 TabView supports drag-to-reorder. AppSettings stores custom order. Tachimanga has this as premium. | ContentView.swift, AppSettings.swift |
-| 8 | **App lock** (Face ID / Touch ID / passcode) | Tachimanga charges for this. Yomi provides it free. LAContext for biometrics. | New: AppLockView.swift, AppSettings.swift, YomiApp.swift |
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Manga notes | `notes: String?` field on Manga. v14_manga_notes migration. `MangaQueries.updateNotes()`. Notes section in MangaDetailView (shows current note preview or "Add note…", opens `NotesEditorSheet`). BackupManager updated (encode/decode). Free — Tachimanga charges premium. |
+| 2 | ✅ App Lock | `AppSettings.appLockEnabled: Bool`. New `AppLockView.swift`: LAContext `.deviceOwnerAuthentication`, auto-authenticates on appear, FaceID/TouchID icon detection, passcode fallback. YomiApp: `@State isLocked`, `.fullScreenCover` on `isLocked`, re-locks on `scenePhase == .background`. SettingsView toggle. Free — Tachimanga charges premium. |
+| 3 | ✅ TTS for novels | `AppSettings.ttsSpeechRate: Float` (default 0.5). `TextReaderView`: HTML-stripping regex, `AVSpeechSynthesizer` + `TTSDelegate` (NSObject, AVSpeechSynthesizerDelegate, strong ref to synth to prevent ARC deallocation). Play/stop button in overlay Row 4. Stops on chapter navigation and view disappear. SettingsView TTS speed slider. Exclusive — Tachimanga has no TTS. |
+| 4 | ✅ Global search | `GlobalSearchView` (replaces old `SearchView` in BrowseView). `withTaskGroup` queries all installed sources in parallel. Results stream per source as they arrive (MainActor.run on each result). Per-source section headers with `LazyVGrid` results. Handles Format A (`searchManga`) and Format B (`searchNovels`). `NovelCoverCell` for novel results. Pending count spinner while sources still loading. Unique to Yomi. |
+
+**Deferred to S43 research:**
+- Cloudflare bypass (WKWebView cookie bridge)
+- Tachiyomi/Mihon backup import (`.tachibk` protobuf)
+- WidgetKit ContinueReadingWidget (App Groups + shared SQLite)
+- Tab reordering (iOS 26 TabView drag API)
+
+## Planned: Session 43 — Research + Complex Features
+
+| # | Feature | Research needed |
+|---|---------|----------------|
+| 1 | **Cloudflare bypass** | WKWebView cookie extraction, `cf_clearance` injection into URLSession, timing/retry strategy |
+| 2 | **Tachiyomi backup import** | `.tachibk` format (protobuf wrapped in gzip), manga title→source matching heuristic, chapter progress mapping |
+| 3 | **WidgetKit** | App Groups entitlement, shared SQLite access from extension, `TimelineProvider`, cover image caching for widget |
+| 4 | **Tab reordering** | iOS 26 `TabView` drag-to-reorder API surface, AppSettings persistence of custom tab order |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 

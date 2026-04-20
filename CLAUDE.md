@@ -20,20 +20,18 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S41 — 2026-04-20)
+## Current state (post S42 — 2026-04-20)
 
-S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings.
+S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins + Firebase deployed (15 plugins). S41 = Suwayomi integration + library list view + advanced settings. S42 = 4 Yomi exclusives (Manga Notes, App Lock, TTS, Global Search).
 
-**S41 shipped:**
-1. `SuwayomiService.swift` — REST client for Suwayomi server (fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga). ID: `"suwayomi_{sourceId}_{mangaId}"`
-2. `SuwayomiBrowseView.swift` — browse/search one Suwayomi source with infinite scroll
-3. `BrowseView.swift` — Section("Suwayomi Server") when `SuwayomiService.shared.isEnabled`
-4. `AppSettings.suwayomiURL` + `AppSettings.libraryDisplayMode` ("grid"/"list")
-5. Library list view: `MangaListRow` in MangaCoverCell.swift + toggle button in LibraryView
-6. `AdvancedSettingsView.swift` — cache/network/DB/build sections, log export
-7. SettingsView: suwayomiSection + advancedSection as NavigationLink
+**S42 shipped:**
+1. `Manga.notes: String?` + v14_manga_notes GRDB migration + `MangaQueries.updateNotes()` + Notes section in MangaDetailView + BackupManager updated
+2. `AppLockView.swift` — LAContext biometric/passcode auth, auto-auth on appear, FaceID/TouchID icon detection
+3. `YomiApp.swift` — `@State isLocked` + `.fullScreenCover(AppLockView)` + re-lock on `scenePhase == .background`
+4. `TextReaderView.swift` — TTS via `AVSpeechSynthesizer` + `TTSDelegate` (delegate pattern, strong ref), HTML stripping, play/stop button in overlay
+5. `BrowseView.swift` — `GlobalSearchView` replaces `SearchView`: `withTaskGroup` parallel search, per-source sections, Format A + B, streaming results
 
-**S42 priorities:** Cloudflare bypass (CFBypassManager), Tachiyomi backup import, Yomi exclusives (WidgetKit, TTS, App Lock).
+**S43 priorities (research first):** Cloudflare bypass, Tachiyomi backup import, WidgetKit, Tab reordering.
 
 **App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
 
@@ -112,7 +110,7 @@ mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v14_` (v13_ used for manga.customCoverPath in S39)
+- Next migration prefix must be `v15_` (v14_ used for manga.notes in S42)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
