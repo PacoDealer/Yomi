@@ -1,6 +1,27 @@
 import SwiftUI
 import CryptoKit
 
+// MARK: - Constants
+
+private let kYomiSetupGuideURL = URL(string: "https://github.com/PacoDealer/Yomi#plugin-repositories")!
+
+// MARK: - Featured repos
+
+private struct FeaturedRepo: Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String
+    let url: String
+}
+
+private let featuredRepos: [FeaturedRepo] = [
+    FeaturedRepo(
+        name: "LNReader Novels",
+        description: "500+ light novel sources in 18 languages",
+        url: "https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json"
+    ),
+]
+
 // MARK: - PluginsView
 
 struct PluginsView: View {
@@ -8,8 +29,9 @@ struct PluginsView: View {
     @State private var catalogService   = PluginCatalogService.shared
     @State private var settings         = AppSettings.shared
 
-    @State private var searchText    = ""
-    @State private var showInstallSheet = false
+    @State private var searchText        = ""
+    @State private var showInstallSheet  = false
+    @State private var showAddRepoSheet  = false
     @State private var installingID: String? = nil
 
     private var filteredCatalog: [PluginCatalogEntry] {
@@ -35,13 +57,27 @@ struct PluginsView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showInstallSheet = true } label: {
+                Menu {
+                    Button {
+                        showAddRepoSheet = true
+                    } label: {
+                        Label("Add Repository", systemImage: "externaldrive.badge.plus")
+                    }
+                    Button {
+                        showInstallSheet = true
+                    } label: {
+                        Label("Install from URL", systemImage: "puzzlepiece.extension")
+                    }
+                } label: {
                     Image(systemName: "plus")
                 }
             }
         }
         .sheet(isPresented: $showInstallSheet) {
             InstallFromURLSheet(extensionManager: extensionManager)
+        }
+        .sheet(isPresented: $showAddRepoSheet) {
+            AddRepoSheet()
         }
         .onAppear { Task { await catalogService.fetchCatalog() } }
         .refreshable { await catalogService.fetchCatalog(force: true) }
@@ -52,13 +88,38 @@ struct PluginsView: View {
     private var installedSection: some View {
         Section {
             if extensionManager.installed.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("No plugins installed")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Text("Plugins connect Yomi to external manga and novel sources. Install one from the catalog below.")
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No plugins installed")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Plugins connect Yomi to manga and novel sources. Add a repository to get started.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    Text("Featured repositories")
                         .font(.caption)
+                        .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+
+                    ForEach(featuredRepos) { repo in
+                        FeaturedRepoRow(repo: repo)
+                    }
+
+                    Link(destination: kYomiSetupGuideURL) {
+                        HStack(spacing: 4) {
+                            Text("Plugin setup guide")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tint)
+                        }
+                    }
                 }
                 .padding(.vertical, 6)
             } else {
@@ -124,8 +185,8 @@ struct PluginsView: View {
             } else {
                 ForEach(filteredCatalog) { entry in
                     YomiCatalogEntryRow(
-                        entry:       entry,
-                        isInstalled: catalogService.isInstalled(entry),
+                        entry:        entry,
+                        isInstalled:  catalogService.isInstalled(entry),
                         isInstalling: installingID == entry.id
                     ) {
                         Task { await installEntry(entry) }
@@ -156,6 +217,149 @@ struct PluginsView: View {
         )
         await extensionManager.install(ext)
         installingID = nil
+    }
+}
+
+// MARK: - FeaturedRepoRow
+
+private struct FeaturedRepoRow: View {
+    let repo: FeaturedRepo
+    @State private var settings = AppSettings.shared
+
+    private var isAlreadyAdded: Bool {
+        settings.pluginCatalogURLs.contains(repo.url)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(repo.name)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(repo.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if isAlreadyAdded {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button("Add") {
+                    settings.pluginCatalogURLs.append(repo.url)
+                    PluginCatalogService.shared.invalidateCache()
+                    Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+    }
+}
+
+// MARK: - AddRepoSheet
+
+private struct AddRepoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var settings   = AppSettings.shared
+    @State private var customURL  = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(featuredRepos) { repo in
+                        AddRepoFeaturedRow(repo: repo)
+                    }
+                } header: {
+                    Text("Featured")
+                } footer: {
+                    Text("Tap Add to subscribe to a community plugin catalog.")
+                }
+
+                Section {
+                    TextField("https://example.com/index.json", text: $customURL)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    Button("Add") {
+                        addCustomURL()
+                    }
+                    .disabled(customURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                } header: {
+                    Text("Custom URL")
+                }
+
+                Section {
+                    Link(destination: kYomiSetupGuideURL) {
+                        HStack {
+                            Label("Plugin setup guide", systemImage: "book")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("Find more repositories and learn how to use Yomi plugins on GitHub.")
+                }
+            }
+            .navigationTitle("Add Repository")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func addCustomURL() {
+        let trimmed = customURL.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) else { return }
+        settings.pluginCatalogURLs.append(trimmed)
+        PluginCatalogService.shared.invalidateCache()
+        Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
+        customURL = ""
+        dismiss()
+    }
+}
+
+// MARK: - AddRepoFeaturedRow
+
+private struct AddRepoFeaturedRow: View {
+    let repo: FeaturedRepo
+    @State private var settings = AppSettings.shared
+
+    private var isAlreadyAdded: Bool {
+        settings.pluginCatalogURLs.contains(repo.url)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(repo.name)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(repo.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if isAlreadyAdded {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button("Add") {
+                    settings.pluginCatalogURLs.append(repo.url)
+                    PluginCatalogService.shared.invalidateCache()
+                    Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
     }
 }
 
@@ -194,10 +398,10 @@ private struct InstalledExtensionRow: View {
 // MARK: - YomiCatalogEntryRow
 
 struct YomiCatalogEntryRow: View {
-    let entry:       PluginCatalogEntry
-    let isInstalled: Bool
+    let entry:        PluginCatalogEntry
+    let isInstalled:  Bool
     let isInstalling: Bool
-    let onInstall:   () -> Void
+    let onInstall:    () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -247,10 +451,10 @@ private struct InstallFromURLSheet: View {
     let extensionManager: ExtensionManager
     @Environment(\.dismiss) private var dismiss
 
-    @State private var pluginURL  = ""
-    @State private var pluginName = ""
-    @State private var pluginLang = "en"
-    @State private var isNSFW     = false
+    @State private var pluginURL    = ""
+    @State private var pluginName   = ""
+    @State private var pluginLang   = "en"
+    @State private var isNSFW       = false
     @State private var isInstalling = false
     @State private var errorMessage: String? = nil
 

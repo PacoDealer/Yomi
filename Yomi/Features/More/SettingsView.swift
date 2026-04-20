@@ -460,6 +460,19 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                 }
+                Section {
+                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi#plugin-repositories")!) {
+                        HStack {
+                            Label("Browse community repos", systemImage: "book")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("Find repository URLs and setup instructions on GitHub.")
+                }
             }
             .navigationTitle("Add Repository")
             .navigationBarTitleDisplayMode(.inline)
