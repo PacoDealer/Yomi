@@ -9,7 +9,9 @@ struct BrowseView: View {
     @State private var selectedTab: BrowseTab = .sources
     @State private var installingID: String? = nil
     @State private var suwayomiSources: [SuwayomiSource] = []
-    @State private var suwayomiLoading = false
+    @State private var suwayomiLoading  = false
+    @State private var extensionsSearch = ""
+    @State private var langPickerGroup: PluginCatalogGroup? = nil
 
     enum BrowseTab: String, CaseIterable {
         case sources    = "Sources"
@@ -37,11 +39,33 @@ struct BrowseView: View {
             }
             .navigationTitle("Browse")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(
+                text: $extensionsSearch,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search extensions"
+            )
             .onChange(of: appRouter.openBrowseExtensions) { _, open in
                 if open {
                     selectedTab = .extensions
                     appRouter.openBrowseExtensions = false
                 }
+            }
+        }
+        // Language picker for multi-lang sources
+        .confirmationDialog(
+            langPickerGroup.map { "Install \($0.name)" } ?? "",
+            isPresented: Binding(get: { langPickerGroup != nil }, set: { if !$0 { langPickerGroup = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let group = langPickerGroup {
+                ForEach(group.entries) { entry in
+                    let installed = catalogService.isInstalled(entry)
+                    Button(installed ? "\(entry.language.uppercased()) — Installed" : entry.language.uppercased()) {
+                        if !installed { Task { await installEntry(entry) } }
+                    }
+                    .disabled(installed)
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
@@ -55,18 +79,33 @@ struct BrowseView: View {
             ContentUnavailableView(
                 "No sources installed",
                 systemImage: "puzzlepiece.extension",
-                description: Text("Browse Extensions to discover and install reading sources.")
+                description: Text("Go to the Extensions tab to discover and install sources.")
             )
+            .onTapGesture { selectedTab = .extensions }
         } else {
             List {
                 if !extensionManager.installed.isEmpty {
-                    Section("Installed Plugins") {
+                    Section {
                         ForEach(extensionManager.installed) { ext in
                             NavigationLink {
                                 SourceBrowseView(ext: ext)
                             } label: {
                                 ExtensionRow(ext: ext)
                             }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    extensionManager.remove(ext)
+                                } label: {
+                                    Label("Uninstall", systemImage: "trash")
+                                }
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Installed (\(extensionManager.installed.count))")
+                            Spacer()
+                            Button("Get more") { selectedTab = .extensions }
+                                .font(.caption)
                         }
                     }
                 }
@@ -156,36 +195,35 @@ struct BrowseView: View {
                 }
                 .padding(32)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if filteredCatalog.isEmpty {
+            } else if filteredGroups.isEmpty && !catalogService.entries.isEmpty {
+                ContentUnavailableView.search(text: extensionsSearch)
+            } else if filteredGroups.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "puzzlepiece.extension")
                         .font(.system(size: 56))
                         .foregroundStyle(.secondary)
                     VStack(spacing: 8) {
                         Text("No extensions available")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text("Install a reading source to get started.\nYou can also add one manually via More → Plugins.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(.title3).fontWeight(.semibold)
+                        Text("Add a repository in More → Plugins to discover sources.")
+                            .font(.subheadline).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
-                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi/blob/main/EXTENSIONS.md")!) {
-                        Label("View extension guide", systemImage: "arrow.up.right.square")
-                            .font(.subheadline)
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
                 .padding(32)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(filteredCatalog) { entry in
-                    YomiCatalogEntryRow(
-                        entry:        entry,
-                        isInstalled:  catalogService.isInstalled(entry),
-                        isInstalling: installingID == entry.id
+                List(filteredGroups) { group in
+                    CatalogGroupRow(
+                        group:        group,
+                        isInstalled:  catalogService.isGroupInstalled(group),
+                        installingID: installingID
                     ) {
-                        Task { await installEntry(entry) }
+                        if group.isMultiLang {
+                            langPickerGroup = group
+                        } else {
+                            Task { await installEntry(group.primaryEntry) }
+                        }
                     }
                 }
                 .refreshable { await catalogService.fetchCatalog(force: true) }
@@ -194,10 +232,14 @@ struct BrowseView: View {
         .task { await catalogService.fetchCatalog() }
     }
 
-    private var filteredCatalog: [PluginCatalogEntry] {
-        settings.showNSFW
-            ? catalogService.entries
-            : catalogService.entries.filter { !$0.isNSFW }
+    private var filteredGroups: [PluginCatalogGroup] {
+        var groups = settings.showNSFW
+            ? catalogService.groupedEntries
+            : catalogService.groupedEntries.filter { !$0.primaryEntry.isNSFW }
+        if !extensionsSearch.isEmpty {
+            groups = groups.filter { $0.name.localizedStandardContains(extensionsSearch) }
+        }
+        return groups
     }
 
     private func installEntry(_ entry: PluginCatalogEntry) async {
@@ -216,6 +258,78 @@ struct BrowseView: View {
         )
         await extensionManager.install(ext)
         installingID = nil
+    }
+}
+
+// MARK: - CatalogGroupRow
+
+struct CatalogGroupRow: View {
+    let group:        PluginCatalogGroup
+    let isInstalled:  Bool
+    let installingID: String?
+    let onInstall:    () -> Void
+
+    private var isInstalling: Bool {
+        group.entries.contains { $0.id == installingID }
+    }
+    private var repoLabel: String {
+        PluginCatalogService.repoLabel(from: group.primaryEntry.repoURL)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AsyncImage(url: group.primaryEntry.iconURL.flatMap { URL(string: $0) }) { image in
+                image.resizable().aspectRatio(1, contentMode: .fit)
+            } placeholder: {
+                Image(systemName: "puzzlepiece.extension")
+                    .resizable().aspectRatio(1, contentMode: .fit)
+                    .padding(8)
+                    .foregroundStyle(.secondary)
+                    .background(Color.secondary.opacity(0.12))
+            }
+            .frame(width: 40, height: 40)
+            .cornerRadius(8)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(group.name).font(.headline)
+                HStack(spacing: 5) {
+                    if group.isMultiLang {
+                        Text("\(group.entries.count) langs")
+                            .font(.caption2).fontWeight(.semibold)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundStyle(.orange)
+                            .clipShape(Capsule())
+                    } else {
+                        LanguageBadge(language: group.primaryEntry.language)
+                    }
+                    if group.primaryEntry.isNSFW { NSFWBadge() }
+                    if !repoLabel.isEmpty {
+                        Text(repoLabel)
+                            .font(.caption2).fontWeight(.medium)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.12))
+                            .foregroundStyle(.secondary)
+                            .clipShape(Capsule())
+                    }
+                    Text("v\(group.primaryEntry.version)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if isInstalled {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            } else if isInstalling {
+                ProgressView().scaleEffect(0.8)
+            } else {
+                Button(group.isMultiLang ? "Get" : "Install", action: onInstall)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 
