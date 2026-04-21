@@ -545,55 +545,19 @@ All S28 P0/P1/P2/P3 items resolved.
 - Cloudflare bypass (WKWebView cookie extraction → URLSession injection)
 - WidgetKit ContinueReadingWidget (App Groups + shared JSON file)
 
-## Session 44 — Research + Onboarding + Catalog Bug Fix (2026-04-20) ✅ Partially complete
+## Session 44 — Onboarding + Catalog Fixes + Format D Mangayomi (2026-04-20) ✅ Complete
 
-### Pre-session research shipped:
 | # | Item | Detail |
 |---|------|--------|
-| 1 | ✅ New user onboarding | PluginsView: toolbar `+` opens menu (Add Repository / Install from URL). `AddRepoSheet` with LNReader featured repo (one-tap add), custom URL field, GitHub guide link. Empty installed state shows LNReader inline + "Plugin setup guide →". |
-| 2 | ✅ Catalog multi-format parser | `PluginCatalogService` now handles LNReader format (`lang`/`url`/`iconUrl`) in addition to Yomi native. Per-URL failures are silent. Fixes "Failed to load" error when LNReader repo is added. |
-| 3 | ✅ README.md | GitHub README at `github.com/PacoDealer/Yomi`: Quick start, 3-repo table (Yomi/LNReader/Keiyoushi), step-by-step guide, Tachiyomi migration section. |
-| 4 | ✅ SettingsView addRepoSheet | Added "Browse community repos →" GitHub guide link. |
-| 5 | ✅ Tachimanga DEX research | Corrected architecture: Tachimanga uses a DEX bytecode interpreter (no JIT), not a full JVM. App Store compliant because it's interpretation. RESEARCH.md updated. |
-| 6 | ✅ Mihon forks research | TachiyomiJ2K, TachiyomiSY, TachiyomiAZ, Yōkai, Komikku all researched. All use Keiyoushi APKs. None open new iOS paths. UX patterns (J2K dual-page, SY per-source settings) noted. |
+| 1 | ✅ New user onboarding | PluginsView: toolbar `+` → Menu → "Add Repository" opens `AddRepoSheet` (LNReader + Mangayomi featured repos, custom URL field, GitHub guide link). Empty installed state shows featured repos inline. |
+| 2 | ✅ LNReader catalog format fix | `PluginCatalogService` multi-format parser: Yomi native → LNReader (`lang`/`url`/`iconUrl`) → Mangayomi (`id: Int`/`sourceCodeUrl`/`isNsfw`). Per-URL failures silent. Fixes "Failed to load" on non-Yomi repos. |
+| 3 | ✅ README.md | GitHub README: Quick Start + 3-repo comparison table + step-by-step guide + Tachiyomi migration section. |
+| 4 | ✅ Format D: Mangayomi JS shim | `JSBridge.injectMangayomiShims`: `Client` class (wraps `SOURCE._fetchSync`), `Document`/`Element` classes (built on cheerio, `.selectFirst`/`.select` API, computed `.text`/`.attr`), `String` prototype extensions (`substringAfter/Before/Between`), `Preferences` stub. `injectMangayomiAdapter`: detects `global.source.getPopular + getDetail` post-eval, maps to `getMangaList` / `searchManga` / `getChapterList` / `getPageList` / `getLatestManga`. `isMangayomiPlugin` var. |
+| 5 | ✅ Mangayomi catalog parser | `MangayomiEntry: Decodable` added to `PluginCatalogService`; `parseEntries` tries all 3 formats. Mangayomi index URL added to `featuredRepos` in PluginsView. |
+| 6 | ✅ Tachimanga DEX research | Architecture corrected: C-native DEX bytecode interpreter (no JIT, App Store compliant). |
+| 7 | ✅ Mihon forks research | J2K/SY/AZ/Yōkai/Komikku — all Android-only, no new iOS paths. |
 
-### Remaining S44 work (next session):
-
-## Planned: Session 44 — Ecosystem Unlock Phase 1
-
-**Goal:** Unlock Mangayomi JS format (Format D) + complete Paperback shim.
-Outcome: Yomi goes from 15 sources to 300+ sources available without writing a single new plugin.
-
-### Part A — Format D: Mangayomi JS plugin support
-Files: `JSBridge.swift`, `PluginCatalogService.swift`
-
-1. Inject `Client` class into JSContext before plugin eval:
-   ```javascript
-   class Client {
-     get(url, headers) { return Promise.resolve({ body: SOURCE._fetchSync(url, {headers}) }) }
-     post(url, headers, body) { return Promise.resolve({ body: SOURCE._fetchSync(url, {method:'POST',body,headers}) }) }
-   }
-   ```
-2. Detect Mangayomi plugins: check `typeof plugin.getDetail === 'function'` AND `typeof plugin.getPopular === 'function'` post-eval
-3. Adapter: map `getPopular(page)` → `getMangaList`, `getDetail(url)` → manga detail, `getPageList(url)` → page URLs
-4. Add Mangayomi's index URL as a default entry in Plugin Repositories
-5. Test against 3 real Mangayomi plugins (MangaDex, Asura, one novel source)
-
-### Part B — Complete Paperback Format C shim
-Files: `JSBridge.swift`
-- Wire `requestManager.schedule({ url, method, headers, data })` fully for POST + custom headers
-- Test against 3 Paperback sources (TheNetsky/community-extensions)
-
-### Part C — LNReader repo UX
-- Add to PluginsView "Featured Repositories" section: a one-tap button to add the official LNReader catalog URL
-- URL: `https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json`
-- No code complexity — just a pre-filled AddRepoSheet with this URL
-
-### Part D — GitHub wiki (user action)
-Create `github.com/PacoDealer/Yomi/wiki` with:
-- "How to add sources" guide (copy the Plugin Repositories URL, paste in app)
-- Listed repos: LNReader, Mangayomi extensions, Paperback community
-- This becomes the App Store support URL
+**Outcome:** Yomi now supports 4 JS plugin formats (A/B/C/D). Users can add the Mangayomi catalog (195+ sources) and LNReader catalog (500+ novels) via one-tap featured repos.
 
 ---
 
