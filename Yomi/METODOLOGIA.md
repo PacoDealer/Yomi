@@ -160,7 +160,7 @@ JSBridge auto-detects the format: if `plugin.popularNovels` exists → Format B,
 | 41 | 2026-04-20 | Suwayomi integration + library list view + advanced settings. New files: `SuwayomiService.swift` (REST client — `fetchSources`, `fetchPopular`, `fetchSearch`, `fetchMangaDetail`, `fetchChapters`, `pageURLs`, `toManga`; ID format `"suwayomi_{sourceId}_{mangaId}"`), `SuwayomiBrowseView.swift` (infinite-scroll browse + search; uses `isPresented:` navigation — Manga not Hashable), `AdvancedSettingsView.swift` (cache/network/DB/build info sections, log export via UIActivityViewController). Modified: `AppSettings.swift` (+ `libraryDisplayMode`, `suwayomiURL`), `BrowseView.swift` (Section("Suwayomi Server") when isEnabled), `SettingsView.swift` (suwayomiSection, advancedSection → NavigationLink), `LibraryView.swift` (grid/list toggle toolbar, LazyVStack list mode), `MangaCoverCell.swift` (+ MangaListRow struct). Build succeeded. Cloudflare bypass + Tachiyomi backup import deferred to S42. |
 | 42 | 2026-04-20 | Yomi exclusives. (1) Manga Notes: `notes: String?` field on Manga model, v14_manga_notes GRDB migration, `MangaQueries.updateNotes()`, Notes section in MangaDetailView with `NotesEditorSheet`, BackupManager encode/decode updated. (2) App Lock: `AppSettings.appLockEnabled` + `ttsSpeechRate`, new `AppLockView.swift` (LAContext `.deviceOwnerAuthentication`, FaceID/TouchID icon, auto-auth on appear), YomiApp `@State isLocked` + `.fullScreenCover` + `.onChange(of: scenePhase)` re-lock. (3) TTS for novels: HTML stripping with regex, `AVSpeechSynthesizer` + `TTSDelegate` (NSObject+AVSpeechSynthesizerDelegate, strong synth ref prevents ARC dealloc), play/stop button in TextReaderView overlay Row 4, stops on navigate/disappear, TTS speed slider in Settings. (4) Global Search: replaced `SearchView` in BrowseView with `GlobalSearchView`; `withTaskGroup` parallel search across all installed sources; results stream per-source to MainActor; per-source section headers; Format A (`searchManga`) + Format B (`searchNovels`); `NovelCoverCell` for novel results; pending count spinner. All 4 built cleanly first attempt (except TTS — initial `didFinishSpeechUtteranceNotification` doesn't exist → switched to delegate pattern). |
 | 43 | 2026-04-20 | Tachiyomi backup import + tab reordering. `TachiyomiBackupParser.swift`: hand-written protobuf3 decoder (`ProtoReader` class — varint/length-delimited/fixed32) + gzip decompressor (libz C API via bridging header `Yomi/Yomi-Bridging-Header.h`, `SWIFT_OBJC_BRIDGING_HEADER` in project.pbxproj both configs). `inflateInit2_` with `windowBits=47` (MAX_WBITS+32) auto-detects gzip format. Source ID map `[UInt64: String]` maps Tachiyomi int64 hash → Yomi plugin ID; unmapped = `"tachiyomi_{id}"` placeholder. `BackupManager.importTachiyomiBackup(from:)` + BackupView Tachiyomi section with `.fileImporter` accepting `.tachibk` UTType. `ContentView.swift`: `@AppStorage("tabViewCustomization") TabViewCustomization` + `.customizationID()` on each Tab + `.tabViewCustomization($customization)` — iOS 26 native tab drag-to-reorder. Key learning: `NSData.decompressed(using: .zlib)` expects RFC 1950 (zlib format), not gzip RFC 1952 — cannot be used directly on `.tachibk` data; bridging header + libz C API is the correct approach. |
-| 44 | 2026-04-20 | New user onboarding + multi-format catalog fix + Format D Mangayomi JS shim. (1) `PluginsView.swift`: toolbar `+` → `Menu` → "Add Repository" → `AddRepoSheet` (LNReader + Mangayomi featured repos, custom URL, GitHub guide link). Empty installed state shows featured repos inline. (2) `PluginCatalogService.swift`: 3-format parser (Yomi native → LNReader → Mangayomi); `MangayomiEntry` struct (`id: Int`, `sourceCodeUrl`, `isNsfw`); per-URL silent failure; `description` optional. (3) `JSBridge.injectMangayomiShims`: `Client` (wraps `SOURCE._fetchSync`), `Document`/`Element` (built on cheerio, Mangayomi `.selectFirst`/`.select`/computed `.text`/`.attr` API), `String` prototype (`substringAfter/Before/Between`), `Preferences` stub. `injectMangayomiAdapter`: detects `global.source.getPopular + getDetail` post-eval; maps to standard globals. `isMangayomiPlugin` var. Key architecture: Mangayomi chapters are embedded in `getDetail(url)` return — no separate chapter-list endpoint. Chapter paths are direct URLs (no mangaId|chapterId encoding). Promise-sync pattern same as LNReader. (4) Research: Tachimanga = Flutter + C-native DEX interpreter (not JVM). Mihon forks (J2K/SY/AZ/Yōkai/Komikku) all Android-only. RESEARCH.md sections 7b/16/17/18 updated. |
+| 44 | 2026-04-20 | Onboarding + multi-format catalog + Format D Mangayomi + catalog UX overhaul. (1) `PluginsView.swift`: toolbar `+` → Menu → `AddRepoSheet` (LNReader + Mangayomi featured repos, custom URL, GitHub guide). (2) `PluginCatalogService.swift`: 3-format parser (Yomi native → LNReader → Mangayomi), `MangayomiEntry` struct, `repoURL` on entries (set post-fetch, excluded from Codable via CodingKeys), `PluginCatalogGroup` (groups same-name multi-lang entries), `groupedEntries`, `repoLabel(from:)`. (3) `JSBridge`: Format D Mangayomi shim — `Client`, `Document`/`Element` (built on cheerio), String prototype extensions, `Preferences` stub. Adapter detects `source` via identifier lookup (NOT `global.source` — `const` is lexical, not on globalThis). Critical lesson: `const` at JS top-level is a lexical env binding, not a globalThis property. `global.source` returns undefined; `typeof source` correctly walks lexical scope. (4) `BrowseView.swift`: Extensions tab uses groups + language picker dialog + repo badges + search + pull-to-refresh. Sources tab: swipe-to-delete, "Get more" header button, empty state → Extensions. `CatalogGroupRow` (internal, shared with PluginsView). (5) Research: Tachimanga = Flutter + C-native DEX interpreter. Mihon forks all Android-only. |
 
 ## Research methodology — lessons learned (post S42)
 
@@ -199,6 +199,30 @@ Suwayomi is already integrated (S41). The same second-order thinking applies to 
 - "Mangayomi uses Flutter+Dart plugins" → is there a server bridge or REST API?
 
 Always ask the second question.
+
+## Technical learnings — S44 JavaScript lexical scope in JSC
+
+### `const`/`let` at top-level are NOT on globalThis
+
+In JavaScript, `var` at the top level of a script creates a property on the global object (`globalThis.x` works). But `const` and `let` at the top level create bindings in the **global lexical environment** — NOT properties on `globalThis`.
+
+**Consequence:** Mangayomi plugins use `const source = {...}`. Inside a `injectMangayomiAdapter` JS closure, `global.source` (where `global = this`) is **undefined** because `source` is lexical, not a global object property.
+
+**Correct detection:**
+```javascript
+// WRONG — doesn't find const/let bindings
+var src = global.source;
+
+// CORRECT — identifier lookup walks lexical scope
+var src = null;
+try {
+    if (typeof source !== 'undefined' && source !== null) src = source;
+} catch(e) {}
+```
+
+`typeof source` performs an identifier lookup that checks the lexical environment, finding `const source`. `global.source` only checks the global object property bag.
+
+**Note:** `context.objectForKeyedSubscript("source")` in Swift/JSC DOES find lexical bindings (it checks both), so Swift-side detection works. The bug only affects JS-side detection within a second `evaluateScript` call.
 
 ## Technical learnings — S40 plugin build system
 
