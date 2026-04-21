@@ -12,6 +12,21 @@ struct PluginCatalogEntry: Codable, Identifiable {
     let iconURL: String?
     let fileURL: String
     let isNSFW: Bool
+    var repoURL: String = ""
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, version, language, description, iconURL, fileURL, isNSFW
+    }
+}
+
+// MARK: - PluginCatalogGroup
+
+struct PluginCatalogGroup: Identifiable {
+    let name: String
+    let entries: [PluginCatalogEntry]
+    var id: String { name }
+    var isMultiLang: Bool { entries.count > 1 }
+    var primaryEntry: PluginCatalogEntry { entries[0] }
 }
 
 // MARK: - LNReader catalog format
@@ -111,9 +126,11 @@ private struct MangayomiEntry: Decodable {
         let results: [[PluginCatalogEntry]] = await withTaskGroup(of: [PluginCatalogEntry].self) { group in
             for url in urls {
                 group.addTask {
+                    let repoURL = url.absoluteString
                     do {
                         let (data, _) = try await URLSession.shared.data(from: url)
-                        return Self.parseEntries(from: data)
+                        let parsed = Self.parseEntries(from: data)
+                        return parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e }
                     } catch {
                         return []
                     }
@@ -168,6 +185,30 @@ private struct MangayomiEntry: Decodable {
 
     func isInstalled(_ entry: PluginCatalogEntry) -> Bool {
         ExtensionManager.shared.installed.contains(where: { $0.name == entry.name })
+    }
+
+    func isGroupInstalled(_ group: PluginCatalogGroup) -> Bool {
+        group.entries.contains { isInstalled($0) }
+    }
+
+    /// Groups entries by name (case-insensitive), sorted alphabetically.
+    /// Multi-language sources (same name, different lang) are collapsed into one group.
+    var groupedEntries: [PluginCatalogGroup] {
+        var groups: [String: [PluginCatalogEntry]] = [:]
+        for entry in entries {
+            groups[entry.name.lowercased(), default: []].append(entry)
+        }
+        return groups.values
+            .map { PluginCatalogGroup(name: $0[0].name, entries: $0.sorted { $0.language < $1.language }) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Short display label derived from the catalog URL (e.g. "Yomi", "LNReader", "Mangayomi").
+    nonisolated static func repoLabel(from repoURL: String) -> String {
+        if repoURL.contains("yomi-plugins") { return "Yomi" }
+        if repoURL.lowercased().contains("lnreader") { return "LNReader" }
+        if repoURL.contains("mangayomi") { return "Mangayomi" }
+        return URL(string: repoURL)?.host.map { String($0.prefix(20)) } ?? ""
     }
 
     func invalidateCache() {
