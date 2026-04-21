@@ -557,7 +557,10 @@ All S28 P0/P1/P2/P3 items resolved.
 | 6 | ✅ Tachimanga DEX research | Architecture corrected: C-native DEX bytecode interpreter (no JIT, App Store compliant). |
 | 7 | ✅ Mihon forks research | J2K/SY/AZ/Yōkai/Komikku — all Android-only, no new iOS paths. |
 
-**Outcome:** Yomi now supports 4 JS plugin formats (A/B/C/D). Users can add the Mangayomi catalog (195+ sources) and LNReader catalog (500+ novels) via one-tap featured repos.
+| 8 | ✅ Mangayomi `const source` bug fix | `injectMangayomiAdapter` used `global.source` — `const` at top-level is a lexical binding, NOT on globalThis. Fixed to use identifier lookup (`typeof source`) which checks lexical scope. Plugins now execute correctly. |
+| 9 | ✅ Catalog UX overhaul | `PluginCatalogEntry.repoURL` (set post-fetch, excluded from Codable). `PluginCatalogGroup` (groups same-name multi-lang sources). Browse → Extensions: grouped list with "X langs" badge + language picker dialog, repo source badge (Yomi/LNReader/Mangayomi), search bar, pull-to-refresh. Browse → Sources: swipe-to-delete (uninstall), "Get more" header button, empty state navigates to Extensions. `CatalogGroupRow` shared between Browse and Plugins. |
+
+**Outcome:** Yomi supports 4 JS plugin formats (A/B/C/D). 195+ Mangayomi sources + 500+ LNReader novels available via one-tap repos. Browse tab is now the primary plugin management surface.
 
 ---
 
