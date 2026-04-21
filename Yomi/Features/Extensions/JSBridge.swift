@@ -418,9 +418,16 @@ final class JSBridge {
     nonisolated private static func injectMangayomiAdapter(into ctx: JSContext) {
         ctx.evaluateScript("""
         (function(global) {
-            var src = global.source;
-            // Must have getPopular + getDetail to qualify as Mangayomi format
-            if (!src || typeof src.getPopular !== 'function' || typeof src.getDetail !== 'function') return;
+            // `const source = {...}` at top-level is a lexical binding — NOT on globalThis.
+            // Use identifier lookup (`typeof source`) to find it, not `global.source`.
+            var src = null;
+            try {
+                if (typeof source !== 'undefined' && source !== null &&
+                    typeof source.getPopular === 'function' && typeof source.getDetail === 'function') {
+                    src = source;
+                }
+            } catch(e) {}
+            if (!src) return;
 
             // Sentinel so isMangayomiPlugin can detect this format
             global.__mangayomiSource = src;

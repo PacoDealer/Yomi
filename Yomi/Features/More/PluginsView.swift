@@ -41,13 +41,16 @@ struct PluginsView: View {
     @State private var showInstallSheet  = false
     @State private var showAddRepoSheet  = false
     @State private var installingID: String? = nil
+    @State private var langPickerGroup: PluginCatalogGroup? = nil
 
-    private var filteredCatalog: [PluginCatalogEntry] {
-        var base = searchText.isEmpty
-            ? catalogService.entries
-            : catalogService.entries.filter { $0.name.localizedStandardContains(searchText) }
-        if !settings.showNSFW { base = base.filter { !$0.isNSFW } }
-        return base
+    private var filteredGroups: [PluginCatalogGroup] {
+        var groups = settings.showNSFW
+            ? catalogService.groupedEntries
+            : catalogService.groupedEntries.filter { !$0.primaryEntry.isNSFW }
+        if !searchText.isEmpty {
+            groups = groups.filter { $0.name.localizedStandardContains(searchText) }
+        }
+        return groups
     }
 
     var body: some View {
@@ -86,6 +89,22 @@ struct PluginsView: View {
         }
         .sheet(isPresented: $showAddRepoSheet) {
             AddRepoSheet()
+        }
+        .confirmationDialog(
+            langPickerGroup.map { "Install \($0.name)" } ?? "",
+            isPresented: Binding(get: { langPickerGroup != nil }, set: { if !$0 { langPickerGroup = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let group = langPickerGroup {
+                ForEach(group.entries) { entry in
+                    let installed = catalogService.isInstalled(entry)
+                    Button(installed ? "\(entry.language.uppercased()) — Installed" : entry.language.uppercased()) {
+                        if !installed { Task { await installEntry(entry) } }
+                    }
+                    .disabled(installed)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
         }
         .onAppear { Task { await catalogService.fetchCatalog() } }
         .refreshable { await catalogService.fetchCatalog(force: true) }
@@ -169,7 +188,7 @@ struct PluginsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-            } else if filteredCatalog.isEmpty {
+            } else if filteredGroups.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "puzzlepiece.extension")
                         .font(.largeTitle)
@@ -191,18 +210,22 @@ struct PluginsView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
             } else {
-                ForEach(filteredCatalog) { entry in
-                    YomiCatalogEntryRow(
-                        entry:        entry,
-                        isInstalled:  catalogService.isInstalled(entry),
-                        isInstalling: installingID == entry.id
+                ForEach(filteredGroups) { group in
+                    CatalogGroupRow(
+                        group:        group,
+                        isInstalled:  catalogService.isGroupInstalled(group),
+                        installingID: installingID
                     ) {
-                        Task { await installEntry(entry) }
+                        if group.isMultiLang {
+                            langPickerGroup = group
+                        } else {
+                            Task { await installEntry(group.primaryEntry) }
+                        }
                     }
                 }
             }
         } header: {
-            Text("Yomi catalog (\(filteredCatalog.count))")
+            Text("Catalog (\(filteredGroups.count))")
         }
     }
 
