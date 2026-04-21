@@ -54,6 +54,7 @@ final class JSBridge {
         ctx.evaluateScript(source)
         JSBridge.injectPaperbackAdapter(into: ctx)
         JSBridge.injectLNReaderAdapter(into: ctx)
+        JSBridge.injectMangayomiAdapter(into: ctx)
     }
 
     /// true when the loaded script exposes a `plugin` global with `popularNovels` (LNReader format)
@@ -73,6 +74,15 @@ final class JSBridge {
     nonisolated var isPaperbackPlugin: Bool {
         guard
             let flag = context.objectForKeyedSubscript("__pbSourceId"),
+            !flag.isUndefined, !flag.isNull
+        else { return false }
+        return true
+    }
+
+    /// true when the plugin exposes a Mangayomi-format `source` object (detected by __mangayomiSource global)
+    nonisolated var isMangayomiPlugin: Bool {
+        guard
+            let flag = context.objectForKeyedSubscript("__mangayomiSource"),
             !flag.isUndefined, !flag.isNull
         else { return false }
         return true
@@ -260,6 +270,239 @@ final class JSBridge {
         """)
     }
 
+    // MARK: - Format D: Mangayomi JS shims + adapter
+
+    /// Pre-eval: injects Client, Document/Element classes and String utilities for Mangayomi plugins.
+    nonisolated private static func injectMangayomiShims(into ctx: JSContext) {
+        ctx.evaluateScript(#"""
+        (function(global) {
+            'use strict';
+
+            // ── Client ──────────────────────────────────────────────────────────
+            function Client() {}
+            Client.prototype.get = function(url, headers) {
+                headers = headers || {};
+                var body = SOURCE._fetchSync(url, 'GET', null, JSON.stringify(headers));
+                return Promise.resolve({ body: body, status: 200 });
+            };
+            Client.prototype.post = function(url, headers, body) {
+                headers = headers || {};
+                var bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+                var resp = SOURCE._fetchSync(url, 'POST', bodyStr, JSON.stringify(headers));
+                return Promise.resolve({ body: resp, status: 200 });
+            };
+            Client.prototype.request = function(url, options) {
+                options = options || {};
+                var method  = (options.method  || 'GET').toUpperCase();
+                var headers = options.headers  || {};
+                var body    = options.body     || null;
+                var bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+                var resp = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(headers));
+                return Promise.resolve({ body: resp, status: 200 });
+            };
+            global.Client = Client;
+
+            // ── Document / Element ───────────────────────────────────────────────
+            // _nullEl is returned for empty/missing selections so callers never get null.
+            var _nullEl;
+            _nullEl = {
+                text: '', outerHtml: '', innerHTML: '', id: '', className: '',
+                src: '', href: '',
+                attr: function() { return ''; },
+                getSrc: function() { return ''; }, getHref: function() { return ''; },
+                select: function() { return []; },
+                selectFirst: function() { return _nullEl; },
+                children: [],
+                hasClass: function() { return false; },
+                nextElement: _nullEl, previousElement: _nullEl,
+                isNull: true, isNotEmpty: false,
+                toString: function() { return ''; }
+            };
+            // Patch self-references (can't reference _nullEl before assignment in the literal)
+            _nullEl.nextElement = _nullEl;
+            _nullEl.previousElement = _nullEl;
+
+            // Wrap a cheerio collection into a Mangayomi-compatible Element object.
+            // jq is a cheerio wrapper object (has .text(), .attr(), .find(), .each(), etc.)
+            function _mkEl(jq) {
+                if (!jq || jq.length === 0) return _nullEl;
+                var el = {};
+                Object.defineProperties(el, {
+                    text:        { get: function() { return jq.text() || ''; } },
+                    outerHtml:   { get: function() { return jq.html() || ''; } },
+                    innerHTML:   { get: function() { return jq.html() || ''; } },
+                    id:          { get: function() { return jq.attr('id')    || ''; } },
+                    className:   { get: function() { return jq.attr('class') || ''; } },
+                    src:         { get: function() { return jq.attr('src')   || ''; } },
+                    href:        { get: function() { return jq.attr('href')  || ''; } },
+                    isNull:      { get: function() { return jq.length === 0; } },
+                    isNotEmpty:  { get: function() { return jq.length > 0;  } },
+                    children: {
+                        get: function() {
+                            var r = [];
+                            jq.children().each(function(i, child) { r.push(_mkEl(child)); });
+                            return r;
+                        }
+                    },
+                    parent:          { get: function() { return _mkEl(jq.parent()); } },
+                    nextElement:     { get: function() { return _mkEl(jq.next());   } },
+                    previousElement: { get: function() { return _mkEl(jq.prev());   } }
+                });
+                el.attr       = function(name) { return jq.attr(name) || ''; };
+                el.getSrc     = function()     { return jq.attr('src')  || ''; };
+                el.getHref    = function()     { return jq.attr('href') || ''; };
+                el.hasClass   = function(cls)  { return jq.hasClass(cls); };
+                el.select     = function(sel)  {
+                    var r = [];
+                    jq.find(sel).each(function(i, child) { r.push(_mkEl(child)); });
+                    return r;
+                };
+                el.selectFirst = function(sel) { return _mkEl(jq.find(sel).first()); };
+                el.toString    = function()    { return jq.html() || ''; };
+                return el;
+            }
+
+            function Document(html) {
+                this._$ = cheerio.load(html || '');
+            }
+            Document.prototype.select = function(sel) {
+                var r = [];
+                this._$(sel).each(function(i, el) { r.push(_mkEl(el)); });
+                return r;
+            };
+            Document.prototype.selectFirst = function(sel) {
+                return _mkEl(this._$(sel).first());
+            };
+            global.Document = Document;
+
+            // ── String utilities ─────────────────────────────────────────────────
+            if (!String.prototype.substringAfter) {
+                String.prototype.substringAfter = function(s) {
+                    var i = this.indexOf(s); return i === -1 ? '' : this.slice(i + s.length);
+                };
+            }
+            if (!String.prototype.substringAfterLast) {
+                String.prototype.substringAfterLast = function(s) {
+                    var i = this.lastIndexOf(s); return i === -1 ? '' : this.slice(i + s.length);
+                };
+            }
+            if (!String.prototype.substringBefore) {
+                String.prototype.substringBefore = function(s) {
+                    var i = this.indexOf(s); return i === -1 ? '' + this : this.slice(0, i);
+                };
+            }
+            if (!String.prototype.substringBeforeLast) {
+                String.prototype.substringBeforeLast = function(s) {
+                    var i = this.lastIndexOf(s); return i === -1 ? '' + this : this.slice(0, i);
+                };
+            }
+            if (!String.prototype.substringBetween) {
+                String.prototype.substringBetween = function(from, to) {
+                    return this.substringAfter(from).substringBefore(to);
+                };
+            }
+
+            // ── Preferences stub ─────────────────────────────────────────────────
+            var _prefs = {};
+            global.Preferences = {
+                get: function(k) { return Object.prototype.hasOwnProperty.call(_prefs, k) ? _prefs[k] : null; },
+                set: function(k, v) { _prefs[k] = v; }
+            };
+
+        })(this);
+        """#)
+    }
+
+    /// Post-eval: detects a Mangayomi `source` global and maps it to Yomi's
+    /// getMangaList / searchManga / getChapterList / getPageList / getLatestManga globals.
+    nonisolated private static func injectMangayomiAdapter(into ctx: JSContext) {
+        ctx.evaluateScript("""
+        (function(global) {
+            var src = global.source;
+            // Must have getPopular + getDetail to qualify as Mangayomi format
+            if (!src || typeof src.getPopular !== 'function' || typeof src.getDetail !== 'function') return;
+
+            // Sentinel so isMangayomiPlugin can detect this format
+            global.__mangayomiSource = src;
+
+            // Flush a Promise synchronously. Works because Client._fetchSync is synchronous,
+            // so the Promise chain resolves before this function returns.
+            function _resolve(val) {
+                if (val && typeof val.then === 'function') {
+                    var result;
+                    val.then(function(v) { result = v; });
+                    return result;
+                }
+                return val;
+            }
+
+            function _mapItem(item) {
+                return {
+                    id:       item.url  || '',
+                    path:     item.url  || '',
+                    title:    item.name || item.title || '',
+                    coverURL: item.link || item.image || null,
+                    summary:  null, author: null, artist: null,
+                    status:   'ongoing', genres: []
+                };
+            }
+
+            global.getMangaList = function(page) {
+                try {
+                    var res = _resolve(src.getPopular(page));
+                    return (res && res.list ? res.list : []).map(_mapItem);
+                } catch(e) { return []; }
+            };
+
+            // supportsLatest check in Swift reads `getLatestManga`
+            if (typeof src.getLatest === 'function') {
+                global.getLatestManga = function(page) {
+                    try {
+                        var res = _resolve(src.getLatest(page));
+                        return (res && res.list ? res.list : []).map(_mapItem);
+                    } catch(e) { return []; }
+                };
+            }
+
+            global.searchManga = function(query, page) {
+                if (typeof src.search !== 'function') return [];
+                try {
+                    var res = _resolve(src.search(query, page, []));
+                    return (res && res.list ? res.list : []).map(_mapItem);
+                } catch(e) { return []; }
+            };
+
+            // Chapters are embedded in getDetail — no separate chapter-list call needed.
+            global.getChapterList = function(url) {
+                try {
+                    var detail = _resolve(src.getDetail(url));
+                    if (!detail || !Array.isArray(detail.chapters)) return [];
+                    return detail.chapters.map(function(ch, i) {
+                        return {
+                            id:            ch.url || String(i),
+                            path:          ch.url || String(i),
+                            name:          ch.name || ('Chapter ' + (i + 1)),
+                            chapterNumber: parseFloat(ch.name) || 0,
+                            scanlator:     ch.scanlator || null
+                        };
+                    });
+                } catch(e) { return []; }
+            };
+
+            global.getPageList = function(url) {
+                try {
+                    var pages = _resolve(src.getPageList(url));
+                    if (!Array.isArray(pages)) return [];
+                    return pages.map(function(p) {
+                        return typeof p === 'string' ? p : (p.url || '');
+                    }).filter(Boolean);
+                } catch(e) { return []; }
+            };
+
+        })(this);
+        """)
+    }
+
     // MARK: - Shims
 
     nonisolated private static func injectShims(into ctx: JSContext) {
@@ -268,6 +511,7 @@ final class JSBridge {
         injectSourceFetch(into: ctx)
         injectCheerio(into: ctx)
         injectRequireShim(into: ctx)
+        injectMangayomiShims(into: ctx)
     }
 
     /// console.log / warn / error → Swift print()
