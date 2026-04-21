@@ -39,6 +39,32 @@ private struct LNReaderEntry: Decodable {
     }
 }
 
+// MARK: - Mangayomi catalog format
+
+private struct MangayomiEntry: Decodable {
+    let id: Int
+    let name: String
+    let version: String
+    let lang: String
+    let iconUrl: String?
+    let sourceCodeUrl: String
+    let isNsfw: Bool?
+    let baseUrl: String?
+
+    nonisolated func toEntry() -> PluginCatalogEntry {
+        PluginCatalogEntry(
+            id: String(id),
+            name: name,
+            version: version,
+            language: lang,
+            description: baseUrl,
+            iconURL: iconUrl,
+            fileURL: sourceCodeUrl,
+            isNSFW: isNsfw ?? false
+        )
+    }
+}
+
 // MARK: - PluginCatalogService
 
 @Observable final class PluginCatalogService {
@@ -124,13 +150,16 @@ private struct LNReaderEntry: Decodable {
 
     // MARK: - Multi-format parser
 
-    /// Tries Yomi native format, falls back to LNReader format.
+    /// Tries Yomi native → LNReader → Mangayomi formats in order.
     private nonisolated static func parseEntries(from data: Data) -> [PluginCatalogEntry] {
         if let entries = try? JSONDecoder().decode([PluginCatalogEntry].self, from: data) {
             return entries
         }
         if let lnEntries = try? JSONDecoder().decode([LNReaderEntry].self, from: data) {
             return lnEntries.map { $0.toEntry() }
+        }
+        if let mgEntries = try? JSONDecoder().decode([MangayomiEntry].self, from: data) {
+            return mgEntries.map { $0.toEntry() }
         }
         return []
     }

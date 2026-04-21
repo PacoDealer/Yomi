@@ -20,6 +20,11 @@ private let featuredRepos: [FeaturedRepo] = [
         description: "500+ light novel sources in 18 languages",
         url: "https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json"
     ),
+    FeaturedRepo(
+        name: "Mangayomi Extensions",
+        description: "195+ manga & novel sources (JS format)",
+        url: "https://kodjodevf.github.io/mangayomi-extensions/index.json"
+    ),
 ]
 
 // Keiyoushi (1000+ manga via Suwayomi server) is surfaced in Settings → Suwayomi Server,
