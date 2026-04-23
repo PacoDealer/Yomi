@@ -422,56 +422,6 @@ private struct InstalledExtensionRow: View {
     }
 }
 
-// MARK: - YomiCatalogEntryRow
-
-struct YomiCatalogEntryRow: View {
-    let entry:        PluginCatalogEntry
-    let isInstalled:  Bool
-    let isInstalling: Bool
-    let onInstall:    () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AsyncImage(url: entry.iconURL.flatMap { URL(string: $0) }) { image in
-                image.resizable().aspectRatio(1, contentMode: .fit)
-            } placeholder: {
-                Image(systemName: "puzzlepiece.extension")
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
-                    .padding(8)
-                    .foregroundStyle(.secondary)
-                    .background(Color.secondary.opacity(0.12))
-            }
-            .frame(width: 40, height: 40)
-            .cornerRadius(8)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(entry.name).font(.headline)
-                HStack(spacing: 6) {
-                    LanguageBadge(language: entry.language)
-                    if entry.isNSFW { NSFWBadge() }
-                    Text("v\(entry.version)").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if isInstalled {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            } else if isInstalling {
-                ProgressView()
-                    .scaleEffect(0.8)
-            } else {
-                Button("Install", action: onInstall)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-}
-
 // MARK: - InstallFromURLSheet
 
 private struct InstallFromURLSheet: View {
