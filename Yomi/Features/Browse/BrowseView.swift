@@ -636,6 +636,8 @@ struct SourceBrowseView: View {
     @State private var isLoadingMore = false
     @State private var hasMoreContent = true
     @State private var showCFBypass = false
+    @State private var bypassAttempted = false
+    @State private var isBypassing = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
@@ -733,7 +735,22 @@ struct SourceBrowseView: View {
         .onChange(of: selectedFeed) { _, _ in
             Task { await loadContent() }
         }
-        .task { await loadContent() }
+        .task { await loadWithBypass() }
+        .overlay {
+            if isBypassing {
+                ZStack {
+                    Color.black.opacity(0.35).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView().tint(.white)
+                        Text("Bypassing Cloudflare…")
+                            .font(.subheadline)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(24)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -749,6 +766,22 @@ struct SourceBrowseView: View {
                 Task { await loadContent() }
             }
         }
+    }
+
+    // MARK: Load With Auto-Bypass
+
+    private func loadWithBypass() async {
+        bypassAttempted = false
+        await loadContent()
+        guard isContentEmpty, !bypassAttempted,
+              let cfURL = bridge?.cfBlockedURL,
+              let url = URL(string: cfURL) else { return }
+        bypassAttempted = true
+        isBypassing = true
+        let success = await CFBypassManager.autoBypass(url: url)
+        bridge?.clearCFBlock()
+        isBypassing = false
+        if success { await loadContent() }
     }
 
     // MARK: Load Content

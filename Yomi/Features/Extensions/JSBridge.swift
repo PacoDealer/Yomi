@@ -1,6 +1,10 @@
 import Foundation
 import JavaScriptCore
 
+// Module-level CF-block tracking — keyed by JSContext identity, guarded by _cfLock.
+nonisolated(unsafe) private let _cfLock = NSLock()
+nonisolated(unsafe) private var _cfBlockedByContext: [ObjectIdentifier: String] = [:]
+
 // MARK: - Novel Result Types
 
 struct NovelItem {
@@ -88,12 +92,41 @@ final class JSBridge {
         return true
     }
 
+    /// If the last _fetchSync call for this context was Cloudflare-blocked, returns the blocked URL.
+    nonisolated var cfBlockedURL: String? {
+        _cfLock.lock(); defer { _cfLock.unlock() }
+        return _cfBlockedByContext[ObjectIdentifier(context)]
+    }
+
+    nonisolated func clearCFBlock() {
+        _cfLock.lock()
+        _cfBlockedByContext.removeValue(forKey: ObjectIdentifier(context))
+        _cfLock.unlock()
+    }
+
+    deinit {
+        _cfLock.lock()
+        _cfBlockedByContext.removeValue(forKey: ObjectIdentifier(context))
+        _cfLock.unlock()
+    }
+
     /// After evaluating the plugin script, check for LNReader-format plugins and:
     /// 1. Bridge parseNovelAndChapters → parseNovel (LNReader uses the former)
     /// 2. Wrap all async plugin methods so they return synchronously (using Promise microtask flush)
     nonisolated private static func injectLNReaderAdapter(into ctx: JSContext) {
         ctx.evaluateScript("""
         (function(global) {
+            // LNReader v3 compiled plugins often export via module.exports (CommonJS)
+            // instead of setting globalThis.plugin directly.
+            if (!global.plugin) {
+                var _me = (typeof module !== 'undefined' && module && module.exports) ? module.exports : null;
+                if (_me && typeof _me.popularNovels === 'function') {
+                    global.plugin = _me;
+                } else if (_me && _me.default && typeof _me.default.popularNovels === 'function') {
+                    global.plugin = _me.default;
+                }
+            }
+
             var p = global.plugin;
             if (!p || typeof p !== 'object') return;
 
@@ -557,6 +590,7 @@ final class JSBridge {
     /// SOURCE.fetch(url, options?) — synchronous HTTP via DispatchSemaphore (GET and POST).
     /// JS wrapper routes through SOURCE._fetchSync(url, method, body, headersJSON).
     nonisolated private static func injectSourceFetch(into ctx: JSContext) {
+        let ctxID = ObjectIdentifier(ctx)
         let fetchSync: @convention(block) (String, String, String?, String?) -> String = { urlString, method, body, headersJSON in
             guard let url = URL(string: urlString) else { return "" }
             var request = URLRequest(url: url, timeoutInterval: 30)
@@ -581,12 +615,24 @@ final class JSBridge {
                 request.httpBody = bodyStr.data(using: .utf8)
             }
             var result = ""
+            var detectedCFURL: String? = nil
             let sem = DispatchSemaphore(value: 0)
-            URLSession.shared.dataTask(with: request) { data, _, _ in
+            URLSession.shared.dataTask(with: request) { data, response, _ in
                 if let data = data { result = String(data: data, encoding: .utf8) ?? "" }
+                if let http = response as? HTTPURLResponse {
+                    let hasCFRay = http.allHeaderFields["CF-RAY"] != nil
+                    let is403 = http.statusCode == 403
+                    let bodyHasCF = result.contains("Just a moment") || result.contains("cf-mitigated")
+                    if hasCFRay || (is403 && bodyHasCF) { detectedCFURL = urlString }
+                }
                 sem.signal()
             }.resume()
             sem.wait()
+            if let blocked = detectedCFURL {
+                _cfLock.lock()
+                _cfBlockedByContext[ctxID] = blocked
+                _cfLock.unlock()
+            }
             return result
         }
         let source = JSValue(newObjectIn: ctx)
