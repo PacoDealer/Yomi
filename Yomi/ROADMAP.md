@@ -11,19 +11,19 @@ The research audit revealed that 800+ sources are already available across four 
 | Yomi Firebase | Format A | 15 | ✅ Live |
 | LNReader | Format B | **500+ novels** | ✅ Native, needs UX/docs |
 | Paperback | Format C | ~100 manga | ⚠️ Partial shim |
-| Mangayomi | Format D (new) | **195+ manga+novel** | ❌ Needs small shim |
+| Mangayomi | Format D (Dart) | 195+ manga+novel | ❌ Dart extensions — cannot run in JSC |
 | keiyoushi/Suwayomi | Backend | Hundreds manga | ✅ S41 integrated |
 | Kavita/Komga | OPDS | User's local library | ❌ Not yet |
 
-**No architecture rebuild needed.** JSBridge already handles multi-format detection. Format D (Mangayomi) requires a `Client` class shim + class-based plugin detection — one session of work.
+**No architecture rebuild needed.** JSBridge already handles multi-format detection. Format D (Mangayomi) was attempted but Mangayomi extensions are all Dart (`.dart` files, `sourceCodeLanguage: 0`) — cannot execute in JSC. Catalog parser for Mangayomi index.json format remains in PluginCatalogService for metadata display.
 
 **Novel support remains Yomi's exclusive differentiator.** Zero other iOS App Store apps support light novels with a plugin system. LNReader (Android, 500+ sources) has no iOS equivalent except Yomi.
 
 ---
 
-## Current state (post S43 — 2026-04-20)
+## Current state (post S44 — 2026-04-20)
 
-App is feature-rich and polished. S43: Tachiyomi/Mihon `.tachibk` backup import (full protobuf3+gzip decoder, no external deps) + tab reordering (iOS 26 `TabViewCustomization`). S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 new novel plugins. S41: Suwayomi integration + library list view + advanced settings. Firebase has 15 live plugins. App Store deferred (user not enrolled in Apple Developer Program yet).
+App is feature-rich and polished. S44: Format D Mangayomi JS shim (discovered Mangayomi is Dart — shim remains for future community JS plugins), multi-format catalog parser (Yomi→LNReader→Mangayomi), catalog UX overhaul (grouped multi-lang entries, repo badges, swipe-to-uninstall in Browse, repo filter chips, search), LNReader URL corrected, onboarding `AddRepoSheet`, `const source` lexical scope fix in JSBridge. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 

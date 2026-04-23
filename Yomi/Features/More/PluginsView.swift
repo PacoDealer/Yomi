@@ -18,17 +18,13 @@ private let featuredRepos: [FeaturedRepo] = [
     FeaturedRepo(
         name: "LNReader Novels",
         description: "500+ light novel sources in 18 languages",
-        url: "https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json"
-    ),
-    FeaturedRepo(
-        name: "Mangayomi Extensions",
-        description: "195+ manga & novel sources (JS format)",
-        url: "https://kodjodevf.github.io/mangayomi-extensions/index.json"
+        url: "https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json"
     ),
 ]
 
 // Keiyoushi (1000+ manga via Suwayomi server) is surfaced in Settings → Suwayomi Server,
-// not as a catalog URL, because it requires a REST bridge rather than a JS plugin catalog.
+// not as a catalog URL — it requires a REST bridge, not a JS plugin catalog.
+// Mangayomi extensions are Dart (not JS) — cannot run in JSC. Removed from featured repos.
 
 // MARK: - PluginsView
 

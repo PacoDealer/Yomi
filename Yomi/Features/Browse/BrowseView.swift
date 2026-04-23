@@ -12,6 +12,7 @@ struct BrowseView: View {
     @State private var suwayomiLoading  = false
     @State private var extensionsSearch = ""
     @State private var langPickerGroup: PluginCatalogGroup? = nil
+    @State private var selectedRepos: Set<String> = []
 
     enum BrowseTab: String, CaseIterable {
         case sources    = "Sources"
@@ -213,29 +214,66 @@ struct BrowseView: View {
                 .padding(32)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(filteredGroups) { group in
-                    CatalogGroupRow(
-                        group:        group,
-                        isInstalled:  catalogService.isGroupInstalled(group),
-                        installingID: installingID
-                    ) {
-                        if group.isMultiLang {
-                            langPickerGroup = group
-                        } else {
-                            Task { await installEntry(group.primaryEntry) }
+                VStack(spacing: 0) {
+                    if availableRepos.count > 1 {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                RepoFilterChip(label: "All", isSelected: selectedRepos.isEmpty) {
+                                    selectedRepos = []
+                                }
+                                ForEach(availableRepos, id: \.self) { repo in
+                                    RepoFilterChip(label: repo, isSelected: selectedRepos.contains(repo)) {
+                                        if selectedRepos.contains(repo) {
+                                            selectedRepos.remove(repo)
+                                        } else {
+                                            selectedRepos.insert(repo)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                        Divider()
+                    }
+                    List(filteredGroups) { group in
+                        CatalogGroupRow(
+                            group:        group,
+                            isInstalled:  catalogService.isGroupInstalled(group),
+                            installingID: installingID
+                        ) {
+                            if group.isMultiLang {
+                                langPickerGroup = group
+                            } else {
+                                Task { await installEntry(group.primaryEntry) }
+                            }
                         }
                     }
+                    .refreshable { await catalogService.fetchCatalog(force: true) }
                 }
-                .refreshable { await catalogService.fetchCatalog(force: true) }
             }
         }
         .task { await catalogService.fetchCatalog() }
+    }
+
+    private var availableRepos: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for entry in catalogService.entries {
+            let label = PluginCatalogService.repoLabel(from: entry.repoURL)
+            guard !label.isEmpty, seen.insert(label).inserted else { continue }
+            result.append(label)
+        }
+        return result.sorted()
     }
 
     private var filteredGroups: [PluginCatalogGroup] {
         var groups = settings.showNSFW
             ? catalogService.groupedEntries
             : catalogService.groupedEntries.filter { !$0.primaryEntry.isNSFW }
+        if !selectedRepos.isEmpty {
+            groups = groups.filter { selectedRepos.contains(PluginCatalogService.repoLabel(from: $0.primaryEntry.repoURL)) }
+        }
         if !extensionsSearch.isEmpty {
             groups = groups.filter { $0.name.localizedStandardContains(extensionsSearch) }
         }
@@ -258,6 +296,26 @@ struct BrowseView: View {
         )
         await extensionManager.install(ext)
         installingID = nil
+    }
+}
+
+// MARK: - RepoFilterChip
+
+struct RepoFilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Text(label)
+                .font(.subheadline).fontWeight(.medium)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
