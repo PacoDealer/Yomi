@@ -635,6 +635,7 @@ struct SourceBrowseView: View {
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreContent = true
+    @State private var showCFBypass = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
@@ -733,6 +734,21 @@ struct SourceBrowseView: View {
             Task { await loadContent() }
         }
         .task { await loadContent() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showCFBypass = true
+                } label: {
+                    Image(systemName: "shield.slash")
+                }
+                .help("Bypass Cloudflare")
+            }
+        }
+        .sheet(isPresented: $showCFBypass) {
+            CFBypassView {
+                Task { await loadContent() }
+            }
+        }
     }
 
     // MARK: Load Content
