@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import UIKit
 
 // MARK: - CFBypassView
 
@@ -177,4 +178,87 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 
         deinit { pollTimer?.invalidate() }
     }
+}
+
+// MARK: - CFBypassManager
+
+enum CFBypassManager {
+    /// Loads url in a hidden 1×1pt WKWebView, polls for cf_clearance for up to 10 s.
+    /// Copies all domain cookies to HTTPCookieStorage.shared on success.
+    @MainActor
+    static func autoBypass(url: URL) async -> Bool {
+        let helper = AutoBypassHelper()
+        return await helper.run(url: url)
+    }
+}
+
+// MARK: - AutoBypassHelper
+
+private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private var webView: WKWebView?
+    private var pollTimer: Timer?
+    private var finished = false
+    private var collectedCookies: [HTTPCookie] = []
+    private var timeoutTask: Task<Void, Never>?
+
+    @MainActor
+    func run(url: URL) async -> Bool {
+        let wv = WKWebView(frame: CGRect(x: -2, y: -2, width: 1, height: 1))
+        wv.navigationDelegate = self
+        webView = wv
+
+        let windowScene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
+        guard let window = windowScene?.windows.first(where: { $0.isKeyWindow }) else { return false }
+        window.addSubview(wv)
+        wv.load(URLRequest(url: url))
+
+        return await withCheckedContinuation { [weak self] cont in
+            self?.continuation = cont
+            self?.timeoutTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(10))
+                DispatchQueue.main.async { self?.finish(success: false) }
+            }
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        startPolling(webView: webView)
+    }
+
+    private func startPolling(webView: WKWebView) {
+        pollTimer?.invalidate()
+        var ticks = 0
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self, weak webView] t in
+            guard let self, let webView, !self.finished else { t.invalidate(); return }
+            ticks += 1
+            if ticks > 20 { t.invalidate(); return }
+            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, !self.finished else { return }
+                    guard cookies.contains(where: { $0.name == "cf_clearance" }) else { return }
+                    self.collectedCookies = cookies
+                    t.invalidate()
+                    self.finish(success: true)
+                }
+            }
+        }
+    }
+
+    private func finish(success: Bool) {
+        guard !finished else { return }
+        finished = true
+        pollTimer?.invalidate()
+        timeoutTask?.cancel()
+        webView?.removeFromSuperview()
+        webView = nil
+        if success {
+            for c in collectedCookies { HTTPCookieStorage.shared.setCookie(c) }
+        }
+        continuation?.resume(returning: success)
+        continuation = nil
+    }
+
+    deinit { pollTimer?.invalidate() }
 }
