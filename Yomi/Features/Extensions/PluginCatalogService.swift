@@ -176,7 +176,9 @@ private struct MangayomiEntry: Decodable {
             return lnEntries.map { $0.toEntry() }
         }
         if let mgEntries = try? JSONDecoder().decode([MangayomiEntry].self, from: data) {
-            return mgEntries.map { $0.toEntry() }
+            return mgEntries
+                .filter { $0.sourceCodeUrl.lowercased().hasSuffix(".js") }
+                .map { $0.toEntry() }
         }
         return []
     }

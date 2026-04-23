@@ -564,14 +564,18 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Session 45 — Cloudflare Bypass (2026-04-23) ✅ Complete
+## Session 45 — Cloudflare Auto-Bypass + Plugin Fixes (2026-04-23) ✅ Complete
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | ✅ CFBypassView.swift | Full browser sheet (`UIViewRepresentable` WKWebView + URL bar). User navigates to a blocked source — CF JS challenge runs in real browser engine. `WKHTTPCookieStore` polled every 0.8s for `cf_clearance`. When detected: all domain cookies copied to `HTTPCookieStorage.shared` (URLSession picks up automatically — no JSBridge changes needed). Success banner + "Done" button enabled. Multiple domains can be bypassed in one session. |
-| 2 | ✅ SourceBrowseView bypass button | `shield.slash` toolbar button on every source browse screen. Taps open `CFBypassSheet`. On dismiss with success: `loadContent()` retries automatically. Re-enables: Comick, LightNovelPub, WuxiaWorld, any other CF-blocked source. |
+| 1 | ✅ CFBypassView.swift (manual) | Full browser sheet (`UIViewRepresentable` WKWebView + URL bar). CF JS challenge runs in real browser engine. `WKHTTPCookieStore` polled every 0.8s for `cf_clearance`. All domain cookies copied to `HTTPCookieStorage.shared` on success. Success banner + "Done" button enabled. Manual fallback — kept as shield toolbar button. |
+| 2 | ✅ CFBypassManager (auto-bypass) | Hidden 1×1pt `WKWebView` added to keyWindow for 10 seconds. `AutoBypassHelper` class polls for `cf_clearance` every 0.5s. If found → cookies copied to `HTTPCookieStorage.shared` → returns `true`. On timeout → returns `false`. No UI shown unless bypass fails. |
+| 3 | ✅ JSBridge CF detection | `injectSourceFetch`: captures `ObjectIdentifier(ctx)` before block. URLSession callback detects Cloudflare response via `CF-RAY` header or (HTTP 403 + body contains "Just a moment"/"cf-mitigated"). Stores blocked URL in module-level `_cfBlockedByContext[ctxID]`. `JSBridge.cfBlockedURL` + `clearCFBlock()` instance properties for callers. |
+| 4 | ✅ SourceBrowseView auto-bypass flow | `loadWithBypass()`: calls `loadContent()` first; if content is empty AND `cfBlockedURL` is set → auto-triggers `CFBypassManager.autoBypass(url:)`; if bypass succeeds → retries `loadContent()`. `isBypassing` overlay shown during hidden WKWebView phase. User sees "Bypassing Cloudflare…" only if blocked. `.task` changed from `loadContent()` to `loadWithBypass()`. |
+| 5 | ✅ LNReader v3 module.exports fix | `injectLNReaderAdapter` JS now checks `module.exports` / `exports.default` as fallback if `globalThis.plugin` is not set. Fixes LNReader v3.0.0 plugins (DaoNovel etc.) that export via CommonJS rather than directly setting `globalThis.plugin`. |
+| 6 | ✅ Mangayomi Dart filter | `PluginCatalogService.parseEntries` filters Mangayomi catalog entries to `.js`-only (`sourceCodeUrl.hasSuffix(".js")`). Prevents `.dart` Dart-only extensions from appearing in the catalog and being installed (they previously downloaded as `.js` but silently failed in JSC). |
 
-**Mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true` by default on `URLRequest`). No changes to JSBridge `_fetchSync` needed — bypass is transparent once cookies are stored.
+**Cookie mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true` by default on `URLRequest`). Bypass is transparent to the JS plugin pipeline once cookies are stored.
 
 **App Store submission (user actions — still pending):**
 | # | Action | Notes |
