@@ -27,7 +27,7 @@ Hand-picked, high-quality sources for manga and novels. No setup required.
 
 ### LNReader Novels
 ```
-https://raw.githubusercontent.com/LNReader/lnreader-plugins/master/dist/plugins.min.json
+https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json
 ```
 Copy this URL → Plugins → **+** → **Add Repository** → paste → **Add**
 
