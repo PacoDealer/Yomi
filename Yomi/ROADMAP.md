@@ -564,9 +564,16 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Planned: Session 45 — App Store Push + Cloudflare Bypass
+## Session 45 — Cloudflare Bypass (2026-04-23) ✅ Complete
 
-### Part A — App Store submission (user actions)
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ CFBypassView.swift | Full browser sheet (`UIViewRepresentable` WKWebView + URL bar). User navigates to a blocked source — CF JS challenge runs in real browser engine. `WKHTTPCookieStore` polled every 0.8s for `cf_clearance`. When detected: all domain cookies copied to `HTTPCookieStorage.shared` (URLSession picks up automatically — no JSBridge changes needed). Success banner + "Done" button enabled. Multiple domains can be bypassed in one session. |
+| 2 | ✅ SourceBrowseView bypass button | `shield.slash` toolbar button on every source browse screen. Taps open `CFBypassSheet`. On dismiss with success: `loadContent()` retries automatically. Re-enables: Comick, LightNovelPub, WuxiaWorld, any other CF-blocked source. |
+
+**Mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true` by default on `URLRequest`). No changes to JSBridge `_fetchSync` needed — bypass is transparent once cookies are stored.
+
+**App Store submission (user actions — still pending):**
 | # | Action | Notes |
 |---|--------|-------|
 | 1 | App icon (user delivers PNG) | 3-layer 1024×1024 for iOS 26 Liquid Glass |
@@ -574,13 +581,6 @@ All S28 P0/P1/P2/P3 items resolved.
 | 3 | App description | Drafted S33 — frame as "extensible reader with community sources" |
 | 4 | Screenshots 6.9" iPhone | Simulator, neutral content only |
 | 5 | Support URL | GitHub repo |
-
-### Part B — Cloudflare bypass (CFBypassManager)
-```swift
-// Hidden WKWebView → completes JS challenge → extracts cf_clearance cookie
-// Injected into JSBridge SOURCE.fetch for that domain
-// Re-enables: Comick, LightNovelPub, WuxiaWorld, ~5 more CF-blocked sources
-```
 
 ---
 
