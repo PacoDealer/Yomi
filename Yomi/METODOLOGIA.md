@@ -221,6 +221,14 @@ Always ask the second question.
 
 - **`CFBypassView` `initialURL` pre-fills and auto-navigates**: `makeUIView` in `CFWebViewRepresentable` calls `navigate(wv)` immediately on creation. So if `urlText` is pre-filled with a valid URL (from `bridge?.cfBlockedURL`), the WKWebView navigates there automatically when the sheet opens — no user action required.
 
+- **`JSContext.evaluateScript` drains microtasks before returning to Swift**: JSC internally calls `drainMicrotasks()` after executing a script, before returning control to the Swift caller. This means a full `async`/`await` Promise chain (compiled from TypeScript's `__awaiter`/`__generator`) resolves within a single `evaluateScript` call, provided all underlying operations are synchronous (i.e., `SOURCE._fetchSync` blocks and returns). **Consequence:** you can capture the resolved Promise value in a JS global (`__lnr_result`) and read it from Swift immediately after `evaluateScript` returns — it will always be populated. This is the correct pattern for calling LNReader v3 async plugin methods from Swift.
+
+- **`JSValue.call(withArguments:)` does NOT drain microtasks**: calling a JS function from Swift via `.call(withArguments:)` returns the raw return value of the function — which is a `Promise` object for any `async` method. Microtasks are NOT drained before `.call` returns. The old `_resolve` trick tried to read a result set by a `.then()` callback, but `.then()` is a microtask scheduled for AFTER the call returns — so Swift always read `undefined`. Only `evaluateScript` triggers the microtask drain. **Rule: never call async JS plugin methods via `.call(withArguments:)` — always use `evaluateScript` with a global result variable.**
+
+- **LNReader v3 TypeScript compiles `async/await` to `__awaiter`/`__generator`**: every `async` method in a LNReader v3 plugin returns a `Promise`, not a synchronous value. The compiled output looks like: `return __awaiter(this, void 0, void 0, function* () { yield SOURCE._fetchSync(...); return parsedItems; })`. Without the `evaluateScript` drain trick, every plugin method appears to return `undefined` to Swift. The correct `callPluginMethod` helper injects: `var __r = plugin['methodName'](...); if (__r && typeof __r.then === 'function') { __r.then(function(v) { __lnr_result = v; }); } else { __lnr_result = __r; }` — then reads `__lnr_result` after `evaluateScript` completes.
+
+- **`JSContextDrainMicrotasks` is not exported in the iOS JavaScriptCore SDK**: the C function `JSContextDrainMicrotasks(JSContextRef)` exists on macOS (confirmed in TBD files) but is absent from the iOS simulator and device TBD files. Attempting `@_silgen_name("JSContextDrainMicrotasks")` in Swift 6 fails at link time with "undefined symbol". Do NOT attempt to call it on iOS — use `evaluateScript` instead, which drains internally.
+
 ## Technical learnings — S44 JavaScript lexical scope in JSC
 
 ### `const`/`let` at top-level are NOT on globalThis
