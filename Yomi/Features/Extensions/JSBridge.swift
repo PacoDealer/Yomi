@@ -116,7 +116,7 @@ final class JSBridge {
     nonisolated private static func injectLNReaderAdapter(into ctx: JSContext) {
         ctx.evaluateScript("""
         (function(global) {
-            // LNReader v3 compiled plugins often export via module.exports (CommonJS)
+            // LNReader v3 compiled plugins export via module.exports (CommonJS)
             // instead of setting globalThis.plugin directly.
             if (!global.plugin) {
                 var _me = (typeof module !== 'undefined' && module && module.exports) ? module.exports : null;
@@ -130,31 +130,12 @@ final class JSBridge {
             var p = global.plugin;
             if (!p || typeof p !== 'object') return;
 
-            // _resolve: flush pending Promise microtasks synchronously.
-            // Works because fetchApi wraps SOURCE._fetchSync (a DispatchSemaphore-based sync call),
-            // so the Promise chain is already resolved when .then() is called.
-            function _resolve(val) {
-                if (val && typeof val.then === 'function') {
-                    var result;
-                    val.then(function(v) { result = v; });
-                    return result;
-                }
-                return val;
-            }
-
             // LNReader uses parseNovelAndChapters; Yomi bridge calls parseNovel.
-            // Add parseNovel alias if only the LNReader variant exists.
             if (typeof p.parseNovelAndChapters === 'function' && typeof p.parseNovel !== 'function') {
-                var _pnac = p.parseNovelAndChapters.bind(p);
-                p.parseNovel = function(path) { return _resolve(_pnac(path)); };
+                p.parseNovel = function(path) { return p.parseNovelAndChapters(path); };
             }
-
-            // Wrap all async plugin methods to appear synchronous to the Swift bridge.
-            ['popularNovels', 'latestUpdates', 'searchNovels', 'parseNovel', 'parseChapter'].forEach(function(name) {
-                if (typeof p[name] !== 'function') return;
-                var orig = p[name].bind(p);
-                p[name] = function() { return _resolve(orig.apply(null, arguments)); };
-            });
+            // Note: async wrapping via _resolve is NOT done here.
+            // Swift callers use evaluateScript + JSContextDrainMicrotasks to flush Promises.
         })(this);
         """)
     }
@@ -1299,28 +1280,51 @@ final class JSBridge {
 
     // MARK: - Plugin API — Novel (Format B)
 
+    // MARK: - Async-safe plugin caller
+    //
+    // LNReader v3 plugins compile TypeScript async/await to __awaiter/__generator (Promise-based).
+    // JSValue.call(withArguments:) returns the Promise immediately — `result` in our old _resolve
+    // trick was set after we already returned `undefined` to Swift.
+    //
+    // Fix: use evaluateScript so JSC's internal drainMicrotasks() fires at the end of the call.
+    // The entire async chain (fetchApi → response.text → parseNovels) resolves in that drain
+    // because SOURCE._fetchSync is synchronous — no real async I/O, just Promise wrappers.
+    // After evaluateScript returns, __lnr_result holds the resolved value.
+
+    nonisolated private func callPluginMethod(_ name: String, argGlobals: [String]) {
+        let argList = argGlobals.joined(separator: ", ")
+        context.evaluateScript("""
+        __lnr_result = undefined;
+        (function() {
+            try {
+                var __r = plugin['\(name)'](\(argList));
+                if (__r && typeof __r.then === 'function') {
+                    __r.then(function(v) { __lnr_result = v; }, function() {});
+                } else { __lnr_result = __r; }
+            } catch(e) { console.error('plugin.\(name) error: ' + e); }
+        })();
+        """)
+        // evaluateScript internally calls JSC's drainMicrotasks() before returning,
+        // so __lnr_result is guaranteed to be set when we read it below.
+    }
+
     nonisolated func popularNovels(page: Int) -> [NovelItem] {
-        let result = context
-            .objectForKeyedSubscript("plugin")?
-            .objectForKeyedSubscript("popularNovels")?
-            .call(withArguments: [page, JSValue(nullIn: context) as Any])
-        return JSBridge.parseNovelItems(result)
+        context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
+        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "null"])
+        return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
     }
 
     nonisolated func searchNovels(query: String, page: Int) -> [NovelItem] {
-        let result = context
-            .objectForKeyedSubscript("plugin")?
-            .objectForKeyedSubscript("searchNovels")?
-            .call(withArguments: [query, page])
-        return JSBridge.parseNovelItems(result)
+        context.setObject(query as AnyObject, forKeyedSubscript: "__lnr_q" as NSString)
+        context.setObject(page as AnyObject,  forKeyedSubscript: "__lnr_p" as NSString)
+        callPluginMethod("searchNovels", argGlobals: ["__lnr_q", "__lnr_p"])
+        return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
     }
 
     nonisolated func parseNovel(path: String) -> SourceNovel? {
-        let result = context
-            .objectForKeyedSubscript("plugin")?
-            .objectForKeyedSubscript("parseNovel")?
-            .call(withArguments: [path])
-        guard let dict = result?.toDictionary() as? [String: Any] else { return nil }
+        context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+        callPluginMethod("parseNovel", argGlobals: ["__lnr_path"])
+        guard let dict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any] else { return nil }
         let chapters: [JSNovelChapter] = (dict["chapters"] as? [[String: Any]] ?? []).compactMap {
             guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
             return JSNovelChapter(
@@ -1342,11 +1346,9 @@ final class JSBridge {
     }
 
     nonisolated func parseChapter(path: String) -> String {
-        let result = context
-            .objectForKeyedSubscript("plugin")?
-            .objectForKeyedSubscript("parseChapter")?
-            .call(withArguments: [path])
-        return result?.toString() ?? ""
+        context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+        callPluginMethod("parseChapter", argGlobals: ["__lnr_path"])
+        return context.objectForKeyedSubscript("__lnr_result")?.toString() ?? ""
     }
 
     // MARK: - Parsers
