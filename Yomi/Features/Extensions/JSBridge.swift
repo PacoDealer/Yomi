@@ -1163,6 +1163,51 @@ final class JSBridge {
                 } else if (name === '@libs/defaultCover') {
                     mod.exports = { defaultCover: '' };
 
+                } else if (name === '@libs/fetch') {
+                    // LNReader v3 fetch helper — plugin calls n.fetchApi(url, opts)
+                    mod.exports = {
+                        fetchApi: function(url, options) {
+                            var method = (options && options.method) ? options.method.toUpperCase() : 'GET';
+                            var body   = (options && options.body)   ? options.body   : '';
+                            var hdrs   = (options && options.headers) ? JSON.stringify(options.headers) : '{}';
+                            var text = SOURCE._fetchSync(url, method, body, hdrs);
+                            return Promise.resolve({
+                                ok: true,
+                                status: 200,
+                                text: function() { return Promise.resolve(text); },
+                                json: function() { return Promise.resolve(JSON.parse(text)); }
+                            });
+                        }
+                    };
+
+                } else if (name === '@libs/novelStatus') {
+                    mod.exports = {
+                        NovelStatus: { Ongoing: 'Ongoing', Completed: 'Completed', Unknown: 'Unknown' }
+                    };
+
+                } else if (name === 'dayjs') {
+                    // Minimal dayjs stub — supports subtract/add/format used by LNReader date parsing
+                    mod.exports = (function() {
+                        function Dayjs(d) { this._d = d ? new Date(d) : new Date(); }
+                        var MS = { day: 864e5, week: 6048e5, month: 2592e6, year: 31536e6 };
+                        Dayjs.prototype.subtract = function(n, u) { return new Dayjs(this._d.getTime() - n * (MS[u] || 864e5)); };
+                        Dayjs.prototype.add      = function(n, u) { return new Dayjs(this._d.getTime() + n * (MS[u] || 864e5)); };
+                        Dayjs.prototype.format   = function(fmt) {
+                            var d = this._d;
+                            if (!fmt) return d.toISOString();
+                            var p = function(n) { return n < 10 ? '0' + n : '' + n; };
+                            return fmt.replace('YYYY', d.getFullYear()).replace('MM', p(d.getMonth()+1))
+                                      .replace('DD', p(d.getDate())).replace('HH', p(d.getHours()))
+                                      .replace('mm', p(d.getMinutes())).replace('ss', p(d.getSeconds()));
+                        };
+                        Dayjs.prototype.toDate  = function() { return this._d; };
+                        Dayjs.prototype.valueOf = function() { return this._d.getTime(); };
+                        Dayjs.prototype.isValid = function() { return !isNaN(this._d.getTime()); };
+                        function dayjs(d) { return new Dayjs(d); }
+                        dayjs.extend = function() {};
+                        return dayjs;
+                    })();
+
                 } else {
                     // Unknown module — return empty exports, do not crash
                     mod.exports = {};

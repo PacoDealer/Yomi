@@ -574,8 +574,14 @@ All S28 P0/P1/P2/P3 items resolved.
 | 4 | ✅ SourceBrowseView auto-bypass flow | `loadWithBypass()`: calls `loadContent()` first; if content is empty AND `cfBlockedURL` is set → auto-triggers `CFBypassManager.autoBypass(url:)`; if bypass succeeds → retries `loadContent()`. `isBypassing` overlay shown during hidden WKWebView phase. User sees "Bypassing Cloudflare…" only if blocked. `.task` changed from `loadContent()` to `loadWithBypass()`. |
 | 5 | ✅ LNReader v3 module.exports fix | `injectLNReaderAdapter` JS now checks `module.exports` / `exports.default` as fallback if `globalThis.plugin` is not set. Fixes LNReader v3.0.0 plugins (DaoNovel etc.) that export via CommonJS rather than directly setting `globalThis.plugin`. |
 | 6 | ✅ Mangayomi Dart filter | `PluginCatalogService.parseEntries` filters Mangayomi catalog entries to `.js`-only (`sourceCodeUrl.hasSuffix(".js")`). Prevents `.dart` Dart-only extensions from appearing in the catalog and being installed (they previously downloaded as `.js` but silently failed in JSC). |
+| 7 | ✅ `@libs/fetch` require shim | Added `@libs/fetch` to `injectRequireShim`. Returns `{ fetchApi: fn }` where `fn` wraps `SOURCE._fetchSync` — matching LNReader v3 usage `(0, n.fetchApi)(url, opts)`. Previously shim returned `{}` causing `TypeError: n.fetchApi is not a function`. |
+| 8 | ✅ `@libs/novelStatus` require shim | Added `@libs/novelStatus` stub: `{ NovelStatus: { Ongoing, Completed, Unknown } }`. LNReader v3 novel plugins use these constants for status display. Missing stub caused undefined reference at runtime. |
+| 9 | ✅ `dayjs` require shim | Added lightweight `dayjs` stub to `injectRequireShim`. Implements `.subtract(n, unit)`, `.add(n, unit)`, `.format(fmt)`, `.isValid()`. Units: day/week/month/year. Used by LNReader v3 plugins for date formatting ("3 days ago" style). |
+| 10 | ✅ CFBypassView URL pre-fill | `CFBypassView` now accepts `initialURL: String` parameter (via `init` to properly initialize `@State var urlText`). BrowseView passes `bridge?.cfBlockedURL ?? "https://"` — so the manual bypass sheet opens directly on the blocked domain, not a blank `https://` field the user must type into. |
 
 **Cookie mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true` by default on `URLRequest`). Bypass is transparent to the JS plugin pipeline once cookies are stored.
+
+**Mangapill note:** `960321322.js` contains literally "404: Not Found" — broken download when first installed. Not fixable by code; user must uninstall it. Mangapill only has a Dart extension in Mangayomi catalog — no JS version exists.
 
 **App Store submission (user actions — still pending):**
 | # | Action | Notes |

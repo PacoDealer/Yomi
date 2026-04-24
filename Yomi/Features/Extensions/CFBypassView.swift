@@ -8,12 +8,19 @@ import UIKit
 /// Once cf_clearance is detected for a domain, cookies are copied into URLSession shared
 /// storage so that JSBridge SOURCE.fetch picks them up automatically on the next load.
 struct CFBypassView: View {
+    var initialURL: String
     var onSuccess: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var urlText   = "https://"
+    @State private var urlText:   String
     @State private var committed = false
     @State private var bypassed: [String] = []
+
+    init(initialURL: String = "https://", onSuccess: @escaping () -> Void) {
+        self.initialURL = initialURL
+        self.onSuccess  = onSuccess
+        _urlText = State(initialValue: initialURL)
+    }
 
     var body: some View {
         NavigationStack {
