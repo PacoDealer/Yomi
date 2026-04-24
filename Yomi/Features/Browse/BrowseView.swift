@@ -762,7 +762,7 @@ struct SourceBrowseView: View {
             }
         }
         .sheet(isPresented: $showCFBypass) {
-            CFBypassView {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
                 Task { await loadContent() }
             }
         }
