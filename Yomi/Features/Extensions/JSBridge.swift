@@ -2,7 +2,7 @@ import Foundation
 import JavaScriptCore
 
 // Module-level CF-block tracking — keyed by JSContext identity, guarded by _cfLock.
-nonisolated(unsafe) private let _cfLock = NSLock()
+nonisolated private let _cfLock = NSLock()
 nonisolated(unsafe) private var _cfBlockedByContext: [ObjectIdentifier: String] = [:]
 
 // MARK: - Novel Result Types
@@ -527,12 +527,180 @@ final class JSBridge {
     // MARK: - Shims
 
     nonisolated private static func injectShims(into ctx: JSContext) {
+        injectSyncPromise(into: ctx)   // Must be first — replaces global Promise before any plugin code runs
         injectConsole(into: ctx)
         injectStorage(into: ctx)
         injectSourceFetch(into: ctx)
         injectCheerio(into: ctx)
         injectRequireShim(into: ctx)
         injectMangayomiShims(into: ctx)
+    }
+
+    /// Replaces the global Promise with a fully-synchronous implementation.
+    ///
+    /// Why: All SOURCE._fetchSync calls block synchronously (DispatchSemaphore). The resolved values
+    /// are therefore available immediately — there is no actual async I/O. However, LNReader v3
+    /// plugins compile async/await to __awaiter/__generator which chains .then() callbacks, and
+    /// Mangayomi/Paperback adapters use a _resolve() helper that calls .then() and reads the result.
+    /// Both patterns assume .then() callbacks fire synchronously when the Promise is already resolved.
+    /// The native JSC Promise queues callbacks as microtasks (fired asynchronously), so these patterns
+    /// always return undefined. Replacing Promise with a synchronous version fixes all three formats
+    /// without requiring any microtask drain mechanism.
+    nonisolated private static func injectSyncPromise(into ctx: JSContext) {
+        ctx.evaluateScript(#"""
+        (function(global) {
+            'use strict';
+
+            function SyncPromise(executor) {
+                this._state = 'pending';
+                this._value = undefined;
+                this._callbacks = [];
+                var self = this;
+
+                function resolve(value) {
+                    if (self._state !== 'pending') return;
+                    // Unwrap thenables (handles Promise<Promise<T>> and chained returns)
+                    if (value !== null && value !== undefined && typeof value.then === 'function') {
+                        try { value.then(resolve, reject); } catch(e) { reject(e); }
+                        return;
+                    }
+                    self._state = 'fulfilled';
+                    self._value = value;
+                    var cbs = self._callbacks;
+                    self._callbacks = [];
+                    for (var i = 0; i < cbs.length; i++) {
+                        var cb = cbs[i];
+                        if (typeof cb.onFulfilled === 'function') {
+                            try { cb.resolve(cb.onFulfilled(value)); }
+                            catch(e) { cb.reject(e); }
+                        } else { cb.resolve(value); }
+                    }
+                }
+
+                function reject(reason) {
+                    if (self._state !== 'pending') return;
+                    self._state = 'rejected';
+                    self._value = reason;
+                    var cbs = self._callbacks;
+                    self._callbacks = [];
+                    for (var i = 0; i < cbs.length; i++) {
+                        var cb = cbs[i];
+                        if (typeof cb.onRejected === 'function') {
+                            try { cb.resolve(cb.onRejected(reason)); }
+                            catch(e) { cb.reject(e); }
+                        } else { cb.reject(reason); }
+                    }
+                }
+
+                try { executor(resolve, reject); } catch(e) { reject(e); }
+            }
+
+            SyncPromise.prototype.then = function(onFulfilled, onRejected) {
+                var self = this;
+                var resolveChild, rejectChild;
+                var child = new SyncPromise(function(res, rej) { resolveChild = res; rejectChild = rej; });
+
+                if (self._state === 'fulfilled') {
+                    if (typeof onFulfilled === 'function') {
+                        try { resolveChild(onFulfilled(self._value)); }
+                        catch(e) { rejectChild(e); }
+                    } else { resolveChild(self._value); }
+                } else if (self._state === 'rejected') {
+                    if (typeof onRejected === 'function') {
+                        try { resolveChild(onRejected(self._value)); }
+                        catch(e) { rejectChild(e); }
+                    } else { rejectChild(self._value); }
+                } else {
+                    self._callbacks.push({
+                        onFulfilled: onFulfilled, onRejected: onRejected,
+                        resolve: resolveChild, reject: rejectChild
+                    });
+                }
+                return child;
+            };
+
+            SyncPromise.prototype.catch = function(onRejected) {
+                return this.then(undefined, onRejected);
+            };
+
+            SyncPromise.prototype.finally = function(onFinally) {
+                return this.then(
+                    function(v) { if (typeof onFinally === 'function') onFinally(); return v; },
+                    function(r) { if (typeof onFinally === 'function') onFinally(); throw r; }
+                );
+            };
+
+            SyncPromise.resolve = function(value) {
+                if (value instanceof SyncPromise) return value;
+                return new SyncPromise(function(resolve) { resolve(value); });
+            };
+
+            SyncPromise.reject = function(reason) {
+                return new SyncPromise(function(_, reject) { reject(reason); });
+            };
+
+            SyncPromise.all = function(promises) {
+                if (!promises || promises.length === 0) return SyncPromise.resolve([]);
+                var results = new Array(promises.length);
+                var remaining = promises.length;
+                return new SyncPromise(function(resolve, reject) {
+                    for (var i = 0; i < promises.length; i++) {
+                        (function(idx) {
+                            SyncPromise.resolve(promises[idx]).then(
+                                function(v) { results[idx] = v; if (--remaining === 0) resolve(results); },
+                                reject
+                            );
+                        })(i);
+                    }
+                });
+            };
+
+            SyncPromise.allSettled = function(promises) {
+                if (!promises || promises.length === 0) return SyncPromise.resolve([]);
+                var results = new Array(promises.length);
+                var remaining = promises.length;
+                return new SyncPromise(function(resolve) {
+                    for (var i = 0; i < promises.length; i++) {
+                        (function(idx) {
+                            SyncPromise.resolve(promises[idx]).then(
+                                function(v) { results[idx] = {status:'fulfilled',value:v}; if (--remaining===0) resolve(results); },
+                                function(r) { results[idx] = {status:'rejected',reason:r}; if (--remaining===0) resolve(results); }
+                            );
+                        })(i);
+                    }
+                });
+            };
+
+            SyncPromise.race = function(promises) {
+                return new SyncPromise(function(resolve, reject) {
+                    if (!promises || promises.length === 0) return;
+                    for (var i = 0; i < promises.length; i++) {
+                        SyncPromise.resolve(promises[i]).then(resolve, reject);
+                    }
+                });
+            };
+
+            SyncPromise.any = function(promises) {
+                if (!promises || promises.length === 0)
+                    return SyncPromise.reject(new Error('All promises were rejected'));
+                var errors = new Array(promises.length);
+                var remaining = promises.length;
+                return new SyncPromise(function(resolve, reject) {
+                    for (var i = 0; i < promises.length; i++) {
+                        (function(idx) {
+                            SyncPromise.resolve(promises[idx]).then(resolve, function(e) {
+                                errors[idx] = e;
+                                if (--remaining === 0) reject(errors);
+                            });
+                        })(i);
+                    }
+                });
+            };
+
+            global.Promise = SyncPromise;
+
+        })(this);
+        """#)
     }
 
     /// console.log / warn / error → Swift print()
