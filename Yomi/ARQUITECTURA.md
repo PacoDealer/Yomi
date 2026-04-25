@@ -63,12 +63,16 @@ Yomi/
 │   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdatesRow
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift     # First-launch full-screen card (S19 — new); guides user to Browse catalog; gated by AppSettings.hasSeenOnboarding
+│   ├── Backup/
+│   │   └── TachiyomiBackupParser.swift  # Hand-written protobuf3 decoder + gzip decompressor (libz via bridging header). ProtoReader class. Decodes BackupManga + BackupChapter matching Mihon proto schema. Source ID map [UInt64: String]. Unmapped sources → "tachiyomi_{id}" placeholder.
 │   └── Extensions/
-│       ├── JSBridge.swift           # JavaScriptCore bridge (Format A + B, real cheerio shim, require() shim, searchManga, POST support)
+│       ├── JSBridge.swift           # JavaScriptCore bridge — Formats A/B/C/D; shims; require(); searchManga; POST support; Cloudflare detection
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
-│       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache()
+│       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache(); multi-format parser (Yomi/LNReader/Mangayomi)
 │       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
-│       └── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
+│       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
+│       ├── CFBypassManager.swift    # Cloudflare auto-bypass: hidden 1×1pt WKWebView attached to keyWindow; polls httpCookieStore every 0.5s; copies cf_clearance to HTTPCookieStorage.shared on success; 10s timeout
+│       └── CFBypassView.swift       # Manual CF bypass sheet: full UIViewRepresentable WKWebView + URL bar; copies cookies to HTTPCookieStorage.shared; opened by shield toolbar button in SourceBrowseView
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 36 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon, libraryDisplayMode ("grid"/"list"), suwayomiURL.
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
@@ -107,7 +111,7 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v13_custom_cover)
+### Current tables (migration v14_manga_notes — last migration as of S47)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
@@ -235,6 +239,15 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `scheduleChapterNotification(mangaTitle:newCount:)` — immediate local notification
 - Trigger: MangaDetailView, first library save, only if `!hasRequestedNotifications`
 
+### CFBypassManager (Yomi/Features/Extensions/CFBypassManager.swift)
+Singleton-style `actor` (or class). Provides Cloudflare bypass in two modes:
+- **Auto-bypass** (`autoBypass(url:) async → Bool`): attaches a hidden 1×1pt WKWebView to keyWindow for up to 10s. Polls `httpCookieStore` every 0.5s for `cf_clearance`. On success: copies all domain cookies to `HTTPCookieStorage.shared` → returns `true`. On timeout → returns `false`. No UI shown.
+- **Manual bypass**: `CFBypassView` sheet with real WKWebView + URL bar. User navigates the CF challenge. `cf_clearance` copy happens on success.
+
+**Cookie mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true`). Bypass is transparent to JSBridge SOURCE._fetchSync once cookies are stored.
+
+**WKWebView delegate retention:** WKWebView holds navigationDelegate as `weak`. The `AutoBypassHelper` class holds itself alive via `withCheckedContinuation` — the class instance is retained for the duration of the continuation's lifetime.
+
 ### PluginCatalogService (Yomi/Features/Extensions/PluginCatalogService.swift)
 `@Observable final class`, accessed via `PluginCatalogService.shared`
 - `entries: [PluginCatalogEntry]` — decoded catalog from remote index.json
@@ -290,6 +303,33 @@ plugin.parseChapter(chapterPath)      → String (chapter HTML)
 plugin.searchNovels(searchTerm, page) → [{name, path, cover}]
 ```
 
+### Format D — Mangayomi JS (implemented S44)
+Class-based API, async HTTP via injected `Client` class. `const source = {...}` at top-level (lexical binding — NOT on globalThis).
+```javascript
+const source = {
+    getPopular(page)              → Promise<{ list: [...], hasNextPage: bool }>
+    getLatest(page)               → Promise<{ list: [...], hasNextPage: bool }>
+    search(query, page, filters)  → Promise<{ list: [...], hasNextPage: bool }>
+    getDetail(url)                → Promise<{ name, author, status, chapters: [...] }>
+    getPageList(chapterUrl)       → Promise<[urlString]>
+}
+// list item: { url, name/title, link/image }
+// chapter: { url, name, scanlator }
+```
+HTTP client injected by JSBridge (wraps SOURCE._fetchSync, returns SyncPromise):
+```javascript
+const client = new Client();
+client.get(url, headers)          → Promise<{ body: string, status: int }>
+client.post(url, headers, body)   → Promise<{ body: string, status: int }>
+```
+Also injected: `Document(html)`, `Element.select(sel)`, `Element.selectFirst(sel)`, `String.substringAfter/Before/Between`, `Preferences.get/set`.
+
+Detection: `typeof source !== 'undefined' && source.getPopular && source.getDetail` → sets `global.__mangayomiSource`. `JSBridge.isMangayomiPlugin` reads this flag.
+
+Mapping in `injectMangayomiAdapter`: `getPopular→getMangaList`, `getLatest→getLatestManga`, `search→searchManga`, `getDetail→getChapterList`, `getPageList→getPageList`.
+
+**Note:** `const` at top-level JS is a lexical binding — NOT on `globalThis`. Use `typeof source !== 'undefined'` (identifier lookup, walks lexical scope) NOT `global.source` (only checks property bag).
+
 ### Automatic format detection
 ```swift
 var isLNReaderPlugin: Bool {
@@ -297,49 +337,60 @@ var isLNReaderPlugin: Bool {
            .objectForKeyedSubscript("popularNovels")
            .isObject
 }
+var isMangayomiPlugin: Bool {
+    let flag = context.objectForKeyedSubscript("__mangayomiSource")
+    return !(flag?.isUndefined ?? true) && !(flag?.isNull ?? true)
+}
+var isPaperbackPlugin: Bool {
+    let flag = context.objectForKeyedSubscript("__pbSourceId")
+    return !(flag?.isUndefined ?? true) && !(flag?.isNull ?? true)
+}
 ```
 
 ### Shims injected by JSBridge
-| Shim | Implementation | Status |
-|------|---------------|--------|
-| `SOURCE.fetch(url, opts)` | URLSession + DispatchSemaphore (blocking, 30s timeout) | ✅ Functional |
-| `console.log/warn/error` | Swift print() | ✅ Functional |
-| `localStorage` / `sessionStorage` | In-memory JS object with get/set/removeItem | ✅ Functional |
-| `cheerio.load(html)` | Recursive HTML parser + CSS selector engine in pure JS | ✅ Functional (since S6) |
-| `require(name)` | Module cache shim: cheerio→global, he inline, node-fetch/axios→SOURCE._fetchSync, unknown→{}; injects module/exports/process | ✅ Functional (since S18) |
 
-SOURCE.fetch supports GET and POST:
-```javascript
-SOURCE.fetch(url)  // GET by default
-SOURCE.fetch(url, { method: "POST", body: "...", headers: {...} })  // POST
-```
-`_fetchSync` receives 4 parameters: `(url, method, body, headersJSON)`
-Swift handler merges default headers (iPhone Safari User-Agent) with plugin headers.
-Plugin headers take precedence over defaults.
+Injection order: SyncPromise → console → storage → SOURCE.fetch → Web APIs → cheerio → require() → Mangayomi shims → [plugin eval] → Paperback adapter → LNReader adapter → Mangayomi adapter
 
-### require() shim detail
-Injected via `injectRequireShim(into: ctx)` as an IIFE before plugin evaluation.
-```javascript
-(function(global) {
-    var __moduleCache = {};
-    function require(name) {
-        if (__moduleCache[name]) return __moduleCache[name];
-        var mod = { exports: {} };
-        if      (name === 'cheerio')       { mod.exports = global.cheerio || {}; }
-        else if (name === 'he')            { /* inline entity decode/encode */ }
-        else if (name === 'node-fetch' || name === 'node-fetch/src/index.js') { /* SOURCE._fetchSync wrapper */ }
-        else if (name === 'axios')         { /* get/post via SOURCE._fetchSync */ }
-        else                              { mod.exports = {}; }
-        __moduleCache[name] = mod.exports;
-        return mod.exports;
-    }
-    global.require = require;
-    global.module  = { exports: {} };
-    global.exports = global.module.exports;
-    global.process = { env: { NODE_ENV: 'production' }, version: 'v18.0.0',
-                       platform: 'ios', versions: {} };
-})(this);
-```
+| Shim | Function | Status |
+|------|----------|--------|
+| `SyncPromise` | Replaces global `Promise` with fully synchronous implementation. `.then()` fires immediately when Promise is already resolved. Required because `SOURCE._fetchSync` blocks synchronously — native JSC microtask queue never drains mid-call. | ✅ S45 |
+| `SOURCE._fetchSync(url, method, body, headersJSON)` | URLSession + DispatchSemaphore (blocking, 30s timeout). Default headers: iPhone Safari UA + Accept + Accept-Language. Plugin headers override defaults. | ✅ |
+| `SOURCE.fetch(url, opts)` | JS wrapper: reads opts.method/body/headers, calls `SOURCE._fetchSync`. Supports GET + POST. | ✅ |
+| `fetchApi(url, opts)` (global) | LNReader-compatible global. Wraps SOURCE._fetchSync. Returns SyncPromise `{ok, status, text(), json()}`. Detects FormData body and serializes as `application/x-www-form-urlencoded`. | ✅ S45 |
+| `console.log/warn/error` | Routes to Swift `print()`. | ✅ |
+| `localStorage` / `sessionStorage` | In-memory JS object with getItem/setItem/removeItem/clear. | ✅ |
+| `URL(input, base)` | Web API URL constructor with `_init`, `_resolve`. Supports relative URLs. `.protocol`, `.host`, `.pathname`, `.search`, `.hash`, `.href`. | ✅ S44 |
+| `URLSearchParams(init)` | Parses query string. `.append`, `.get`, `.set`, `.toString`. | ✅ S44 |
+| `FormData()` | Web API FormData constructor. `_entries` array. `.append`, `.get`, `.has`, `.set`, `.toString` (urlencoded). Used by 52+ LNReader Madara/WordPress plugins. | ✅ S47 |
+| `cheerio.load(html)` | Recursive HTML parser + CSS selector engine in pure JS. tag/.class/#id/[attr]/descendant/child(>)/comma-list selectors. Methods: text/html/attr/find/each/map/first/last/eq/toArray/parent/children/is/hasClass/filter/next/prev. `$()` handles raw nodes + wrap objects. | ✅ S6, updated S46 |
+| `Plugin.PluginBase` | Stub for TypeScript `implements Plugin.PluginBase` pattern. | ✅ |
+| `require(name)` | Module cache shim. See table below. | ✅ S18, updated S45/S47 |
+
+**Cloudflare detection:** `SOURCE._fetchSync` reads `CF-RAY` header and (HTTP 403 + "Just a moment"/"cf-mitigated" body). Stores blocked URL per JSContext in `_cfBlockedByContext[ctxID]`. `JSBridge.cfBlockedURL` exposes it. `SourceBrowseView.loadWithBypass()` retries via `CFBypassManager.autoBypass(url:)` if blocked.
+
+### require() shim — full module table
+Injected via `injectRequireShim(into: ctx)` as an IIFE. Module cache prevents double-init.
+
+| Module | Returns | Notes |
+|--------|---------|-------|
+| `cheerio` | `global.cheerio` | Routes to the injected cheerio shim |
+| `he` | `{ decode(str), encode(str) }` | Inline HTML entity decoder (named + numeric + hex) |
+| `node-fetch` / `node-fetch/src/index.js` | `fetch(url, opts)` function | Wraps SOURCE._fetchSync, returns SyncPromise |
+| `axios` | `{ get(url, config), post(url, data, config) }` | Wraps SOURCE._fetchSync |
+| `paperback-extensions-common` | `{ Source class, App type-constructors }` | RequestManager wraps SOURCE._fetchSync |
+| `@libs/storage` | `{ storage: { get(k), set(k,v) } }` | In-memory key-value, persists per plugin lifetime |
+| `@libs/filterInputs` | `{ FilterTypes: {}, Filters: {} }` | Stub — filter UI not rendered in Yomi |
+| `@libs/defaultCover` | `{ defaultCover: '' }` | Empty string default |
+| `@libs/fetch` | `{ fetchApi(url, opts) }` | LNReader v3 fetch helper. Detects FormData body → urlencoded. |
+| `@libs/novelStatus` | `{ NovelStatus: { Ongoing, Completed, Unknown, Hiatus, Cancelled } }` | Status string constants |
+| `@libs/isAbsoluteUrl` | `function(url) → bool` | Returns true if url contains `://` at position 1–19 |
+| `@/types/constants` | `{}` | NovelFire only; compiled output rebinds the variable immediately |
+| `@libs/aes` | `{}` | WTR-LAB only; returns empty object (WTR-LAB plugin untested) |
+| `dayjs` | `dayjs(d)` | Minimal stub: `.subtract`, `.add`, `.format(fmt)`, `.isValid`, `.valueOf`. Units: day/week/month/year |
+| `htmlparser2` | `{ Parser, parseDocument }` | SAX-style parser: onopentag/onclosetag/ontext/onend callbacks. Used by 33 LNReader plugins. |
+| *(unknown)* | `{}` | Empty exports — never crash on unknown module |
+
+`global.require`, `global.module`, `global.exports`, `global.process` all injected.
 
 ## Firebase Hosting
 
@@ -508,7 +559,7 @@ claude mcp add XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp --scope user   #
 ### Plugins
 | Plugin | Installed | Purpose |
 |--------|-----------|---------|
-| swift-lsp@claude-plugins-official | v1.0.0 (since S13) | Real-time Swift diagnostics |
+| swift-lsp@claude-plu gins-official | v1.0.0 (since S13) | Real-time Swift diagnostics |
 
 Install: `/plugin install swift-lsp@claude-plugins-official` inside a Claude Code session.
 The `/plugin` marketplace system is real. Check with `/help` inside Claude Code.
@@ -545,12 +596,14 @@ Rule: SourceKit errors are noise. xcodebuild errors are signal.
 
 ## Plugin format compatibility matrix
 
-| Format | Description | Compatibility | Sources |
-|--------|-------------|---------------|---------|
-| **Yomi Format A** | Global JS functions: getMangaList, getChapterList, getPageList, searchManga | Native | MangaDex, Comick, Asura, AquaManga |
-| **Yomi Format B (LNReader)** | `plugin` class: popularNovels, parseNovel, parseChapter, searchNovels | Native | Royal Road, ScribbleHub, NovelFire |
-| **Paperback** | TypeScript → esbuild JS. `Source` class export. getHomePageSections, getSearchResults, getChapterDetails | JSBridge shim implemented (S24) | ~100 iOS sources |
-| **Keiyoushi / Tachiyomi** | Kotlin → Android APK. Inter-process via PackageManager. | ❌ Impossible on iOS | N/A |
+| Format | Description | Compatibility | Sources available |
+|--------|-------------|---------------|-------------------|
+| **Yomi Format A** | Global JS functions: getMangaList, getChapterList, getPageList, searchManga, getLatestManga (optional) | ✅ Native | ~15 (Firebase catalog) |
+| **Yomi Format B (LNReader)** | `plugin` class: `popularNovels(page, opts)`, parseNovel, parseChapter, searchNovels. CommonJS or globalThis export. | ✅ Native | 500+ novel sources (lnreader-plugins repo) |
+| **Paperback** | TypeScript → esbuild JS. `Source` class export via `paperback-extensions-common`. getHomePageSections, getSearchResults, getChapterDetails | ✅ Shim implemented S24. `__pbSourceId` flag. | ~100 manga sources |
+| **Mangayomi JS** | `const source = { getPopular, getLatest, search, getDetail, getPageList }`. Client class for HTTP. | ✅ Shim implemented S44. `__mangayomiSource` flag. | 195+ manga+novel sources |
+| **Suwayomi** | REST/GraphQL server bridge. Not a JS format — Yomi connects via HTTP to a self-hosted JVM server running keiyoushi APK extensions. | ✅ Integrated S41 (`SuwayomiService.swift`) | 500–1000+ keiyoushi sources |
+| **Keiyoushi / Tachiyomi direct** | Kotlin → Android APK. Inter-process via Android PackageManager. | ❌ Impossible on iOS directly | N/A |
 | **Aidoku** | Swift → WebAssembly (.aix). WasmSwift runtime. | ❌ Requires WASM runtime | N/A |
 
 ### Paperback shim design (implemented S24)
