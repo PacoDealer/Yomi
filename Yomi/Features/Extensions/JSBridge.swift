@@ -1182,13 +1182,18 @@ final class JSBridge {
                         return wrap(found);
                     },
                     each: function(fn) {
-                        // Real cheerio passes (index, rawDomNode); fn can then do $(node) to wrap.
-                        for (var i = 0; i < nodes.length; i++) fn.call(nodes[i], i, nodes[i]);
+                        for (var i = 0; i < nodes.length; i++) {
+                            var w = wrap([nodes[i]]);
+                            fn.call(w, i, w);
+                        }
                         return obj;
                     },
                     map: function(fn) {
                         var r = [];
-                        for (var i = 0; i < nodes.length; i++) r.push(fn.call(nodes[i], i, nodes[i]));
+                        for (var i = 0; i < nodes.length; i++) {
+                            var w = wrap([nodes[i]]);
+                            r.push(fn.call(w, i, w));
+                        }
                         return r;
                     },
                     first:   function() { return wrap(nodes.length ? [nodes[0]] : []); },
