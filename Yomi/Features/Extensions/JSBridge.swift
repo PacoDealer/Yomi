@@ -623,8 +623,32 @@ final class JSBridge {
                 }).join('&');
             };
 
+            // FormData — Madara/WordPress multisrc family (52+ LNReader plugins use this for AJAX POSTs)
+            function FormData() { this._entries = []; }
+            FormData.prototype.append = function(k, v) { this._entries.push([String(k), String(v)]); };
+            FormData.prototype.get = function(k) {
+                for (var i = 0; i < this._entries.length; i++) if (this._entries[i][0] === k) return this._entries[i][1];
+                return null;
+            };
+            FormData.prototype.has = function(k) {
+                for (var i = 0; i < this._entries.length; i++) if (this._entries[i][0] === k) return true;
+                return false;
+            };
+            FormData.prototype.set = function(k, v) {
+                for (var i = 0; i < this._entries.length; i++) {
+                    if (this._entries[i][0] === k) { this._entries[i][1] = String(v); return; }
+                }
+                this.append(k, v);
+            };
+            FormData.prototype.toString = function() {
+                return this._entries.map(function(e) {
+                    return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
+                }).join('&');
+            };
+
             global.URL             = URL;
             global.URLSearchParams = URLSearchParams;
+            global.FormData        = FormData;
         })(this);
         """#)
     }
@@ -894,10 +918,22 @@ final class JSBridge {
         // so that LNReader async plugins can do: const html = await fetchApi(url).then(r=>r.text())
         this.fetchApi = function(url, options) {
             options = options || {};
-            var method  = (options.method || 'GET').toUpperCase();
-            var body    = options.body;
-            var headers = options.headers || {};
-            var bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+            var method   = (options.method || 'GET').toUpperCase();
+            var rawBody  = options.body;
+            var origHdrs = options.headers || {};
+            var headers, bodyStr;
+            if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
+                // FormData — serialize as application/x-www-form-urlencoded
+                bodyStr = rawBody._entries.map(function(e) {
+                    return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
+                }).join('&');
+                headers = {}; for (var hk in origHdrs) headers[hk] = origHdrs[hk];
+                if (!headers['Content-Type'] && !headers['content-type'])
+                    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            } else {
+                bodyStr = rawBody ? (typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)) : null;
+                headers = origHdrs;
+            }
             var responseText = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(headers));
             return Promise.resolve({
                 ok:     true,
@@ -1444,10 +1480,23 @@ final class JSBridge {
                     // LNReader v3 fetch helper — plugin calls n.fetchApi(url, opts)
                     mod.exports = {
                         fetchApi: function(url, options) {
-                            var method = (options && options.method) ? options.method.toUpperCase() : 'GET';
-                            var body   = (options && options.body)   ? options.body   : '';
-                            var hdrs   = (options && options.headers) ? JSON.stringify(options.headers) : '{}';
-                            var text = SOURCE._fetchSync(url, method, body, hdrs);
+                            var method  = (options && options.method) ? options.method.toUpperCase() : 'GET';
+                            var rawBody = (options && options.body) ? options.body : null;
+                            var origHdrs = (options && options.headers) ? options.headers : {};
+                            var bodyStr, hdrs;
+                            if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
+                                // FormData — serialize as application/x-www-form-urlencoded
+                                bodyStr = rawBody._entries.map(function(e) {
+                                    return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
+                                }).join('&');
+                                hdrs = {}; for (var hk in origHdrs) hdrs[hk] = origHdrs[hk];
+                                if (!hdrs['Content-Type'] && !hdrs['content-type'])
+                                    hdrs['Content-Type'] = 'application/x-www-form-urlencoded';
+                            } else {
+                                bodyStr = rawBody ? (typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)) : '';
+                                hdrs = origHdrs;
+                            }
+                            var text = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(hdrs));
                             return Promise.resolve({
                                 ok: true,
                                 status: 200,
@@ -1557,6 +1606,15 @@ final class JSBridge {
                         };
                         return { Parser:Parser, parseDocument:function(){return {};} };
                     })();
+
+                } else if (name === '@libs/isAbsoluteUrl') {
+                    mod.exports = function(url) {
+                        var s = String(url); var c = s.indexOf('://'); return c > 0 && c < 20;
+                    };
+
+                } else if (name === '@/types/constants') {
+                    // NovelFire only — compiled output rebinds the import variable; empty object is safe
+                    mod.exports = {};
 
                 } else {
                     // Unknown module — return empty exports, do not crash

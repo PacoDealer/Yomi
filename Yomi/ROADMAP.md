@@ -21,9 +21,9 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S46 — 2026-04-25)
+## Current state (post S47 — 2026-04-25)
 
-App is feature-rich and polished. S46: Community LNReader + cheerio plugin fixes — AllNovel and Archive Of Our Own now load titles correctly. Three root-cause fixes in JSBridge: (1) `each`/`map` now pass raw DOM nodes to callbacks (real cheerio behavior); (2) CSS selector engine now handles child combinator `>`; (3) `$()` inside `cheerio.load` now wraps raw DOM nodes when called from `each`/`map` callbacks. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404). S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
+App is feature-rich and polished. S47: Full LNReader/Mangayomi plugin audit — scanned all 131 English LNReader v3 plugins, identified and fixed every missing JSBridge shim: (1) `FormData` global constructor + `application/x-www-form-urlencoded` serialization in `@libs/fetch` and global `fetchApi` (fixes 52+ Madara/WordPress multisrc plugins — Scribble Hub, DaoNovel, MTL-Novel, WuxiaWorld.Site, etc.); (2) `@libs/isAbsoluteUrl` shim (RoyalRoad); (3) `@/types/constants` shim (NovelFire, already safe). S46: cheerio child combinator `>`, `each`/`map` wrapped-object handling, AO3/AllNovel fixes. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404) — user should uninstall from Extensions tab. S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -562,6 +562,18 @@ All S28 P0/P1/P2/P3 items resolved.
 | 9 | ✅ Catalog UX overhaul | `PluginCatalogEntry.repoURL` (set post-fetch, excluded from Codable). `PluginCatalogGroup` (groups same-name multi-lang sources). Browse → Extensions: grouped list with "X langs" badge + language picker dialog, repo source badge (Yomi/LNReader/Mangayomi), search bar, pull-to-refresh. Browse → Sources: swipe-to-delete (uninstall), "Get more" header button, empty state navigates to Extensions. `CatalogGroupRow` shared between Browse and Plugins. |
 
 **Outcome:** Yomi supports 4 JS plugin formats (A/B/C/D). 195+ Mangayomi sources + 500+ LNReader novels available via one-tap repos. Browse tab is now the primary plugin management surface.
+
+---
+
+## Session 47 — JSBridge Full Audit + FormData Shim (2026-04-25) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Scanned all 131 English LNReader v3 plugins | `require()` module usage: `@libs/fetch` (131), `cheerio` (122), `@libs/novelStatus` (110), `@libs/defaultCover` (79), `@libs/storage` (72), `dayjs` (59), `htmlparser2` (33), `@libs/filterInputs` (27). Also identified 3 unshimmed: `@libs/isAbsoluteUrl`, `@libs/aes`, `@/types/constants`. Found `FormData` global missing — used by 52+ plugins. |
+| 2 | ✅ `FormData` global shim | Added to `injectWebAPIs`. Constructor with `_entries` array, `.append()`, `.get()`, `.has()`, `.set()`, `.toString()`. `@libs/fetch` `fetchApi` and global `fetchApi` both updated: detect `rawBody._entries`, serialize as `encodeURIComponent(k)=encodeURIComponent(v)` joined by `&`, inject `Content-Type: application/x-www-form-urlencoded` header. Fixes entire Madara/WordPress multisrc family (52+ plugins). |
+| 3 | ✅ `@libs/isAbsoluteUrl` shim | Added to `injectRequireShim`. Returns `function(url) { var s = String(url); var c = s.indexOf('://'); return c > 0 && c < 20; }`. Fixes RoyalRoad plugin. |
+| 4 | ✅ `@/types/constants` shim | Added to `injectRequireShim` (returns empty `{}`). Already safe for NovelFire — compiled output rebinds the variable immediately. |
+| 5 | ✅ ReadComicOnline + Mangapill | Confirmed unfixable by code: both source files contain "404: Not Found" — downloaded from dead `entityJY/mangayomi-extensions-eJ` repo. User must uninstall from Extensions tab. |
 
 ---
 
