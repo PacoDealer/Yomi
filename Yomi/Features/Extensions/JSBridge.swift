@@ -531,9 +531,102 @@ final class JSBridge {
         injectConsole(into: ctx)
         injectStorage(into: ctx)
         injectSourceFetch(into: ctx)
+        injectWebAPIs(into: ctx)       // URL, URLSearchParams — required by LNReader plugins
         injectCheerio(into: ctx)
         injectRequireShim(into: ctx)
         injectMangayomiShims(into: ctx)
+    }
+
+    /// URL + URLSearchParams — JSC has no Web APIs, but LNReader plugins call new URL(href, base).
+    nonisolated private static func injectWebAPIs(into ctx: JSContext) {
+        ctx.evaluateScript(#"""
+        (function(global) {
+            if (typeof global.URL === 'function') return;
+
+            function URL(input, base) {
+                var str = String(input);
+                var href = /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(str)
+                    ? str
+                    : (base ? URL._resolve(str, typeof base === 'string' ? base : (base.href || String(base))) : str);
+                this._init(href);
+            }
+
+            URL._resolve = function(rel, base) {
+                var m = base.match(/^((?:[a-zA-Z][a-zA-Z0-9+\-.]*:)?\/\/[^/?#]*)([^?#]*)/);
+                if (!m) return rel;
+                var origin = m[1], basePath = m[2];
+                if (rel.charAt(0) === '/') return origin + rel;
+                if (rel.charAt(0) === '?' || rel.charAt(0) === '#') return origin + basePath + rel;
+                var dir = basePath.replace(/\/[^/]*$/, '/');
+                var parts = (dir + rel).split('/'), out = [];
+                for (var i = 0; i < parts.length; i++) {
+                    if (parts[i] === '..') { if (out.length > 1) out.pop(); }
+                    else if (parts[i] !== '.') out.push(parts[i]);
+                }
+                return origin + out.join('/');
+            };
+
+            URL.prototype._init = function(href) {
+                var m = href.match(/^([a-zA-Z][a-zA-Z0-9+\-.]*:)\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/);
+                if (m) {
+                    this.protocol = m[1];
+                    this.host     = m[2] || '';
+                    var ci = this.host.lastIndexOf(':');
+                    if (ci >= 0 && /^\d+$/.test(this.host.slice(ci + 1))) {
+                        this.hostname = this.host.slice(0, ci);
+                        this.port     = this.host.slice(ci + 1);
+                    } else { this.hostname = this.host; this.port = ''; }
+                    this.pathname = m[3] || '/';
+                    this.search   = m[4] || '';
+                    this.hash     = m[5] || '';
+                    this.origin   = this.protocol + '//' + this.host;
+                    this.href     = this.origin + this.pathname + this.search + this.hash;
+                } else {
+                    this.href = this.origin = this.pathname = href;
+                    this.protocol = this.host = this.hostname = this.port = this.search = this.hash = '';
+                }
+            };
+
+            URL.prototype.toString = function() { return this.href; };
+            URL.prototype.toJSON   = function() { return this.href; };
+
+            // URLSearchParams — minimal: get/set/append/toString, iterable entries
+            function URLSearchParams(init) {
+                this._p = [];
+                if (!init) return;
+                if (typeof init === 'string') {
+                    var s = init.charAt(0) === '?' ? init.slice(1) : init;
+                    var pairs = s.split('&');
+                    for (var i = 0; i < pairs.length; i++) {
+                        var eq = pairs[i].indexOf('=');
+                        if (eq >= 0) {
+                            this._p.push([decodeURIComponent(pairs[i].slice(0, eq).replace(/\+/g, ' ')),
+                                          decodeURIComponent(pairs[i].slice(eq + 1).replace(/\+/g, ' '))]);
+                        } else if (pairs[i]) {
+                            this._p.push([decodeURIComponent(pairs[i].replace(/\+/g, ' ')), '']);
+                        }
+                    }
+                }
+            }
+            URLSearchParams.prototype.append = function(k, v) { this._p.push([String(k), String(v)]); };
+            URLSearchParams.prototype.get    = function(k) {
+                for (var i = 0; i < this._p.length; i++) if (this._p[i][0] === k) return this._p[i][1];
+                return null;
+            };
+            URLSearchParams.prototype.set = function(k, v) {
+                for (var i = 0; i < this._p.length; i++) if (this._p[i][0] === k) { this._p[i][1] = String(v); return; }
+                this.append(k, v);
+            };
+            URLSearchParams.prototype.toString = function() {
+                return this._p.map(function(p) {
+                    return encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1]);
+                }).join('&');
+            };
+
+            global.URL             = URL;
+            global.URLSearchParams = URLSearchParams;
+        })(this);
+        """#)
     }
 
     /// Replaces the global Promise with a fully-synchronous implementation.
@@ -986,9 +1079,10 @@ final class JSBridge {
                 return true;
             }
 
-            // Select nodes matching selectorStr within ctx (handles comma + descendant combinator)
+            // Select nodes matching selectorStr within ctx.
+            // Handles: comma lists, descendant combinator (space), child combinator (>).
             function select(ctx, selectorStr) {
-                if (!selectorStr) return [];
+                if (!selectorStr || typeof selectorStr !== 'string') return [];
                 var parts = selectorStr.split(',');
                 if (parts.length > 1) {
                     var r = [];
@@ -1000,17 +1094,38 @@ final class JSBridge {
                     }
                     return r;
                 }
-                var segs = selectorStr.trim().split(/\s+/);
+                // Tokenise into simple selectors + combinators ('>' or ' ')
+                var raw = selectorStr.trim();
+                var tokens = [], combinators = [];
+                var re = /\s*>\s*|\s+/g, last = 0, rm;
+                while ((rm = re.exec(raw)) !== null) {
+                    tokens.push(raw.slice(last, rm.index).trim());
+                    combinators.push(rm[0].indexOf('>') !== -1 ? '>' : ' ');
+                    last = rm.index + rm[0].length;
+                }
+                tokens.push(raw.slice(last).trim());
+
                 var pool = descendants(ctx);
-                var s0 = parseSimple(segs[0]);
+                var s0 = parseSimple(tokens[0]);
                 var matched = pool.filter(function(n) { return matchesSimple(n, s0); });
-                for (var s = 1; s < segs.length; s++) {
-                    var si = parseSimple(segs[s]);
+                for (var si = 1; si < tokens.length; si++) {
+                    var sp = parseSimple(tokens[si]);
+                    var comb = combinators[si - 1];
                     var next = [];
-                    for (var m = 0; m < matched.length; m++) {
-                        var d = descendants(matched[m]);
-                        for (var di = 0; di < d.length; di++) {
-                            if (matchesSimple(d[di], si) && next.indexOf(d[di]) === -1) next.push(d[di]);
+                    for (var mi = 0; mi < matched.length; mi++) {
+                        if (comb === '>') {
+                            // Child combinator: direct element children only
+                            var ch = (matched[mi].children || []);
+                            for (var ci = 0; ci < ch.length; ci++) {
+                                if (ch[ci].type === 'el' && matchesSimple(ch[ci], sp) && next.indexOf(ch[ci]) === -1)
+                                    next.push(ch[ci]);
+                            }
+                        } else {
+                            // Descendant combinator
+                            var d = descendants(matched[mi]);
+                            for (var di = 0; di < d.length; di++) {
+                                if (matchesSimple(d[di], sp) && next.indexOf(d[di]) === -1) next.push(d[di]);
+                            }
                         }
                     }
                     matched = next;
@@ -1067,12 +1182,13 @@ final class JSBridge {
                         return wrap(found);
                     },
                     each: function(fn) {
-                        for (var i = 0; i < nodes.length; i++) fn(i, wrap([nodes[i]]));
+                        // Real cheerio passes (index, rawDomNode); fn can then do $(node) to wrap.
+                        for (var i = 0; i < nodes.length; i++) fn.call(nodes[i], i, nodes[i]);
                         return obj;
                     },
                     map: function(fn) {
                         var r = [];
-                        for (var i = 0; i < nodes.length; i++) r.push(fn(i, wrap([nodes[i]])));
+                        for (var i = 0; i < nodes.length; i++) r.push(fn.call(nodes[i], i, nodes[i]));
                         return r;
                     },
                     first:   function() { return wrap(nodes.length ? [nodes[0]] : []); },
@@ -1128,6 +1244,13 @@ final class JSBridge {
                     function $(selector) {
                         try {
                             if (!selector) return wrap([]);
+                            if (typeof selector === 'object') {
+                                // Raw DOM node (from each/map callback)
+                                if (selector.type) return wrap([selector]);
+                                // Already a wrap object — return as-is
+                                if (typeof selector.find === 'function') return selector;
+                                return wrap([]);
+                            }
                             if (selector === '*') return wrap(descendants(root));
                             return wrap(select(root, selector));
                         } catch(e) { return wrap([]); }
@@ -1331,7 +1454,11 @@ final class JSBridge {
 
                 } else if (name === '@libs/novelStatus') {
                     mod.exports = {
-                        NovelStatus: { Ongoing: 'Ongoing', Completed: 'Completed', Unknown: 'Unknown' }
+                        NovelStatus: {
+                            Ongoing: 'Ongoing', Completed: 'Completed', Unknown: 'Unknown',
+                            Hiatus: 'Hiatus', OnHiatus: 'Hiatus',
+                            Cancelled: 'Cancelled', Canceled: 'Cancelled'
+                        }
                     };
 
                 } else if (name === 'dayjs') {
@@ -1355,6 +1482,75 @@ final class JSBridge {
                         function dayjs(d) { return new Dayjs(d); }
                         dayjs.extend = function() {};
                         return dayjs;
+                    })();
+
+                } else if (name === 'htmlparser2') {
+                    mod.exports = (function() {
+                        var VOID = {
+                            area:1,base:1,br:1,col:1,embed:1,hr:1,img:1,
+                            input:1,link:1,meta:1,param:1,source:1,track:1,wbr:true
+                        };
+                        function decode(s) {
+                            if (!s || s.indexOf('&') === -1) return s;
+                            return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+                                .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'")
+                                .replace(/&nbsp;/g,' ')
+                                .replace(/&#(\\d+);/g,function(_,n){return String.fromCharCode(parseInt(n,10));})
+                                .replace(/&#x([0-9a-fA-F]+);/g,function(_,n){return String.fromCharCode(parseInt(n,16));});
+                        }
+                        function parseAttribs(s) {
+                            var a={}, re=/([a-zA-Z_:][a-zA-Z0-9_:.-]*)\\s*(?:=\\s*(?:"([^"]*)"|'([^']*)'|(\\S+)))?/g, m;
+                            while ((m=re.exec(s))!==null) {
+                                var k=m[1].toLowerCase();
+                                var v=m[2]!==undefined?m[2]:m[3]!==undefined?m[3]:m[4]!==undefined?m[4]:'';
+                                a[k]=decode(v);
+                            }
+                            return a;
+                        }
+                        function Parser(h) { this._h=h||{}; this._buf=''; }
+                        Parser.prototype.isVoidElement=function(t){return !!VOID[t.toLowerCase()];};
+                        Parser.prototype.write=function(c){this._buf+=c;};
+                        Parser.prototype.end=function(c) {
+                            if(c) this._buf+=c;
+                            var html=this._buf, h=this._h, pos=0, len=html.length;
+                            while(pos<len) {
+                                var lt=html.indexOf('<',pos);
+                                if(lt===-1){var t=html.slice(pos);if(t&&h.ontext)h.ontext(decode(t));break;}
+                                if(lt>pos){var tb=html.slice(pos,lt);if(tb&&h.ontext)h.ontext(decode(tb));}
+                                pos=lt+1; if(pos>=len) break;
+                                var ch=html[pos];
+                                if(ch==='!'||ch==='?'){var e=html.indexOf('>',pos);pos=(e===-1?len-1:e)+1;continue;}
+                                if(ch==='/'){
+                                    var ge=html.indexOf('>',pos);if(ge===-1){pos=len;break;}
+                                    var tn=html.slice(pos+1,ge).trim().split(/\\s/)[0].toLowerCase();
+                                    if(tn&&h.onclosetag)h.onclosetag(tn);
+                                    pos=ge+1;continue;
+                                }
+                                // opening tag — find closing > respecting quotes
+                                var gt=-1,inQ=false,qc='';
+                                for(var i=pos;i<len;i++){var x=html[i];if(inQ){if(x===qc)inQ=false;}
+                                    else if(x==='"'||x==="'"){inQ=true;qc=x;}else if(x==='>'){gt=i;break;}}
+                                if(gt===-1){pos=len;break;}
+                                var raw=html.slice(pos,gt);
+                                var sc=raw[raw.length-1]==='/';if(sc)raw=raw.slice(0,-1);
+                                var si=raw.search(/\\s/),tag2,astr;
+                                if(si===-1){tag2=raw.trim().toLowerCase();astr='';}
+                                else{tag2=raw.slice(0,si).toLowerCase();astr=raw.slice(si);}
+                                if(tag2){
+                                    var attrs=parseAttribs(astr);
+                                    if(h.onopentag)h.onopentag(tag2,attrs);
+                                    if(sc||VOID[tag2]){if(h.onclosetag)h.onclosetag(tag2);}
+                                    else if(tag2==='script'||tag2==='style'){
+                                        var ct='</'+tag2,ci=html.toLowerCase().indexOf(ct,gt+1);
+                                        if(ci!==-1){var cg=html.indexOf('>',ci);if(h.onclosetag)h.onclosetag(tag2);pos=cg!==-1?cg+1:len;continue;}
+                                    }
+                                }
+                                pos=gt+1;
+                            }
+                            if(h.onend)h.onend();
+                            this._buf='';
+                        };
+                        return { Parser:Parser, parseDocument:function(){return {};} };
                     })();
 
                 } else {
@@ -1467,9 +1663,10 @@ final class JSBridge {
             try {
                 var __r = plugin['\(name)'](\(argList));
                 if (__r && typeof __r.then === 'function') {
-                    __r.then(function(v) { __lnr_result = v; }, function() {});
+                    __lnr_debug_r = __r;
+                    __r.then(function(v) { __lnr_result = v; }, function(e) { __lnr_reject_reason = String(e); });
                 } else { __lnr_result = __r; }
-            } catch(e) { console.error('plugin.\(name) error: ' + e); }
+            } catch(e) { __lnr_last_error = e; __lnr_reject_reason = String(e); console.error('plugin.\(name) error: ' + e); }
         })();
         """)
         // evaluateScript internally calls JSC's drainMicrotasks() before returning,
@@ -1478,8 +1675,17 @@ final class JSBridge {
 
     nonisolated func popularNovels(page: Int) -> [NovelItem] {
         context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
-        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "null"])
-        return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+        // LNReader popularNovels(page, options) — pass plugin's own filter defaults so
+        // t.filters.genres.value / t.filters.type.value don't throw on null.
+        context.evaluateScript("""
+        __lnr_opts = {
+            filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
+            showLatestNovels: false
+        };
+        """)
+        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
+        let raw = context.objectForKeyedSubscript("__lnr_result")
+        return JSBridge.parseNovelItems(raw)
     }
 
     nonisolated func searchNovels(query: String, page: Int) -> [NovelItem] {
