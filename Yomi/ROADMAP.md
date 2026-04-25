@@ -565,6 +565,18 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
+## Session 46 — Community Plugin Fixes: Cheerio + LNReader (2026-04-25) ✅ Complete
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ AllNovel working | Root cause: cheerio shim `each`/`map` passed raw DOM nodes (breaking `el.find()` pattern). Fixed: pass wrapped cheerio objects; `$()` auto-detects wrapped vs raw. |
+| 2 | ✅ Archive Of Our Own (AO3) working | Two bugs: (1) child combinator `>` in `"h4.heading > a"` was not handled — selector split on space only. Fixed: tokenize with `/\s*>\s*\|\s+/g`, apply direct-children-only logic for `>`. (2) `$(t).find(...)` inside `each` callback failed because `t` was a wrap object but `$()` tried to use it as a CSS string. Fixed: `$()` detects `typeof selector.find === 'function'` and returns it as-is. |
+| 3 | ✅ Cheerio CSS selector engine: child combinator `>` | `select()` now tokenizes with `/\s*>\s*\|\s+/g` regex, producing `tokens[]` + `combinators[]`. For `>`: matches only direct `.children` of each matched node. For ` ` (space): matches all descendants (existing behavior). |
+| 4 | ✅ ReadComicOnline + Mangapill — confirmed broken | Source files downloaded as "404: Not Found" from dead `entityJY/mangayomi-extensions-eJ` GitHub repo. Unfixable by code — user must uninstall from Extensions tab. |
+| 5 | ✅ METODOLOGIA.md S46 entry | Documented root causes, each/map final contract (wrapped objects, not raw nodes), child combinator `>` fix pattern. |
+
+---
+
 ## Session 47 — JSBridge Full Audit + FormData Shim (2026-04-25) ✅ Complete
 
 | # | Feature | Detail |
@@ -608,7 +620,7 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Planned: Session 46 — Power User Backends
+## Planned: Session 48 — Power User Backends
 
 | # | Feature | Detail |
 |---|---------|--------|
@@ -618,7 +630,7 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Planned: Session 47 — Growth + Polish
+## Planned: Session 49 — Growth + Polish
 
 | # | Feature | Detail |
 |---|---------|--------|
