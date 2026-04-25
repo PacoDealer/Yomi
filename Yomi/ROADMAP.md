@@ -21,9 +21,9 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S44 — 2026-04-20)
+## Current state (post S46 — 2026-04-25)
 
-App is feature-rich and polished. S44: Format D Mangayomi JS shim (discovered Mangayomi is Dart — shim remains for future community JS plugins), multi-format catalog parser (Yomi→LNReader→Mangayomi), catalog UX overhaul (grouped multi-lang entries, repo badges, swipe-to-uninstall in Browse, repo filter chips, search), LNReader URL corrected, onboarding `AddRepoSheet`, `const source` lexical scope fix in JSBridge. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
+App is feature-rich and polished. S46: Community LNReader + cheerio plugin fixes — AllNovel and Archive Of Our Own now load titles correctly. Three root-cause fixes in JSBridge: (1) `each`/`map` now pass raw DOM nodes to callbacks (real cheerio behavior); (2) CSS selector engine now handles child combinator `>`; (3) `$()` inside `cheerio.load` now wraps raw DOM nodes when called from `each`/`map` callbacks. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404). S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -45,6 +45,7 @@ App is feature-rich and polished. S44: Format D Mangayomi JS shim (discovered Ma
 | Firebase pending deploy | novelfull.js + updated index.json written but not deployed. User must run: `firebase login --reauth && firebase deploy --only hosting` in `~/Desktop/Yomi 2.0/yomi-firebase` | High |
 | Alternate icons need Xcode step | AppIconDark + AppIconMinimal appiconsets are placeholders. Drop in PNGs + add CFBundleAlternateIcons in Xcode Target → Info to activate. | Low (after icon design) |
 | Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
+| ReadComicOnline + Mangapill broken | Source files contain "404: Not Found" — downloaded from dead `entityJY/mangayomi-extensions-eJ` GitHub repo. User should uninstall these two plugins from Extensions tab. Mangayomi catalog entry points to deleted repo. | Medium |
 | LibraryViewModel DB reads on MainActor | loadLibrary() calls MangaQueries/NovelQueries synchronously on MainActor. Should use Task.detached. Works in practice but blocks main thread briefly. | Low |
 | Extension.init(row:) force unwrap | sourceListURL = URL(string: row["sourceListURL"])! will crash on malformed DB value. | Low |
 
