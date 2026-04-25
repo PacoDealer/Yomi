@@ -202,6 +202,18 @@ Suwayomi is already integrated (S41). The same second-order thinking applies to 
 
 Always ask the second question.
 
+## Technical learnings — S47
+
+- **`FormData` is a global, not a `require()` module**: LNReader's Madara/WordPress multisrc plugins (52+ sources) use `new FormData()` directly — it is a Web API global, like `URL` or `URLSearchParams`, not something loaded via `require()`. JavaScriptCore has none of these Web APIs. Missing `FormData` throws `ReferenceError: Can't find variable: FormData` at the very first line of `popularNovels()`, silently returning `[]`. Fix: inject a `FormData` constructor into `injectWebAPIs()` alongside `URL` and `URLSearchParams`. It only needs `_entries` array + `append`/`get`/`has`/`set`/`toString` — no file upload support required.
+
+- **FormData body requires `Content-Type: application/x-www-form-urlencoded`**: the Madara plugins POST to WordPress's `wp-admin/admin-ajax.php` with a FormData body. The server reads parameters via PHP's `$_POST` superglobal, which only populates when `Content-Type` is `application/x-www-form-urlencoded` (for URL-encoded) or `multipart/form-data`. Since our shim serializes FormData as URL-encoded, the header must be set automatically — plugins don't set it themselves. Detect FormData body via `rawBody._entries` (the private marker array), serialize, and inject the header. Both `@libs/fetch`'s `fetchApi` and the global `fetchApi` in `injectSourceFetch` need the same treatment.
+
+- **Full plugin audit pattern**: to find JSBridge gaps in an ecosystem, scan all plugin files for `require(` calls + global constructors. For LNReader: `grep -rh "require(" plugins/ | grep -oP "'[^']+'" | sort | uniq -c | sort -rn` gives the complete require frequency table. Then `grep -rl "FormData\|fetch\b" plugins/` finds global usage. This takes 60 seconds and surfaces all gaps at once.
+
+- **`@libs/isAbsoluteUrl` is simple**: returns a boolean — `true` if the string has a scheme prefix. A simple `indexOf('://') > 0 && indexOf('://') < 20` check is sufficient without regex backslash escaping concerns in Swift string literals.
+
+- **S46 cheerio shim correction — `each`/`map` pass wrapped objects, not raw nodes**: the S46 summary incorrectly described the final fix as "pass raw DOM nodes." The actual committed fix passes **wrapped cheerio objects** (`wrap([nodes[i]])`). This is compatible with both plugin styles: (1) Yomi-style `el.find(...)` — works because the wrapped object has `.find()`; (2) LNReader AO3-style `$(t).find(...)` — works because `$()` detects `typeof selector.find === 'function'` and returns the wrapper as-is. The METODOLOGIA S16 entry was updated in S46 to note this, but the description was still wrong. The wrapped-object approach is correct and final.
+
 ## Technical learnings — S45
 
 - **Cloudflare auto-bypass with hidden WKWebView**: attach a 1×1pt `WKWebView` (frame `CGRect(x: -2, y: -2, width: 1, height: 1)`) to the app's `keyWindow`. It loads the URL silently in the background — the real WebKit engine solves the CF JS challenge without any user interaction. Poll `webView.configuration.websiteDataStore.httpCookieStore.getAllCookies` every 0.5s. `httpCookieStore` callbacks arrive on an arbitrary queue — always dispatch back to main before calling completion. Keep a 10s `Task` timeout as safety.
