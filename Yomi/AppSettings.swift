@@ -229,6 +229,23 @@ import Observation
         didSet { defaults.set(ttsSpeechRate, forKey: "ttsSpeechRate") }
     }
 
+    // MARK: - OPDS
+
+    /// OPDS catalog root URL, e.g. "http://192.168.1.x:5000/opds/v1.2/catalog". Empty = disabled.
+    var opdsURL: String {
+        didSet { defaults.set(opdsURL, forKey: "opdsURL") }
+    }
+
+    /// Optional Basic-Auth username for the OPDS server
+    var opdsUsername: String {
+        didSet { defaults.set(opdsUsername, forKey: "opdsUsername") }
+    }
+
+    /// Optional Basic-Auth password for the OPDS server
+    var opdsPassword: String {
+        didSet { defaults.set(opdsPassword, forKey: "opdsPassword") }
+    }
+
     // MARK: - Init
 
     private init() {
@@ -283,5 +300,8 @@ import Observation
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
+        opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
+        opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
+        opdsPassword             = d.string(forKey: "opdsPassword")             ?? ""
     }
 }

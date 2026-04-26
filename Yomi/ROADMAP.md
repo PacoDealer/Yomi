@@ -21,9 +21,9 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S47 — 2026-04-25)
+## Current state (post S48 — 2026-04-26)
 
-App is feature-rich and polished. S47: Full LNReader/Mangayomi plugin audit — scanned all 131 English LNReader v3 plugins, identified and fixed every missing JSBridge shim: (1) `FormData` global constructor + `application/x-www-form-urlencoded` serialization in `@libs/fetch` and global `fetchApi` (fixes 52+ Madara/WordPress multisrc plugins — Scribble Hub, DaoNovel, MTL-Novel, WuxiaWorld.Site, etc.); (2) `@libs/isAbsoluteUrl` shim (RoyalRoad); (3) `@/types/constants` shim (NovelFire, already safe). S46: cheerio child combinator `>`, `each`/`map` wrapped-object handling, AO3/AllNovel fixes. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404) — user should uninstall from Extensions tab. S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
+App is feature-rich and polished. S48: Suwayomi onboarding UX (test connection, source count, setup guide), OPDS client (OPDSService XML parser + OPDSBrowseView, Kavita/Komga support, BrowseView integration, SettingsView section with basic auth), WidgetKit extension (YomiWidget target, ContinueReading widget small/medium/large, App Groups entitlements, WidgetDataWriter, pbxproj widget target). S47: Full LNReader/Mangayomi plugin audit — scanned all 131 English LNReader v3 plugins, identified and fixed every missing JSBridge shim: (1) `FormData` global constructor + `application/x-www-form-urlencoded` serialization in `@libs/fetch` and global `fetchApi` (fixes 52+ Madara/WordPress multisrc plugins — Scribble Hub, DaoNovel, MTL-Novel, WuxiaWorld.Site, etc.); (2) `@libs/isAbsoluteUrl` shim (RoyalRoad); (3) `@/types/constants` shim (NovelFire, already safe). S46: cheerio child combinator `>`, `each`/`map` wrapped-object handling, AO3/AllNovel fixes. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404) — user should uninstall from Extensions tab. S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
 
 **S36 shipped:** NovelFire restored to catalog (security incident resolved) + Firebase deployed. Pure black OLED mode (`AppSettings.pureBlack`, Settings toggle, black tab bar). Alternate icon infrastructure: `AppSettings.alternateIconName`, SettingsView icon picker (3 slots: Default/Dark/Minimal), `AppIconDark` + `AppIconMinimal` appiconsets as placeholders. **To activate alternates:** drop 1024×1024 PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info tab.
 
@@ -620,13 +620,13 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Planned: Session 48 — Power User Backends
+## Session 48 — Power User Backends (2026-04-26) ✅ Complete
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | **Suwayomi onboarding** | Setup guide link + "Test connection" → show source count. Better UX for the self-hosted angle. |
-| 2 | **OPDS client** | Connect to Kavita or Komga. `OPDSService.swift` — fetches catalog, maps to Manga model, reads local files. Appears as source in Browse. |
-| 3 | **WidgetKit** | App Groups + shared flat JSON. `TimelineProvider` for ContinueReading widget. Cover image cached to App Group container. |
+| 1 | ✅ Suwayomi onboarding UX | SettingsView: URL field + "Test Connection" button → async `fetchSources()` → shows source count or error. `ConnectionTestStatus` enum (idle/loading/connected(Int)/failed(String)). URL change resets status. Setup guide link (GitHub). Footer updated with practical setup instructions. |
+| 2 | ✅ OPDS client | `OPDSService.swift`: Atom XML SAX parser (`XMLParserDelegate`), `OPDSFeed`/`OPDSEntry` models, navigation vs acquisition entry detection, Basic Auth support, absolute URL resolution. `OPDSBrowseView.swift`: recursive navigation (nav entries → drill-down list, acquisition entries → cover grid), `OPDSItemDetailView` sheet (cover, title, author, summary, download link). SettingsView: OPDS section with URL + username + password + test button. BrowseView: OPDS section in Sources tab, loads root feed on `.task`. AppSettings: `opdsURL`, `opdsUsername`, `opdsPassword` stored properties. |
+| 3 | ✅ WidgetKit extension | `YomiWidget` target added to `project.pbxproj` (native target, `PBXFileSystemSynchronizedRootGroup`, entitlements, Info.plist). `YomiWidget.swift`: `ContinueReadingWidget` with small (cover+title+chapter)/medium (3 items)/large (2×3 grid) layouts, `AsyncImage` covers, `TimelineProvider` refreshes every 30 min. `WidgetDataWriter.swift`: reads recently-read manga from LibraryViewModel, writes to App Group `UserDefaults(suiteName: "group.pacodealer.Yomi")`, calls `WidgetCenter.shared.reloadAllTimelines()`. `Yomi.entitlements` + `YomiWidget.entitlements` created for App Groups. LibraryViewModel.writeWidgetData() called after every loadLibrary(). |
 
 ---
 

@@ -10,6 +10,8 @@ struct BrowseView: View {
     @State private var installingID: String? = nil
     @State private var suwayomiSources: [SuwayomiSource] = []
     @State private var suwayomiLoading  = false
+    @State private var opdsRootFeed: OPDSFeed? = nil
+    @State private var opdsLoading = false
     @State private var extensionsSearch = ""
     @State private var langPickerGroup: PluginCatalogGroup? = nil
     @State private var selectedRepos: Set<String> = []
@@ -76,7 +78,8 @@ struct BrowseView: View {
     @ViewBuilder
     private var sourcesTab: some View {
         let hasSuwayomi = SuwayomiService.shared.isEnabled
-        if extensionManager.installed.isEmpty && !hasSuwayomi {
+        let hasOPDS     = OPDSService.shared.isEnabled
+        if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS {
             ContentUnavailableView(
                 "No sources installed",
                 systemImage: "puzzlepiece.extension",
@@ -110,6 +113,7 @@ struct BrowseView: View {
                         }
                     }
                 }
+
                 if hasSuwayomi {
                     Section {
                         if suwayomiLoading {
@@ -150,10 +154,62 @@ struct BrowseView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+
+                if hasOPDS {
+                    Section {
+                        if opdsLoading {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else if let feed = opdsRootFeed {
+                            ForEach(feed.entries) { entry in
+                                if let navHref = entry.navigationHref {
+                                    NavigationLink {
+                                        OPDSBrowseView(title: entry.title, feedHref: navHref)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            if let coverURL = OPDSService.shared.coverURL(for: entry) {
+                                                AsyncImage(url: coverURL) { img in
+                                                    img.resizable().scaledToFill()
+                                                } placeholder: {
+                                                    Image(systemName: "folder").foregroundStyle(.secondary)
+                                                }
+                                                .frame(width: 32, height: 32)
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                            } else {
+                                                Image(systemName: "folder")
+                                                    .frame(width: 32, height: 32)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Text(entry.title).font(.body)
+                                        }
+                                    }
+                                } else {
+                                    NavigationLink {
+                                        OPDSBrowseView(title: entry.title, feedHref: OPDSService.shared.baseURL)
+                                    } label: {
+                                        Text(entry.title)
+                                    }
+                                }
+                            }
+                        } else {
+                            Button("Load library") {
+                                Task { await loadOPDSRoot() }
+                            }
+                        }
+                    } header: {
+                        Text("OPDS Library")
+                    } footer: {
+                        Text(OPDSService.shared.baseURL)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
             .task {
                 if hasSuwayomi && suwayomiSources.isEmpty {
                     await loadSuwayomiSources()
+                }
+                if hasOPDS && opdsRootFeed == nil {
+                    await loadOPDSRoot()
                 }
             }
         }
@@ -169,6 +225,19 @@ struct BrowseView: View {
             }
         } catch {
             await MainActor.run { suwayomiLoading = false }
+        }
+    }
+
+    private func loadOPDSRoot() async {
+        opdsLoading = true
+        do {
+            let feed = try await OPDSService.shared.fetchFeed(href: OPDSService.shared.baseURL)
+            await MainActor.run {
+                opdsRootFeed = feed
+                opdsLoading  = false
+            }
+        } catch {
+            await MainActor.run { opdsLoading = false }
         }
     }
 
