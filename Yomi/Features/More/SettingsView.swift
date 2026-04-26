@@ -8,6 +8,34 @@ struct SettingsView: View {
     @State private var newRepoURL: String = ""
     @State private var showAddRepo = false
 
+    // Suwayomi test connection
+    @State private var suwayomiStatus: ConnectionTestStatus = .idle
+    // OPDS test connection
+    @State private var opdsStatus: ConnectionTestStatus = .idle
+
+    enum ConnectionTestStatus: Equatable {
+        case idle
+        case loading
+        case connected(Int)
+        case failed(String)
+
+        var label: String {
+            switch self {
+            case .idle:              return ""
+            case .loading:          return "Connecting…"
+            case .connected(let n): return "Connected — \(n) sources"
+            case .failed(let msg):  return "Error: \(msg)"
+            }
+        }
+        var color: Color {
+            switch self {
+            case .connected: return .green
+            case .failed:    return .red
+            default:         return .secondary
+            }
+        }
+    }
+
     // Alternate icons: key = display name, value = CFBundleAlternateIcons key (nil = default)
     private let alternateIcons: [(label: String, key: String?)] = [
         ("Default",  nil),
@@ -40,6 +68,7 @@ struct SettingsView: View {
             appearanceSection
             pluginRepositoriesSection
             suwayomiSection
+            opdsSection
             advancedSection
             aboutSection
         }
@@ -504,11 +533,115 @@ struct SettingsView: View {
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .onChange(of: settings.suwayomiURL) { _, _ in suwayomiStatus = .idle }
+
+            HStack {
+                Button("Test Connection") {
+                    Task { await testSuwayomi() }
+                }
+                .disabled(settings.suwayomiURL.trimmingCharacters(in: .whitespaces).isEmpty
+                          || suwayomiStatus == .loading)
+
+                if suwayomiStatus == .loading {
+                    ProgressView().scaleEffect(0.8)
+                } else if case .connected = suwayomiStatus {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                } else if case .failed = suwayomiStatus {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                }
+
+                Spacer()
+
+                if !suwayomiStatus.label.isEmpty {
+                    Text(suwayomiStatus.label)
+                        .font(.caption)
+                        .foregroundStyle(suwayomiStatus.color)
+                        .lineLimit(1)
+                }
+            }
+
+            Link(destination: URL(string: "https://github.com/Suwayomi/Suwayomi-Server#getting-started")!) {
+                HStack {
+                    Label("Setup guide", systemImage: "book")
+                    Spacer()
+                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+                }
+            }
         } header: {
             Text("Suwayomi Server")
         } footer: {
-            Text("Connect to your self-hosted Suwayomi server to browse 1000+ Mihon sources. Leave empty to disable.")
+            Text("Self-host Suwayomi to browse 1000+ Mihon/Keiyoushi sources. Install the server on your computer or NAS, then paste the local IP here.")
                 .font(.caption)
+        }
+    }
+
+    private func testSuwayomi() async {
+        suwayomiStatus = .loading
+        do {
+            let sources = try await SuwayomiService.shared.fetchSources()
+            suwayomiStatus = .connected(sources.count)
+        } catch {
+            let msg = (error as? URLError)?.localizedDescription ?? error.localizedDescription
+            suwayomiStatus = .failed(String(msg.prefix(60)))
+        }
+    }
+
+    // MARK: - OPDS Server
+
+    private var opdsSection: some View {
+        Section {
+            TextField("http://192.168.1.x:5000/opds/v1.2/catalog", text: $settings.opdsURL)
+                .keyboardType(.URL)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .onChange(of: settings.opdsURL) { _, _ in opdsStatus = .idle }
+
+            TextField("Username (optional)", text: $settings.opdsUsername)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            SecureField("Password (optional)", text: $settings.opdsPassword)
+
+            HStack {
+                Button("Test Connection") {
+                    Task { await testOPDS() }
+                }
+                .disabled(settings.opdsURL.trimmingCharacters(in: .whitespaces).isEmpty
+                          || opdsStatus == .loading)
+
+                if opdsStatus == .loading {
+                    ProgressView().scaleEffect(0.8)
+                } else if case .connected = opdsStatus {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                } else if case .failed = opdsStatus {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                }
+
+                Spacer()
+
+                if !opdsStatus.label.isEmpty {
+                    Text(opdsStatus.label)
+                        .font(.caption)
+                        .foregroundStyle(opdsStatus.color)
+                        .lineLimit(1)
+                }
+            }
+        } header: {
+            Text("OPDS Server (Kavita / Komga)")
+        } footer: {
+            Text("Connect to a local Kavita or Komga library server via its OPDS catalog URL. Appears as a source in Browse.")
+                .font(.caption)
+        }
+    }
+
+    private func testOPDS() async {
+        opdsStatus = .loading
+        do {
+            let count = try await OPDSService.shared.testConnection()
+            opdsStatus = .connected(count)
+        } catch {
+            let msg = (error as? URLError)?.localizedDescription ?? error.localizedDescription
+            opdsStatus = .failed(String(msg.prefix(60)))
         }
     }
 

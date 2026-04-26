@@ -160,9 +160,23 @@ final class LibraryViewModel {
             novels = (try? NovelQueries.fetchLibrary()) ?? []
             unreadCounts = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
             novelUnreadCounts = (try? NovelQueries.fetchUnreadCountsByNovel()) ?? [:]
+            writeWidgetData()
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func writeWidgetData() {
+        let recent = mangas.filter { $0.lastReadAt != nil }.prefix(5)
+        let items = recent.map { manga in
+            WidgetReadingItem(
+                id: manga.id,
+                title: manga.title,
+                coverURLString: manga.coverURL?.absoluteString,
+                lastChapter: "Continue reading"
+            )
+        }
+        WidgetDataWriter.write(Array(items))
     }
 }

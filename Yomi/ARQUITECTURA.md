@@ -23,7 +23,8 @@ Yomi/
 ├── Core/
 │   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation; openBrowseExtensions flag for Library → Browse Extensions deep link
 │   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
-│   └── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
+│   ├── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
+│   └── WidgetDataWriter.swift      # Writes WidgetReadingItem[5] to App Group UserDefaults (suiteName: "group.pacodealer.Yomi"); calls WidgetCenter.shared.reloadAllTimelines()
 ├── Features/
 │   ├── Library/
 │   │   ├── LibraryView.swift        # Saved manga grid/list (AppSettings.libraryDisplayMode toggle) + category chips + ContinueReadingRow + multi-select
@@ -40,6 +41,7 @@ Yomi/
 │   │   ├── BrowseView.swift         # Sources / Extensions / Search tabs; Extensions tab shows Yomi catalog inline (reuses YomiCatalogEntryRow); openBrowseExtensions reacts to AppRouter flag
 │   │   │                            # SourceBrowseView: currentPage/isLoadingMore/hasMoreContent state, "Load more" button below grid, appends for Format A and B (S22)
 │   │   │                            # FeedTab enum (.popular/.latest). Segmented Picker shown when supportsLatest && !isNovelSource. Bridge reused across tab switches.
+│   │   ├── OPDSBrowseView.swift     # Browse one OPDS feed: nav entries → drill-down NavigationLink, acquisition entries → cover grid. OPDSItemDetailView sheet (cover, title, author, summary, download Link).
 │   │   └── NovelDetailView.swift    # Novel detail + chapter list
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom+pan, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking
@@ -53,7 +55,7 @@ Yomi/
 │   ├── More/
 │   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Installed plugins + Browse catalog (PluginCatalogService, Install button per entry) + NSFW filter
-│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Plugin Repos / Suwayomi / Advanced (NavigationLink)
+│   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Plugin Repos / Suwayomi (test connection button, setup guide link) / OPDS (URL + auth + test) / Advanced (NavigationLink)
 │   │   ├── AdvancedSettingsView.swift # Cache (image/plugin/WebView), Network (read-only), Database (log export), Build info
 │   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + per-manga time list
 │   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
@@ -71,9 +73,14 @@ Yomi/
 │       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache(); multi-format parser (Yomi/LNReader/Mangayomi)
 │       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
 │       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
+│       ├── OPDSService.swift        # OPDS Atom XML SAX parser (XMLParserDelegate). OPDSFeed/OPDSEntry models. Nav vs acquisition detection via link rel/type. Basic Auth. absoluteURL() resolution.
 │       ├── CFBypassManager.swift    # Cloudflare auto-bypass: hidden 1×1pt WKWebView attached to keyWindow; polls httpCookieStore every 0.5s; copies cf_clearance to HTTPCookieStorage.shared on success; 10s timeout
 │       └── CFBypassView.swift       # Manual CF bypass sheet: full UIViewRepresentable WKWebView + URL bar; copies cookies to HTTPCookieStorage.shared; opened by shield toolbar button in SourceBrowseView
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 36 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon, libraryDisplayMode ("grid"/"list"), suwayomiURL.
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 39 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon, libraryDisplayMode, suwayomiURL, opdsURL/opdsUsername/opdsPassword.
+YomiWidget/                          # Widget extension target (bundle ID: pacodealer.Yomi.widget)
+├── YomiWidget.swift                 # @main YomiWidgetBundle. ContinueReadingWidget (StaticConfiguration, kind: "YomiContinueReading"). TimelineProvider: reads from App Group UserDefaults, refreshes every 30 min. Views: small (cover+text), medium (3 tiles), large (2×3 grid).
+├── Info.plist                       # Complete Info.plist (INFOPLIST_FILE, not auto-generated). CFBundlePackageType=XPC!, NSExtension/NSExtensionPointIdentifier=com.apple.widgetkit-extension.
+└── YomiWidget.entitlements          # App Groups: group.pacodealer.Yomi
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
 ├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults.
