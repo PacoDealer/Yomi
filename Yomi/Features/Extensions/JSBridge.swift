@@ -323,12 +323,13 @@ final class JSBridge {
                 text: '', outerHtml: '', innerHTML: '', id: '', className: '',
                 src: '', href: '',
                 attr: function() { return ''; },
-                getSrc: function() { return ''; }, getHref: function() { return ''; },
+                get getSrc() { return ''; },
+                get getHref() { return ''; },
                 select: function() { return []; },
                 selectFirst: function() { return _nullEl; },
                 children: [],
                 hasClass: function() { return false; },
-                nextElement: _nullEl, previousElement: _nullEl,
+                nextElement: null, previousElement: null,
                 isNull: true, isNotEmpty: false,
                 toString: function() { return ''; }
             };
@@ -338,6 +339,8 @@ final class JSBridge {
 
             // Wrap a cheerio collection into a Mangayomi-compatible Element object.
             // jq is a cheerio wrapper object (has .text(), .attr(), .find(), .each(), etc.)
+            // getSrc / getHref are getter properties (not methods) — Mangayomi plugins access
+            // them as `el.getSrc` not `el.getSrc()`.
             function _mkEl(jq) {
                 if (!jq || jq.length === 0) return _nullEl;
                 var el = {};
@@ -349,6 +352,8 @@ final class JSBridge {
                     className:   { get: function() { return jq.attr('class') || ''; } },
                     src:         { get: function() { return jq.attr('src')   || ''; } },
                     href:        { get: function() { return jq.attr('href')  || ''; } },
+                    getSrc:      { get: function() { return jq.attr('src')   || ''; } },
+                    getHref:     { get: function() { return jq.attr('href')  || ''; } },
                     isNull:      { get: function() { return jq.length === 0; } },
                     isNotEmpty:  { get: function() { return jq.length > 0;  } },
                     children: {
@@ -363,8 +368,6 @@ final class JSBridge {
                     previousElement: { get: function() { return _mkEl(jq.prev());   } }
                 });
                 el.attr       = function(name) { return jq.attr(name) || ''; };
-                el.getSrc     = function()     { return jq.attr('src')  || ''; };
-                el.getHref    = function()     { return jq.attr('href') || ''; };
                 el.hasClass   = function(cls)  { return jq.hasClass(cls); };
                 el.select     = function(sel)  {
                     var r = [];
@@ -423,102 +426,75 @@ final class JSBridge {
                 set: function(k, v) { _prefs[k] = v; }
             };
 
+            // ── MProvider base class ──────────────────────────────────────────────
+            // Current Mangayomi plugins use: class DefaultExtension extends MProvider { ... }
+            // The host sets instance.source = mangayomiSources[0] after instantiation.
+            function MProvider() {}
+            global.MProvider = MProvider;
+
+            // ── SharedPreferences ────────────────────────────────────────────────
+            // Mangayomi plugins call: new SharedPreferences().get("key")
+            var _sharedPrefs = {};
+            function SharedPreferences() {}
+            SharedPreferences.prototype.get = function(k) {
+                return Object.prototype.hasOwnProperty.call(_sharedPrefs, k) ? _sharedPrefs[k] : null;
+            };
+            SharedPreferences.prototype.set = function(k, v) { _sharedPrefs[k] = v; };
+            global.SharedPreferences = SharedPreferences;
+
         })(this);
         """#)
     }
 
-    /// Post-eval: detects a Mangayomi `source` global and maps it to Yomi's
-    /// getMangaList / searchManga / getChapterList / getPageList / getLatestManga globals.
+    /// Post-eval: detects a Mangayomi source and sets the __mangayomiSource sentinel.
+    /// Two formats are supported:
+    ///   Legacy: plain `source` object with getPopular/getDetail methods
+    ///   Current: `class DefaultExtension extends MProvider` + `mangayomiSources` array
+    /// All actual method calls go through Swift's evaluateScript (see callMangayomiGetList
+    /// etc.) so that native async/await microtasks drain before Swift reads the result.
     nonisolated private static func injectMangayomiAdapter(into ctx: JSContext) {
         ctx.evaluateScript("""
         (function(global) {
-            // `const source = {...}` at top-level is a lexical binding — NOT on globalThis.
-            // Use identifier lookup (`typeof source`) to find it, not `global.source`.
             var src = null;
+
+            // Legacy format: plain `source` object (const at top-level → lexical, use typeof)
             try {
                 if (typeof source !== 'undefined' && source !== null &&
                     typeof source.getPopular === 'function' && typeof source.getDetail === 'function') {
                     src = source;
                 }
             } catch(e) {}
+
+            // Current Mangayomi format: class DefaultExtension extends MProvider + mangayomiSources[]
+            if (!src) {
+                try {
+                    if (typeof DefaultExtension !== 'undefined' &&
+                        typeof mangayomiSources !== 'undefined' &&
+                        Array.isArray(mangayomiSources) && mangayomiSources.length > 0) {
+                        var meta = mangayomiSources[0];
+                        // Normalize: mangayomiSources uses "langs" array; instance.source needs "lang" string
+                        if (!meta.lang && meta.langs && meta.langs.length > 0) {
+                            meta.lang = meta.langs[0];
+                        }
+                        var inst = new DefaultExtension();
+                        inst.source = meta;
+                        if (typeof inst.getPopular === 'function' || typeof inst.getDetail === 'function') {
+                            src = inst;
+                        }
+                    }
+                } catch(e) {}
+            }
+
             if (!src) return;
 
-            // Sentinel so isMangayomiPlugin can detect this format
+            // Sentinel — isMangayomiPlugin reads __mangayomiSource
             global.__mangayomiSource = src;
 
-            // Flush a Promise synchronously. Works because Client._fetchSync is synchronous,
-            // so the Promise chain resolves before this function returns.
-            function _resolve(val) {
-                if (val && typeof val.then === 'function') {
-                    var result;
-                    val.then(function(v) { result = v; });
-                    return result;
-                }
-                return val;
-            }
-
-            function _mapItem(item) {
-                return {
-                    id:       item.url  || '',
-                    path:     item.url  || '',
-                    title:    item.name || item.title || '',
-                    coverURL: item.link || item.image || null,
-                    summary:  null, author: null, artist: null,
-                    status:   'ongoing', genres: []
-                };
-            }
-
-            global.getMangaList = function(page) {
-                try {
-                    var res = _resolve(src.getPopular(page));
-                    return (res && res.list ? res.list : []).map(_mapItem);
-                } catch(e) { return []; }
-            };
-
-            // supportsLatest check in Swift reads `getLatestManga`
-            if (typeof src.getLatest === 'function') {
-                global.getLatestManga = function(page) {
-                    try {
-                        var res = _resolve(src.getLatest(page));
-                        return (res && res.list ? res.list : []).map(_mapItem);
-                    } catch(e) { return []; }
-                };
-            }
-
-            global.searchManga = function(query, page) {
-                if (typeof src.search !== 'function') return [];
-                try {
-                    var res = _resolve(src.search(query, page, []));
-                    return (res && res.list ? res.list : []).map(_mapItem);
-                } catch(e) { return []; }
-            };
-
-            // Chapters are embedded in getDetail — no separate chapter-list call needed.
-            global.getChapterList = function(url) {
-                try {
-                    var detail = _resolve(src.getDetail(url));
-                    if (!detail || !Array.isArray(detail.chapters)) return [];
-                    return detail.chapters.map(function(ch, i) {
-                        return {
-                            id:            ch.url || String(i),
-                            path:          ch.url || String(i),
-                            name:          ch.name || ('Chapter ' + (i + 1)),
-                            chapterNumber: parseFloat(ch.name) || 0,
-                            scanlator:     ch.scanlator || null
-                        };
-                    });
-                } catch(e) { return []; }
-            };
-
-            global.getPageList = function(url) {
-                try {
-                    var pages = _resolve(src.getPageList(url));
-                    if (!Array.isArray(pages)) return [];
-                    return pages.map(function(p) {
-                        return typeof p === 'string' ? p : (p.url || '');
-                    }).filter(Boolean);
-                } catch(e) { return []; }
-            };
+            // Expose which "latest" method this source has (Swift reads __mgy_latestMethod)
+            global.__mgy_latestMethod = typeof src.getLatestUpdates === 'function'
+                ? 'getLatestUpdates'
+                : (typeof src.getLatest === 'function' ? 'getLatest' : null);
+            global.__mgy_hasLatest = !!global.__mgy_latestMethod;
 
         })(this);
         """)
@@ -1635,17 +1611,28 @@ final class JSBridge {
         """)
     }
 
-    // MARK: - Plugin API — Manga (Format A)
+    // MARK: - Plugin API — Manga (Format A / C / D)
 
     nonisolated func getMangaList(page: Int, sourceId: String) -> [Manga] {
+        if isMangayomiPlugin {
+            return callMangayomiGetList(method: "getPopular", page: page, sourceId: sourceId)
+        }
         let result = context
             .objectForKeyedSubscript("getMangaList")?
             .call(withArguments: [page])
         return JSBridge.parseMangaArray(result, sourceId: sourceId)
     }
 
-    /// Returns the latest-updated manga list. Returns [] if the plugin doesn't export `getLatestManga`.
+    /// Returns the latest-updated manga list. Returns [] if the plugin doesn't support it.
     nonisolated func getLatestManga(page: Int, sourceId: String) -> [Manga] {
+        if isMangayomiPlugin {
+            guard let methodVal = context.objectForKeyedSubscript("__mgy_latestMethod"),
+                  !methodVal.isUndefined, !methodVal.isNull,
+                  let method = methodVal.toString(),
+                  method != "undefined", method != "null"
+            else { return [] }
+            return callMangayomiGetList(method: method, page: page, sourceId: sourceId)
+        }
         guard
             let fn = context.objectForKeyedSubscript("getLatestManga"),
             !fn.isUndefined, !fn.isNull, fn.isObject
@@ -1654,13 +1641,49 @@ final class JSBridge {
         return JSBridge.parseMangaArray(result, sourceId: sourceId)
     }
 
-    /// True if this plugin exports `getLatestManga`.
+    /// True if this plugin supports a latest-updates feed.
     nonisolated var supportsLatest: Bool {
+        if isMangayomiPlugin {
+            guard let flag = context.objectForKeyedSubscript("__mgy_hasLatest"),
+                  !flag.isUndefined, !flag.isNull else { return false }
+            return flag.toBool()
+        }
         guard let fn = context.objectForKeyedSubscript("getLatestManga") else { return false }
         return !fn.isUndefined && !fn.isNull && fn.isObject
     }
 
     nonisolated func getChapterList(mangaPath: String, mangaId: String) -> [Chapter] {
+        if isMangayomiPlugin {
+            context.setObject(mangaPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
+            context.evaluateScript("""
+            __mgy_result = undefined;
+            (function() {
+                try {
+                    var __r = __mangayomiSource.getDetail(__mgy_url);
+                    if (__r && typeof __r.then === 'function') {
+                        __r.then(function(v) { __mgy_result = v; });
+                    } else { __mgy_result = __r; }
+                } catch(e) { console.error('Mangayomi getDetail: ' + e); }
+            })();
+            """)
+            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+                  !raw.isUndefined, !raw.isNull,
+                  let detail = raw.toDictionary() as? [String: Any] else { return [] }
+            // Mangayomi uses "episodes" for chapters; some plugins use "chapters"
+            let rawChapters = detail["episodes"] as? [[String: Any]]
+                ?? detail["chapters"] as? [[String: Any]] ?? []
+            return rawChapters.enumerated().compactMap { (index, ch) in
+                let chURL = ch["url"] as? String ?? ch["link"] as? String ?? ""
+                guard !chURL.isEmpty else { return nil }
+                let name = ch["name"] as? String ?? "Episode \(index + 1)"
+                return Chapter(
+                    id: chURL, mangaId: mangaId, path: chURL, name: name,
+                    chapterNumber: Double(index),
+                    isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil,
+                    progress: 0.0, readingSeconds: 0, lastPageRead: 0, scanlator: nil
+                )
+            }
+        }
         let result = context
             .objectForKeyedSubscript("getChapterList")?
             .call(withArguments: [mangaPath])
@@ -1668,10 +1691,71 @@ final class JSBridge {
     }
 
     nonisolated func getPageList(chapterPath: String) -> [String] {
+        if isMangayomiPlugin {
+            context.setObject(chapterPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
+            context.evaluateScript("""
+            __mgy_result = undefined;
+            (function() {
+                try {
+                    var __r = __mangayomiSource.getPageList(__mgy_url);
+                    if (__r && typeof __r.then === 'function') {
+                        __r.then(function(v) { __mgy_result = v; });
+                    } else { __mgy_result = __r; }
+                } catch(e) { console.error('Mangayomi getPageList: ' + e); }
+            })();
+            """)
+            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+                  !raw.isUndefined, !raw.isNull else { return [] }
+            return raw.toArray()?.compactMap { $0 as? String }.filter { !$0.isEmpty } ?? []
+        }
         let result = context
             .objectForKeyedSubscript("getPageList")?
             .call(withArguments: [chapterPath])
         return result?.toArray() as? [String] ?? []
+    }
+
+    // MARK: - Mangayomi (Format D) — evaluateScript callers
+
+    /// Calls a Mangayomi list method (getPopular / getLatestUpdates / getLatest) via evaluateScript
+    /// so that JSC drains native async/await microtasks before Swift reads the result.
+    nonisolated private func callMangayomiGetList(method: String, page: Int, sourceId: String) -> [Manga] {
+        context.setObject(page as AnyObject, forKeyedSubscript: "__mgy_p" as NSString)
+        context.evaluateScript("""
+        __mgy_result = undefined;
+        (function() {
+            try {
+                var __r = __mangayomiSource['\(method)'](__mgy_p);
+                if (__r && typeof __r.then === 'function') {
+                    __r.then(function(v) { __mgy_result = v; });
+                } else { __mgy_result = __r; }
+            } catch(e) { console.error('Mangayomi \(method): ' + e); }
+        })();
+        """)
+        guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+              !raw.isUndefined, !raw.isNull,
+              let dict = raw.toDictionary() as? [String: Any],
+              let list = dict["list"] as? [[String: Any]] else { return [] }
+        return list.compactMap { JSBridge.parseMangayomiItem($0, sourceId: sourceId) }
+    }
+
+    /// Maps a Mangayomi list item `{link, name, imageUrl}` to a Manga model.
+    nonisolated private static func parseMangayomiItem(_ item: [String: Any], sourceId: String) -> Manga? {
+        let path: String
+        if let link = item["link"] as? String, !link.isEmpty { path = link }
+        else if let url = item["url"] as? String, !url.isEmpty { path = url }
+        else { return nil }
+        let title: String
+        if let name = item["name"] as? String, !name.isEmpty { title = name }
+        else if let t = item["title"] as? String, !t.isEmpty { title = t }
+        else { return nil }
+        let imageURLStr = item["imageUrl"] as? String ?? item["image"] as? String
+        return Manga(
+            id: path, path: path, sourceId: sourceId, title: title,
+            coverURL: imageURLStr.flatMap { URL(string: $0) },
+            summary: nil, author: nil, artist: nil,
+            status: .unknown, genres: [],
+            inLibrary: false, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
+        )
     }
 
     // MARK: - Discussion URL (optional plugin export)
@@ -1693,9 +1777,29 @@ final class JSBridge {
     // MARK: - Search
 
     nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {
-        if isLNReaderPlugin {
-            // Format B: novels only — signal empty; caller can use searchNovels instead
-            return []
+        if isLNReaderPlugin { return [] }
+        if isMangayomiPlugin {
+            context.setObject(query as AnyObject, forKeyedSubscript: "__mgy_q" as NSString)
+            context.setObject(page as AnyObject,  forKeyedSubscript: "__mgy_p" as NSString)
+            context.evaluateScript("""
+            __mgy_result = undefined;
+            (function() {
+                try {
+                    if (typeof __mangayomiSource.search !== 'function') {
+                        __mgy_result = { list: [] }; return;
+                    }
+                    var __r = __mangayomiSource.search(__mgy_q, __mgy_p, []);
+                    if (__r && typeof __r.then === 'function') {
+                        __r.then(function(v) { __mgy_result = v; });
+                    } else { __mgy_result = __r; }
+                } catch(e) { console.error('Mangayomi search: ' + e); }
+            })();
+            """)
+            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+                  !raw.isUndefined, !raw.isNull,
+                  let dict = raw.toDictionary() as? [String: Any],
+                  let list = dict["list"] as? [[String: Any]] else { return [] }
+            return list.compactMap { JSBridge.parseMangayomiItem($0, sourceId: sourceId) }
         }
         guard
             let fn = context.objectForKeyedSubscript("searchManga"),
