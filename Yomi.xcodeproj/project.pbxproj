@@ -8,10 +8,36 @@
 
 /* Begin PBXBuildFile section */
 		0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0E2B3AB12F658FC9006E6D41 /* GRDB */; };
+		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AABB000DAABB000DAABB000D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0EE530C52F64CF600074B935 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AABB0002AABB0002AABB0002;
+			remoteInfo = YomiWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AABB000BAABB000BAABB000B /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0EE530CD2F64CF600074B935 /* Yomi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yomi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB0001AABB0001AABB0001 /* YomiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = YomiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,6 +55,14 @@
 			);
 			target = 0EE530CC2F64CF600074B935 /* Yomi */;
 		};
+		AABB000FAABB000FAABB000F /* Exceptions for "YomiWidget" folder in "YomiWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Info.plist",
+				"YomiWidget.entitlements",
+			);
+			target = AABB0002AABB0002AABB0002 /* YomiWidget */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -38,6 +72,14 @@
 				0EFAD6B52F844D91005DBC92 /* Exceptions for "Yomi" folder in "Yomi" target */,
 			);
 			path = Yomi;
+			sourceTree = "<group>";
+		};
+		AABB0009AABB0009AABB0009 /* YomiWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AABB000FAABB000FAABB000F /* Exceptions for "YomiWidget" folder in "YomiWidget" target */,
+			);
+			path = YomiWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -51,6 +93,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AABB0004AABB0004AABB0004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -58,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				0EE530CF2F64CF600074B935 /* Yomi */,
+				AABB0009AABB0009AABB0009 /* YomiWidget */,
 				0EE530CE2F64CF600074B935 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				0EE530CD2F64CF600074B935 /* Yomi.app */,
+				AABB0001AABB0001AABB0001 /* YomiWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -80,10 +131,12 @@
 				0EE530C92F64CF600074B935 /* Sources */,
 				0EE530CA2F64CF600074B935 /* Frameworks */,
 				0EE530CB2F64CF600074B935 /* Resources */,
+				AABB000BAABB000BAABB000B /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AABB000CAABB000CAABB000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0EE530CF2F64CF600074B935 /* Yomi */,
@@ -96,6 +149,28 @@
 			productReference = 0EE530CD2F64CF600074B935 /* Yomi.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AABB0002AABB0002AABB0002 /* YomiWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABB0008AABB0008AABB0008 /* Build configuration list for PBXNativeTarget "YomiWidget" */;
+			buildPhases = (
+				AABB0003AABB0003AABB0003 /* Sources */,
+				AABB0004AABB0004AABB0004 /* Frameworks */,
+				AABB0005AABB0005AABB0005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AABB0009AABB0009AABB0009 /* YomiWidget */,
+			);
+			name = YomiWidget;
+			packageProductDependencies = (
+			);
+			productName = YomiWidget;
+			productReference = AABB0001AABB0001AABB0001 /* YomiWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -107,6 +182,9 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					0EE530CC2F64CF600074B935 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					AABB0002AABB0002AABB0002 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -129,12 +207,20 @@
 			projectRoot = "";
 			targets = (
 				0EE530CC2F64CF600074B935 /* Yomi */,
+				AABB0002AABB0002AABB0002 /* YomiWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0EE530CB2F64CF600074B935 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB0005AABB0005AABB0005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -151,7 +237,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AABB0003AABB0003AABB0003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AABB000CAABB000CAABB000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AABB0002AABB0002AABB0002 /* YomiWidget */;
+			targetProxy = AABB000DAABB000DAABB000D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0EE530D62F64CF610074B935 /* Debug */ = {
@@ -278,6 +379,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Yomi/Yomi.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -310,6 +412,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Yomi/Yomi.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -337,6 +440,58 @@
 			};
 			name = Release;
 		};
+		AABB0006AABB0006AABB0006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = YomiWidget/YomiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = YomiWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pacodealer.Yomi.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AABB0007AABB0007AABB0007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = YomiWidget/YomiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = YomiWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pacodealer.Yomi.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -354,6 +509,15 @@
 			buildConfigurations = (
 				0EE530D92F64CF610074B935 /* Debug */,
 				0EE530DA2F64CF610074B935 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AABB0008AABB0008AABB0008 /* Build configuration list for PBXNativeTarget "YomiWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB0006AABB0006AABB0006 /* Debug */,
+				AABB0007AABB0007AABB0007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
