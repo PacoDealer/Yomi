@@ -33,9 +33,11 @@ struct SourceNovel {
 // MARK: - JSBridge
 
 /// Executes JavaScript plugin functions and maps results to Swift models.
-/// Supports two formats:
+/// Supports four plugin formats:
 ///   Format A — Yomi/Manga: global functions getMangaList / getChapterList / getPageList
 ///   Format B — LNReader/Novel: global `plugin` object with popularNovels / parseNovel / parseChapter / searchNovels
+///   Format C — Paperback: Source subclass from paperback-extensions-common; adapted via getHomePageSections
+///   Format D — Mangayomi JS: class DefaultExtension extends MProvider + mangayomiSources[]; evaluateScript drain
 final class JSBridge {
 
     // nonisolated(unsafe): JSContext is only ever accessed from background threads
@@ -1848,6 +1850,23 @@ final class JSBridge {
         __lnr_opts = {
             filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
             showLatestNovels: false
+        };
+        """)
+        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
+        let raw = context.objectForKeyedSubscript("__lnr_result")
+        return JSBridge.parseNovelItems(raw)
+    }
+
+    /// True when the LNReader plugin supports a latest-updated feed (all LNReader plugins do).
+    nonisolated var supportsLatestNovels: Bool { isLNReaderPlugin }
+
+    /// Fetches the latest-updated novel list from an LNReader plugin.
+    nonisolated func latestNovels(page: Int) -> [NovelItem] {
+        context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
+        context.evaluateScript("""
+        __lnr_opts = {
+            filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
+            showLatestNovels: true
         };
         """)
         callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])

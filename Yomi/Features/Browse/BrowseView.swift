@@ -15,6 +15,7 @@ struct BrowseView: View {
     @State private var extensionsSearch = ""
     @State private var langPickerGroup: PluginCatalogGroup? = nil
     @State private var selectedRepos: Set<String> = []
+    @State private var selectedSourceLanguage: String? = nil
 
     enum BrowseTab: String, CaseIterable {
         case sources    = "Sources"
@@ -73,6 +74,21 @@ struct BrowseView: View {
         }
     }
 
+    // MARK: Sources tab — language filter helpers
+
+    private var installedLanguages: [String] {
+        var seen = Set<String>()
+        return extensionManager.installed
+            .compactMap { $0.language.isEmpty ? nil : $0.language }
+            .filter { seen.insert($0).inserted }
+            .sorted()
+    }
+
+    private var filteredInstalled: [Extension] {
+        guard let lang = selectedSourceLanguage else { return extensionManager.installed }
+        return extensionManager.installed.filter { $0.language == lang }
+    }
+
     // MARK: Sources tab
 
     @ViewBuilder
@@ -87,10 +103,31 @@ struct BrowseView: View {
             )
             .onTapGesture { selectedTab = .extensions }
         } else {
+            VStack(spacing: 0) {
+                if installedLanguages.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            RepoFilterChip(label: "All", isSelected: selectedSourceLanguage == nil) {
+                                selectedSourceLanguage = nil
+                            }
+                            ForEach(installedLanguages, id: \.self) { lang in
+                                RepoFilterChip(
+                                    label: lang.uppercased(),
+                                    isSelected: selectedSourceLanguage == lang
+                                ) {
+                                    selectedSourceLanguage = selectedSourceLanguage == lang ? nil : lang
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    Divider()
+                }
             List {
                 if !extensionManager.installed.isEmpty {
                     Section {
-                        ForEach(extensionManager.installed) { ext in
+                        ForEach(filteredInstalled) { ext in
                             NavigationLink {
                                 SourceBrowseView(ext: ext)
                             } label: {
@@ -212,6 +249,7 @@ struct BrowseView: View {
                     await loadOPDSRoot()
                 }
             }
+            }  // end VStack
         }
     }
 
@@ -788,8 +826,7 @@ struct SourceBrowseView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search \(ext.name)")
         .safeAreaInset(edge: .top, spacing: 0) {
-            // Only show Popular/Latest picker for manga sources that support latest
-            if !isNovelSource && supportsLatest {
+            if supportsLatest {
                 Picker("Feed", selection: $selectedFeed) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
@@ -885,9 +922,10 @@ struct SourceBrowseView: View {
 
         if b.isLNReaderPlugin {
             isNovelSource = true
-            supportsLatest = false
+            supportsLatest = true
+            let currentFeed = selectedFeed
             let items = await Task.detached(priority: .userInitiated) {
-                b.popularNovels(page: 1)
+                currentFeed == .latest ? b.latestNovels(page: 1) : b.popularNovels(page: 1)
             }.value
             novels = items.map { item in
                 Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
@@ -927,7 +965,7 @@ struct SourceBrowseView: View {
 
         if isNovelSource {
             let items = await Task.detached(priority: .userInitiated) {
-                b.popularNovels(page: nextPage)
+                feed == .latest ? b.latestNovels(page: nextPage) : b.popularNovels(page: nextPage)
             }.value
             if items.isEmpty {
                 hasMoreContent = false
