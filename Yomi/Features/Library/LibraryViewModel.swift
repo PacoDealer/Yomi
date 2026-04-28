@@ -111,9 +111,6 @@ final class LibraryViewModel {
         return sorted.filter { $0.title.localizedStandardContains(searchText) }
     }
 
-    /// Legacy alias kept for any existing callsite that uses filteredMangas.
-    var filteredMangas: [Manga] { displayedManga }
-
     /// Novels shown in the grid: category-filtered, status-filtered, sorted by sortOrder, then title search.
     var displayedNovels: [Novel] {
         let categoryFiltered = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
