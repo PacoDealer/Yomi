@@ -53,6 +53,9 @@ struct MangaDetailView: View {
     @State private var showNotesSheet = false
     @State private var notesText: String = ""
 
+    // AniList score
+    @State private var aniListScore: Int? = nil
+
     init(manga: Manga) {
         _manga = State(initialValue: manga)
     }
@@ -143,6 +146,13 @@ struct MangaDetailView: View {
 
                             HStack(spacing: 8) {
                                 StatusBadge(status: manga.status)
+
+                                if let score = aniListScore {
+                                    Label("\(score)%", systemImage: "star.fill")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.orange)
+                                }
 
                                 if manga.inLibrary {
                                     ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
@@ -453,6 +463,7 @@ struct MangaDetailView: View {
         .task { await loadCategories() }
         .task { computeStorageSize() }
         .task { notesText = manga.notes ?? "" }
+        .task { aniListScore = await AniListService.shared.fetchScore(title: manga.title, isManga: true) }
         .sheet(isPresented: $showNotesSheet) {
             NotesEditorSheet(mangaTitle: manga.title, text: $notesText) {
                 let id = manga.id
