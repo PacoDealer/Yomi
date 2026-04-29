@@ -189,9 +189,17 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 
 // MARK: - CFBypassManager
 
+/// Shared constants for the CF bypass system.
+enum CFBypassConstants {
+    /// User-Agent used by both JSBridge (SOURCE._fetchSync) and the bypass WKWebView.
+    /// Cloudflare binds cf_clearance to the UA that solved the challenge — they must match.
+    nonisolated(unsafe) static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+}
+
 enum CFBypassManager {
-    /// Loads url in a hidden 1×1pt WKWebView, polls for cf_clearance for up to 10 s.
+    /// Loads url in an off-screen full-size WKWebView, polls for cf_clearance for up to 30 s.
     /// Copies all domain cookies to HTTPCookieStorage.shared on success.
+    /// Uses CFBypassConstants.userAgent so the clearance cookie is valid for URLSession requests too.
     @MainActor
     static func autoBypass(url: URL) async -> Bool {
         let helper = AutoBypassHelper()
@@ -211,20 +219,28 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
 
     @MainActor
     func run(url: URL) async -> Bool {
-        let wv = WKWebView(frame: CGRect(x: -2, y: -2, width: 1, height: 1))
-        wv.navigationDelegate = self
-        webView = wv
-
         let windowScene = UIApplication.shared.connectedScenes
             .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
-        guard let window = windowScene?.windows.first(where: { $0.isKeyWindow }) else { return false }
+        // keyWindow available on UIWindowScene since iOS 15.
+        guard let window = windowScene?.keyWindow ?? windowScene?.windows.first else { return false }
+
+        // Full-size off-screen — Cloudflare Turnstile needs a real viewport to run its JS.
+        // Use windowScene.screen to avoid deprecated UIScreen.main (iOS 26+).
+        let screenBounds = windowScene?.screen.bounds ?? window.bounds
+        let frame = CGRect(x: 0, y: screenBounds.height + 1,
+                           width: screenBounds.width, height: screenBounds.height)
+        let wv = WKWebView(frame: frame)
+        // UA must match CFBypassConstants.userAgent — cf_clearance is bound to the UA that solved the challenge.
+        wv.customUserAgent = CFBypassConstants.userAgent
+        wv.navigationDelegate = self
+        webView = wv
         window.addSubview(wv)
         wv.load(URLRequest(url: url))
 
         return await withCheckedContinuation { [weak self] cont in
             self?.continuation = cont
             self?.timeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(10))
+                try? await Task.sleep(for: .seconds(30))
                 DispatchQueue.main.async { self?.finish(success: false) }
             }
         }
@@ -234,13 +250,19 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
         startPolling(webView: webView)
     }
 
+    // Also restart polling on server redirects (CF sometimes redirects before didFinish).
+    func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
+        startPolling(webView: webView)
+    }
+
     private func startPolling(webView: WKWebView) {
         pollTimer?.invalidate()
         var ticks = 0
+        // Poll every 0.5 s for up to 30 s (60 ticks), matching the timeout task.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self, weak webView] t in
             guard let self, let webView, !self.finished else { t.invalidate(); return }
             ticks += 1
-            if ticks > 20 { t.invalidate(); return }
+            if ticks > 60 { t.invalidate(); return }
             webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
                 DispatchQueue.main.async { [weak self] in
                     guard let self, !self.finished else { return }
