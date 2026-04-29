@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NovelDetailView: View {
-    let novel: Novel
+    @State private var novel: Novel
     let bridge: JSBridge
 
     // MARK: - State
@@ -15,9 +15,10 @@ struct NovelDetailView: View {
     @State private var assignedCategoryIds: Set<String> = []
     @State private var showCategorySheet = false
     @State private var novelReadingStatus: ReadingStatus
+    @State private var aniListScore: Int? = nil
 
     init(novel: Novel, bridge: JSBridge) {
-        self.novel = novel
+        _novel = State(initialValue: novel)
         self.bridge = bridge
         _isInLibrary = State(initialValue: novel.inLibrary)
         _novelReadingStatus = State(initialValue: novel.readingStatus)
@@ -94,6 +95,14 @@ struct NovelDetailView: View {
 
                             HStack(spacing: 8) {
                                 NovelStatusBadge(status: novel.status)
+
+                                if let score = aniListScore {
+                                    Label("\(score)%", systemImage: "star.fill")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.orange)
+                                }
+
                                 if isInLibrary {
                                     ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
                                         Task { await updateReadingStatus(newStatus) }
@@ -255,6 +264,7 @@ struct NovelDetailView: View {
         }
         .task { await loadChapters() }
         .task { await loadCategories() }
+        .task { aniListScore = await AniListService.shared.fetchScore(title: novel.title, isManga: false) }
     }
 
     // MARK: - Toggle Library
@@ -332,6 +342,20 @@ struct NovelDetailView: View {
         guard let source else {
             isLoadingChapters = false
             return
+        }
+
+        // Update novel metadata in view (synopsis, author, status, cover)
+        if let summary = source.summary, !summary.isEmpty { novel.summary = summary }
+        if let author = source.author, !author.isEmpty { novel.author = author }
+        if let status = source.status, !status.isEmpty { novel.status = status }
+        if let coverStr = source.cover, !coverStr.isEmpty, let coverURL = URL(string: coverStr) {
+            novel.coverURL = coverURL
+        }
+
+        // Persist updated metadata if in library
+        if novel.inLibrary {
+            let updated = novel
+            await Task.detached { try? NovelQueries.upsert(updated) }.value
         }
 
         // Build chapters from remote source

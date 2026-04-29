@@ -8,7 +8,7 @@
 declare const SOURCE: { fetch(url: string): string };
 declare const cheerio: { load(html: string): any };
 
-const BASE_URL = 'https://www.lightnovelpub.com';
+const BASE_URL = 'https://www.lightnovelpub.vip';
 
 const plugin = {
   popularNovels(pageNo: number): any[] {
