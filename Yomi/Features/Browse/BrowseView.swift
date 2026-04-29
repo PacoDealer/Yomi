@@ -745,6 +745,7 @@ struct SourceBrowseView: View {
     @State private var showCFBypass = false
     @State private var bypassAttempted = false
     @State private var isBypassing = false
+    @State private var autoBypassFailed = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
@@ -857,6 +858,26 @@ struct SourceBrowseView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if autoBypassFailed {
+                HStack(spacing: 10) {
+                    Image(systemName: "shield.slash").foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-bypass failed")
+                            .font(.subheadline).fontWeight(.medium)
+                        Text("Tap the shield button to bypass manually.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { autoBypassFailed = false } label: {
+                        Image(systemName: "xmark").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.bar)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -878,6 +899,7 @@ struct SourceBrowseView: View {
 
     private func loadWithBypass() async {
         bypassAttempted = false
+        autoBypassFailed = false
         await loadContent()
         guard isContentEmpty, !bypassAttempted,
               let cfURL = bridge?.cfBlockedURL,
@@ -887,7 +909,11 @@ struct SourceBrowseView: View {
         let success = await CFBypassManager.autoBypass(url: url)
         bridge?.clearCFBlock()
         isBypassing = false
-        if success { await loadContent() }
+        if success {
+            await loadContent()
+        } else {
+            autoBypassFailed = true
+        }
     }
 
     // MARK: Load Content

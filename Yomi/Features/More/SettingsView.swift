@@ -1,5 +1,30 @@
 import SwiftUI
 
+// MARK: - ConnectionTestStatus
+
+private enum ConnectionTestStatus: Equatable {
+    case idle
+    case loading
+    case connected(Int)
+    case failed(String)
+
+    var label: String {
+        switch self {
+        case .idle:              return ""
+        case .loading:          return "Connecting…"
+        case .connected(let n): return "Connected — \(n) sources"
+        case .failed(let msg):  return "Error: \(msg)"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .connected: return .green
+        case .failed:    return .red
+        default:         return .secondary
+        }
+    }
+}
+
 // MARK: - SettingsView
 
 struct SettingsView: View {
@@ -8,67 +33,24 @@ struct SettingsView: View {
     @State private var newRepoURL: String = ""
     @State private var showAddRepo = false
 
-    // Suwayomi test connection
-    @State private var suwayomiStatus: ConnectionTestStatus = .idle
-    // OPDS test connection
-    @State private var opdsStatus: ConnectionTestStatus = .idle
-
-    enum ConnectionTestStatus: Equatable {
-        case idle
-        case loading
-        case connected(Int)
-        case failed(String)
-
-        var label: String {
-            switch self {
-            case .idle:              return ""
-            case .loading:          return "Connecting…"
-            case .connected(let n): return "Connected — \(n) sources"
-            case .failed(let msg):  return "Error: \(msg)"
-            }
-        }
-        var color: Color {
-            switch self {
-            case .connected: return .green
-            case .failed:    return .red
-            default:         return .secondary
-            }
-        }
-    }
-
-    // Alternate icons: key = display name, value = CFBundleAlternateIcons key (nil = default)
     private let alternateIcons: [(label: String, key: String?)] = [
-        ("Default",  nil),
-        ("Dark",     "AppIconDark"),
-        ("Minimal",  "AppIconMinimal"),
+        ("Default", nil),
+        ("Dark",    "AppIconDark"),
+        ("Minimal", "AppIconMinimal"),
     ]
 
-    // 10 curated swatches (hex strings)
     private let accentSwatches: [String] = [
-        "#FF6B6B", // coral (default)
-        "#FF9F43", // orange
-        "#FECA57", // yellow
-        "#48DBFB", // sky
-        "#0ABDE3", // cyan
-        "#006BA6", // blue
-        "#5F27CD", // purple
-        "#C56BFF", // lavender
-        "#FF6EB4", // pink
-        "#00D2A4", // teal
+        "#FF6B6B", "#FF9F43", "#FECA57", "#48DBFB", "#0ABDE3",
+        "#006BA6", "#5F27CD", "#C56BFF", "#FF6EB4", "#00D2A4",
     ]
 
     var body: some View {
         List {
             generalSection
+            readingSection
             librarySection
-            mangaReaderSection
-            downloadsSection
-            updatesSection
-            novelReaderSection
             appearanceSection
-            pluginRepositoriesSection
-            suwayomiSection
-            opdsSection
+            sourcesSection
             advancedSection
             aboutSection
         }
@@ -90,6 +72,27 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            Toggle(isOn: $settings.isIncognito) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Incognito mode", systemImage: "theatermasks")
+                    Text("Reading progress and history won't be saved")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Reading
+
+    private var readingSection: some View {
+        Section("Reading") {
+            NavigationLink("Manga & Webtoon") {
+                MangaReaderSettingsView()
+            }
+            NavigationLink("Novels") {
+                NovelReaderSettingsView()
+            }
         }
     }
 
@@ -103,66 +106,6 @@ struct SettingsView: View {
                 in: 2...6
             )
             Toggle("Show unread count badge", isOn: $settings.showUnreadBadge)
-        }
-    }
-
-    // MARK: - Reader — Manga
-
-    private var mangaReaderSection: some View {
-        Section("Reader — Manga") {
-            Picker("Default mode", selection: $settings.readerMode) {
-                Text("Manga (RTL)").tag("Manga (RTL)")
-                Text("Manhwa (LTR)").tag("Manhwa (LTR)")
-                Text("Webtoon").tag("Webtoon")
-            }
-            .pickerStyle(.menu)
-
-            Toggle(isOn: $settings.autoWebtoonFromTags) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-detect webtoon")
-                    Text("Switches to Webtoon mode for manhwa/manhua/long-strip titles")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Picker("Tap zones", selection: $settings.tapZoneLayout) {
-                Text("Default (equal thirds)").tag("default")
-                Text("Sides (20 · 60 · 20%)").tag("sides")
-                Text("Disabled (swipe only)").tag("disabled")
-            }
-
-            Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
-
-            Toggle(isOn: $settings.isIncognito) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("Incognito mode", systemImage: "theatermasks")
-                    Text("Reading progress and history won't be saved")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    // MARK: - Downloads
-
-    private var downloadsSection: some View {
-        Section("Downloads") {
-            Stepper(
-                "Auto-scroll speed: \(String(format: "%.0f", settings.autoScrollSpeed))s",
-                value: $settings.autoScrollSpeed,
-                in: 1...10,
-                step: 0.5
-            )
-
-            Picker("Webtoon margins", selection: $settings.webtoonHorizontalPadding) {
-                Text("None").tag(0)
-                Text("Small (8 pt)").tag(8)
-                Text("Normal (16 pt)").tag(16)
-                Text("Wide (24 pt)").tag(24)
-            }
-
             Toggle(isOn: $settings.deleteDownloadAfterReading) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Delete after reading")
@@ -176,92 +119,8 @@ struct SettingsView: View {
                 value: $settings.concurrentDownloads,
                 in: 1...5
             )
-        }
-    }
-
-    // MARK: - Updates
-
-    private var updatesSection: some View {
-        Section("Updates") {
-            Toggle(isOn: $settings.skipUpdateWithUnread) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Skip if unread chapters exist")
-                    Text("Don't check for updates when you already have unread content")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Toggle(isOn: $settings.skipUpdateNotStarted) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Skip titles not started")
-                    Text("Don't check titles you've never opened")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Toggle(isOn: $settings.skipUpdateCompleted) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Skip completed titles")
-                    Text("Don't check titles marked as Completed by the source")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            NavigationLink("Excluded categories") {
-                ExcludedCategoriesView(settings: settings)
-            }
-        }
-    }
-
-    // MARK: - Reader — Novels
-
-    private var novelReaderSection: some View {
-        Section("Reader — Novels") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Font size: \(Int(settings.fontSize))pt")
-                    .font(.subheadline)
-                Slider(value: $settings.fontSize, in: 14...28, step: 1)
-                    .tint(Color(hex: settings.accentColor))
-            }
-            .padding(.vertical, 4)
-
-            Stepper(
-                "Line spacing: \(String(format: "%.1f", settings.lineSpacing))×",
-                value: $settings.lineSpacing,
-                in: 1.0...2.5,
-                step: 0.1
-            )
-
-            Picker("Font family", selection: $settings.novelFontFamily) {
-                Text("Serif (Georgia)").tag("Serif")
-                Text("System").tag("System")
-            }
-
-            Picker("Default theme", selection: $settings.novelTheme) {
-                ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
-                    Text(theme.rawValue).tag(theme.rawValue)
-                }
-            }
-
-            Picker("Margins", selection: $settings.novelHorizontalPadding) {
-                Text("Narrow").tag(8)
-                Text("Normal").tag(16)
-                Text("Wide").tag(28)
-            }
-
-            Slider(
-                value: Binding(
-                    get: { Double(settings.ttsSpeechRate) },
-                    set: { settings.ttsSpeechRate = Float($0) }
-                ),
-                in: 0.1...1.0,
-                step: 0.1
-            ) {
-                Text("TTS Speed: \(String(format: "%.1f×", settings.ttsSpeechRate))")
-            } minimumValueLabel: {
-                Text("0.1×").font(.caption)
-            } maximumValueLabel: {
-                Text("1.0×").font(.caption)
+            NavigationLink("Update rules") {
+                UpdatesSettingsView()
             }
         }
     }
@@ -277,19 +136,14 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            // Accent color
             VStack(alignment: .leading, spacing: 10) {
                 Text("Accent color")
                     .font(.subheadline)
-
-                // Swatch row — scrollable so all swatches fit on any screen width
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(accentSwatches, id: \.self) { hex in
                             swatchButton(hex: hex)
                         }
-
-                        // Custom color picker button (rainbow circle)
                         Button {
                             showCustomColorPicker = true
                         } label: {
@@ -321,7 +175,6 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
 
-            // App icon picker
             VStack(alignment: .leading, spacing: 8) {
                 Text("App icon")
                     .font(.subheadline)
@@ -369,6 +222,120 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    // MARK: - Sources & Servers
+
+    private var sourcesSection: some View {
+        Section {
+            ForEach(settings.pluginCatalogURLs, id: \.self) { url in
+                Text(url)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .onDelete { offsets in
+                settings.pluginCatalogURLs.remove(atOffsets: offsets)
+                PluginCatalogService.shared.invalidateCache()
+            }
+
+            Button {
+                newRepoURL = ""
+                showAddRepo = true
+            } label: {
+                Label("Add repository", systemImage: "plus")
+            }
+            .sheet(isPresented: $showAddRepo) {
+                addRepoSheet
+            }
+
+            NavigationLink("Suwayomi Server") {
+                SuwayomiSettingsView()
+            }
+
+            NavigationLink("OPDS Server (Kavita / Komga)") {
+                OPDSSettingsView()
+            }
+        } header: {
+            Text("Sources & Servers")
+        } footer: {
+            Text("Catalogs are merged. Duplicate plugin IDs: first catalog wins.")
+                .font(.caption)
+        }
+    }
+
+    private var addRepoSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Catalog URL") {
+                    TextField("https://example.com/index.json", text: $newRepoURL)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                Section {
+                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi#plugin-repositories")!) {
+                        HStack {
+                            Label("Browse community repos", systemImage: "book")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("Find repository URLs and setup instructions on GitHub.")
+                }
+            }
+            .navigationTitle("Add Repository")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddRepo = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let trimmed = newRepoURL.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) {
+                            settings.pluginCatalogURLs.append(trimmed)
+                            PluginCatalogService.shared.invalidateCache()
+                        }
+                        showAddRepo = false
+                    }
+                    .disabled(newRepoURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    // MARK: - Advanced
+
+    private var advancedSection: some View {
+        Section("Advanced") {
+            NavigationLink("Advanced settings") {
+                AdvancedSettingsView()
+            }
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutSection: some View {
+        Section("About") {
+            LabeledContent(
+                "Version",
+                value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+            )
+            LabeledContent(
+                "Build",
+                value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+            )
+            Link("GitHub", destination: URL(string: "https://github.com/PacoDealer/Yomi")!)
+            Link("Report a bug", destination: URL(string: "https://github.com/PacoDealer/Yomi/issues")!)
+            Link("Privacy Policy", destination: URL(string: "https://yomi-plugins.web.app/privacy")!)
         }
     }
 
@@ -442,234 +409,308 @@ struct SettingsView: View {
                 settings.alternateIconName = name
             } catch {
                 // Icon not registered in Info.plist CFBundleAlternateIcons — silently ignore.
-                // Add the icon entries in Xcode: Target → Info → CFBundleIcons → CFBundleAlternateIcons.
             }
         }
     }
+}
 
-    // MARK: - Plugin Repositories
+// MARK: - MangaReaderSettingsView
 
-    private var pluginRepositoriesSection: some View {
-        Section {
-            ForEach(settings.pluginCatalogURLs, id: \.self) { url in
-                Text(url)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .onDelete { offsets in
-                settings.pluginCatalogURLs.remove(atOffsets: offsets)
-                PluginCatalogService.shared.invalidateCache()
-            }
+private struct MangaReaderSettingsView: View {
+    @State private var settings = AppSettings.shared
 
-            Button {
-                newRepoURL = ""
-                showAddRepo = true
-            } label: {
-                Label("Add repository", systemImage: "plus")
-            }
-            .sheet(isPresented: $showAddRepo) {
-                addRepoSheet
-            }
-        } header: {
-            Text("Plugin Repositories")
-        } footer: {
-            Text("Catalogs are merged. Duplicate plugin IDs: first catalog wins.")
-                .font(.caption)
-        }
-    }
-
-    private var addRepoSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Catalog URL") {
-                    TextField("https://example.com/index.json", text: $newRepoURL)
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+    var body: some View {
+        List {
+            Section {
+                Picker("Default mode", selection: $settings.readerMode) {
+                    Text("Manga (RTL)").tag("Manga (RTL)")
+                    Text("Manhwa (LTR)").tag("Manhwa (LTR)")
+                    Text("Webtoon").tag("Webtoon")
                 }
-                Section {
-                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi#plugin-repositories")!) {
-                        HStack {
-                            Label("Browse community repos", systemImage: "book")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                .pickerStyle(.menu)
+
+                Toggle(isOn: $settings.autoWebtoonFromTags) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-detect webtoon")
+                        Text("Switches to Webtoon mode for manhwa/manhua/long-strip titles")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                } footer: {
-                    Text("Find repository URLs and setup instructions on GitHub.")
                 }
+
+                Picker("Tap zones", selection: $settings.tapZoneLayout) {
+                    Text("Default (equal thirds)").tag("default")
+                    Text("Sides (20 · 60 · 20%)").tag("sides")
+                    Text("Disabled (swipe only)").tag("disabled")
+                }
+
+                Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
             }
-            .navigationTitle("Add Repository")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showAddRepo = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        let trimmed = newRepoURL.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) {
-                            settings.pluginCatalogURLs.append(trimmed)
-                            PluginCatalogService.shared.invalidateCache()
-                        }
-                        showAddRepo = false
-                    }
-                    .disabled(newRepoURL.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            Section("Webtoon") {
+                Stepper(
+                    "Auto-scroll speed: \(String(format: "%.0f", settings.autoScrollSpeed))s",
+                    value: $settings.autoScrollSpeed,
+                    in: 1...10,
+                    step: 0.5
+                )
+
+                Picker("Horizontal margins", selection: $settings.webtoonHorizontalPadding) {
+                    Text("None").tag(0)
+                    Text("Small (8 pt)").tag(8)
+                    Text("Normal (16 pt)").tag(16)
+                    Text("Wide (24 pt)").tag(24)
                 }
             }
         }
-        .presentationDetents([.medium])
+        .listStyle(.insetGrouped)
+        .navigationTitle("Manga & Webtoon")
+        .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    // MARK: - Suwayomi Server
+// MARK: - NovelReaderSettingsView
 
-    private var suwayomiSection: some View {
-        Section {
-            TextField("http://192.168.1.x:4567", text: $settings.suwayomiURL)
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .onChange(of: settings.suwayomiURL) { _, _ in suwayomiStatus = .idle }
+private struct NovelReaderSettingsView: View {
+    @State private var settings = AppSettings.shared
 
-            HStack {
-                Button("Test Connection") {
-                    Task { await testSuwayomi() }
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Font size: \(Int(settings.fontSize))pt")
+                        .font(.subheadline)
+                    Slider(value: $settings.fontSize, in: 14...28, step: 1)
+                        .tint(Color(hex: settings.accentColor))
                 }
-                .disabled(settings.suwayomiURL.trimmingCharacters(in: .whitespaces).isEmpty
-                          || suwayomiStatus == .loading)
+                .padding(.vertical, 4)
 
-                if suwayomiStatus == .loading {
-                    ProgressView().scaleEffect(0.8)
-                } else if case .connected = suwayomiStatus {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                } else if case .failed = suwayomiStatus {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                Stepper(
+                    "Line spacing: \(String(format: "%.1f", settings.lineSpacing))×",
+                    value: $settings.lineSpacing,
+                    in: 1.0...2.5,
+                    step: 0.1
+                )
+
+                Picker("Font family", selection: $settings.novelFontFamily) {
+                    Text("Serif (Georgia)").tag("Serif")
+                    Text("System").tag("System")
                 }
 
-                Spacer()
+                Picker("Default theme", selection: $settings.novelTheme) {
+                    ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
+                        Text(theme.rawValue).tag(theme.rawValue)
+                    }
+                }
 
-                if !suwayomiStatus.label.isEmpty {
-                    Text(suwayomiStatus.label)
-                        .font(.caption)
-                        .foregroundStyle(suwayomiStatus.color)
-                        .lineLimit(1)
+                Picker("Margins", selection: $settings.novelHorizontalPadding) {
+                    Text("Narrow").tag(8)
+                    Text("Normal").tag(16)
+                    Text("Wide").tag(28)
                 }
             }
 
-            Link(destination: URL(string: "https://github.com/Suwayomi/Suwayomi-Server#getting-started")!) {
+            Section("Text-to-Speech") {
+                Slider(
+                    value: Binding(
+                        get: { Double(settings.ttsSpeechRate) },
+                        set: { settings.ttsSpeechRate = Float($0) }
+                    ),
+                    in: 0.1...1.0,
+                    step: 0.1
+                ) {
+                    Text("Speed: \(String(format: "%.1f×", settings.ttsSpeechRate))")
+                } minimumValueLabel: {
+                    Text("0.1×").font(.caption)
+                } maximumValueLabel: {
+                    Text("1.0×").font(.caption)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Novels")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - UpdatesSettingsView
+
+private struct UpdatesSettingsView: View {
+    @State private var settings = AppSettings.shared
+
+    var body: some View {
+        List {
+            Section {
+                Toggle(isOn: $settings.skipUpdateWithUnread) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Skip if unread chapters exist")
+                        Text("Don't check for updates when you already have unread content")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle(isOn: $settings.skipUpdateNotStarted) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Skip titles not started")
+                        Text("Don't check titles you've never opened")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle(isOn: $settings.skipUpdateCompleted) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Skip completed titles")
+                        Text("Don't check titles marked as Completed by the source")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                NavigationLink("Excluded categories") {
+                    ExcludedCategoriesView(settings: settings)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Update Rules")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - SuwayomiSettingsView
+
+private struct SuwayomiSettingsView: View {
+    @State private var settings = AppSettings.shared
+    @State private var status: ConnectionTestStatus = .idle
+
+    var body: some View {
+        List {
+            Section {
+                TextField("http://192.168.1.x:4567", text: $settings.suwayomiURL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .onChange(of: settings.suwayomiURL) { _, _ in status = .idle }
+
                 HStack {
-                    Label("Setup guide", systemImage: "book")
+                    Button("Test Connection") {
+                        Task { await testConnection() }
+                    }
+                    .disabled(settings.suwayomiURL.trimmingCharacters(in: .whitespaces).isEmpty
+                              || status == .loading)
+
+                    if status == .loading {
+                        ProgressView().scaleEffect(0.8)
+                    } else if case .connected = status {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else if case .failed = status {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                    }
+
                     Spacer()
-                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+
+                    if !status.label.isEmpty {
+                        Text(status.label)
+                            .font(.caption)
+                            .foregroundStyle(status.color)
+                            .lineLimit(1)
+                    }
                 }
+
+                Link(destination: URL(string: "https://github.com/Suwayomi/Suwayomi-Server#getting-started")!) {
+                    HStack {
+                        Label("Setup guide", systemImage: "book")
+                        Spacer()
+                        Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            } footer: {
+                Text("Self-host Suwayomi to browse 1000+ Mihon/Keiyoushi sources. Install the server on your computer or NAS, then paste the local IP here.")
+                    .font(.caption)
             }
-        } header: {
-            Text("Suwayomi Server")
-        } footer: {
-            Text("Self-host Suwayomi to browse 1000+ Mihon/Keiyoushi sources. Install the server on your computer or NAS, then paste the local IP here.")
-                .font(.caption)
         }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Suwayomi Server")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func testSuwayomi() async {
-        suwayomiStatus = .loading
+    private func testConnection() async {
+        status = .loading
         do {
             let sources = try await SuwayomiService.shared.fetchSources()
-            suwayomiStatus = .connected(sources.count)
+            status = .connected(sources.count)
         } catch {
             let msg = (error as? URLError)?.localizedDescription ?? error.localizedDescription
-            suwayomiStatus = .failed(String(msg.prefix(60)))
+            status = .failed(String(msg.prefix(60)))
         }
     }
+}
 
-    // MARK: - OPDS Server
+// MARK: - OPDSSettingsView
 
-    private var opdsSection: some View {
-        Section {
-            TextField("http://192.168.1.x:5000/opds/v1.2/catalog", text: $settings.opdsURL)
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .onChange(of: settings.opdsURL) { _, _ in opdsStatus = .idle }
+private struct OPDSSettingsView: View {
+    @State private var settings = AppSettings.shared
+    @State private var status: ConnectionTestStatus = .idle
 
-            TextField("Username (optional)", text: $settings.opdsUsername)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+    var body: some View {
+        List {
+            Section {
+                TextField("http://192.168.1.x:5000/opds/v1.2/catalog", text: $settings.opdsURL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .onChange(of: settings.opdsURL) { _, _ in status = .idle }
 
-            SecureField("Password (optional)", text: $settings.opdsPassword)
+                TextField("Username (optional)", text: $settings.opdsUsername)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
 
-            HStack {
-                Button("Test Connection") {
-                    Task { await testOPDS() }
+                SecureField("Password (optional)", text: $settings.opdsPassword)
+
+                HStack {
+                    Button("Test Connection") {
+                        Task { await testConnection() }
+                    }
+                    .disabled(settings.opdsURL.trimmingCharacters(in: .whitespaces).isEmpty
+                              || status == .loading)
+
+                    if status == .loading {
+                        ProgressView().scaleEffect(0.8)
+                    } else if case .connected = status {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else if case .failed = status {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                    }
+
+                    Spacer()
+
+                    if !status.label.isEmpty {
+                        Text(status.label)
+                            .font(.caption)
+                            .foregroundStyle(status.color)
+                            .lineLimit(1)
+                    }
                 }
-                .disabled(settings.opdsURL.trimmingCharacters(in: .whitespaces).isEmpty
-                          || opdsStatus == .loading)
-
-                if opdsStatus == .loading {
-                    ProgressView().scaleEffect(0.8)
-                } else if case .connected = opdsStatus {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                } else if case .failed = opdsStatus {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-                }
-
-                Spacer()
-
-                if !opdsStatus.label.isEmpty {
-                    Text(opdsStatus.label)
-                        .font(.caption)
-                        .foregroundStyle(opdsStatus.color)
-                        .lineLimit(1)
-                }
+            } footer: {
+                Text("Connect to a local Kavita or Komga library server via its OPDS catalog URL. Appears as a source in Browse.")
+                    .font(.caption)
             }
-        } header: {
-            Text("OPDS Server (Kavita / Komga)")
-        } footer: {
-            Text("Connect to a local Kavita or Komga library server via its OPDS catalog URL. Appears as a source in Browse.")
-                .font(.caption)
         }
+        .listStyle(.insetGrouped)
+        .navigationTitle("OPDS Server")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func testOPDS() async {
-        opdsStatus = .loading
+    private func testConnection() async {
+        status = .loading
         do {
             let count = try await OPDSService.shared.testConnection()
-            opdsStatus = .connected(count)
+            status = .connected(count)
         } catch {
             let msg = (error as? URLError)?.localizedDescription ?? error.localizedDescription
-            opdsStatus = .failed(String(msg.prefix(60)))
-        }
-    }
-
-    // MARK: - Advanced
-
-    private var advancedSection: some View {
-        Section("Advanced") {
-            NavigationLink("Advanced settings") {
-                AdvancedSettingsView()
-            }
-        }
-    }
-
-    // MARK: - About
-
-    private var aboutSection: some View {
-        Section("About") {
-            LabeledContent(
-                "Version",
-                value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-            )
-            LabeledContent(
-                "Build",
-                value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-            )
-            Link("GitHub", destination: URL(string: "https://github.com/PacoDealer/Yomi")!)
-            Link("Report a bug", destination: URL(string: "https://github.com/PacoDealer/Yomi/issues")!)
-            Link("Privacy Policy", destination: URL(string: "https://yomi-plugins.web.app/privacy")!)
+            status = .failed(String(msg.prefix(60)))
         }
     }
 }
