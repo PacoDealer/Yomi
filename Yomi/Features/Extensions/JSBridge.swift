@@ -1654,8 +1654,11 @@ final class JSBridge {
     nonisolated func getChapterList(mangaPath: String, mangaId: String) -> [Chapter] {
         if isMangayomiPlugin {
             context.setObject(mangaPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
+            // getDetail → extract chapters in JS to avoid toDictionary() type-cast failures
+            // on complex JSC objects. Normalises all known field-name variants here.
             context.evaluateScript("""
             __mgy_result = undefined;
+            __mgy_chapters = [];
             (function() {
                 try {
                     var __r = __mangayomiSource.getDetail(__mgy_url);
@@ -1663,23 +1666,31 @@ final class JSBridge {
                         __r.then(function(v) { __mgy_result = v; });
                     } else { __mgy_result = __r; }
                 } catch(e) { console.error('Mangayomi getDetail: ' + e); }
+                if (!__mgy_result) return;
+                var raw = __mgy_result.episodes || __mgy_result.chapters ||
+                          __mgy_result.chapterList || __mgy_result.chapter_list || [];
+                if (!Array.isArray(raw)) return;
+                __mgy_chapters = raw.map(function(e, i) {
+                    var url = e.url || e.link || e.id || e.href || e.path || '';
+                    var name = e.name || e.title || ('Episode ' + (i + 1));
+                    var scanlator = e.scanlator || e.team || null;
+                    return { url: url, name: name, scanlator: scanlator };
+                }).filter(function(e) { return e.url.length > 0; });
             })();
             """)
-            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
-                  !raw.isUndefined, !raw.isNull,
-                  let detail = raw.toDictionary() as? [String: Any] else { return [] }
-            // Mangayomi uses "episodes" for chapters; some plugins use "chapters"
-            let rawChapters = detail["episodes"] as? [[String: Any]]
-                ?? detail["chapters"] as? [[String: Any]] ?? []
-            return rawChapters.enumerated().compactMap { (index, ch) in
-                let chURL = ch["url"] as? String ?? ch["link"] as? String ?? ""
+            guard let arr = context.objectForKeyedSubscript("__mgy_chapters"),
+                  !arr.isUndefined, !arr.isNull,
+                  let items = arr.toArray() as? [[String: Any]] else { return [] }
+            return items.enumerated().compactMap { (index, ch) in
+                let chURL = ch["url"] as? String ?? ""
                 guard !chURL.isEmpty else { return nil }
                 let name = ch["name"] as? String ?? "Episode \(index + 1)"
+                let scanlator = ch["scanlator"] as? String
                 return Chapter(
                     id: chURL, mangaId: mangaId, path: chURL, name: name,
                     chapterNumber: Double(index),
                     isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil,
-                    progress: 0.0, readingSeconds: 0, lastPageRead: 0, scanlator: nil
+                    progress: 0.0, readingSeconds: 0, lastPageRead: 0, scanlator: scanlator
                 )
             }
         }
