@@ -15,7 +15,7 @@ struct BrowseView: View {
     @State private var extensionsSearch = ""
     @State private var langPickerGroup: PluginCatalogGroup? = nil
     @State private var selectedRepos: Set<String> = []
-    @State private var selectedSourceLanguage: String? = nil
+    @State private var selectedCatalogLanguage: String? = nil
 
     enum BrowseTab: String, CaseIterable {
         case sources    = "Sources"
@@ -74,19 +74,40 @@ struct BrowseView: View {
         }
     }
 
-    // MARK: Sources tab — language filter helpers
+    // MARK: Language normalization (shared by Extensions tab)
 
-    private var installedLanguages: [String] {
-        var seen = Set<String>()
-        return extensionManager.installed
-            .compactMap { $0.language.isEmpty ? nil : $0.language }
-            .filter { seen.insert($0).inserted }
-            .sorted()
+    static func displayLanguage(_ raw: String) -> String {
+        switch raw.lowercased().trimmingCharacters(in: .whitespaces) {
+        case "en", "english":                return "English"
+        case "fr", "french":                 return "French"
+        case "es", "spanish":                return "Spanish"
+        case "pt", "pt-br", "portuguese":    return "Portuguese"
+        case "zh", "zh-hans", "zh-hant", "chinese": return "Chinese"
+        case "ko", "korean":                 return "Korean"
+        case "ja", "japanese":               return "Japanese"
+        case "it", "italian":                return "Italian"
+        case "de", "german":                 return "German"
+        case "ru", "russian":                return "Russian"
+        case "id", "indonesian":             return "Indonesian"
+        case "tr", "turkish":                return "Turkish"
+        case "ar", "arabic":                 return "Arabic"
+        case "pl", "polish":                 return "Polish"
+        case "vi", "vietnamese":             return "Vietnamese"
+        case "th", "thai":                   return "Thai"
+        case "all", "multi":                 return "Multi"
+        default: return raw.isEmpty ? "" : raw
+        }
     }
 
-    private var filteredInstalled: [Extension] {
-        guard let lang = selectedSourceLanguage else { return extensionManager.installed }
-        return extensionManager.installed.filter { $0.language == lang }
+    private var availableLanguages: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for entry in catalogService.entries {
+            let lang = BrowseView.displayLanguage(entry.language)
+            guard !lang.isEmpty, seen.insert(lang).inserted else { continue }
+            result.append(lang)
+        }
+        return result.sorted()
     }
 
     // MARK: Sources tab
@@ -103,31 +124,10 @@ struct BrowseView: View {
             )
             .onTapGesture { selectedTab = .extensions }
         } else {
-            VStack(spacing: 0) {
-                if installedLanguages.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            RepoFilterChip(label: "All", isSelected: selectedSourceLanguage == nil) {
-                                selectedSourceLanguage = nil
-                            }
-                            ForEach(installedLanguages, id: \.self) { lang in
-                                RepoFilterChip(
-                                    label: lang.uppercased(),
-                                    isSelected: selectedSourceLanguage == lang
-                                ) {
-                                    selectedSourceLanguage = selectedSourceLanguage == lang ? nil : lang
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    Divider()
-                }
             List {
                 if !extensionManager.installed.isEmpty {
                     Section {
-                        ForEach(filteredInstalled) { ext in
+                        ForEach(extensionManager.installed) { ext in
                             NavigationLink {
                                 SourceBrowseView(ext: ext)
                             } label: {
@@ -249,7 +249,6 @@ struct BrowseView: View {
                     await loadOPDSRoot()
                 }
             }
-            }  // end VStack
         }
     }
 
@@ -343,6 +342,23 @@ struct BrowseView: View {
                         }
                         Divider()
                     }
+                    if availableLanguages.count > 1 {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                RepoFilterChip(label: "All languages", isSelected: selectedCatalogLanguage == nil) {
+                                    selectedCatalogLanguage = nil
+                                }
+                                ForEach(availableLanguages, id: \.self) { lang in
+                                    RepoFilterChip(label: lang, isSelected: selectedCatalogLanguage == lang) {
+                                        selectedCatalogLanguage = selectedCatalogLanguage == lang ? nil : lang
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                        Divider()
+                    }
                     List(filteredGroups) { group in
                         CatalogGroupRow(
                             group:        group,
@@ -380,6 +396,12 @@ struct BrowseView: View {
             : catalogService.groupedEntries.filter { !$0.primaryEntry.isNSFW }
         if !selectedRepos.isEmpty {
             groups = groups.filter { selectedRepos.contains(PluginCatalogService.repoLabel(from: $0.primaryEntry.repoURL)) }
+        }
+        if let lang = selectedCatalogLanguage {
+            groups = groups.filter {
+                BrowseView.displayLanguage($0.primaryEntry.language) == lang
+                    || $0.entries.contains { BrowseView.displayLanguage($0.language) == lang }
+            }
         }
         if !extensionsSearch.isEmpty {
             groups = groups.filter { $0.name.localizedStandardContains(extensionsSearch) }
@@ -781,11 +803,15 @@ struct SourceBrowseView: View {
                     description: Text(error)
                 )
             } else if isContentEmpty && searchText.isEmpty {
-                ContentUnavailableView(
-                    "No titles found",
-                    systemImage: "books.vertical",
-                    description: Text("This source returned no results.")
-                )
+                VStack(spacing: 16) {
+                    ContentUnavailableView(
+                        "No titles found",
+                        systemImage: "books.vertical",
+                        description: Text("This source returned no results. The site may be down or Cloudflare-protected.")
+                    )
+                    Button("Try again") { Task { await loadWithBypass() } }
+                        .buttonStyle(.bordered)
+                }
             } else if isContentEmpty {
                 ContentUnavailableView.search(text: searchText)
             } else {
