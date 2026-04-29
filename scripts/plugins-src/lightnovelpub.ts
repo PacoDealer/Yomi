@@ -2,7 +2,7 @@
 // @version 1.0.0
 // @lang en
 // @description Large catalog of translated and original light novels.
-// @icon https://www.lightnovelpub.com/favicon.ico
+// @icon https://www.lightnovelpub.vip/favicon.ico
 // @nsfw false
 
 declare const SOURCE: { fetch(url: string): string };
