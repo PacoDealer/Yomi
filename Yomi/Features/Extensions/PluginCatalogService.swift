@@ -193,6 +193,25 @@ private struct MangayomiEntry: Decodable {
         group.entries.contains { isInstalled($0) }
     }
 
+    /// Returns the catalog entry for an installed extension if a newer version is available.
+    func availableUpdate(for ext: Extension) -> PluginCatalogEntry? {
+        guard let entry = entries.first(where: { $0.name == ext.name }) else { return nil }
+        return Self.isNewer(entry.version, than: ext.version) ? entry : nil
+    }
+
+    private static func isNewer(_ catalog: String, than installed: String) -> Bool {
+        let cv = catalog.split(separator: ".").compactMap { Int($0) }
+        let iv = installed.split(separator: ".").compactMap { Int($0) }
+        guard !cv.isEmpty, !iv.isEmpty else { return catalog != installed }
+        let len = max(cv.count, iv.count)
+        for i in 0..<len {
+            let c = i < cv.count ? cv[i] : 0
+            let ins = i < iv.count ? iv[i] : 0
+            if c != ins { return c > ins }
+        }
+        return false
+    }
+
     /// Groups entries by name (case-insensitive), sorted alphabetically.
     /// Multi-language sources (same name, different lang) are collapsed into one group.
     var groupedEntries: [PluginCatalogGroup] {
