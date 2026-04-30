@@ -827,9 +827,27 @@ struct MangaDetailView: View {
         isLoadingChapters = true
 
         let loadedBridge = ExtensionManager.shared.bridge(for: ext)
-        let loadedChapters = await Task.detached(priority: .userInitiated) {
-            loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
+        let (loadedChapters, mangayomiMeta) = await Task.detached(priority: .userInitiated) {
+            let chapters = loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
+            let meta = loadedBridge?.lastMangayomiMeta
+            return (chapters, meta)
         }.value
+
+        // Apply Mangayomi detail metadata (synopsis, cover, status) if missing
+        if let meta = mangayomiMeta {
+            if let summary = meta.summary, !summary.isEmpty, (manga.summary == nil || manga.summary!.isEmpty) {
+                manga.summary = summary
+            }
+            if let coverURL = meta.coverURL, manga.coverURL == nil {
+                manga.coverURL = coverURL
+            }
+            if let status = meta.status, !status.isEmpty {
+                let mapped = MangaStatus(rawValue: status.lowercased()) ?? .unknown
+                if mapped != .unknown { manga.status = mapped }
+            }
+            let updated = manga
+            Task.detached { try? MangaQueries.update(updated) }
+        }
 
         // Ensure manga row exists first (FK constraint on chapter.mangaId),
         // then insert chapters — INSERT OR IGNORE preserves existing read/download state.
