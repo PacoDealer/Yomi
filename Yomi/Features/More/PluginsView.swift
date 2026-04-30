@@ -147,7 +147,15 @@ struct PluginsView: View {
                 .padding(.vertical, 6)
             } else {
                 ForEach(extensionManager.installed) { ext in
-                    InstalledExtensionRow(ext: ext)
+                    InstalledExtensionRow(
+                        ext: ext,
+                        updateEntry: catalogService.availableUpdate(for: ext),
+                        isUpdating: installingID == ext.id
+                    ) {
+                        if let entry = catalogService.availableUpdate(for: ext) {
+                            Task { await installEntry(entry) }
+                        }
+                    }
                 }
                 .onDelete { indexSet in
                     indexSet.forEach { i in
@@ -156,7 +164,17 @@ struct PluginsView: View {
                 }
             }
         } header: {
-            Text("Installed")
+            HStack {
+                Text("Installed")
+                let updateCount = extensionManager.installed.filter {
+                    catalogService.availableUpdate(for: $0) != nil
+                }.count
+                if updateCount > 0 {
+                    Text("\(updateCount) update\(updateCount == 1 ? "" : "s") available")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
         }
     }
 
@@ -394,6 +412,9 @@ private struct AddRepoFeaturedRow: View {
 
 private struct InstalledExtensionRow: View {
     let ext: Extension
+    let updateEntry: PluginCatalogEntry?
+    let isUpdating: Bool
+    let onUpdate: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -415,6 +436,24 @@ private struct InstalledExtensionRow: View {
                 HStack(spacing: 6) {
                     LanguageBadge(language: ext.language)
                     Text("v\(ext.version)").font(.caption).foregroundStyle(.secondary)
+                    if let update = updateEntry {
+                        Text("→ v\(update.version)")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
+            Spacer()
+
+            if let _ = updateEntry {
+                if isUpdating {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("Update", action: onUpdate)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(.orange)
                 }
             }
         }
