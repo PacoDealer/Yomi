@@ -152,15 +152,23 @@ final class LibraryViewModel {
         isLoading = true
         errorMessage = nil
         loadCategories()
-        do {
-            mangas = try MangaQueries.fetchLibrary()
-            novels = (try? NovelQueries.fetchLibrary()) ?? []
-            unreadCounts = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
-            novelUnreadCounts = (try? NovelQueries.fetchUnreadCountsByNovel()) ?? [:]
-            writeWidgetData()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        let result = await Task.detached(priority: .userInitiated) {
+            do {
+                let m = try MangaQueries.fetchLibrary()
+                let n = (try? NovelQueries.fetchLibrary()) ?? []
+                let uc = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
+                let nuc = (try? NovelQueries.fetchUnreadCountsByNovel()) ?? [:]
+                return (m, n, uc, nuc, nil as String?)
+            } catch {
+                return ([], [], [:], [:], error.localizedDescription)
+            }
+        }.value
+        mangas = result.0
+        novels = result.1
+        unreadCounts = result.2
+        novelUnreadCounts = result.3
+        if let err = result.4 { errorMessage = err }
+        writeWidgetData()
         isLoading = false
     }
 
