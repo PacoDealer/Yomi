@@ -44,6 +44,10 @@ final class JSBridge {
     // via nonisolated methods — never from the main actor.
     nonisolated(unsafe) private let context: JSContext
 
+    // Set by getChapterList() for Mangayomi plugins — detail metadata extracted
+    // from the same getDetail() call so MangaDetailView can update synopsis/cover/status.
+    nonisolated(unsafe) var lastMangayomiMeta: (summary: String?, status: String?, coverURL: URL?)? = nil
+
     // MARK: - Init
 
     nonisolated init?(scriptURL: URL) {
@@ -1681,6 +1685,25 @@ final class JSBridge {
             guard let arr = context.objectForKeyedSubscript("__mgy_chapters"),
                   !arr.isUndefined, !arr.isNull,
                   let items = arr.toArray() as? [[String: Any]] else { return [] }
+            // Cache manga metadata from the same getDetail result (no extra network call)
+            context.evaluateScript("""
+            __mgy_meta = (function() {
+                if (!__mgy_result) return {};
+                return {
+                    summary: __mgy_result.description || __mgy_result.synopsis || __mgy_result.summary || null,
+                    status:  __mgy_result.status || null,
+                    cover:   __mgy_result.imageUrl || __mgy_result.cover || __mgy_result.thumbnail || null
+                };
+            })();
+            """)
+            if let meta = context.objectForKeyedSubscript("__mgy_meta")?.toDictionary() as? [String: Any] {
+                let coverURL = (meta["cover"] as? String).flatMap { URL(string: $0) }
+                lastMangayomiMeta = (
+                    summary: meta["summary"] as? String,
+                    status: meta["status"] as? String,
+                    coverURL: coverURL
+                )
+            }
             return items.enumerated().compactMap { (index, ch) in
                 let chURL = ch["url"] as? String ?? ""
                 guard !chURL.isEmpty else { return nil }
