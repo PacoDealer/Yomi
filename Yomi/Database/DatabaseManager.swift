@@ -347,7 +347,10 @@ extension Extension: FetchableRecord, PersistableRecord {
         version       = row["version"]
         language      = row["language"]
         iconURL       = (row["iconURL"] as String?).flatMap { URL(string: $0) }
-        sourceListURL = URL(string: row["sourceListURL"])!
+        guard let rawURL: String = row["sourceListURL"], let parsed = URL(string: rawURL) else {
+            throw DatabaseError(message: "Extension row has invalid sourceListURL")
+        }
+        sourceListURL = parsed
         isInstalled   = row["isInstalled"]
         isNSFW        = row["isNSFW"]
         let raw: String = row["sourceIds"] ?? "[]"
