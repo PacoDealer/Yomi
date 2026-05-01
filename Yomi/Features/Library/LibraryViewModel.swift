@@ -173,15 +173,19 @@ final class LibraryViewModel {
     }
 
     private func writeWidgetData() {
-        let recent = mangas.filter { $0.lastReadAt != nil }.prefix(5)
-        let items = recent.map { manga in
-            WidgetReadingItem(
-                id: manga.id,
-                title: manga.title,
-                coverURLString: manga.coverURL?.absoluteString,
-                lastChapter: "Continue reading"
-            )
+        typealias Dated = (id: String, title: String, cover: String?, date: Date)
+        let mangaItems: [Dated] = mangas.compactMap {
+            guard let d = $0.lastReadAt else { return nil }
+            return (id: $0.id, title: $0.title, cover: $0.coverURL?.absoluteString, date: d)
         }
-        WidgetDataWriter.write(Array(items))
+        let novelItems: [Dated] = novels.compactMap {
+            guard let d = $0.lastReadAt else { return nil }
+            return (id: $0.id, title: $0.title, cover: $0.coverURL?.absoluteString, date: d)
+        }
+        let merged = (mangaItems + novelItems)
+            .sorted { $0.date > $1.date }
+            .prefix(5)
+            .map { WidgetReadingItem(id: $0.id, title: $0.title, coverURLString: $0.cover, lastChapter: "Continue reading") }
+        WidgetDataWriter.write(merged)
     }
 }
