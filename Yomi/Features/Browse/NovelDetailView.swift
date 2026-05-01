@@ -2,7 +2,7 @@ import SwiftUI
 
 struct NovelDetailView: View {
     @State private var novel: Novel
-    let bridge: JSBridge
+    @State private var bridge: JSBridge?
 
     // MARK: - State
 
@@ -19,9 +19,9 @@ struct NovelDetailView: View {
     @State private var chaptersDescending: Bool = false
     @State private var chapterFilterUnread: Bool = false
 
-    init(novel: Novel, bridge: JSBridge) {
+    init(novel: Novel, bridge: JSBridge? = nil) {
         _novel = State(initialValue: novel)
-        self.bridge = bridge
+        _bridge = State(initialValue: bridge)
         _isInLibrary = State(initialValue: novel.inLibrary)
         _novelReadingStatus = State(initialValue: novel.readingStatus)
     }
@@ -248,8 +248,8 @@ struct NovelDetailView: View {
         .navigationTitle(novel.title)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $chapterForNav) { ch in
-            if let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
-                TextReaderView(novel: novel, bridge: bridge, chapters: chapters, startIndex: idx)
+            if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
+                TextReaderView(novel: novel, bridge: b, chapters: chapters, startIndex: idx)
             }
         }
         .toolbar {
@@ -419,12 +419,32 @@ struct NovelDetailView: View {
         isLoadingChapters = true
         let novelId = novel.id
         let path = novel.path
+        let sourceId = novel.sourceId
+
+        // Resolve bridge lazily if not provided at init (e.g. navigated from Updates/History)
+        if bridge == nil {
+            let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId })
+            bridge = ext.flatMap { ExtensionManager.shared.bridge(for: $0) }
+        }
+
+        guard let b = bridge else {
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            }.value
+            chapters = saved
+            isLoadingChapters = false
+            return
+        }
 
         let source = await Task.detached(priority: .userInitiated) {
-            bridge.parseNovel(path: path)
+            b.parseNovel(path: path)
         }.value
 
         guard let source else {
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            }.value
+            chapters = saved
             isLoadingChapters = false
             return
         }
