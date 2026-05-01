@@ -36,9 +36,13 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
 @Observable final class UpdatesViewModel {
 
+    static let shared = UpdatesViewModel()
+
     var groups: [(manga: Manga, chapters: [Chapter])] = []
     var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
     var isRefreshing = false
+
+    var totalCount: Int { groups.count + novelGroups.count }
 
     func markMangaChapterRead(chapterId: String, mangaId: String) {
         Task.detached { try? ChapterQueries.setRead(chapterId: chapterId, isRead: true) }
@@ -231,7 +235,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 // MARK: - UpdatesView
 
 struct UpdatesView: View {
-    @State private var vm = UpdatesViewModel()
+    @State private var vm = UpdatesViewModel.shared
 
     @State private var mangaReaderDest: MangaReaderDest? = nil
     @State private var novelReaderDest: NovelReaderDest? = nil
