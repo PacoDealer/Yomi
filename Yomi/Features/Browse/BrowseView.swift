@@ -1054,6 +1054,7 @@ struct SourceBrowseView: View {
 private struct NovelCoverCell: View {
     let novel: Novel
     let bridge: JSBridge
+    @State private var dbInLibrary: Bool = false
 
     var body: some View {
         NavigationLink {
@@ -1073,6 +1074,16 @@ private struct NovelCoverCell: View {
                 }
                 .cornerRadius(8)
                 .clipped()
+                .overlay(alignment: .topLeading) {
+                    if !novel.inLibrary && dbInLibrary {
+                        Image(systemName: "bookmark.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.white)
+                            .padding(4)
+                            .background(Color.accentColor.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
+                            .padding(5)
+                    }
+                }
 
                 Text(novel.title)
                     .font(.caption)
@@ -1081,6 +1092,11 @@ private struct NovelCoverCell: View {
             }
         }
         .buttonStyle(.plain)
+        .task(id: novel.id) {
+            dbInLibrary = await Task.detached {
+                (try? NovelQueries.fetchOne(id: novel.id))?.inLibrary ?? false
+            }.value
+        }
     }
 }
 
