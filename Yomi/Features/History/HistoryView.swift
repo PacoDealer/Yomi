@@ -21,6 +21,14 @@ private enum HistoryItem: Identifiable {
     }
 }
 
+// MARK: - HistoryGroup
+
+private struct HistoryGroup: Identifiable {
+    let label: String
+    var items: [HistoryItem]
+    var id: String { label }
+}
+
 // MARK: - HistoryView
 
 struct HistoryView: View {
@@ -33,6 +41,37 @@ struct HistoryView: View {
     @State private var selectedNovel: Novel? = nil
     @State private var novelBridgeForNav: JSBridge? = nil
     @State private var showNovelDetail = false
+
+    // MARK: - Grouping
+
+    private var groupedHistory: [HistoryGroup] {
+        let cal = Calendar.current
+        let now = Date()
+        var buckets: [String: [HistoryItem]] = [:]
+        for item in items {
+            let key = dateGroupLabel(for: item.lastReadAt, calendar: cal, now: now)
+            buckets[key, default: []].append(item)
+        }
+        let order = ["Today", "Yesterday", "This week", "This month", "Earlier"]
+        return order.compactMap { key in
+            guard let arr = buckets[key], !arr.isEmpty else { return nil }
+            return HistoryGroup(label: key, items: arr)
+        }
+    }
+
+    private func dateGroupLabel(for date: Date?, calendar: Calendar, now: Date) -> String {
+        guard let date else { return "Earlier" }
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: now)
+        ).day ?? 0
+        if days < 7  { return "This week" }
+        if days < 30 { return "This month" }
+        return "Earlier"
+    }
 
     // MARK: - Body
 
@@ -50,53 +89,18 @@ struct HistoryView: View {
                     )
                 } else {
                     List {
-                        ForEach(items) { item in
-                            switch item {
-                            case .manga(let manga):
-                                NavigationLink {
-                                    MangaDetailView(manga: manga)
-                                } label: {
-                                    HistoryRow(
-                                        title: manga.title,
-                                        coverURL: manga.coverURL,
-                                        lastReadAt: manga.lastReadAt,
-                                        sourceName: ExtensionManager.shared.installed
-                                            .first { $0.id == manga.sourceId }?.name ?? manga.sourceId,
-                                        subtitle: lastChapterNames[manga.id],
-                                        isNovel: false
-                                    )
+                        ForEach(groupedHistory) { group in
+                            Section(group.label) {
+                                ForEach(group.items) { item in
+                                    itemRow(item)
                                 }
-                            case .novel(let novel):
-                                Button {
-                                    loadNovelDetail(novel)
-                                } label: {
-                                    HistoryRow(
-                                        title: novel.title,
-                                        coverURL: novel.coverURL,
-                                        lastReadAt: novel.lastReadAt,
-                                        sourceName: ExtensionManager.shared.installed
-                                            .first { $0.id == novel.sourceId }?.name ?? novel.sourceId,
-                                        subtitle: lastChapterNames[novel.id],
-                                        isNovel: true
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .onDelete { offsets in
-                            let toRemove = offsets.map { items[$0] }
-                            items.remove(atOffsets: offsets)
-                            Task.detached {
-                                for item in toRemove {
-                                    switch item {
-                                    case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
-                                    case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
-                                    }
+                                .onDelete { offsets in
+                                    deleteFromGroup(label: group.label, offsets: offsets)
                                 }
                             }
                         }
                     }
-                    .listStyle(.plain)
+                    .listStyle(.insetGrouped)
                     .refreshable { await loadHistory() }
                 }
             }
@@ -112,6 +116,59 @@ struct HistoryView: View {
                 }
             }
             .task { await loadHistory() }
+        }
+    }
+
+    // MARK: - Row builder
+
+    @ViewBuilder
+    private func itemRow(_ item: HistoryItem) -> some View {
+        switch item {
+        case .manga(let manga):
+            NavigationLink {
+                MangaDetailView(manga: manga)
+            } label: {
+                HistoryRow(
+                    title: manga.title,
+                    coverURL: manga.coverURL,
+                    lastReadAt: manga.lastReadAt,
+                    sourceName: ExtensionManager.shared.installed
+                        .first { $0.id == manga.sourceId }?.name ?? manga.sourceId,
+                    subtitle: lastChapterNames[manga.id],
+                    isNovel: false
+                )
+            }
+        case .novel(let novel):
+            Button {
+                loadNovelDetail(novel)
+            } label: {
+                HistoryRow(
+                    title: novel.title,
+                    coverURL: novel.coverURL,
+                    lastReadAt: novel.lastReadAt,
+                    sourceName: ExtensionManager.shared.installed
+                        .first { $0.id == novel.sourceId }?.name ?? novel.sourceId,
+                    subtitle: lastChapterNames[novel.id],
+                    isNovel: true
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Delete
+
+    private func deleteFromGroup(label: String, offsets: IndexSet) {
+        guard let groupItems = groupedHistory.first(where: { $0.label == label })?.items else { return }
+        let toRemove = offsets.map { groupItems[$0] }
+        items.removeAll { item in toRemove.contains(where: { $0.id == item.id }) }
+        Task.detached {
+            for item in toRemove {
+                switch item {
+                case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
+                case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
+                }
+            }
         }
     }
 
