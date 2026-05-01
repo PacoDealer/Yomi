@@ -39,7 +39,6 @@ struct HistoryView: View {
     @State private var lastChapterNames: [String: String] = [:]
     @State private var isLoading = false
     @State private var selectedNovel: Novel? = nil
-    @State private var novelBridgeForNav: JSBridge? = nil
     @State private var showNovelDetail = false
 
     // MARK: - Grouping
@@ -111,8 +110,8 @@ struct HistoryView: View {
                 }
             }
             .navigationDestination(isPresented: $showNovelDetail) {
-                if let novel = selectedNovel, let bridge = novelBridgeForNav {
-                    NovelDetailView(novel: novel, bridge: bridge)
+                if let novel = selectedNovel {
+                    NovelDetailView(novel: novel)
                 }
             }
             .task { await loadHistory() }
@@ -140,7 +139,7 @@ struct HistoryView: View {
             }
         case .novel(let novel):
             Button {
-                loadNovelDetail(novel)
+                selectedNovel = novel; showNovelDetail = true
             } label: {
                 HistoryRow(
                     title: novel.title,
@@ -213,23 +212,6 @@ struct HistoryView: View {
         }
     }
 
-    // MARK: - Novel navigation
-
-    private func loadNovelDetail(_ novel: Novel) {
-        let sourceId = novel.sourceId
-        let installed = ExtensionManager.shared.installed
-        let bridgeFn = ExtensionManager.shared.bridge(for:)
-        Task {
-            let bridge = await Task.detached(priority: .userInitiated) {
-                guard let ext = installed.first(where: { $0.id == sourceId }) else { return nil as JSBridge? }
-                return bridgeFn(ext)
-            }.value
-            guard let bridge else { return }
-            selectedNovel = novel
-            novelBridgeForNav = bridge
-            showNovelDetail = true
-        }
-    }
 }
 
 // MARK: - HistoryRow
