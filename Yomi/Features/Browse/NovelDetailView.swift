@@ -16,6 +16,8 @@ struct NovelDetailView: View {
     @State private var showCategorySheet = false
     @State private var novelReadingStatus: ReadingStatus
     @State private var aniListScore: Int? = nil
+    @State private var chaptersDescending: Bool = false
+    @State private var chapterFilterUnread: Bool = false
 
     init(novel: Novel, bridge: JSBridge) {
         _novel = State(initialValue: novel)
@@ -181,7 +183,11 @@ struct NovelDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(Array(chapters.enumerated()), id: \.element.id) { idx, chapter in
+                    let displayed: [NovelChapter] = {
+                        let base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
+                        return chaptersDescending ? base.reversed() : base
+                    }()
+                    ForEach(displayed, id: \.id) { chapter in
                         Button {
                             chapterForNav = chapter
                             touchLastReadAt()
@@ -205,8 +211,35 @@ struct NovelDetailView: View {
                 HStack {
                     Text("Chapters")
                     if !chapters.isEmpty {
-                        Text("(\(chapters.count))")
-                            .foregroundStyle(.secondary)
+                        let readCount = chapters.filter { $0.isRead }.count
+                        if readCount > 0 {
+                            Text("\(readCount) / \(chapters.count)")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("(\(chapters.count))")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if !chapters.isEmpty {
+                        Button {
+                            chapterFilterUnread.toggle()
+                        } label: {
+                            Image(systemName: chapterFilterUnread
+                                  ? "line.3.horizontal.decrease.circle.fill"
+                                  : "line.3.horizontal.decrease")
+                                .font(.caption).fontWeight(.semibold)
+                                .foregroundStyle(.tint)
+                        }
+                        .buttonStyle(.plain)
+                        Button {
+                            withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
+                        } label: {
+                            Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
+                                .font(.caption).fontWeight(.semibold)
+                                .foregroundStyle(.tint)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
