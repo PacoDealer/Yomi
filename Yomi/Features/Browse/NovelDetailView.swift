@@ -18,6 +18,8 @@ struct NovelDetailView: View {
     @State private var aniListScore: Int? = nil
     @State private var chaptersDescending: Bool = false
     @State private var chapterFilterUnread: Bool = false
+    @State private var showNotesSheet = false
+    @State private var notesText: String = ""
 
     init(novel: Novel, bridge: JSBridge? = nil) {
         _novel = State(initialValue: novel)
@@ -167,6 +169,22 @@ struct NovelDetailView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
                 }
+            }
+
+            // MARK: Notes
+            Section("Notes") {
+                if let notes = novel.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+                Button(novel.notes?.isEmpty == false ? "Edit note" : "Add a note") {
+                    notesText = novel.notes ?? ""
+                    showNotesSheet = true
+                }
+                .font(.subheadline)
+                .foregroundStyle(.tint)
             }
 
             // MARK: Chapters
@@ -322,6 +340,16 @@ struct NovelDetailView: View {
         .task { await loadChapters() }
         .task { await loadCategories() }
         .task { aniListScore = await AniListService.shared.fetchScore(title: novel.title, isManga: false) }
+        .task { notesText = novel.notes ?? "" }
+        .sheet(isPresented: $showNotesSheet) {
+            NotesEditorSheet(mangaTitle: novel.title, text: $notesText) {
+                let saved = notesText.isEmpty ? nil : notesText
+                novel.notes = saved
+                let novelId = novel.id
+                let text = notesText
+                Task.detached { try? NovelQueries.updateNotes(novelId: novelId, notes: text) }
+            }
+        }
     }
 
     // MARK: - Toggle Library

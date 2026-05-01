@@ -100,6 +100,15 @@ enum NovelQueries {
         }
     }
 
+    /// Actualiza la nota personal del usuario para una novela
+    nonisolated static func updateNotes(novelId: String, notes: String) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("notes").set(to: notes.isEmpty ? nil : notes)])
+        }
+    }
+
     /// Actualiza el readingStatus de una novela (estado definido por el usuario)
     nonisolated static func updateReadingStatus(novelId: String, status: ReadingStatus) throws {
         _ = try appDatabase.write { db in

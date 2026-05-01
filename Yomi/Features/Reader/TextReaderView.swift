@@ -644,7 +644,7 @@ private extension UIColor {
             coverURL: nil, summary: nil, author: "Tappei Nagatsuki",
             status: "ongoing", genres: ["Fantasy", "Isekai"],
             inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
-            readingSeconds: 0, readingStatus: .none
+            readingSeconds: 0, readingStatus: .none, notes: nil
         ),
         bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
         chapters: [chapter], startIndex: 0
