@@ -40,6 +40,22 @@ private struct NovelReaderDest: Identifiable, Hashable {
     var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
     var isRefreshing = false
 
+    func markMangaChapterRead(chapterId: String, mangaId: String) {
+        Task.detached { try? ChapterQueries.setRead(chapterId: chapterId, isRead: true) }
+        if let i = groups.firstIndex(where: { $0.manga.id == mangaId }) {
+            groups[i].chapters.removeAll { $0.id == chapterId }
+            if groups[i].chapters.isEmpty { groups.remove(at: i) }
+        }
+    }
+
+    func markNovelChapterRead(chapterId: String, novelId: String) {
+        Task.detached { try? NovelQueries.markRead(chapterId: chapterId) }
+        if let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) {
+            novelGroups[i].chapters.removeAll { $0.id == chapterId }
+            if novelGroups[i].chapters.isEmpty { novelGroups.remove(at: i) }
+        }
+    }
+
     func loadFromDB() async {
         let (mangaResult, novelResult) = await Task.detached(priority: .userInitiated) {
             let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date.distantPast
@@ -224,6 +240,15 @@ struct UpdatesView: View {
                                 UpdateChapterRow(chapter: chapter)
                             }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    vm.markMangaChapterRead(chapterId: chapter.id, mangaId: group.manga.id)
+                                } label: {
+                                    Label("Mark read", systemImage: "checkmark.circle.fill")
+                                }
+                                .tint(.green)
+                            }
                         }
                     } header: {
                         MangaUpdateHeader(manga: group.manga, count: group.chapters.count)
@@ -240,6 +265,15 @@ struct UpdatesView: View {
                                 UpdateNovelChapterRow(chapter: chapter)
                             }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    vm.markNovelChapterRead(chapterId: chapter.id, novelId: group.novel.id)
+                                } label: {
+                                    Label("Mark read", systemImage: "checkmark.circle.fill")
+                                }
+                                .tint(.green)
+                            }
                         }
                     } header: {
                         NovelUpdateHeader(novel: group.novel, count: group.chapters.count)
