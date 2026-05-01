@@ -70,6 +70,10 @@ import Observation
         didSet { defaults.set(hasRequestedNotifications, forKey: "hasRequestedNotifications") }
     }
 
+    var sendUpdateNotifications: Bool {
+        didSet { defaults.set(sendUpdateNotifications, forKey: "sendUpdateNotifications") }
+    }
+
     // MARK: - Novel reader
 
     /// Legacy — kept so existing data is not lost on upgrade
@@ -258,6 +262,7 @@ import Observation
         useSystemFont           = d.object(forKey: "useSystemFont") as? Bool ?? true
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
+        sendUpdateNotifications = d.object(forKey: "sendUpdateNotifications") as? Bool ?? true
         novelSepia              = d.bool(forKey: "novelSepia")
         // novelTheme: migrate from legacy novelSepia + global theme
         if let saved = d.string(forKey: "novelTheme") {
