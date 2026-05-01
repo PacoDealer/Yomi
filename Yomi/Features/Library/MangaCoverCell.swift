@@ -12,6 +12,7 @@ struct MangaCoverCell: View {
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
     @State private var readProgress: Double = 0   // 0.0 – 1.0, 0 = not started
+    @State private var dbInLibrary: Bool = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -59,9 +60,11 @@ struct MangaCoverCell: View {
             async let unread   = Task.detached { (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0 }.value
             async let dlCount  = Task.detached { (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0 }.value
             async let allChaps = Task.detached { (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? [] }.value
-            let (u, d, all) = await (unread, dlCount, allChaps)
+            async let inLib    = Task.detached { (try? MangaQueries.fetchOne(id: manga.id))?.inLibrary ?? false }.value
+            let (u, d, all, lib) = await (unread, dlCount, allChaps, inLib)
             unreadCount     = u
             downloadedCount = d
+            dbInLibrary     = lib
             sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
             if !all.isEmpty {
                 let readCount = all.filter { $0.isRead }.count
@@ -97,6 +100,16 @@ struct MangaCoverCell: View {
             }
             .cornerRadius(8)
             .clipped()
+            .overlay(alignment: .topLeading) {
+                if !manga.inLibrary && dbInLibrary && !isSelecting {
+                    Image(systemName: "bookmark.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Color.accentColor.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
+                        .padding(5)
+                }
+            }
             .overlay(alignment: .topTrailing) {
                 if unreadCount > 0 && !isSelecting && AppSettings.shared.showUnreadBadge {
                     Text("\(unreadCount)")
