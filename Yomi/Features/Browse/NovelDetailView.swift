@@ -587,7 +587,8 @@ private struct NovelStatusBadge: View {
                 lastReadAt: nil,
                 lastUpdatedAt: nil,
                 readingSeconds: 0,
-                readingStatus: .none
+                readingStatus: .none,
+                notes: nil
             ),
             bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!
         )
