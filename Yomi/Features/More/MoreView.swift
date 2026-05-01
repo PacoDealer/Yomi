@@ -3,6 +3,15 @@ import SwiftUI
 // MARK: - MoreView
 
 struct MoreView: View {
+    @State private var catalogService   = PluginCatalogService.shared
+    @State private var extensionManager = ExtensionManager.shared
+
+    private var pluginUpdateCount: Int {
+        extensionManager.installed.filter {
+            catalogService.availableUpdate(for: $0) != nil
+        }.count
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -25,6 +34,7 @@ struct MoreView: View {
                     NavigationLink { PluginsView() } label: {
                         Label("Plugins", systemImage: "puzzlepiece.extension")
                     }
+                    .badge(pluginUpdateCount)
                 }
 
                 // MARK: Reading
@@ -60,6 +70,7 @@ struct MoreView: View {
             }
             .navigationTitle("More")
         }
+        .task { await catalogService.fetchCatalog() }
     }
 }
 
