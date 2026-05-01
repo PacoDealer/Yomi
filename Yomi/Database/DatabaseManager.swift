@@ -224,6 +224,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v15_novel_notes") { db in
+            try db.alter(table: "novel") { t in
+                t.add(column: "notes", .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }

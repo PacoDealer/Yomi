@@ -32,6 +32,8 @@ struct Novel: Identifiable, Codable {
     var readingSeconds: Int
     /// Estado de lectura definido por el usuario (mismo enum que Manga)
     var readingStatus: ReadingStatus
+    /// Nota personal del usuario sobre esta obra
+    var notes: String?
 }
 
 // MARK: - NovelChapter

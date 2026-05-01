@@ -1205,7 +1205,7 @@ private struct StatusBadge: View {
 
 // MARK: - NotesEditorSheet
 
-private struct NotesEditorSheet: View {
+struct NotesEditorSheet: View {
     let mangaTitle: String
     @Binding var text: String
     let onSave: () -> Void

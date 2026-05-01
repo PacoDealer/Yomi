@@ -259,6 +259,7 @@ import Observation
         if let v = n.author                   { d["author"]        = v }
         if let v = n.lastReadAt               { d["lastReadAt"]    = ISO8601DateFormatter().string(from: v) }
         if let v = n.lastUpdatedAt            { d["lastUpdatedAt"] = ISO8601DateFormatter().string(from: v) }
+        if let v = n.notes                    { d["notes"]         = v }
         return d
     }
 
@@ -299,7 +300,8 @@ import Observation
             lastReadAt:     (d["lastReadAt"]    as? String).flatMap { fmt.date(from: $0) },
             lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
-            readingStatus:  ReadingStatus(rawValue: d["readingStatus"] as? String ?? "none") ?? .none
+            readingStatus:  ReadingStatus(rawValue: d["readingStatus"] as? String ?? "none") ?? .none,
+            notes:          d["notes"] as? String
         )
     }
 
