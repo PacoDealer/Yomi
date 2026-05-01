@@ -473,6 +473,7 @@ private struct NovelLibraryCoverCell: View {
 
     @State private var sourceName: String? = nil
     @State private var settings = AppSettings.shared
+    @State private var readProgress: Double = 0
 
     var body: some View {
         Button(action: onTap) {
@@ -500,6 +501,17 @@ private struct NovelLibraryCoverCell: View {
                             .padding(4)
                     }
                 }
+                .overlay(alignment: .bottom) {
+                    if readProgress > 0 && readProgress < 1 {
+                        GeometryReader { geo in
+                            Rectangle()
+                                .fill(Color.accentColor)
+                                .frame(width: geo.size.width * readProgress, height: 3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 3)
+                    }
+                }
 
                 Text(novel.title)
                     .font(.caption)
@@ -518,6 +530,12 @@ private struct NovelLibraryCoverCell: View {
         .task(id: novel.id) {
             sourceName = ExtensionManager.shared.installed
                 .first(where: { $0.id == novel.sourceId })?.name
+            let chapters = await Task.detached {
+                (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
+            }.value
+            if !chapters.isEmpty {
+                readProgress = Double(chapters.filter { $0.isRead }.count) / Double(chapters.count)
+            }
         }
     }
 }
