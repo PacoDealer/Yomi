@@ -189,6 +189,16 @@ struct NovelDetailView: View {
                             NovelChapterRow(chapter: chapter)
                         }
                         .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                toggleRead(chapter)
+                            } label: {
+                                Label(chapter.isRead ? "Unread" : "Read",
+                                      systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
+                            }
+                            .tint(chapter.isRead ? .orange : .green)
+                        }
                     }
                 }
             } header: {
@@ -228,6 +238,20 @@ struct NovelDetailView: View {
                         Label("Edit categories", systemImage: "tag")
                     }
                     .disabled(!isInLibrary)
+
+                    if !chapters.isEmpty {
+                        Divider()
+                        Button {
+                            markAllChapters(read: true)
+                        } label: {
+                            Label("Mark all as read", systemImage: "checkmark.circle.fill")
+                        }
+                        Button {
+                            markAllChapters(read: false)
+                        } label: {
+                            Label("Mark all as unread", systemImage: "circle")
+                        }
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -318,6 +342,34 @@ struct NovelDetailView: View {
             assignedCategoryIds.insert(catId)
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    // MARK: - Toggle chapter read
+
+    private func toggleRead(_ chapter: NovelChapter) {
+        guard let idx = chapters.firstIndex(where: { $0.id == chapter.id }) else { return }
+        var updated = chapters[idx]
+        updated.isRead = !updated.isRead
+        updated.readAt = updated.isRead ? Date() : nil
+        chapters[idx] = updated
+        let id = updated.id
+        let nowRead = updated.isRead
+        Task.detached {
+            if nowRead {
+                try? NovelQueries.markRead(chapterId: id)
+            } else {
+                try? NovelQueries.markUnread(chapterId: id)
+            }
+        }
+    }
+
+    private func markAllChapters(read: Bool) {
+        let now = Date()
+        chapters = chapters.map { ch in
+            var c = ch; c.isRead = read; c.readAt = read ? now : nil; return c
+        }
+        let novelId = novel.id
+        Task.detached { try? NovelQueries.markAllChapters(novelId: novelId, read: read) }
     }
 
     // MARK: - Touch lastReadAt
