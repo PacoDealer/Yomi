@@ -541,6 +541,17 @@ private struct UpdatesSettingsView: View {
     var body: some View {
         List {
             Section {
+                Toggle(isOn: $settings.sendUpdateNotifications) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Push notifications")
+                        Text("Send a notification when new chapters are found")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
                 Toggle(isOn: $settings.skipUpdateWithUnread) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Skip if unread chapters exist")
