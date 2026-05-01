@@ -7,6 +7,7 @@ struct CategoryView: View {
     // MARK: - State
 
     @State private var categories: [Category] = []
+    @State private var itemCounts: [String: Int] = [:]
     @State private var isAddingCategory: Bool = false
     @State private var newCategoryName: String = ""
     @State private var editingCategory: Category? = nil
@@ -24,11 +25,19 @@ struct CategoryView: View {
             } else {
                 List {
                     ForEach(categories) { category in
-                        Text(category.name)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                editingCategory = category
+                        HStack {
+                            Text(category.name)
+                            Spacer()
+                            if let count = itemCounts[category.id], count > 0 {
+                                Text("\(count)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingCategory = category
+                        }
                     }
                     .onDelete { indexSet in
                         deleteCategories(at: indexSet)
@@ -80,7 +89,8 @@ struct CategoryView: View {
     private func loadCategories() {
         Task.detached {
             let result = (try? CategoryQueries.fetchAll()) ?? []
-            await MainActor.run { categories = result }
+            let counts = (try? CategoryQueries.fetchItemCounts()) ?? [:]
+            await MainActor.run { categories = result; itemCounts = counts }
         }
     }
 
