@@ -48,12 +48,26 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
     }
 
+    func markAllMangaChaptersRead(mangaId: String) {
+        guard let i = groups.firstIndex(where: { $0.manga.id == mangaId }) else { return }
+        let ids = groups[i].chapters.map { $0.id }
+        groups.remove(at: i)
+        Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, isRead: true) } }
+    }
+
     func markNovelChapterRead(chapterId: String, novelId: String) {
         Task.detached { try? NovelQueries.markRead(chapterId: chapterId) }
         if let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) {
             novelGroups[i].chapters.removeAll { $0.id == chapterId }
             if novelGroups[i].chapters.isEmpty { novelGroups.remove(at: i) }
         }
+    }
+
+    func markAllNovelChaptersRead(novelId: String) {
+        guard let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) else { return }
+        let ids = novelGroups[i].chapters.map { $0.id }
+        novelGroups.remove(at: i)
+        Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0) } }
     }
 
     func loadFromDB() async {
@@ -251,7 +265,9 @@ struct UpdatesView: View {
                             }
                         }
                     } header: {
-                        MangaUpdateHeader(manga: group.manga, count: group.chapters.count)
+                        MangaUpdateHeader(manga: group.manga, count: group.chapters.count) {
+                            vm.markAllMangaChaptersRead(mangaId: group.manga.id)
+                        }
                     }
                 }
 
@@ -276,7 +292,9 @@ struct UpdatesView: View {
                             }
                         }
                     } header: {
-                        NovelUpdateHeader(novel: group.novel, count: group.chapters.count)
+                        NovelUpdateHeader(novel: group.novel, count: group.chapters.count) {
+                            vm.markAllNovelChaptersRead(novelId: group.novel.id)
+                        }
                     }
                 }
             }
@@ -359,6 +377,7 @@ struct UpdatesView: View {
 private struct MangaUpdateHeader: View {
     let manga: Manga
     let count: Int
+    let onMarkAllRead: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -396,6 +415,15 @@ private struct MangaUpdateHeader: View {
                 }
             }
             .buttonStyle(.plain)
+
+            Spacer()
+
+            Button(action: onMarkAllRead) {
+                Image(systemName: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
         }
         .textCase(nil)
         .padding(.vertical, 2)
@@ -407,6 +435,7 @@ private struct MangaUpdateHeader: View {
 private struct NovelUpdateHeader: View {
     let novel: Novel
     let count: Int
+    let onMarkAllRead: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -445,6 +474,15 @@ private struct NovelUpdateHeader: View {
                     }
                 }
             }
+
+            Spacer()
+
+            Button(action: onMarkAllRead) {
+                Image(systemName: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
         }
         .textCase(nil)
         .padding(.vertical, 2)
