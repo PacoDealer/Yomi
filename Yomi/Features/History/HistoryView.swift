@@ -40,6 +40,7 @@ struct HistoryView: View {
     @State private var isLoading = false
     @State private var selectedNovel: Novel? = nil
     @State private var showNovelDetail = false
+    @State private var confirmClearAll = false
 
     // MARK: - Grouping
 
@@ -108,6 +109,21 @@ struct HistoryView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     EditButton()
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if !items.isEmpty {
+                        Button(role: .destructive) {
+                            confirmClearAll = true
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                }
+            }
+            .confirmationDialog("Clear all history?", isPresented: $confirmClearAll, titleVisibility: .visible) {
+                Button("Clear all", role: .destructive) { clearAllHistory() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes all reading history. Your library and read progress are not affected.")
             }
             .navigationDestination(isPresented: $showNovelDetail) {
                 if let novel = selectedNovel {
@@ -163,6 +179,21 @@ struct HistoryView: View {
         items.removeAll { item in toRemove.contains(where: { $0.id == item.id }) }
         Task.detached {
             for item in toRemove {
+                switch item {
+                case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
+                case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
+                }
+            }
+        }
+    }
+
+    // MARK: - Clear all
+
+    private func clearAllHistory() {
+        let snapshot = items
+        items = []
+        Task.detached {
+            for item in snapshot {
                 switch item {
                 case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
                 case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
