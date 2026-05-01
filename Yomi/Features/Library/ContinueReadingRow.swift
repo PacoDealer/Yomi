@@ -250,16 +250,13 @@ private struct ContinueReadingCell: View {
 private struct ContinueReadingNovelCell: View {
     let novel: Novel
 
-    @State private var isLoading = false
     @State private var navigateToDetail = false
-    @State private var detailBridge: JSBridge? = nil
     @State private var lastChapterName: String? = nil
     @State private var readProgress: Double = 0
 
     var body: some View {
         Button {
-            guard !isLoading else { return }
-            Task { await openDetail() }
+            navigateToDetail = true
         } label: {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
@@ -324,14 +321,6 @@ private struct ContinueReadingNovelCell: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .padding(4)
-                        .background(.ultraThinMaterial, in: Circle())
-                        .padding(4)
-                }
             }
         }
         .buttonStyle(.plain)
@@ -349,19 +338,7 @@ private struct ContinueReadingNovelCell: View {
             }
         }
         .navigationDestination(isPresented: $navigateToDetail) {
-            if let bridge = detailBridge {
-                NovelDetailView(novel: novel, bridge: bridge)
-            }
+            NovelDetailView(novel: novel)
         }
-    }
-
-    private func openDetail() async {
-        isLoading = true
-        defer { isLoading = false }
-        let sourceId = novel.sourceId
-        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
-              let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
-        detailBridge = bridge
-        navigateToDetail = true
     }
 }
