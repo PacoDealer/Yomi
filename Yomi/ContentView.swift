@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var router = appRouter
     @State private var settings = AppSettings.shared
+    @State private var updatesVM = UpdatesViewModel.shared
     @AppStorage("tabViewCustomization") private var customization = TabViewCustomization()
 
     var body: some View {
@@ -34,6 +35,7 @@ struct ContentView: View {
                     UpdatesView()
                 }
             }
+            .badge(updatesVM.totalCount)
             .customizationID("com.Yomi.Updates")
 
             Tab("More", systemImage: "ellipsis.circle", value: 4) {
