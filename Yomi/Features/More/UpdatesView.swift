@@ -448,32 +448,37 @@ private struct NovelUpdateHeader: View {
             .cornerRadius(3)
             .clipped()
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(novel.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                HStack(spacing: 4) {
-                    Text("\(count) new chapter\(count == 1 ? "" : "s")")
-                        .font(.caption2)
-                        .foregroundStyle(.tint)
-                    Text("·")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    Text("Novel")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    if let updated = novel.lastUpdatedAt {
+            NavigationLink {
+                NovelDetailView(novel: novel)
+            } label: {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(novel.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text("\(count) new chapter\(count == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.tint)
                         Text("·")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
-                        Text(updated, style: .relative)
+                        Text("Novel")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
+                        if let updated = novel.lastUpdatedAt {
+                            Text("·")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text(updated, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
+            .buttonStyle(.plain)
 
             Spacer()
 
