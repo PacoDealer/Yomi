@@ -91,6 +91,7 @@ struct InsightsView: View {
                     .padding(.vertical, 16)
                 }
                 .background(Color(.systemGroupedBackground))
+                .refreshable { await loadStats() }
             }
         }
         .navigationTitle("Insights")
