@@ -190,4 +190,28 @@ enum NovelQueries {
                 ])
         }
     }
+
+    /// Marca un capítulo como no leído: isRead=false, readAt=nil
+    nonisolated static func markUnread(chapterId: String) throws {
+        _ = try appDatabase.write { db in
+            try NovelChapter
+                .filter(Column("id") == chapterId)
+                .updateAll(db, [
+                    Column("isRead").set(to: false),
+                    Column("readAt").set(to: DatabaseValue.null)
+                ])
+        }
+    }
+
+    /// Marca todos los capítulos de una novela como leídos o no leídos en una sola escritura.
+    nonisolated static func markAllChapters(novelId: String, read: Bool) throws {
+        _ = try appDatabase.write { db in
+            try NovelChapter
+                .filter(Column("novelId") == novelId)
+                .updateAll(db, [
+                    Column("isRead").set(to: read),
+                    Column("readAt").set(to: read ? Date() : DatabaseValue.null)
+                ])
+        }
+    }
 }

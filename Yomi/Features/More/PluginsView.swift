@@ -37,6 +37,7 @@ struct PluginsView: View {
     @State private var showInstallSheet  = false
     @State private var showAddRepoSheet  = false
     @State private var installingID: String? = nil
+    @State private var isUpdatingAll: Bool = false
     @State private var langPickerGroup: PluginCatalogGroup? = nil
 
     private var filteredGroups: [PluginCatalogGroup] {
@@ -150,7 +151,8 @@ struct PluginsView: View {
                     InstalledExtensionRow(
                         ext: ext,
                         updateEntry: catalogService.availableUpdate(for: ext),
-                        isUpdating: installingID == ext.id
+                        isUpdating: installingID == ext.id,
+                        isUpdateAllRunning: isUpdatingAll
                     ) {
                         if let entry = catalogService.availableUpdate(for: ext) {
                             Task { await installEntry(entry) }
@@ -173,6 +175,16 @@ struct PluginsView: View {
                     Text("\(updateCount) update\(updateCount == 1 ? "" : "s") available")
                         .font(.caption)
                         .foregroundStyle(.orange)
+                    Spacer()
+                    if isUpdatingAll {
+                        ProgressView().controlSize(.mini)
+                    } else if updateCount > 1 {
+                        Button("Update all") {
+                            Task { await updateAll() }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    }
                 }
             }
         }
@@ -262,6 +274,16 @@ struct PluginsView: View {
         )
         await extensionManager.install(ext)
         installingID = nil
+    }
+
+    private func updateAll() async {
+        guard !isUpdatingAll else { return }
+        isUpdatingAll = true
+        let pending = extensionManager.installed.compactMap { catalogService.availableUpdate(for: $0) }
+        for entry in pending {
+            await installEntry(entry)
+        }
+        isUpdatingAll = false
     }
 }
 
@@ -414,6 +436,7 @@ private struct InstalledExtensionRow: View {
     let ext: Extension
     let updateEntry: PluginCatalogEntry?
     let isUpdating: Bool
+    let isUpdateAllRunning: Bool
     let onUpdate: () -> Void
 
     var body: some View {
@@ -447,7 +470,7 @@ private struct InstalledExtensionRow: View {
             Spacer()
 
             if let _ = updateEntry {
-                if isUpdating {
+                if isUpdating || isUpdateAllRunning {
                     ProgressView().controlSize(.small)
                 } else {
                     Button("Update", action: onUpdate)
