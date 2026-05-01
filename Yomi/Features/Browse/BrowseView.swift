@@ -38,16 +38,12 @@ struct BrowseView: View {
                 switch selectedTab {
                 case .sources:    sourcesTab
                 case .extensions: extensionsTab
+                    .searchable(text: $extensionsSearch, prompt: "Search extensions")
                 case .search:     GlobalSearchView()
                 }
             }
             .navigationTitle("Browse")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $extensionsSearch,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search extensions"
-            )
             .onChange(of: appRouter.openBrowseExtensions) { _, open in
                 if open {
                     selectedTab = .extensions
