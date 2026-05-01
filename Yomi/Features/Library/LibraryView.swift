@@ -9,7 +9,6 @@ struct LibraryView: View {
     @State private var showNewCategorySheet = false
     @State private var newCategoryName = ""
     @State private var selectedNovel: Novel? = nil
-    @State private var novelBridgeForNav: JSBridge? = nil
     @State private var showNovelDetail = false
     @State private var randomMangaDest: Manga? = nil
     @State private var showRandomManga = false
@@ -120,7 +119,7 @@ struct LibraryView: View {
                                     if settings.libraryDisplayMode == "list" {
                                         LazyVStack(spacing: 0) {
                                             ForEach(viewModel.displayedNovels) { novel in
-                                                Button { loadNovelDetail(novel) } label: {
+                                                Button { selectedNovel = novel; showNovelDetail = true } label: {
                                                     NovelLibraryListRow(
                                                         novel: novel,
                                                         unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0
@@ -138,7 +137,7 @@ struct LibraryView: View {
                                                     novel: novel,
                                                     unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0
                                                 ) {
-                                                    loadNovelDetail(novel)
+                                                    selectedNovel = novel; showNovelDetail = true
                                                 }
                                             }
                                         }
@@ -227,34 +226,13 @@ struct LibraryView: View {
                 }
             }
             .navigationDestination(isPresented: $showNovelDetail) {
-                if let novel = selectedNovel, let bridge = novelBridgeForNav {
-                    NovelDetailView(novel: novel, bridge: bridge)
+                if let novel = selectedNovel {
+                    NovelDetailView(novel: novel)
                 }
             }
             .task {
                 await viewModel.loadLibrary()
             }
-        }
-    }
-
-    // MARK: - Novel navigation
-
-    private func loadNovelDetail(_ novel: Novel) {
-        let sourceId = novel.sourceId
-        // Capture MainActor state before entering Task.detached
-        let installed = extensionManager.installed
-        let bridgeFn = extensionManager.bridge(for:)
-        Task {
-            let bridge = await Task.detached(priority: .userInitiated) {
-                guard let ext = installed.first(where: { $0.id == sourceId }) else {
-                    return nil as JSBridge?
-                }
-                return bridgeFn(ext)
-            }.value
-            guard let bridge else { return }
-            selectedNovel = novel
-            novelBridgeForNav = bridge
-            showNovelDetail = true
         }
     }
 
