@@ -614,7 +614,7 @@ private struct GlobalSearchView: View {
                             status: "unknown", genres: [],
                             inLibrary: false, lastReadAt: nil,
                             lastUpdatedAt: nil, readingSeconds: 0,
-                            readingStatus: .none
+                            readingStatus: .none, notes: nil
                         )
                         NovelCoverCell(novel: novel, bridge: section.bridge)
                     }
@@ -980,7 +980,7 @@ struct SourceBrowseView: View {
                       title: item.name, coverURL: URL(string: item.cover ?? ""),
                       summary: nil, author: nil, status: "unknown", genres: [],
                       inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
-                      readingSeconds: 0, readingStatus: .none)
+                      readingSeconds: 0, readingStatus: .none, notes: nil)
             }
         } else {
             isNovelSource = false
@@ -1023,7 +1023,7 @@ struct SourceBrowseView: View {
                           title: item.name, coverURL: URL(string: item.cover ?? ""),
                           summary: nil, author: nil, status: "unknown", genres: [],
                           inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
-                          readingSeconds: 0, readingStatus: .none)
+                          readingSeconds: 0, readingStatus: .none, notes: nil)
                 }
                 novels.append(contentsOf: newNovels)
                 currentPage = nextPage
