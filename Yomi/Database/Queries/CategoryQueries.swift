@@ -159,4 +159,20 @@ enum CategoryQueries {
             )
         }
     }
+
+    /// Returns total item count (manga + novels) per category ID.
+    nonisolated static func fetchItemCounts() throws -> [String: Int] {
+        try appDatabase.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT categoryId, SUM(cnt) AS total FROM (
+                    SELECT categoryId, COUNT(*) AS cnt FROM manga_category GROUP BY categoryId
+                    UNION ALL
+                    SELECT categoryId, COUNT(*) AS cnt FROM novel_category GROUP BY categoryId
+                ) GROUP BY categoryId
+                """)
+            return Dictionary(uniqueKeysWithValues: rows.map {
+                ($0["categoryId"] as String, $0["total"] as Int)
+            })
+        }
+    }
 }
