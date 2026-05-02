@@ -19,6 +19,13 @@ private enum HistoryItem: Identifiable {
         case .novel(let n): return n.lastReadAt
         }
     }
+
+    var title: String {
+        switch self {
+        case .manga(let m): return m.title
+        case .novel(let n): return n.title
+        }
+    }
 }
 
 // MARK: - HistoryGroup
@@ -41,14 +48,20 @@ struct HistoryView: View {
     @State private var selectedNovel: Novel? = nil
     @State private var showNovelDetail = false
     @State private var confirmClearAll = false
+    @State private var searchQuery = ""
 
     // MARK: - Grouping
+
+    private var filteredItems: [HistoryItem] {
+        guard !searchQuery.isEmpty else { return items }
+        return items.filter { $0.title.localizedStandardContains(searchQuery) }
+    }
 
     private var groupedHistory: [HistoryGroup] {
         let cal = Calendar.current
         let now = Date()
         var buckets: [String: [HistoryItem]] = [:]
-        for item in items {
+        for item in filteredItems {
             let key = dateGroupLabel(for: item.lastReadAt, calendar: cal, now: now)
             buckets[key, default: []].append(item)
         }
@@ -87,6 +100,8 @@ struct HistoryView: View {
                         systemImage: "clock",
                         description: Text("Titles you've read will appear here.")
                     )
+                } else if groupedHistory.isEmpty {
+                    ContentUnavailableView.search(text: searchQuery)
                 } else {
                     List {
                         ForEach(groupedHistory) { group in
@@ -130,6 +145,7 @@ struct HistoryView: View {
                     NovelDetailView(novel: novel)
                 }
             }
+            .searchable(text: $searchQuery, prompt: "Search history")
             .task { await loadHistory() }
         }
     }
