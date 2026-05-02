@@ -20,24 +20,22 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S44 pre-session work — 2026-04-20)
+## Current state (post S52 — 2026-05-02)
 
-S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins. S41 = Suwayomi integration. S42 = Manga Notes, App Lock, TTS, Global Search. S43 = Tachiyomi/Mihon backup import + tab reordering. S44 pre-session = new user onboarding + catalog multi-format fix + deep research.
+S44–S51: all 4 JS plugin formats live, Suwayomi+OPDS integration, Cloudflare auto-bypass, AniList score badges, settings UX restructure (7 sections), novel metadata sync, BabelNovel v1.1.0 headers, Mangayomi chapter extraction in JS. S52: HistoryView search bar + full codebase audit.
 
-**S44 pre-session shipped:**
-1. `PluginsView.swift` — toolbar `+` → menu (Add Repository / Install from URL). `AddRepoSheet` with LNReader featured repo (one-tap add) + custom URL + GitHub guide link. Empty state shows featured repos inline.
-2. `PluginCatalogService.swift` — multi-format parser: tries Yomi native format, falls back to LNReader format (`lang`/`url`/`iconUrl`). Per-URL failures are silent (no longer breaks catalog). `LNReaderEntry` private struct + `nonisolated` parser.
-3. `SettingsView.swift` — addRepoSheet now includes GitHub guide link.
-4. `README.md` — GitHub README with 3-repo comparison table, quick start, step-by-step guide.
+**S52 shipped:**
+1. `HistoryView.swift` — search bar (`.searchable`, `filteredItems` computed property filtering by title, `ContentUnavailableView.search` when no results)
 
-**S44 remaining work (start here):** Format D (Mangayomi JS shim) + complete Paperback shim.
+**S52 audit findings:**
+- DB at v15_novel_notes (16 migrations total, next must be v16_)
+- 55 Swift files, ~16,000 lines. JSBridge.swift = 2,011 lines (largest)
+- All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
+- Novel parity gaps remaining: no custom cover PhotosPicker, no chapter multi-select mode
+- Firebase pending deploy: babelnovel.js + lightnovelpub.js staged, not yet deployed
+- Apple Developer account created (S36); App Store blocked only on: icon + age rating + description
 
-**Key architecture facts learned this session:**
-- Tachimanga uses a **DEX bytecode interpreter** (C library, no JIT) — NOT a full JVM. This is App Store compliant because interpreted code is allowed (same as JSC/Python). Building a DEX interpreter for Yomi = 2–4 months of work — possible but not urgent while Suwayomi bridges it.
-- Keiyoushi = Android APKs. No JS version exists. Access via: (1) Suwayomi server (already integrated S41), (2) future DEX interpreter. Do NOT list as a catalog URL.
-- Mihon forks (J2K/SY/AZ/Yōkai/Komikku) all use same Keiyoushi extensions. None open new iOS paths.
-
-**App Store status:** Deferred. User not enrolled in Apple Developer Program yet.
+**App Store status:** Apple Developer account created. Blocked on icon design only for submission.
 
 ## Known issues / carry-forward
 
@@ -46,7 +44,9 @@ S40 = multi-repo plugin catalog + 6 new novel TypeScript plugins. S41 = Suwayomi
 | 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
 | 2 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
 | 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
-| 4 | App Store deferred | Age rating 18+, description, screenshots pending. |
+| 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
+| 5 | Firebase deploy pending | babelnovel.js + lightnovelpub.js staged: `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting` |
+| 6 | ReadComicOnline + Mangapill broken | Downloaded from dead GitHub repo. User should uninstall from Extensions tab. |
 
 ## MCP tools — use these every session
 
@@ -125,7 +125,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v15_` (v14_ used for manga.notes in S42)
+- Next migration prefix must be `v16_` (v15_ used for novel.notes in S52)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -150,7 +150,7 @@ Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBU
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v8_last_page; next must be v9_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v15_novel_notes; next must be v16_
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift
@@ -162,7 +162,7 @@ Yomi/Features/Extensions/PluginCatalogService.swift  # multi-URL parallel fetch,
 Yomi/Features/Extensions/SuwayomiService.swift       # Suwayomi REST client; SuwayomiSource/MangaPage/ChapterItem structs; isEnabled check
 Yomi/Features/Extensions/SuwayomiBrowseView.swift    # Browse one Suwayomi source (infinite scroll, search, isPresented: nav)
 Yomi/Features/Library/LibraryView.swift        # grid/list toggle (settings.libraryDisplayMode), grid columns, multi-select
-Yomi/Features/Library/LibraryViewModel.swift   # novels field + NovelQueries.fetchLibrary() call still missing
+Yomi/Features/Library/LibraryViewModel.swift   # manga + novels; SortOrder enum; fetchLibrary() runs in Task.detached
 Yomi/Features/Library/MangaDetailView.swift    # Chapter tap→reader via navigationDestination(item:). insertAllIgnoringConflicts in loadChapters.
 Yomi/Features/Library/MangaCoverCell.swift     # Cover cell + MangaListRow struct (for list mode)
 Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse; Suwayomi section
