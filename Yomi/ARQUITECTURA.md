@@ -118,14 +118,15 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v14_manga_notes — last migration as of S47)
+### Current tables (migration v15_novel_notes — last migration as of S52)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
               genres JSON, inLibrary, isLocal, lastReadAt, lastUpdatedAt,
               readingSeconds INTEGER NOT NULL DEFAULT 0,
               readingStatus TEXT NOT NULL DEFAULT 'none',
-              customCoverPath TEXT)
+              customCoverPath TEXT,
+              notes TEXT)
 
 chapter      (id, mangaId FK→manga, path, name, chapterNumber, isRead,
               isDownloaded, downloadedAt, readAt, progress,
@@ -147,7 +148,8 @@ extension    (id, name, version, language, iconURL, sourceListURL,
 novel        (id, path, sourceId, title, coverURL, summary, author, status,
               genres JSON, inLibrary, lastReadAt, lastUpdatedAt,
               readingSeconds INTEGER NOT NULL DEFAULT 0,
-              readingStatus TEXT NOT NULL DEFAULT 'none')
+              readingStatus TEXT NOT NULL DEFAULT 'none',
+              notes TEXT)
 
 novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
                readAt, releaseTime,
@@ -174,8 +176,9 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v12_scanlator**: `ALTER TABLE chapter ADD COLUMN scanlator TEXT`
 - **v13_custom_cover**: `ALTER TABLE manga ADD COLUMN customCoverPath TEXT`
 - **v14_manga_notes**: `ALTER TABLE manga ADD COLUMN notes TEXT`
+- **v15_novel_notes**: `ALTER TABLE novel ADD COLUMN notes TEXT`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v15_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v16_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control

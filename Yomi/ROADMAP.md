@@ -21,9 +21,9 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S51 — 2026-04-29)
+## Current state (post S52 — 2026-05-02)
 
-App is feature-rich and polished. S51 (continued — 2026-04-30): `LibraryViewModel.loadLibrary()` moved to `Task.detached` (DB reads were blocking MainActor). `Extension.init(row:)` force-unwrap on `sourceListURL` replaced with a throwing guard. `JSBridge.getChapterList` for Mangayomi now extracts chapters entirely in JS — avoids `toDictionary()` cast failures, handles `url`/`link`/`id`/`href`/`path` field variants, passes scanlator. After extracting chapters, caches manga metadata (description, status, cover) in `lastMangayomiMeta`; `MangaDetailView.loadChapters` applies it to `@State manga` and persists via `MangaQueries.update` if fields were empty. `BabelNovel` plugin (v1.1.0): API calls now send `Origin`/`Referer`/`Accept: application/json`/`X-Requested-With` headers; guards against HTML response before JSON.parse; adds field-name fallbacks. `lightnovelpub.ts` icon URL updated to `.vip`. Updated `babelnovel.js` + `lightnovelpub.js` staged in Firebase folder — pending deploy (`cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting`).
+App is feature-rich and polished. S52 (2026-05-02): Full codebase + docs audit. `HistoryView` search bar added (`.searchable`, `filteredItems` computed property, `ContentUnavailableView.search` empty state). DB is at v15_novel_notes (16 migrations). Next migration prefix: `v16_`. Novel parity gaps confirmed: no custom cover PhotosPicker, no chapter multi-select mode (lower priority — image readers benefit more from these). `UpdatesViewModel` promoted to singleton (`static let shared`) so `ContentView` badge (`totalCount`) observes updates without a separate service. `NotesEditorSheet` made non-private so `NovelDetailView` reuses it. `NovelDetailView` bridge made optional + lazy-resolved from `ExtensionManager` — removes required `bridge:` argument from all call sites (Library, History, Updates, ContinueReading). Category item counts shown in `CategoryView` trailing text. Push notification setting added to `UpdatesSettingsView`. S51 (continued — 2026-04-30): `LibraryViewModel.loadLibrary()` moved to `Task.detached` (DB reads were blocking MainActor). `Extension.init(row:)` force-unwrap on `sourceListURL` replaced with a throwing guard. `JSBridge.getChapterList` for Mangayomi now extracts chapters entirely in JS — avoids `toDictionary()` cast failures, handles `url`/`link`/`id`/`href`/`path` field variants, passes scanlator. After extracting chapters, caches manga metadata (description, status, cover) in `lastMangayomiMeta`; `MangaDetailView.loadChapters` applies it to `@State manga` and persists via `MangaQueries.update` if fields were empty. `BabelNovel` plugin (v1.1.0): API calls now send `Origin`/`Referer`/`Accept: application/json`/`X-Requested-With` headers; guards against HTML response before JSON.parse; adds field-name fallbacks. `lightnovelpub.ts` icon URL updated to `.vip`. Updated `babelnovel.js` + `lightnovelpub.js` staged in Firebase folder — pending deploy (`cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting`).
 
 S51 (continued): AniList score badge added to both `MangaDetailView` and `NovelDetailView` headers — `AniListService.swift` (actor singleton, GraphQL query, in-memory cache) fetches `averageScore` from `https://graphql.anilist.co` by title; orange star badge appears next to StatusBadge. Language filter chip bar moved from Sources tab → Extensions tab; "en"/"English" deduplication via `BrowseView.displayLanguage(_:)` static mapper (15+ language codes + full names → canonical display names); language filter now applies to catalog entries not installed sources. Library list mode now respects `settings.libraryDisplayMode` for novels — added `NovelLibraryListRow` private struct; both manga and novel sections switch between `LazyVGrid` (grid) and `LazyVStack` (list) in sync. `README.md` App Store safe: removed "Download from App Store" → "Open Yomi on your device"; "Plugin Repositories" terminology; removed "in-app" language. `NovelDetailView` synopsis/metadata fix: `let novel` promoted to `@State private var novel` — after `parseNovel` returns, view updates `novel.summary`, `novel.author`, `novel.status`, `novel.coverURL` from source data; if in library, upserts updated novel to DB so next library open shows correct synopsis. LightNovelPub domain fixed: `BASE_URL` updated from `https://www.lightnovelpub.com` to `https://www.lightnovelpub.vip` in TypeScript source + rebuilt. S51 (earlier): Cloudflare auto-bypass fixed — WKWebView now full-size off-screen (Turnstile needs real viewport), 30s timeout (was 10s), polling restarts on server redirects, UA unified via `CFBypassConstants.userAgent` so `cf_clearance` is valid for URLSession requests; auto-bypass failure now shows a dismissible banner with manual bypass prompt. Settings UX restructured from 12 sections → 7 (General / Reading / Library / Appearance / Sources & Servers / Advanced / About); Manga Reader and Novel Reader settings each have drill-down sub-screens; Suwayomi and OPDS move to NavigationLink sub-screens inside Sources & Servers; Downloads section dissolved with items distributed to Reader and Library. S50: Language filter for Browse sources tab (chip bar with unique languages from installed extensions, filters visible source rows); Popular/Latest tabs now shown for ALL source types — LNReader novel sources now support Latest feed via `showLatestNovels: true` option, picker visible for both manga and novel sources; `latestNovels(page:)` method added to JSBridge; JSBridge class docstring updated to list all 4 formats; dead `filteredMangas` alias removed from LibraryViewModel. S49: Fixed Mangayomi JS plugin format (Format D) — all six bugs corrected: (1) detection now handles `class DefaultExtension extends MProvider` + `mangayomiSources[]` pattern; (2) `MProvider` base class and `SharedPreferences` shimmed pre-eval; (3) `getSrc`/`getHref` changed from methods to getter properties (plugins access them without `()`); (4) native `async/await` resolved via `evaluateScript` microtask drain (same pattern as LNReader's `callPluginMethod`) instead of broken `_resolve()` approach; (5) `getLatestUpdates` recognised alongside legacy `getLatest`; (6) `episodes` field recognised alongside `chapters` in `getDetail` return; (7) `_mapItem` field names fixed: `item.link` for id/path, `item.imageUrl` for cover. Mangayomi JS plugins (Webtoons, Mangafire, etc.) now fully functional. S48: Suwayomi onboarding UX (test connection, source count, setup guide), OPDS client (OPDSService XML parser + OPDSBrowseView, Kavita/Komga support, BrowseView integration, SettingsView section with basic auth), WidgetKit extension (YomiWidget target, ContinueReading widget small/medium/large, App Groups entitlements, WidgetDataWriter, pbxproj widget target). S47: Full LNReader/Mangayomi plugin audit — scanned all 131 English LNReader v3 plugins, identified and fixed every missing JSBridge shim: (1) `FormData` global constructor + `application/x-www-form-urlencoded` serialization in `@libs/fetch` and global `fetchApi` (fixes 52+ Madara/WordPress multisrc plugins — Scribble Hub, DaoNovel, MTL-Novel, WuxiaWorld.Site, etc.); (2) `@libs/isAbsoluteUrl` shim (RoyalRoad); (3) `@/types/constants` shim (NovelFire, already safe). S46: cheerio child combinator `>`, `each`/`map` wrapped-object handling, AO3/AllNovel fixes. ReadComicOnline and Mangapill are confirmed broken downloads (source URL `entityJY/mangayomi-extensions-eJ` repo is dead/404) — user should uninstall from Extensions tab. S45: Cloudflare auto-bypass + LNReader v3 `module.exports` fallback. S44: Format D Mangayomi JS shim, multi-format catalog parser, catalog UX overhaul. S43: Tachiyomi/Mihon `.tachibk` backup import + tab reordering. S42: Manga Notes, App Lock, TTS for novels, Global Search. S40: multi-repo plugin catalog + 6 novel plugins. S41: Suwayomi. Firebase has 15 live plugins. App Store deferred.
 
@@ -35,22 +35,25 @@ S51 (continued): AniList score badge added to both `MangaDetailView` and `NovelD
 3. **MangaDetailView.loadChapters() silent failure** — `guard let ext else { return }` fired without clearing `isLoadingChapters` (spinner stuck forever). Also `ChapterQueries.fetchAll` was called synchronously on MainActor. Both fixed.
 4. **NovelFull plugin** added to Firebase catalog (novelfull.net — verified accessible, Format B).
 
-**App Store blockers remaining (deferred):**
-1. Apple Developer Program enrollment ($99/year) — user decided not to pay yet
-2. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing
-3. Age rating 18+, description, screenshots — App Store Connect
+**App Store blockers remaining:**
+1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing — **primary blocker**
+2. Age rating 18+, description, screenshots — App Store Connect
+3. ~~Apple Developer Program enrollment~~ ✅ Created S36
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| Chapters from Browse (partial fix) | Defensive fixes applied in S37 but root cause not fully confirmed. Chapters may still fail for some sources. Needs device testing with live plugins to verify. | High |
+| App icon | 1024×1024 PNG missing — user designing. App Store primary blocker. | Critical |
 | Firebase pending deploy | Updated babelnovel.js + lightnovelpub.js are in `~/Projects/Yomi/Firebase/public/` ready to deploy. Run: `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting` | High |
+| Chapters from Browse (partial fix) | Defensive fixes applied in S37 but root cause not fully confirmed. Chapters may still fail for some sources. Needs device testing with live plugins to verify. | High |
+| ReadComicOnline + Mangapill broken | Source files contain "404: Not Found" — downloaded from dead `entityJY/mangayomi-extensions-eJ` GitHub repo. User should uninstall these two plugins from Extensions tab. | Medium |
+| BabelNovel "No titles found" | Updated plugin (v1.1.0) adds proper API headers. Needs live testing. May need removal if API is auth-gated. | Medium |
+| Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. | Medium |
+| Novel custom cover | MangaDetailView has PhotosPicker for custom cover; NovelDetailView does not. Low-priority parity gap. | Low |
+| Novel chapter multi-select | MangaDetailView has chapter selection mode (bulk mark/download). NovelDetailView has only swipe actions. Low-priority parity gap. | Low |
 | Alternate icons need Xcode step | AppIconDark + AppIconMinimal appiconsets are placeholders. Drop in PNGs + add CFBundleAlternateIcons in Xcode Target → Info to activate. | Low (after icon design) |
-| Comick blocked by Cloudflare | api.comick.dev returns 403 from non-browser clients. Site-level block, not Yomi's fault. May resolve if Cloudflare changes policy. | Medium |
-| ReadComicOnline + Mangapill broken | Source files contain "404: Not Found" — downloaded from dead `entityJY/mangayomi-extensions-eJ` GitHub repo. User should uninstall these two plugins from Extensions tab. Mangayomi catalog entry points to deleted repo. | Medium |
-| BabelNovel "No titles found" | Updated plugin (v1.1.0) adds proper API headers (Origin/Referer/Accept/X-Requested-With) and HTML-response guard. Needs live testing to confirm fix. May need removal if API is auth-gated. | Medium |
+| Mangafire chapters | Mangayomi chapter extraction now done in JS (S51 fix). Needs live testing to confirm. | Low |
 | LightNovelPub VIP (external LNReader plugin) | External LNReader catalog plugin — not Yomi's `lightnovelpub.ts`. Cannot fix without catalog plugin source. | Low |
-| Mangafire chapters | Mangayomi chapter extraction now done in JS (S51 fix handles url/link/id/href/path variants). Needs live testing to confirm. | Low |
 
 ## Session 5 — Core UX ✅ Complete
 | # | Feature | Detail |
@@ -633,15 +636,47 @@ All S28 P0/P1/P2/P3 items resolved.
 
 ---
 
-## Planned: Session 49 — Growth + Polish
+## Session 52 — Audit + Search ✅ Complete (2026-05-02)
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | iCloud CloudKit sync | CloudKit container, `CKRecord` for manga/novel library state, conflict resolution |
-| 2 | AniList tracking | OAuth, auto-update on chapter finish (mirrors MAL) |
-| 3 | Volume button page-turn | Use `AVAudioSession` remote control events |
-| 4 | Novel text justification toggle | `.textAlignment` in TextReaderView HTML CSS |
-| 5 | Estimated reading time per chapter | Word count from HTML → WPM estimate |
+| 1 | ✅ HistoryView search | `.searchable(text: $searchQuery, prompt: "Search history")`. `filteredItems` computed property filters by `localizedStandardContains`. `ContentUnavailableView.search(text:)` empty state when query returns no results. |
+| 2 | ✅ Full codebase audit | 55 Swift files, ~16,000 lines. DB at v15 (16 migrations). All `*Queries` nonisolated ✅. All bridge calls Task.detached ✅. Novel parity gaps documented: missing custom cover + chapter multi-select. `UpdatesViewModel` promoted to singleton. Novel notes backup encode/decode fixed. `NotesEditorSheet` made non-private. `NovelDetailView` bridge made optional + lazy-resolved. |
+
+## Session 51 — CF Bypass v2 + AniList + Settings UX + Novel Metadata Fix ✅ Complete (2026-04-29–30)
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Cloudflare bypass v2 | `AutoBypassHelper` WKWebView full-size off-screen (Turnstile needs real viewport), 30s timeout, poll restarts on server redirects, `CFBypassConstants.userAgent` shared constant, auto-bypass failure shows dismissible banner. |
+| 2 | ✅ Settings UX restructure | 12→7 sections (General / Reading / Library / Appearance / Sources & Servers / Advanced / About). Manga + Novel Reader sub-screens. Suwayomi + OPDS as NavigationLink sub-screens. |
+| 3 | ✅ AniList score badges | `AniListService.swift` (actor singleton, GraphQL, in-memory cache). `averageScore` badge in `MangaDetailView` + `NovelDetailView` headers. |
+| 4 | ✅ Language filter | Moved to Extensions tab. `BrowseView.displayLanguage(_:)` deduplicates ISO codes + full names (15+ mappings). |
+| 5 | ✅ Novel library list mode | `NovelLibraryListRow` struct. Both manga and novel sections switch grid/list in sync. |
+| 6 | ✅ NovelDetailView metadata sync | `let novel` → `@State private var novel`. After `parseNovel` returns, updates summary/author/status/coverURL from source. Upserts to DB if in library. |
+| 7 | ✅ LibraryViewModel.loadLibrary() detached | DB reads moved to `Task.detached` — no longer blocks MainActor. |
+| 8 | ✅ Extension.init(row:) safe | Force-unwrap on `sourceListURL` replaced with throwing guard. |
+| 9 | ✅ BabelNovel v1.1.0 | Adds `Origin`/`Referer`/`Accept`/`X-Requested-With` headers; HTML-response guard. |
+| 10 | ✅ Mangayomi chapter extraction in JS | All chapter extraction moved to JS; handles `url`/`link`/`id`/`href`/`path` variants; caches `lastMangayomiMeta` for synopsis/status/cover. |
+
+## Session 50 — Browse Tab UX + Novel Sources Latest Feed ✅ Complete (2026-04-28)
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Language filter for Sources tab | Chip bar with unique languages from installed extensions. |
+| 2 | ✅ Latest feed for novel sources | `showLatestNovels: true` option; `latestNovels(page:)` added to JSBridge; picker visible for both manga and novel sources. |
+| 3 | ✅ Dead code removal | `filteredMangas` alias removed from LibraryViewModel. |
+
+## Session 49 — Mangayomi Format D Bug Blitz ✅ Complete (2026-04-27)
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | ✅ Mangayomi detection fix | Handles `class DefaultExtension extends MProvider` + `mangayomiSources[]` pattern. |
+| 2 | ✅ MProvider + SharedPreferences shims | Pre-eval base class + prefs injected. |
+| 3 | ✅ getSrc/getHref getter fix | Changed from methods to getter properties (plugins access without `()`). |
+| 4 | ✅ async/await microtask drain | `evaluateScript` drain (same pattern as LNReader `callPluginMethod`). |
+| 5 | ✅ getLatestUpdates recognition | Alongside legacy `getLatest`. |
+| 6 | ✅ `episodes` field recognition | Alongside `chapters` in `getDetail` return. |
+| 7 | ✅ `_mapItem` field fixes | `item.link` for id/path, `item.imageUrl` for cover. |
 
 ## Session 32 — Library organization + Novel categories + Backup + New sources (2026-04-14) ✅ Complete
 
