@@ -159,7 +159,7 @@ struct ChapterReaderView: View {
             }
         }
         .onChange(of: currentPage) { _, newPage in
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage == pages.count - 1 {
                 markChapterRead()
                 if MALService.shared.isLoggedIn {

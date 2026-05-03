@@ -54,21 +54,21 @@ enum NovelQueries {
 
     /// Inserta una nueva novela; falla si ya existe un registro con el mismo id
     nonisolated static func insert(_ novel: Novel) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try novel.insert(db)
         }
     }
 
     /// Actualiza todos los campos de una novela existente por su id
     nonisolated static func update(_ novel: Novel) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try novel.update(db)
         }
     }
 
     /// Inserta o actualiza una novela (usa el id como clave)
     nonisolated static func upsert(_ novel: Novel) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try novel.save(db)
         }
     }
@@ -149,7 +149,7 @@ enum NovelQueries {
 
     /// Inserta capítulos en lote usando INSERT OR IGNORE — nunca sobreescribe isRead ni readingSeconds existentes
     nonisolated static func insertAllIgnoringConflicts(_ chapters: [NovelChapter]) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             for ch in chapters {
                 try ch.insert(db, onConflict: .ignore)
             }
@@ -158,14 +158,14 @@ enum NovelQueries {
 
     /// Inserta o actualiza un capítulo (usa el id como clave)
     nonisolated static func upsertChapter(_ chapter: NovelChapter) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try chapter.save(db)
         }
     }
 
     /// Inserta o actualiza un lote de capítulos en una sola transacción
     nonisolated static func upsertChapters(_ chapters: [NovelChapter]) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             for chapter in chapters {
                 try chapter.save(db)
             }
