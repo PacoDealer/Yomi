@@ -859,21 +859,28 @@ struct MangaDetailView: View {
 
         bridge = loadedBridge
 
-        // Merge persisted state from DB (off main thread per GRDB rule)
+        // Fetch persisted chapters from DB (off main thread per GRDB rule)
         let saved = await Task.detached(priority: .userInitiated) {
             (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         }.value
-        let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
-        chapters = loadedChapters.map { ch in
-            guard let persisted = savedMap[ch.id] else { return ch }
-            var merged = ch
-            merged.isRead = persisted.isRead
-            merged.isDownloaded = persisted.isDownloaded
-            merged.readingSeconds = persisted.readingSeconds
-            merged.progress = persisted.progress
-            merged.lastPageRead = persisted.lastPageRead
-            merged.readAt = persisted.readAt
-            return merged
+
+        if loadedChapters.isEmpty {
+            // API returned nothing (network failure, Cloudflare block, etc.) —
+            // fall back to DB so previously-loaded chapters remain accessible.
+            chapters = saved
+        } else {
+            let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+            chapters = loadedChapters.map { ch in
+                guard let persisted = savedMap[ch.id] else { return ch }
+                var merged = ch
+                merged.isRead = persisted.isRead
+                merged.isDownloaded = persisted.isDownloaded
+                merged.readingSeconds = persisted.readingSeconds
+                merged.progress = persisted.progress
+                merged.lastPageRead = persisted.lastPageRead
+                merged.readAt = persisted.readAt
+                return merged
+            }
         }
 
         isLoadingChapters = false
