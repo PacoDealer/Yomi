@@ -351,6 +351,7 @@ struct ReaderWebView: UIViewRepresentable {
 
         let scrollJS = WKUserScript(source: """
             (function() {
+                if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
                 var fired = false;
                 window.addEventListener('scroll', function() {
                     if (fired) return;
