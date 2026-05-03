@@ -612,7 +612,7 @@ Rule: SourceKit errors are noise. xcodebuild errors are signal.
 | **Yomi Format B (LNReader)** | `plugin` class: `popularNovels(page, opts)`, parseNovel, parseChapter, searchNovels. CommonJS or globalThis export. | ✅ Native | 500+ novel sources (lnreader-plugins repo) |
 | **Paperback** | TypeScript → esbuild JS. `Source` class export via `paperback-extensions-common`. getHomePageSections, getSearchResults, getChapterDetails | ✅ Shim implemented S24. `__pbSourceId` flag. | ~100 manga sources |
 | **Mangayomi JS** | `const source = { getPopular, getLatest, search, getDetail, getPageList }`. Client class for HTTP. | ✅ Shim implemented S44. `__mangayomiSource` flag. | 195+ manga+novel sources |
-| **Suwayomi** | REST/GraphQL server bridge. Not a JS format — Yomi connects via HTTP to a self-hosted JVM server running keiyoushi APK extensions. | ✅ Integrated S41 (`SuwayomiService.swift`) | 500–1000+ keiyoushi sources |
+| **Suwayomi** | REST/GraphQL server bridge. Not a JS format — Yomi connects via HTTP to a self-hosted JVM server running keiyoushi APK extensions. `SuwayomiService.baseURL` is URL-agnostic — pointing it at localhost requires only an `AppSettings` change. **Embedded JVM: DEFERRED** — Java version gap (OpenJDK 8 on iOS ≠ Suwayomi Java 11+/21 requirement) + NSExtension process isolation required. Revisit when OpenJDK Mobile (Java 21, Gluon initiative) matures. | ✅ Integrated S41 (`SuwayomiService.swift`) | 500–1000+ keiyoushi sources |
 | **Keiyoushi / Tachiyomi direct** | Kotlin → Android APK. Inter-process via Android PackageManager. | ❌ Impossible on iOS directly | N/A |
 | **Aidoku** | Swift → WebAssembly (.aix). WasmSwift runtime. | ❌ Requires WASM runtime | N/A |
 
