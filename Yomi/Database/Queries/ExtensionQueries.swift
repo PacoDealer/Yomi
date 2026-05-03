@@ -26,7 +26,7 @@ enum ExtensionQueries {
 
     /// Inserts or updates an extension record
     nonisolated static func upsert(_ ext: Extension) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             try ext.save(db)
         }
     }
@@ -35,7 +35,7 @@ enum ExtensionQueries {
 
     /// Removes the extension with the given id
     nonisolated static func delete(id: String) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             _ = try Extension.deleteOne(db, key: id)
         }
     }
