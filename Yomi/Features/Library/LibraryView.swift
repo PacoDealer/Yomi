@@ -148,6 +148,19 @@ struct LibraryView: View {
                         }
                     }
                     .refreshable { await viewModel.loadLibrary() }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 40, coordinateSpace: .local)
+                            .onEnded { value in
+                                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                                let tabIds: [String?] = [nil] + viewModel.categories.map { Optional($0.id) }
+                                guard let idx = tabIds.firstIndex(where: { $0 == viewModel.selectedCategoryId }) else { return }
+                                if value.translation.width < -50 && idx < tabIds.count - 1 {
+                                    withAnimation(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx + 1] }
+                                } else if value.translation.width > 50 && idx > 0 {
+                                    withAnimation(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx - 1] }
+                                }
+                            }
+                    )
                     .safeAreaInset(edge: .bottom) {
                         if isSelecting {
                             selectionActionBar
@@ -159,7 +172,7 @@ struct LibraryView: View {
                 ? (selectedIds.isEmpty ? "Select" : "\(selectedIds.count) selected")
                 : "Library")
             .safeAreaInset(edge: .top, spacing: 0) {
-                categoryFilterBar
+                categoryTabBar
             }
             .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
@@ -214,8 +227,24 @@ struct LibraryView: View {
                                     }
                                 }
                             }
+                            Divider()
+                            Button {
+                                viewModel.statusFilter = nil
+                            } label: {
+                                Label("All statuses", systemImage: "line.3.horizontal.decrease")
+                                if viewModel.statusFilter == nil { Image(systemName: "checkmark") }
+                            }
+                            ForEach(ReadingStatus.allCases.filter { $0 != .none }) { status in
+                                Button {
+                                    viewModel.statusFilter = viewModel.statusFilter == status ? nil : status
+                                } label: {
+                                    Label(status.label, systemImage: status.systemImage)
+                                    if viewModel.statusFilter == status { Image(systemName: "checkmark") }
+                                }
+                            }
                         } label: {
-                            Image(systemName: "line.3.horizontal.decrease.circle\(viewModel.sortOrder == .lastRead ? "" : ".fill")")
+                            let active = viewModel.sortOrder != .lastRead || viewModel.statusFilter != nil
+                            Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                         }
                     }
                 }
@@ -239,17 +268,31 @@ struct LibraryView: View {
     // MARK: - Selection Action Bar
 
     private var selectionActionBar: some View {
-        HStack(spacing: 16) {
+        HStack {
             Spacer()
-            Button(role: .destructive) {
-                Task { await removeSelected() }
-            } label: {
-                Label("Remove from Library", systemImage: "heart.slash")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            Button { Task { await markSelectedRead() } } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "checkmark.circle").font(.title3)
+                    Text("Mark Read").font(.caption2)
+                }
             }
             .disabled(selectedIds.isEmpty)
-            .buttonStyle(.borderedProminent)
+            Spacer()
+            Button { Task { await downloadSelected() } } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "arrow.down.circle").font(.title3)
+                    Text("Download").font(.caption2)
+                }
+            }
+            .disabled(selectedIds.isEmpty)
+            Spacer()
+            Button(role: .destructive) { Task { await removeSelected() } } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "trash").font(.title3)
+                    Text("Remove").font(.caption2)
+                }
+            }
+            .disabled(selectedIds.isEmpty)
             .tint(.red)
             Spacer()
         }
@@ -277,70 +320,76 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: - Category Filter Bar
+    private func markSelectedRead() async {
+        let ids = selectedIds
+        await Task.detached(priority: .userInitiated) {
+            for id in ids { try? ChapterQueries.markAllRead(mangaId: id) }
+        }.value
+        await viewModel.loadLibrary()
+        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = [] }
+    }
+
+    private func downloadSelected() async {
+        let ids = selectedIds
+        let installed = ExtensionManager.shared.installed
+        let em = ExtensionManager.shared
+        let mangasAndChapters: [(Manga, [Chapter])] = await Task.detached(priority: .userInitiated) {
+            ids.compactMap { id -> (Manga, [Chapter])? in
+                guard let manga = try? MangaQueries.fetchOne(id: id) else { return nil }
+                let unread = (try? ChapterQueries.fetchUnread(mangaId: id)) ?? []
+                return (manga, unread)
+            }
+        }.value
+        for (manga, unread) in mangasAndChapters {
+            guard let ext = installed.first(where: { $0.id == manga.sourceId }),
+                  let bridge = em.bridge(for: ext) else { continue }
+            unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
+        }
+        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = [] }
+    }
+
+    // MARK: - Category Tab Bar
 
     @ViewBuilder
-    private var categoryFilterBar: some View {
-        VStack(spacing: 0) {
+    private var categoryTabBar: some View {
+        ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if !viewModel.categories.isEmpty {
-                        CategoryChip(
-                            label: "All",
-                            isSelected: viewModel.selectedCategoryId == nil
-                        ) {
-                            viewModel.selectedCategoryId = nil
-                        }
-                        ForEach(viewModel.categories) { category in
-                            CategoryChip(
-                                label: category.name,
-                                isSelected: viewModel.selectedCategoryId == category.id
-                            ) {
-                                viewModel.selectedCategoryId = category.id
-                            }
-                        }
+                HStack(spacing: 0) {
+                    LibraryTab(label: "All", isSelected: viewModel.selectedCategoryId == nil) {
+                        viewModel.selectedCategoryId = nil
                     }
-                    // Always show "+" to create categories
+                    .id("tab_all")
+                    ForEach(viewModel.categories) { category in
+                        LibraryTab(
+                            label: category.name,
+                            isSelected: viewModel.selectedCategoryId == category.id
+                        ) {
+                            viewModel.selectedCategoryId = category.id
+                        }
+                        .id("tab_\(category.id)")
+                    }
                     Button {
                         newCategoryName = ""
                         showNewCategorySheet = true
                     } label: {
                         Image(systemName: "plus")
                             .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
-                            .background(Capsule().stroke(Color.secondary, lineWidth: 1))
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.leading, 4)
             }
-            // Reading status filter row — shown when manga or novels are in library
-            if !viewModel.mangas.isEmpty || !viewModel.novels.isEmpty {
-                Divider()
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        CategoryChip(label: "All", isSelected: viewModel.statusFilter == nil) {
-                            viewModel.statusFilter = nil
-                        }
-                        ForEach(ReadingStatus.allCases.filter { $0 != .none }) { status in
-                            CategoryChip(
-                                label: status.label,
-                                isSelected: viewModel.statusFilter == status
-                            ) {
-                                viewModel.statusFilter = (viewModel.statusFilter == status) ? nil : status
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+            .background(.bar)
+            .overlay(alignment: .bottom) { Divider() }
+            .onChange(of: viewModel.selectedCategoryId) { _, newId in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newId.map { "tab_\($0)" } ?? "tab_all", anchor: .center)
                 }
             }
         }
-        .background(.bar)
         .sheet(isPresented: $showNewCategorySheet) {
             NavigationStack {
                 Form {
@@ -377,29 +426,30 @@ struct LibraryView: View {
     }
 }
 
-// MARK: - CategoryChip
+// MARK: - LibraryTab
 
-private struct CategoryChip: View {
+private struct LibraryTab: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .foregroundStyle(isSelected ? Color.white : Color.secondary)
-                .background {
-                    if isSelected {
-                        Capsule().fill(Color.accentColor)
-                    } else {
-                        Capsule().stroke(Color.secondary, lineWidth: 1)
-                    }
-                }
+            VStack(spacing: 0) {
+                Text(label)
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .fixedSize()
+                Rectangle()
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .frame(height: 2)
+            }
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
