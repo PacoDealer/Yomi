@@ -20,20 +20,19 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S52 — 2026-05-02)
+## Current state (post S53 — 2026-05-02)
 
-S44–S51: all 4 JS plugin formats live, Suwayomi+OPDS integration, Cloudflare auto-bypass, AniList score badges, settings UX restructure (7 sections), novel metadata sync, BabelNovel v1.1.0 headers, Mangayomi chapter extraction in JS. S52: HistoryView search bar + full codebase audit.
+S44–S52: all 4 JS plugin formats live, Suwayomi+OPDS integration, Cloudflare auto-bypass, AniList score badges, settings UX restructure (7 sections), novel metadata sync, BabelNovel v1.1.0 headers, Mangayomi chapter extraction in JS, HistoryView search bar. S53: Firebase deployed + embedded JVM feasibility study.
 
-**S52 shipped:**
-1. `HistoryView.swift` — search bar (`.searchable`, `filteredItems` computed property filtering by title, `ContentUnavailableView.search` when no results)
+**S53 shipped:**
+1. Firebase deployed — babelnovel.js + lightnovelpub.js now live at yomi-plugins.web.app
+2. Embedded JVM feasibility study — verdict: DEFERRED (see ROADMAP S53 entry)
 
-**S52 audit findings:**
+**S52 audit findings (still current):**
 - DB at v15_novel_notes (16 migrations total, next must be v16_)
 - 55 Swift files, ~16,000 lines. JSBridge.swift = 2,011 lines (largest)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps remaining: no custom cover PhotosPicker, no chapter multi-select mode
-- Firebase pending deploy: babelnovel.js + lightnovelpub.js staged, not yet deployed
-- Apple Developer account created (S36); App Store blocked only on: icon + age rating + description
 
 **App Store status:** Apple Developer account created. Blocked on icon design only for submission.
 
@@ -45,7 +44,7 @@ S44–S51: all 4 JS plugin formats live, Suwayomi+OPDS integration, Cloudflare a
 | 2 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
 | 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
-| 5 | Firebase deploy pending | babelnovel.js + lightnovelpub.js staged: `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting` |
+| 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
 | 6 | ReadComicOnline + Mangapill broken | Downloaded from dead GitHub repo. User should uninstall from Extensions tab. |
 
 ## MCP tools — use these every session
