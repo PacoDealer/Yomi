@@ -820,6 +820,11 @@ struct MangaDetailView: View {
         let mangaId = manga.id
 
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
+            // Extension not installed — show whatever chapters are already in DB
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+            }.value
+            chapters = saved
             isLoadingChapters = false
             return
         }
