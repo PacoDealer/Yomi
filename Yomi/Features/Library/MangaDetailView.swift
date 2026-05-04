@@ -805,7 +805,7 @@ struct MangaDetailView: View {
     // MARK: - Touch Last Read
 
     private func touchLastRead() async {
-        guard manga.inLibrary else { return }
+        guard manga.inLibrary, !AppSettings.shared.isIncognito else { return }
         let mangaId = manga.id
         Task.detached {
             try? MangaQueries.touchLastRead(mangaId: mangaId)

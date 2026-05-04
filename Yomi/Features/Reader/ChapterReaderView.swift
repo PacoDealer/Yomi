@@ -222,8 +222,10 @@ struct ChapterReaderView: View {
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
         let page = currentPage
-        Task.detached {
-            try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
+        if !AppSettings.shared.isIncognito {
+            Task.detached {
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
+            }
         }
 
         currentChapterIndex = index
