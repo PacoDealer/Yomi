@@ -197,6 +197,7 @@ struct TextReaderView: View {
                         showOverlay.toggle()
                     }
                 }, onReadComplete: {
+                    guard !AppSettings.shared.isIncognito else { return }
                     let chapterId = activeChapter.id
                     Task { try? NovelQueries.markRead(chapterId: chapterId) }
                 })
@@ -266,7 +267,9 @@ struct TextReaderView: View {
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
         let chapterId = activeChapter.id
-        Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId) }
+        if !AppSettings.shared.isIncognito {
+            Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId) }
+        }
         rawContent    = ""
         isLoading     = true
         errorMessage  = nil
