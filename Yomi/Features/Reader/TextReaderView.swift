@@ -466,7 +466,8 @@ struct TextReaderOverlayView: View {
                         Image(systemName: "chevron.left")
                             .font(.title3).fontWeight(.semibold)
                             .foregroundStyle(.white)
-                            .padding(.trailing, 4)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(novel.title)
