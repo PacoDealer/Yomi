@@ -20,19 +20,21 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S53 — 2026-05-02)
+## Current state (post S58 — 2026-05-04)
 
-S44–S52: all 4 JS plugin formats live, Suwayomi+OPDS integration, Cloudflare auto-bypass, AniList score badges, settings UX restructure (7 sections), novel metadata sync, BabelNovel v1.1.0 headers, Mangayomi chapter extraction in JS, HistoryView search bar. S53: Firebase deployed + embedded JVM feasibility study.
+S44–S57: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix.
 
-**S53 shipped:**
-1. Firebase deployed — babelnovel.js + lightnovelpub.js now live at yomi-plugins.web.app
-2. Embedded JVM feasibility study — verdict: DEFERRED (see ROADMAP S53 entry)
+**S58 shipped:**
+1. Novel custom cover PhotosPicker (v16 migration, all cover surfaces updated, GRDB notes bug fixed)
+2. Novel chapter multi-select (long-press, Read/Unread action bar, mirrors MangaDetailView)
+3. Reader back button hit area enlarged to 44×44pt (both readers)
+4. Novel/Manga format badges in Sources list and Extensions tab
+5. `Novel.init(row:)` notes field was silently dropped on every read since v15 — fixed
 
-**S52 audit findings (still current):**
-- DB at v15_novel_notes (16 migrations total, next must be v16_)
-- 55 Swift files, ~16,000 lines. JSBridge.swift = 2,011 lines (largest)
+**Current DB/code state:**
+- DB at v16_novel_custom_cover (17 migrations total, next must be v17_)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
-- Novel parity gaps remaining: no custom cover PhotosPicker, no chapter multi-select mode
+- Novel parity gaps: ✅ custom cover ✅ chapter multi-select — both done
 
 **App Store status:** Apple Developer account created. Blocked on icon design only for submission.
 
@@ -124,7 +126,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v16_` (v15_ used for novel.notes in S52)
+- Next migration prefix must be `v17_` (v16_ used for novel.customCoverPath in S58)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -149,7 +151,7 @@ Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBU
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v15_novel_notes; next must be v16_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v16_novel_custom_cover; next must be v17_
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift
