@@ -651,23 +651,27 @@ private struct GlobalSearchView: View {
 
         await withTaskGroup(of: SearchSection?.self) { group in
             for ext in sources {
+                let extId   = ext.id
+                let extName = ext.name
                 group.addTask {
-                    let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                    let url = docs
-                        .appendingPathComponent("Extensions", isDirectory: true)
-                        .appendingPathComponent("\(ext.id).js")
-                    guard let bridge = JSBridge(scriptURL: url) else { return nil }
-                    if bridge.isLNReaderPlugin {
-                        let items = bridge.searchNovels(query: query, page: 1)
-                        guard !items.isEmpty else { return nil }
-                        return SearchSection(id: ext.id, sourceName: ext.name, isNovel: true,
-                                            mangas: [], novels: items, bridge: bridge)
-                    } else {
-                        let items = bridge.searchManga(query: query, page: 1, sourceId: ext.id)
-                        guard !items.isEmpty else { return nil }
-                        return SearchSection(id: ext.id, sourceName: ext.name, isNovel: false,
-                                            mangas: items, novels: [], bridge: bridge)
-                    }
+                    await Task.detached(priority: .userInitiated) {
+                        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        let url = docs
+                            .appendingPathComponent("Extensions", isDirectory: true)
+                            .appendingPathComponent("\(extId).js")
+                        guard let bridge = JSBridge(scriptURL: url) else { return nil }
+                        if bridge.isLNReaderPlugin {
+                            let items = bridge.searchNovels(query: query, page: 1)
+                            guard !items.isEmpty else { return nil }
+                            return SearchSection(id: extId, sourceName: extName, isNovel: true,
+                                                mangas: [], novels: items, bridge: bridge)
+                        } else {
+                            let items = bridge.searchManga(query: query, page: 1, sourceId: extId)
+                            guard !items.isEmpty else { return nil }
+                            return SearchSection(id: extId, sourceName: extName, isNovel: false,
+                                                mangas: items, novels: [], bridge: bridge)
+                        }
+                    }.value
                 }
             }
             for await result in group {
