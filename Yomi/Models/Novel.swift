@@ -34,6 +34,8 @@ struct Novel: Identifiable, Codable {
     var readingStatus: ReadingStatus
     /// Nota personal del usuario sobre esta obra
     var notes: String?
+    /// Ruta local a una portada personalizada elegida por el usuario
+    var customCoverPath: String? = nil
 }
 
 // MARK: - NovelChapter

@@ -230,6 +230,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v16_novel_custom_cover") { db in
+            try db.alter(table: "novel") { t in
+                t.add(column: "customCoverPath", .text)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -399,25 +405,29 @@ extension Novel: FetchableRecord, PersistableRecord {
         lastUpdatedAt  = row["lastUpdatedAt"]
         readingSeconds = row["readingSeconds"] ?? 0
         readingStatus  = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
+        notes          = row["notes"]
+        customCoverPath = row["customCoverPath"]
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]             = id
-        container["path"]           = path
-        container["sourceId"]       = sourceId
-        container["title"]          = title
-        container["coverURL"]       = coverURL?.absoluteString
-        container["summary"]        = summary
-        container["author"]         = author
-        container["status"]         = status
+        container["id"]              = id
+        container["path"]            = path
+        container["sourceId"]        = sourceId
+        container["title"]           = title
+        container["coverURL"]        = coverURL?.absoluteString
+        container["summary"]         = summary
+        container["author"]          = author
+        container["status"]          = status
         // Serializa [String] a JSON para guardarlo en la columna TEXT
-        container["genres"]         = (try? JSONEncoder().encode(genres))
-                                          .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        container["inLibrary"]      = inLibrary
-        container["lastReadAt"]     = lastReadAt
-        container["lastUpdatedAt"]  = lastUpdatedAt
-        container["readingSeconds"] = readingSeconds
-        container["readingStatus"]  = readingStatus.rawValue
+        container["genres"]          = (try? JSONEncoder().encode(genres))
+                                           .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        container["inLibrary"]       = inLibrary
+        container["lastReadAt"]      = lastReadAt
+        container["lastUpdatedAt"]   = lastUpdatedAt
+        container["readingSeconds"]  = readingSeconds
+        container["readingStatus"]   = readingStatus.rawValue
+        container["notes"]           = notes
+        container["customCoverPath"] = customCoverPath
     }
 }
 

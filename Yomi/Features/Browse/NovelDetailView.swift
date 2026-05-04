@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct NovelDetailView: View {
     @State private var novel: Novel
@@ -20,6 +21,8 @@ struct NovelDetailView: View {
     @State private var chapterFilterUnread: Bool = false
     @State private var showNotesSheet = false
     @State private var notesText: String = ""
+    @State private var showCoverPicker = false
+    @State private var selectedCoverItem: PhotosPickerItem? = nil
 
     init(novel: Novel, bridge: JSBridge? = nil) {
         _novel = State(initialValue: novel)
@@ -62,14 +65,23 @@ struct NovelDetailView: View {
             Section {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top, spacing: 14) {
-                        AsyncImage(url: novel.coverURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.secondary.opacity(0.3))
-                                .aspectRatio(2 / 3, contentMode: .fit)
+                        Group {
+                            if let customPath = novel.customCoverPath,
+                               let uiImage = UIImage(contentsOfFile: customPath) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(2 / 3, contentMode: .fill)
+                            } else {
+                                AsyncImage(url: novel.coverURL) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(2 / 3, contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.secondary.opacity(0.3))
+                                        .aspectRatio(2 / 3, contentMode: .fit)
+                                }
+                            }
                         }
                         .frame(width: 110)
                         .cornerRadius(10)
@@ -290,6 +302,12 @@ struct NovelDetailView: View {
                     }
                     .disabled(!isInLibrary)
 
+                    Button {
+                        showCoverPicker = true
+                    } label: {
+                        Label("Change cover", systemImage: "photo")
+                    }
+
                     if !chapters.isEmpty {
                         Divider()
                         Button {
@@ -348,6 +366,22 @@ struct NovelDetailView: View {
                 let novelId = novel.id
                 let text = notesText
                 Task.detached { try? NovelQueries.updateNotes(novelId: novelId, notes: text) }
+            }
+        }
+        .photosPicker(isPresented: $showCoverPicker, selection: $selectedCoverItem, matching: .images)
+        .onChange(of: selectedCoverItem) { _, item in
+            guard let item else { return }
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+                let coversDir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Covers")
+                try? FileManager.default.createDirectory(at: coversDir, withIntermediateDirectories: true)
+                let fileURL = coversDir.appendingPathComponent("\(novel.id).jpg")
+                try? data.write(to: fileURL)
+                novel.customCoverPath = fileURL.path
+                let updated = novel
+                Task.detached { try? NovelQueries.upsert(updated) }
             }
         }
     }
