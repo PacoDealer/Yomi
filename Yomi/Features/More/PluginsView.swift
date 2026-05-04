@@ -438,6 +438,7 @@ private struct InstalledExtensionRow: View {
     let isUpdating: Bool
     let isUpdateAllRunning: Bool
     let onUpdate: () -> Void
+    @State private var isNovelPlugin: Bool? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -458,6 +459,16 @@ private struct InstalledExtensionRow: View {
                 Text(ext.name).font(.headline)
                 HStack(spacing: 6) {
                     LanguageBadge(language: ext.language)
+                    if let isNovel = isNovelPlugin {
+                        Text(isNovel ? "Novel" : "Manga")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background((isNovel ? Color.purple : Color.blue).opacity(0.15))
+                            .foregroundStyle(isNovel ? Color.purple : Color.blue)
+                            .clipShape(Capsule())
+                    }
                     Text("v\(ext.version)").font(.caption).foregroundStyle(.secondary)
                     if let update = updateEntry {
                         Text("→ v\(update.version)")
@@ -481,6 +492,12 @@ private struct InstalledExtensionRow: View {
             }
         }
         .padding(.vertical, 2)
+        .task(id: ext.id) {
+            let id = ext.id
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs.appendingPathComponent("Extensions/\(id).js")
+            isNovelPlugin = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
+        }
     }
 }
 
