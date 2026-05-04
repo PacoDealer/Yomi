@@ -110,24 +110,23 @@ private struct ContinueReadingCell: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
-                    AsyncImage(url: manga.coverURL) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
+                    Group {
+                        if let path = manga.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                            Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
-                        case .failure:
-                            Rectangle()
-                                .fill(.quaternary)
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                                .overlay {
-                                    Image(systemName: "book.closed")
-                                        .foregroundStyle(.secondary)
+                        } else {
+                            AsyncImage(url: manga.coverURL) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().aspectRatio(2 / 3, contentMode: .fill)
+                                case .failure:
+                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
+                                        .overlay { Image(systemName: "book.closed").foregroundStyle(.secondary) }
+                                default:
+                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
                                 }
-                        default:
-                            Rectangle()
-                                .fill(.quaternary)
-                                .aspectRatio(2 / 3, contentMode: .fill)
+                            }
                         }
                     }
                     .frame(width: 90)
@@ -260,24 +259,23 @@ private struct ContinueReadingNovelCell: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
-                    AsyncImage(url: novel.coverURL) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
+                    Group {
+                        if let path = novel.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                            Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
-                        case .failure:
-                            Rectangle()
-                                .fill(.quaternary)
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                                .overlay {
-                                    Image(systemName: "text.book.closed")
-                                        .foregroundStyle(.secondary)
+                        } else {
+                            AsyncImage(url: novel.coverURL) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().aspectRatio(2 / 3, contentMode: .fill)
+                                case .failure:
+                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
+                                        .overlay { Image(systemName: "text.book.closed").foregroundStyle(.secondary) }
+                                default:
+                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
                                 }
-                        default:
-                            Rectangle()
-                                .fill(.quaternary)
-                                .aspectRatio(2 / 3, contentMode: .fill)
+                            }
                         }
                     }
                     .frame(width: 90)
