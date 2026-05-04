@@ -23,6 +23,8 @@ struct NovelDetailView: View {
     @State private var notesText: String = ""
     @State private var showCoverPicker = false
     @State private var selectedCoverItem: PhotosPickerItem? = nil
+    @State private var isSelectingChapters = false
+    @State private var selectedChapterIds: Set<String> = []
 
     init(novel: Novel, bridge: JSBridge? = nil) {
         _novel = State(initialValue: novel)
@@ -46,6 +48,15 @@ struct NovelDetailView: View {
         chapters.contains { $0.isRead || $0.readAt != nil }
     }
 
+    private var displayedChapters: [NovelChapter] {
+        let base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
+        return chaptersDescending ? base.reversed() : base
+    }
+
+    private var visibleChapterIds: Set<String> {
+        Set(displayedChapters.map { $0.id })
+    }
+
     private var resumeButtonTitle: String {
         guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
         if let num = ch.chapterNumber {
@@ -61,221 +72,15 @@ struct NovelDetailView: View {
 
     var body: some View {
         List {
-            // MARK: Header
-            Section {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .top, spacing: 14) {
-                        Group {
-                            if let customPath = novel.customCoverPath,
-                               let uiImage = UIImage(contentsOfFile: customPath) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .aspectRatio(2 / 3, contentMode: .fill)
-                            } else {
-                                AsyncImage(url: novel.coverURL) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(2 / 3, contentMode: .fill)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(Color.secondary.opacity(0.3))
-                                        .aspectRatio(2 / 3, contentMode: .fit)
-                                }
-                            }
-                        }
-                        .frame(width: 110)
-                        .cornerRadius(10)
-                        .clipped()
-                        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(novel.title)
-                                .font(.title3)
-                                .fontWeight(.bold)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            if let author = novel.author {
-                                Label(author, systemImage: "person")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-
-                            if let sourceName = ExtensionManager.shared.installed
-                                .first(where: { $0.id == novel.sourceId })?.name {
-                                Label(sourceName, systemImage: "puzzlepiece.extension")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-
-                            HStack(spacing: 8) {
-                                NovelStatusBadge(status: novel.status)
-
-                                if let score = aniListScore {
-                                    Label("\(score)%", systemImage: "star.fill")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.orange)
-                                }
-
-                                if isInLibrary {
-                                    ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
-                                        Task { await updateReadingStatus(newStatus) }
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(minLength: 0)
-                    }
-
-                    // Genre chips
-                    if !novel.genres.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
-                                ForEach(novel.genres, id: \.self) { genre in
-                                    Text(genre)
-                                        .font(.caption)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(Color.secondary.opacity(0.15), in: Capsule())
-                                }
-                            }
-                        }
-                    }
-
-                    // Start / Resume reading button
-                    if !isLoadingChapters && !chapters.isEmpty {
-                        Button {
-                            if let ch = resumeChapter {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                chapterForNav = ch
-                                touchLastReadAt()
-                            }
-                        } label: {
-                            Label(resumeButtonTitle,
-                                  systemImage: hasStartedReading ? "play.fill" : "book.fill")
-                                .frame(maxWidth: .infinity)
-                                .fontWeight(.semibold)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-
-            // MARK: Synopsis
-            Section("Synopsis") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(novel.summary ?? "No synopsis available.")
-                        .font(.subheadline)
-                        .lineLimit(synopsisExpanded ? nil : 4)
-                        .textSelection(.enabled)
-
-                    Button(synopsisExpanded ? "Less" : "More") {
-                        synopsisExpanded.toggle()
-                    }
-                    .font(.subheadline)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                }
-            }
-
-            // MARK: Notes
-            Section("Notes") {
-                if let notes = novel.notes, !notes.isEmpty {
-                    Text(notes)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                }
-                Button(novel.notes?.isEmpty == false ? "Edit note" : "Add a note") {
-                    notesText = novel.notes ?? ""
-                    showNotesSheet = true
-                }
-                .font(.subheadline)
-                .foregroundStyle(.tint)
-            }
-
-            // MARK: Chapters
-            Section {
-                if isLoadingChapters {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
-                } else if chapters.isEmpty {
-                    Text("No chapters found.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
-                    let displayed: [NovelChapter] = {
-                        let base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
-                        return chaptersDescending ? base.reversed() : base
-                    }()
-                    ForEach(displayed, id: \.id) { chapter in
-                        Button {
-                            chapterForNav = chapter
-                            touchLastReadAt()
-                        } label: {
-                            NovelChapterRow(chapter: chapter)
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                toggleRead(chapter)
-                            } label: {
-                                Label(chapter.isRead ? "Unread" : "Read",
-                                      systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
-                            }
-                            .tint(chapter.isRead ? .orange : .green)
-                        }
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Chapters")
-                    if !chapters.isEmpty {
-                        let readCount = chapters.filter { $0.isRead }.count
-                        if readCount > 0 {
-                            Text("\(readCount) / \(chapters.count)")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("(\(chapters.count))")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    if !chapters.isEmpty {
-                        Button {
-                            chapterFilterUnread.toggle()
-                        } label: {
-                            Image(systemName: chapterFilterUnread
-                                  ? "line.3.horizontal.decrease.circle.fill"
-                                  : "line.3.horizontal.decrease")
-                                .font(.caption).fontWeight(.semibold)
-                                .foregroundStyle(.tint)
-                        }
-                        .buttonStyle(.plain)
-                        Button {
-                            withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
-                        } label: {
-                            Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
-                                .font(.caption).fontWeight(.semibold)
-                                .foregroundStyle(.tint)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            headerSection
+            synopsisSection
+            notesSection
+            chaptersSection
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(novel.title)
+        .navigationTitle(isSelectingChapters
+            ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
+            : novel.title)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $chapterForNav) { ch in
             if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
@@ -283,47 +88,84 @@ struct NovelDetailView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        isInLibrary.toggle()
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        Task { await toggleLibrary() }
-                    } label: {
-                        Label(
-                            isInLibrary ? "Remove from Library" : "Add to Library",
-                            systemImage: isInLibrary ? "heart.slash" : "heart"
-                        )
-                    }
-                    Button {
-                        showCategorySheet = true
-                    } label: {
-                        Label("Edit categories", systemImage: "tag")
-                    }
-                    .disabled(!isInLibrary)
-
-                    Button {
-                        showCoverPicker = true
-                    } label: {
-                        Label("Change cover", systemImage: "photo")
-                    }
-
-                    if !chapters.isEmpty {
-                        Divider()
-                        Button {
-                            markAllChapters(read: true)
-                        } label: {
-                            Label("Mark all as read", systemImage: "checkmark.circle.fill")
-                        }
-                        Button {
-                            markAllChapters(read: false)
-                        } label: {
-                            Label("Mark all as unread", systemImage: "circle")
+            if isSelectingChapters {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        withAnimation(.spring(duration: 0.2)) {
+                            isSelectingChapters = false
+                            selectedChapterIds = []
                         }
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(selectedChapterIds.count == visibleChapterIds.count ? "Deselect All" : "Select All") {
+                        withAnimation(.spring(duration: 0.15)) {
+                            if selectedChapterIds.count == visibleChapterIds.count {
+                                selectedChapterIds = []
+                            } else {
+                                selectedChapterIds = visibleChapterIds
+                            }
+                        }
+                    }
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            isInLibrary.toggle()
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            Task { await toggleLibrary() }
+                        } label: {
+                            Label(
+                                isInLibrary ? "Remove from Library" : "Add to Library",
+                                systemImage: isInLibrary ? "heart.slash" : "heart"
+                            )
+                        }
+                        Button {
+                            showCategorySheet = true
+                        } label: {
+                            Label("Edit categories", systemImage: "tag")
+                        }
+                        .disabled(!isInLibrary)
+
+                        Button {
+                            showCoverPicker = true
+                        } label: {
+                            Label("Change cover", systemImage: "photo")
+                        }
+
+                        Button {
+                            withAnimation(.spring(duration: 0.2)) {
+                                isSelectingChapters = true
+                                selectedChapterIds = []
+                            }
+                        } label: {
+                            Label("Select chapters", systemImage: "checkmark.circle")
+                        }
+                        .disabled(chapters.isEmpty)
+
+                        if !chapters.isEmpty {
+                            Divider()
+                            Button {
+                                markAllChapters(read: true)
+                            } label: {
+                                Label("Mark all as read", systemImage: "checkmark.circle.fill")
+                            }
+                            Button {
+                                markAllChapters(read: false)
+                            } label: {
+                                Label("Mark all as unread", systemImage: "circle")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelectingChapters {
+                novelSelectionActionBar
             }
         }
         .sheet(isPresented: $showCategorySheet) {
@@ -382,6 +224,209 @@ struct NovelDetailView: View {
                 novel.customCoverPath = fileURL.path
                 let updated = novel
                 Task.detached { try? NovelQueries.upsert(updated) }
+            }
+        }
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder private var headerSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
+                    Group {
+                        if let customPath = novel.customCoverPath,
+                           let uiImage = UIImage(contentsOfFile: customPath) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        } else {
+                            AsyncImage(url: novel.coverURL) { image in
+                                image.resizable().aspectRatio(2 / 3, contentMode: .fill)
+                            } placeholder: {
+                                Rectangle()
+                                    .fill(Color.secondary.opacity(0.3))
+                                    .aspectRatio(2 / 3, contentMode: .fit)
+                            }
+                        }
+                    }
+                    .frame(width: 110)
+                    .cornerRadius(10)
+                    .clipped()
+                    .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(novel.title)
+                            .font(.title3).fontWeight(.bold)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let author = novel.author {
+                            Label(author, systemImage: "person")
+                                .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                        if let sourceName = ExtensionManager.shared.installed
+                            .first(where: { $0.id == novel.sourceId })?.name {
+                            Label(sourceName, systemImage: "puzzlepiece.extension")
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        HStack(spacing: 8) {
+                            NovelStatusBadge(status: novel.status)
+                            if let score = aniListScore {
+                                Label("\(score)%", systemImage: "star.fill")
+                                    .font(.caption).fontWeight(.semibold).foregroundStyle(.orange)
+                            }
+                            if isInLibrary {
+                                ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
+                                    Task { await updateReadingStatus(newStatus) }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                if !novel.genres.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(novel.genres, id: \.self) { genre in
+                                Text(genre).font(.caption)
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(Color.secondary.opacity(0.15), in: Capsule())
+                            }
+                        }
+                    }
+                }
+                if !isLoadingChapters && !chapters.isEmpty {
+                    Button {
+                        if let ch = resumeChapter {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            chapterForNav = ch
+                            touchLastReadAt()
+                        }
+                    } label: {
+                        Label(resumeButtonTitle, systemImage: hasStartedReading ? "play.fill" : "book.fill")
+                            .frame(maxWidth: .infinity).fontWeight(.semibold)
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                }
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    @ViewBuilder private var synopsisSection: some View {
+        Section("Synopsis") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(novel.summary ?? "No synopsis available.")
+                    .font(.subheadline)
+                    .lineLimit(synopsisExpanded ? nil : 4)
+                    .textSelection(.enabled)
+                Button(synopsisExpanded ? "Less" : "More") { synopsisExpanded.toggle() }
+                    .font(.subheadline).buttonStyle(.plain).foregroundStyle(.tint)
+            }
+        }
+    }
+
+    @ViewBuilder private var notesSection: some View {
+        Section("Notes") {
+            if let notes = novel.notes, !notes.isEmpty {
+                Text(notes).font(.subheadline).foregroundStyle(.primary).textSelection(.enabled)
+            }
+            Button(novel.notes?.isEmpty == false ? "Edit note" : "Add a note") {
+                notesText = novel.notes ?? ""
+                showNotesSheet = true
+            }
+            .font(.subheadline).foregroundStyle(.tint)
+        }
+    }
+
+    @ViewBuilder private var chaptersSection: some View {
+        Section {
+            if isLoadingChapters {
+                HStack { Spacer(); ProgressView(); Spacer() }.padding(.vertical, 4)
+            } else if chapters.isEmpty {
+                Text("No chapters found.").font(.subheadline).foregroundStyle(.secondary)
+            } else {
+                ForEach(displayedChapters, id: \.id) { chapter in
+                    chapterRow(chapter)
+                }
+            }
+        } header: {
+            HStack {
+                Text("Chapters")
+                if !chapters.isEmpty {
+                    let readCount = chapters.filter { $0.isRead }.count
+                    if readCount > 0 {
+                        Text("\(readCount) / \(chapters.count)").foregroundStyle(.secondary)
+                    } else {
+                        Text("(\(chapters.count))").foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                if !chapters.isEmpty {
+                    Button {
+                        chapterFilterUnread.toggle()
+                    } label: {
+                        Image(systemName: chapterFilterUnread
+                              ? "line.3.horizontal.decrease.circle.fill"
+                              : "line.3.horizontal.decrease")
+                            .font(.caption).fontWeight(.semibold).foregroundStyle(.tint)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
+                    } label: {
+                        Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
+                            .font(.caption).fontWeight(.semibold).foregroundStyle(.tint)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func chapterRow(_ chapter: NovelChapter) -> some View {
+        Button {
+            if isSelectingChapters {
+                withAnimation(.spring(duration: 0.15)) {
+                    if selectedChapterIds.contains(chapter.id) {
+                        selectedChapterIds.remove(chapter.id)
+                    } else {
+                        selectedChapterIds.insert(chapter.id)
+                    }
+                }
+            } else {
+                chapterForNav = chapter
+                touchLastReadAt()
+            }
+        } label: {
+            HStack {
+                if isSelectingChapters {
+                    let isSelected = selectedChapterIds.contains(chapter.id)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                        .font(.title3)
+                }
+                NovelChapterRow(chapter: chapter)
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isSelectingChapters {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    toggleRead(chapter)
+                } label: {
+                    Label(chapter.isRead ? "Unread" : "Read",
+                          systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
+                }
+                .tint(chapter.isRead ? .orange : .green)
+            }
+        }
+        .onLongPressGesture {
+            guard !isSelectingChapters else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(.spring(duration: 0.2)) {
+                isSelectingChapters = true
+                selectedChapterIds = [chapter.id]
             }
         }
     }
@@ -552,6 +597,64 @@ struct NovelDetailView: View {
 
         chapters = merged
         isLoadingChapters = false
+    }
+}
+
+// MARK: - Selection Action Bar
+
+extension NovelDetailView {
+    private var novelSelectionActionBar: some View {
+        HStack(spacing: 0) {
+            Button {
+                markSelected(read: true)
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle")
+                    Text("Read").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.isEmpty)
+
+            Button {
+                markSelected(read: false)
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "circle")
+                    Text("Unread").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.isEmpty)
+        }
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private func markSelected(read: Bool) {
+        let ids = selectedChapterIds
+        let now = Date()
+        chapters = chapters.map { ch in
+            guard ids.contains(ch.id) else { return ch }
+            var updated = ch
+            updated.isRead = read
+            updated.readAt = read ? now : nil
+            return updated
+        }
+        Task.detached {
+            for id in ids {
+                if read {
+                    try? NovelQueries.markRead(chapterId: id)
+                } else {
+                    try? NovelQueries.markUnread(chapterId: id)
+                }
+            }
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.spring(duration: 0.2)) {
+            isSelectingChapters = false
+            selectedChapterIds = []
+        }
     }
 }
 
