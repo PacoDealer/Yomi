@@ -690,6 +690,7 @@ private struct GlobalSearchView: View {
 
 private struct ExtensionRow: View {
     let ext: Extension
+    @State private var isNovelPlugin: Bool? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -720,6 +721,16 @@ private struct ExtensionRow: View {
                         .background(Color.accentColor.opacity(0.15))
                         .foregroundStyle(.tint)
                         .clipShape(Capsule())
+                    if let isNovel = isNovelPlugin {
+                        Text(isNovel ? "Novel" : "Manga")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background((isNovel ? Color.purple : Color.blue).opacity(0.15))
+                            .foregroundStyle(isNovel ? Color.purple : Color.blue)
+                            .clipShape(Capsule())
+                    }
                     if ext.isNSFW {
                         Text("18+")
                             .font(.caption2)
@@ -737,6 +748,12 @@ private struct ExtensionRow: View {
             }
         }
         .padding(.vertical, 4)
+        .task(id: ext.id) {
+            let id = ext.id
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs.appendingPathComponent("Extensions/\(id).js")
+            isNovelPlugin = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
+        }
     }
 }
 
