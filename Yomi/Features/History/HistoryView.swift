@@ -162,6 +162,7 @@ struct HistoryView: View {
                 HistoryRow(
                     title: manga.title,
                     coverURL: manga.coverURL,
+                    customCoverPath: manga.customCoverPath,
                     lastReadAt: manga.lastReadAt,
                     sourceName: ExtensionManager.shared.installed
                         .first { $0.id == manga.sourceId }?.name ?? manga.sourceId,
@@ -176,6 +177,7 @@ struct HistoryView: View {
                 HistoryRow(
                     title: novel.title,
                     coverURL: novel.coverURL,
+                    customCoverPath: novel.customCoverPath,
                     lastReadAt: novel.lastReadAt,
                     sourceName: ExtensionManager.shared.installed
                         .first { $0.id == novel.sourceId }?.name ?? novel.sourceId,
@@ -266,6 +268,7 @@ struct HistoryView: View {
 private struct HistoryRow: View {
     let title: String
     let coverURL: URL?
+    let customCoverPath: String?
     let lastReadAt: Date?
     let sourceName: String
     let subtitle: String?
@@ -273,14 +276,22 @@ private struct HistoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: coverURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(2 / 3, contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.3))
-                    .aspectRatio(2 / 3, contentMode: .fit)
+            Group {
+                if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                } else {
+                    AsyncImage(url: coverURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.secondary.opacity(0.3))
+                            .aspectRatio(2 / 3, contentMode: .fit)
+                    }
+                }
             }
             .frame(width: 48)
             .cornerRadius(6)
