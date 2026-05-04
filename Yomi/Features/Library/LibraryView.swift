@@ -461,10 +461,17 @@ private struct NovelLibraryListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: novel.coverURL) { img in
-                img.resizable().scaledToFill()
-            } placeholder: {
-                Color.secondary.opacity(0.15)
+            Group {
+                if let customPath = novel.customCoverPath,
+                   let uiImage = UIImage(contentsOfFile: customPath) {
+                    Image(uiImage: uiImage).resizable().scaledToFill()
+                } else {
+                    AsyncImage(url: novel.coverURL) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.secondary.opacity(0.15)
+                    }
+                }
             }
             .frame(width: 48, height: 68)
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -506,14 +513,23 @@ private struct NovelLibraryCoverCell: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 4) {
-                AsyncImage(url: novel.coverURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(2 / 3, contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .aspectRatio(2 / 3, contentMode: .fit)
+                Group {
+                    if let customPath = novel.customCoverPath,
+                       let uiImage = UIImage(contentsOfFile: customPath) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    } else {
+                        AsyncImage(url: novel.coverURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.secondary.opacity(0.3))
+                                .aspectRatio(2 / 3, contentMode: .fit)
+                        }
+                    }
                 }
                 .cornerRadius(8)
                 .clipped()
