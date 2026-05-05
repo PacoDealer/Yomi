@@ -515,6 +515,7 @@ struct NovelDetailView: View {
     // MARK: - Touch lastReadAt
 
     private func touchLastReadAt() {
+        guard !AppSettings.shared.isIncognito else { return }
         var updated = novel
         updated.lastReadAt = Date()
         Task.detached { try? NovelQueries.upsert(updated) }
