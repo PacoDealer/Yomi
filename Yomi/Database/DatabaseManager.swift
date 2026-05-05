@@ -236,6 +236,12 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v17_novel_scroll") { db in
+            try db.alter(table: "novel_chapter") { t in
+                t.add(column: "lastScrollPercent", .double)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }
@@ -437,26 +443,28 @@ extension NovelChapter: FetchableRecord, PersistableRecord {
     static let databaseTableName = "novel_chapter"
 
     nonisolated init(row: Row) throws {
-        id            = row["id"]
-        novelId       = row["novelId"]
-        path          = row["path"]
-        name          = row["name"]
-        chapterNumber = row["chapterNumber"]
-        isRead        = row["isRead"]
-        readAt        = row["readAt"]
-        releaseTime   = row["releaseTime"]
-        readingSeconds = row["readingSeconds"] ?? 0
+        id                = row["id"]
+        novelId           = row["novelId"]
+        path              = row["path"]
+        name              = row["name"]
+        chapterNumber     = row["chapterNumber"]
+        isRead            = row["isRead"]
+        readAt            = row["readAt"]
+        releaseTime       = row["releaseTime"]
+        readingSeconds    = row["readingSeconds"] ?? 0
+        lastScrollPercent = row["lastScrollPercent"]
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
-        container["id"]             = id
-        container["novelId"]        = novelId
-        container["path"]           = path
-        container["name"]           = name
-        container["chapterNumber"]  = chapterNumber
-        container["isRead"]         = isRead
-        container["readAt"]         = readAt
-        container["releaseTime"]    = releaseTime
-        container["readingSeconds"] = readingSeconds
+        container["id"]                = id
+        container["novelId"]           = novelId
+        container["path"]              = path
+        container["name"]              = name
+        container["chapterNumber"]     = chapterNumber
+        container["isRead"]            = isRead
+        container["readAt"]            = readAt
+        container["releaseTime"]       = releaseTime
+        container["readingSeconds"]    = readingSeconds
+        container["lastScrollPercent"] = lastScrollPercent
     }
 }
