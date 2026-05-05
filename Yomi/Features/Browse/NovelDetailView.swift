@@ -71,6 +71,7 @@ struct NovelDetailView: View {
     // MARK: - Body
 
     var body: some View {
+        ScrollViewReader { proxy in
         List {
             headerSection
             synopsisSection
@@ -226,6 +227,14 @@ struct NovelDetailView: View {
                 Task.detached { try? NovelQueries.upsert(updated) }
             }
         }
+        .onChange(of: isLoadingChapters) { _, loading in
+            guard !loading, let resume = resumeChapter else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))
+                withAnimation { proxy.scrollTo("ch_\(resume.id)", anchor: .center) }
+            }
+        }
+        } // ScrollViewReader
     }
 
     // MARK: - Sections
@@ -347,6 +356,7 @@ struct NovelDetailView: View {
             } else {
                 ForEach(displayedChapters, id: \.id) { chapter in
                     chapterRow(chapter)
+                        .id("ch_\(chapter.id)")
                 }
             }
         } header: {
@@ -673,6 +683,15 @@ private struct NovelChapterRow: View {
                 Text(release)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            if let pct = chapter.lastScrollPercent, pct > 0.02, !chapter.isRead {
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.5))
+                        .frame(width: geo.size.width * CGFloat(min(pct, 1)), height: 2)
+                }
+                .frame(height: 2)
+                .padding(.top, 2)
             }
         }
         .padding(.vertical, 2)
