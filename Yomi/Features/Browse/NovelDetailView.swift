@@ -227,6 +227,13 @@ struct NovelDetailView: View {
                 Task.detached { try? NovelQueries.upsert(updated) }
             }
         }
+        .onChange(of: chapterForNav) { old, new in
+            guard new == nil, old != nil else { return }
+            Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                await refreshChaptersFromDB()
+            }
+        }
         .onChange(of: isLoadingChapters) { _, loading in
             guard !loading, let resume = resumeChapter else { return }
             Task { @MainActor in
@@ -532,6 +539,15 @@ struct NovelDetailView: View {
     }
 
     // MARK: - Load Chapters
+
+    private func refreshChaptersFromDB() async {
+        let novelId = novel.id
+        let refreshed = await Task.detached(priority: .userInitiated) {
+            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+        }.value
+        guard !refreshed.isEmpty else { return }
+        chapters = refreshed
+    }
 
     private func loadChapters() async {
         isLoadingChapters = true
