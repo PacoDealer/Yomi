@@ -486,6 +486,14 @@ struct CatalogGroupRow: View {
                     } else {
                         LanguageBadge(language: group.primaryEntry.language)
                     }
+                    if group.primaryEntry.isNovel {
+                        Text("Novel")
+                            .font(.caption2).fontWeight(.semibold)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.purple.opacity(0.15))
+                            .foregroundStyle(Color.purple)
+                            .clipShape(Capsule())
+                    }
                     if group.primaryEntry.isNSFW { NSFWBadge() }
                     if !repoLabel.isEmpty {
                         Text(repoLabel)
