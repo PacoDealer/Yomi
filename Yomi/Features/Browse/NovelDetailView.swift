@@ -79,6 +79,7 @@ struct NovelDetailView: View {
             chaptersSection
         }
         .listStyle(.insetGrouped)
+        .refreshable { await loadChapters() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : novel.title)
