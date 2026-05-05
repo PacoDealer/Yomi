@@ -259,7 +259,8 @@ import Observation
         if let v = n.author                   { d["author"]        = v }
         if let v = n.lastReadAt               { d["lastReadAt"]    = ISO8601DateFormatter().string(from: v) }
         if let v = n.lastUpdatedAt            { d["lastUpdatedAt"] = ISO8601DateFormatter().string(from: v) }
-        if let v = n.notes                    { d["notes"]         = v }
+        if let v = n.notes                    { d["notes"]           = v }
+        if let v = n.customCoverPath          { d["customCoverPath"] = v }
         return d
     }
 
@@ -272,9 +273,10 @@ import Observation
             "isRead":         c.isRead,
             "readingSeconds": c.readingSeconds
         ]
-        if let v = c.chapterNumber { d["chapterNumber"] = v }
-        if let v = c.readAt        { d["readAt"]        = ISO8601DateFormatter().string(from: v) }
-        if let v = c.releaseTime   { d["releaseTime"]   = v }
+        if let v = c.chapterNumber    { d["chapterNumber"]    = v }
+        if let v = c.readAt           { d["readAt"]           = ISO8601DateFormatter().string(from: v) }
+        if let v = c.releaseTime      { d["releaseTime"]      = v }
+        if let v = c.lastScrollPercent { d["lastScrollPercent"] = v }
         return d
     }
 
@@ -301,7 +303,8 @@ import Observation
             lastUpdatedAt:  (d["lastUpdatedAt"] as? String).flatMap { fmt.date(from: $0) },
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
             readingStatus:  ReadingStatus(rawValue: d["readingStatus"] as? String ?? "none") ?? .none,
-            notes:          d["notes"] as? String
+            notes:          d["notes"] as? String,
+            customCoverPath: d["customCoverPath"] as? String
         )
     }
 
@@ -322,7 +325,8 @@ import Observation
             isRead:         d["isRead"]        as? Bool ?? false,
             readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
             releaseTime:    d["releaseTime"]   as? String,
-            readingSeconds: d["readingSeconds"] as? Int ?? 0
+            readingSeconds:    d["readingSeconds"]    as? Int ?? 0,
+            lastScrollPercent: d["lastScrollPercent"] as? Double
         )
     }
 }
