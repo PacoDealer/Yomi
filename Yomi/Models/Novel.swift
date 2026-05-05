@@ -60,4 +60,6 @@ struct NovelChapter: Identifiable, Codable, Hashable {
     var releaseTime: String?
     /// Segundos totales de tiempo de lectura registrado para este capítulo
     var readingSeconds: Int
+    /// Porcentaje de scroll (0–1) al que el usuario dejó el capítulo; nil = no leído
+    var lastScrollPercent: Double? = nil
 }
