@@ -212,6 +212,14 @@ enum NovelQueries {
         }
     }
 
+    nonisolated static func updateScrollPercent(chapterId: String, percent: Double) throws {
+        _ = try appDatabase.write { db in
+            try NovelChapter
+                .filter(Column("id") == chapterId)
+                .updateAll(db, [Column("lastScrollPercent").set(to: percent)])
+        }
+    }
+
     /// Marca todos los capítulos de una novela como leídos o no leídos en una sola escritura.
     nonisolated static func markAllChapters(novelId: String, read: Bool) throws {
         _ = try appDatabase.write { db in

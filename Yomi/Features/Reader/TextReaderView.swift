@@ -87,6 +87,7 @@ struct TextReaderView: View {
     @State private var showOverlay = true
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
+    @State private var lastKnownScrollPercent: Double? = nil
 
     // TTS
     @State private var isSpeaking = false
@@ -192,15 +193,26 @@ struct TextReaderView: View {
                     .multilineTextAlignment(.center)
                     .padding()
             } else {
-                ReaderWebView(html: styledHTML, onTap: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showOverlay.toggle()
+                ReaderWebView(
+                    html: styledHTML,
+                    onTap: {
+                        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+                    },
+                    onReadComplete: {
+                        guard !AppSettings.shared.isIncognito else { return }
+                        let chapterId = activeChapter.id
+                        Task { try? NovelQueries.markRead(chapterId: chapterId) }
+                    },
+                    restoreScrollPercent: activeChapter.lastScrollPercent,
+                    onScrollUpdate: { pct in
+                        lastKnownScrollPercent = pct
+                        guard !AppSettings.shared.isIncognito else { return }
+                        let cid = activeChapter.id
+                        Task.detached(priority: .background) {
+                            try? NovelQueries.updateScrollPercent(chapterId: cid, percent: pct)
+                        }
                     }
-                }, onReadComplete: {
-                    guard !AppSettings.shared.isIncognito else { return }
-                    let chapterId = activeChapter.id
-                    Task { try? NovelQueries.markRead(chapterId: chapterId) }
-                })
+                )
                 .ignoresSafeArea()
             }
 
@@ -239,7 +251,18 @@ struct TextReaderView: View {
         }
         .onDisappear {
             stopTTS()
+            flushScrollPercent()
             flushReadingTime()
+        }
+    }
+
+    // MARK: - Scroll Position
+
+    private func flushScrollPercent() {
+        guard !AppSettings.shared.isIncognito, let pct = lastKnownScrollPercent else { return }
+        let cid = activeChapter.id
+        Task.detached(priority: .background) {
+            try? NovelQueries.updateScrollPercent(chapterId: cid, percent: pct)
         }
     }
 
@@ -263,6 +286,8 @@ struct TextReaderView: View {
         guard index >= 0, index < chapters.count else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         stopTTS()
+        flushScrollPercent()
+        lastKnownScrollPercent = nil
         flushReadingTime()
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
@@ -341,9 +366,13 @@ struct ReaderWebView: UIViewRepresentable {
     let html: String
     let onTap: () -> Void
     let onReadComplete: () -> Void
+    var restoreScrollPercent: Double? = nil
+    var onScrollUpdate: ((Double) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap, onReadComplete: onReadComplete)
+        Coordinator(onTap: onTap, onReadComplete: onReadComplete,
+                    restoreScrollPercent: restoreScrollPercent,
+                    onScrollUpdate: onScrollUpdate)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -351,10 +380,13 @@ struct ReaderWebView: UIViewRepresentable {
         config.dataDetectorTypes = []
 
         config.userContentController.add(context.coordinator, name: "readComplete")
+        config.userContentController.add(context.coordinator, name: "scrollPosition")
 
-        let scrollJS = WKUserScript(source: """
+        let setupJS = WKUserScript(source: """
             (function() {
                 if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+
+                // Fire readComplete at 90% scroll
                 var fired = false;
                 window.addEventListener('scroll', function() {
                     if (fired) return;
@@ -364,15 +396,27 @@ struct ReaderWebView: UIViewRepresentable {
                         window.webkit.messageHandlers.readComplete.postMessage('done');
                     }
                 }, { passive: true });
+
+                // Debounced scroll position save (400 ms)
+                var scrollTimer = null;
+                window.addEventListener('scroll', function() {
+                    if (scrollTimer) clearTimeout(scrollTimer);
+                    scrollTimer = setTimeout(function() {
+                        var maxScroll = document.body.scrollHeight - window.innerHeight;
+                        var pct = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+                        window.webkit.messageHandlers.scrollPosition.postMessage(pct);
+                    }, 400);
+                }, { passive: true });
             })();
             """, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        config.userContentController.addUserScript(scrollJS)
+        config.userContentController.addUserScript(setupJS)
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.backgroundColor = .clear
         webView.isOpaque        = false
         webView.scrollView.backgroundColor = .clear
         webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.navigationDelegate = context.coordinator
 
         let tap = UITapGestureRecognizer(target: context.coordinator,
                                          action: #selector(Coordinator.handleTap))
@@ -384,6 +428,8 @@ struct ReaderWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.onScrollUpdate = onScrollUpdate
+
         guard !html.isEmpty else { return }
 
         // Re-inject only the <style> block to avoid a full page reload
@@ -409,20 +455,44 @@ struct ReaderWebView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHandler {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHandler, WKNavigationDelegate {
         let onTap: () -> Void
         let onReadComplete: () -> Void
+        var onScrollUpdate: ((Double) -> Void)?
+        private let restoreScrollPercent: Double?
+        private var hasRestored = false
 
-        init(onTap: @escaping () -> Void, onReadComplete: @escaping () -> Void) {
+        init(onTap: @escaping () -> Void, onReadComplete: @escaping () -> Void,
+             restoreScrollPercent: Double?, onScrollUpdate: ((Double) -> Void)?) {
             self.onTap = onTap
             self.onReadComplete = onReadComplete
+            self.restoreScrollPercent = restoreScrollPercent
+            self.onScrollUpdate = onScrollUpdate
         }
 
         @objc func handleTap() { onTap() }
 
+        // MARK: WKNavigationDelegate — restore scroll after page load
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard !hasRestored else { return }
+            hasRestored = true
+            guard let pct = restoreScrollPercent, pct > 0.01 else { return }
+            let js = """
+            (function() {
+                var maxScroll = document.body.scrollHeight - window.innerHeight;
+                if (maxScroll > 0) { window.scrollTo(0, \(pct) * maxScroll); }
+            })();
+            """
+            webView.evaluateJavaScript(js)
+        }
+
+        // MARK: WKScriptMessageHandler
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
             if message.name == "readComplete" { onReadComplete() }
+            if message.name == "scrollPosition", let pct = message.body as? Double {
+                DispatchQueue.main.async { self.onScrollUpdate?(pct) }
+            }
         }
 
         func gestureRecognizer(_ gr: UIGestureRecognizer,
