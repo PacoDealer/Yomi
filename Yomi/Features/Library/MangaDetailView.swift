@@ -326,6 +326,7 @@ struct MangaDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .refreshable { await loadChapters() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : manga.title)
