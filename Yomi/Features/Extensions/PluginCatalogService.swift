@@ -13,6 +13,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
     let fileURL: String
     let isNSFW: Bool
     var repoURL: String = ""
+    var isNovel: Bool = false
 
     private enum CodingKeys: String, CodingKey {
         case id, name, version, language, description, iconURL, fileURL, isNSFW
@@ -41,7 +42,7 @@ private struct LNReaderEntry: Decodable {
     let site: String?
 
     nonisolated func toEntry() -> PluginCatalogEntry {
-        PluginCatalogEntry(
+        var entry = PluginCatalogEntry(
             id: id,
             name: name,
             version: version,
@@ -51,6 +52,8 @@ private struct LNReaderEntry: Decodable {
             fileURL: url,
             isNSFW: false
         )
+        entry.isNovel = true
+        return entry
     }
 }
 
