@@ -28,6 +28,9 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 1. Novel mid-chapter scroll position save/restore: `v17_novel_scroll` migration (`lastScrollPercent REAL` on `novel_chapter`); JS 400ms debounced scroll reporter via `WKScriptMessage`; `WKNavigationDelegate.didFinish` restores position on chapter load; flush on dismiss and chapter nav; incognito guarded
 2. Auto-scroll to resume chapter in `NovelDetailView`: `ScrollViewReader` + `proxy.scrollTo("ch_<id>")` fires 300ms after chapters load, targeting first unread/in-progress chapter
 3. In-progress chapter progress bar: thin `accentColor` bar in `NovelChapterRow` for chapters with `lastScrollPercent > 2%` and `!isRead`
+4. `NovelDetailView` refreshes chapter states (isRead + lastScrollPercent) 500ms after reader closes — mirrors `MangaDetailView` pattern
+5. `BackupManager` novels now encode/decode `customCoverPath` and `lastScrollPercent` (parity with manga)
+6. Pull-to-refresh on both `NovelDetailView` and `MangaDetailView` (force re-fetch from plugin)
 
 **Current DB/code state:**
 - DB at v17_novel_scroll (18 migrations total, next must be v18_)
