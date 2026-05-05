@@ -20,25 +20,19 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S59 — 2026-05-04)
+## Current state (post S60 — 2026-05-05)
 
-S44–S57: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix.
+S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.
 
-**S58 shipped:**
-1. Novel custom cover PhotosPicker (v16 migration, all cover surfaces updated, GRDB notes bug fixed)
-2. Novel chapter multi-select (long-press, Read/Unread action bar, mirrors MangaDetailView)
-3. Reader back button hit area enlarged to 44×44pt (both readers)
-4. Novel/Manga format badges in Sources list and Extensions tab
-5. `Novel.init(row:)` notes field was silently dropped on every read since v15 — fixed
-
-**S59 shipped:**
-1. `NovelDetailView.touchLastReadAt()` guarded on `isIncognito` (was leaking lastReadAt writes in incognito)
-2. Novel badge in plugin catalog (pre-install): `isNovel: Bool` added to `PluginCatalogEntry`; `CatalogGroupRow` shows "Novel"/"Manga" chip using the field; `LNReaderEntry.toEntry()` sets `isNovel = true`
+**S60 shipped:**
+1. Novel mid-chapter scroll position save/restore: `v17_novel_scroll` migration (`lastScrollPercent REAL` on `novel_chapter`); JS 400ms debounced scroll reporter via `WKScriptMessage`; `WKNavigationDelegate.didFinish` restores position on chapter load; flush on dismiss and chapter nav; incognito guarded
+2. Auto-scroll to resume chapter in `NovelDetailView`: `ScrollViewReader` + `proxy.scrollTo("ch_<id>")` fires 300ms after chapters load, targeting first unread/in-progress chapter
+3. In-progress chapter progress bar: thin `accentColor` bar in `NovelChapterRow` for chapters with `lastScrollPercent > 2%` and `!isRead`
 
 **Current DB/code state:**
-- DB at v16_novel_custom_cover (17 migrations total, next must be v17_)
+- DB at v17_novel_scroll (18 migrations total, next must be v18_)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
-- Novel parity gaps: ✅ custom cover ✅ chapter multi-select — both done
+- Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
 
 **App Store status:** Apple Developer account created. Blocked on icon design only for submission.
 
