@@ -20,7 +20,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S58 — 2026-05-04)
+## Current state (post S59 — 2026-05-04)
 
 S44–S57: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix.
 
@@ -30,6 +30,10 @@ S44–S57: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 3. Reader back button hit area enlarged to 44×44pt (both readers)
 4. Novel/Manga format badges in Sources list and Extensions tab
 5. `Novel.init(row:)` notes field was silently dropped on every read since v15 — fixed
+
+**S59 shipped:**
+1. `NovelDetailView.touchLastReadAt()` guarded on `isIncognito` (was leaking lastReadAt writes in incognito)
+2. Novel badge in plugin catalog (pre-install): `isNovel: Bool` added to `PluginCatalogEntry`; `CatalogGroupRow` shows "Novel"/"Manga" chip using the field; `LNReaderEntry.toEntry()` sets `isNovel = true`
 
 **Current DB/code state:**
 - DB at v16_novel_custom_cover (17 migrations total, next must be v17_)
