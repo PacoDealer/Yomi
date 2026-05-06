@@ -20,7 +20,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S60 — 2026-05-05)
+## Current state (post S61 — 2026-05-05)
 
 S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.
 
@@ -31,6 +31,9 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 4. `NovelDetailView` refreshes chapter states (isRead + lastScrollPercent) 500ms after reader closes — mirrors `MangaDetailView` pattern
 5. `BackupManager` novels now encode/decode `customCoverPath` and `lastScrollPercent` (parity with manga)
 6. Pull-to-refresh on both `NovelDetailView` and `MangaDetailView` (force re-fetch from plugin)
+
+**S61 shipped:**
+1. Chapter finished banner in `TextReaderView`: spring-animated bottom banner appears when `onReadComplete` fires (JS 90% scroll trigger); shows "Chapter finished" + "Next →" button (calls `navigateToChapter(currentChapterIndex + 1)`) or "All caught up!" on last chapter; auto-dismisses after 5s; cleared on any chapter navigation; DB write remains incognito-guarded but banner always shows
 
 **Current DB/code state:**
 - DB at v17_novel_scroll (18 migrations total, next must be v18_)
