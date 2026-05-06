@@ -44,6 +44,7 @@ struct MangaDetailView: View {
 
     // Feature 5 — Scanlator filter
     @State private var scanlatorFilter: String? = nil
+    @State private var chapterSearchText: String = ""
 
     // Feature 6 — Custom cover
     @State private var showCoverPicker = false
@@ -248,6 +249,24 @@ struct MangaDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     scanlatorChipRow
+                    if chapters.count > 30 {
+                        HStack {
+                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.subheadline)
+                            TextField("Search chapters", text: $chapterSearchText)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            if !chapterSearchText.isEmpty {
+                                Button { chapterSearchText = "" } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    }
                     let sorted: [Chapter] = {
                         switch chapterSortOption {
                         case .chapterNumber:
@@ -263,8 +282,11 @@ struct MangaDetailView: View {
                         case .unread:     base = sorted.filter { !$0.isRead }
                         case .downloaded: base = sorted.filter { $0.isDownloaded }
                         }
-                        if let s = scanlatorFilter { return base.filter { $0.scanlator == s } }
-                        return base
+                        var result = scanlatorFilter.map { s in base.filter { $0.scanlator == s } } ?? base
+                        if !chapterSearchText.isEmpty {
+                            result = result.filter { $0.name.localizedStandardContains(chapterSearchText) }
+                        }
+                        return result
                     }()
                     let visible = Array(filtered.prefix(displayedChapterCount).enumerated())
                     ForEach(visible, id: \.element.id) { _, chapter in
@@ -325,6 +347,12 @@ struct MangaDetailView: View {
                         .foregroundStyle(.tint)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
+                    } else if filtered.isEmpty && !chapterSearchText.isEmpty {
+                        Text("No chapters matching \"\(chapterSearchText)\"")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
                     } else if filtered.isEmpty && chapterFilter != .all {
                         Text("No \(chapterFilter.rawValue.lowercased()) chapters")
                             .font(.subheadline)
