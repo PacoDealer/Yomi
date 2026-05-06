@@ -249,13 +249,18 @@ private struct ContinueReadingCell: View {
 private struct ContinueReadingNovelCell: View {
     let novel: Novel
 
-    @State private var navigateToDetail = false
+    @State private var isLoading = false
+    @State private var navigateToReader = false
+    @State private var readerBridge: JSBridge? = nil
+    @State private var readerChapters: [NovelChapter] = []
+    @State private var readerChapterIndex: Int = 0
     @State private var lastChapterName: String? = nil
     @State private var readProgress: Double = 0
 
     var body: some View {
         Button {
-            navigateToDetail = true
+            guard !isLoading else { return }
+            Task { await openReader() }
         } label: {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
@@ -293,7 +298,6 @@ private struct ContinueReadingNovelCell: View {
                         }
                     }
                     .overlay(alignment: .topLeading) {
-                        // "N" badge to distinguish novels from manga
                         Text("N")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(.white)
@@ -319,6 +323,14 @@ private struct ContinueReadingNovelCell: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .padding(4)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .padding(4)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -326,8 +338,9 @@ private struct ContinueReadingNovelCell: View {
             let chapters = await Task.detached {
                 (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
             }.value
+            // Include in-progress chapters (not yet marked read but have scroll progress or readAt)
             let touched = chapters
-                .filter { $0.isRead }
+                .filter { $0.isRead || $0.readAt != nil || ($0.lastScrollPercent ?? 0) > 0 }
                 .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
             lastChapterName = touched.first?.name
             if !chapters.isEmpty {
@@ -335,8 +348,55 @@ private struct ContinueReadingNovelCell: View {
                 readProgress = Double(readCount) / Double(chapters.count)
             }
         }
-        .navigationDestination(isPresented: $navigateToDetail) {
-            NovelDetailView(novel: novel)
+        .navigationDestination(isPresented: $navigateToReader) {
+            if let bridge = readerBridge {
+                TextReaderView(novel: novel, bridge: bridge, chapters: readerChapters, startIndex: readerChapterIndex)
+            }
         }
+    }
+
+    private func openReader() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        let novelId = novel.id
+        let sourceId = novel.sourceId
+
+        let chapters = await Task.detached(priority: .userInitiated) {
+            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+        }.value
+
+        guard !chapters.isEmpty else { return }
+
+        let bridge: JSBridge?
+        if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
+            bridge = ExtensionManager.shared.bridge(for: ext)
+        } else {
+            bridge = nil
+        }
+        guard let b = bridge else { return }
+
+        // Resume: in-progress first, then first unread, then last chapter
+        let resumeChapter: NovelChapter?
+        if let inProgress = chapters.first(where: { !$0.isRead && $0.readAt != nil }) {
+            resumeChapter = inProgress
+        } else if let firstUnread = chapters.first(where: { !$0.isRead }) {
+            resumeChapter = firstUnread
+        } else {
+            resumeChapter = chapters.last
+        }
+
+        let idx: Int
+        if let resume = resumeChapter,
+           let found = chapters.firstIndex(where: { $0.id == resume.id }) {
+            idx = found
+        } else {
+            idx = max(0, chapters.count - 1)
+        }
+
+        readerBridge = b
+        readerChapters = chapters
+        readerChapterIndex = idx
+        navigateToReader = true
     }
 }
