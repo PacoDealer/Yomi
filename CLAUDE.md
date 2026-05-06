@@ -20,7 +20,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S61 — 2026-05-05)
+## Current state (post S62 — 2026-05-06)
 
 S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.
 
@@ -34,6 +34,13 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 
 **S61 shipped:**
 1. Chapter finished banner in `TextReaderView`: spring-animated bottom banner appears when `onReadComplete` fires (JS 90% scroll trigger); shows "Chapter finished" + "Next →" button (calls `navigateToChapter(currentChapterIndex + 1)`) or "All caught up!" on last chapter; auto-dismisses after 5s; cleared on any chapter navigation; DB write remains incognito-guarded but banner always shows
+
+**S62 shipped:**
+1. Novel continue-reading cell opens reader directly: `ContinueReadingNovelCell.openReader()` fetches chapters from DB (no network), resolves bridge from `ExtensionManager`, uses same resume logic as `NovelDetailView` (in-progress → first unread → last); `lastChapterName` now shows in-progress chapters (`lastScrollPercent > 0`)
+2. Library sort order + status filter persist across launches: `LibraryViewModel.sortOrder`/`statusFilter` backed by `UserDefaults` via stored-property `didSet`/default-value closures
+3. `resumeChapter`/`hasStartedReading` in `NovelDetailView` now check `lastScrollPercent > 0.01` — chapters opened before reaching 90% were previously invisible to resume detection
+4. Chapter list sheet in novel reader: list button in `TextReaderOverlayView` top bar opens sheet with all chapters, read/progress status, accent color for current; tap jumps; auto-scrolls to current chapter after 100ms delay
+5. Chapter list sheet in manga reader: same pattern in `ReaderOverlayView` for `ChapterReaderView`
 
 **Current DB/code state:**
 - DB at v17_novel_scroll (18 migrations total, next must be v18_)
