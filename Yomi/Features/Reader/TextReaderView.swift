@@ -620,49 +620,55 @@ struct TextReaderOverlayView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
                 .sheet(isPresented: $showChapterSheet) {
+                    let target = currentChapterIndex
                     NavigationStack {
-                        List(chapters.indices, id: \.self) { idx in
-                            let ch = chapters[idx]
-                            Button {
-                                showChapterSheet = false
-                                onJumpToChapter?(idx)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(ch.name)
-                                            .font(.subheadline)
-                                            .foregroundStyle(idx == currentChapterIndex ? Color.accentColor : .primary)
-                                            .fontWeight(idx == currentChapterIndex ? .semibold : .regular)
-                                        if ch.isRead {
-                                            Text("Read")
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
-                                        } else if let pct = ch.lastScrollPercent, pct > 0.01 {
-                                            Text("\(Int(pct * 100))%")
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
+                        ScrollViewReader { proxy in
+                            List(chapters.indices, id: \.self) { idx in
+                                let ch = chapters[idx]
+                                Button {
+                                    showChapterSheet = false
+                                    onJumpToChapter?(idx)
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(ch.name)
+                                                .font(.subheadline)
+                                                .foregroundStyle(idx == target ? Color.accentColor : .primary)
+                                                .fontWeight(idx == target ? .semibold : .regular)
+                                            if ch.isRead {
+                                                Text("Read")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            } else if let pct = ch.lastScrollPercent, pct > 0.01 {
+                                                Text("\(Int(pct * 100))%")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        Spacer()
+                                        if idx == target {
+                                            Image(systemName: "play.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(Color.accentColor)
                                         }
                                     }
-                                    Spacer()
-                                    if idx == currentChapterIndex {
-                                        Image(systemName: "play.fill")
-                                            .font(.caption)
-                                            .foregroundStyle(Color.accentColor)
-                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .id(idx)
+                            }
+                            .navigationTitle("Chapters")
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarTrailing) {
+                                    Button("Done") { showChapterSheet = false }
                                 }
                             }
-                            .buttonStyle(.plain)
-                            .id(idx)
-                        }
-                        .navigationTitle("Chapters")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("Done") { showChapterSheet = false }
+                            .onAppear {
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(100))
+                                    proxy.scrollTo(target, anchor: .center)
+                                }
                             }
-                        }
-                        .onAppear {
-                            // Scroll to current chapter immediately
                         }
                     }
                     .presentationDetents([.medium, .large])
