@@ -214,17 +214,23 @@ private struct ContinueReadingCell: View {
             bridge.getChapterList(mangaPath: mangaPath, mangaId: mangaId)
         }.value
 
-        guard !fetchedChapters.isEmpty else { return }
-
         let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
-        let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
-        let chapters = fetchedChapters.map { ch -> Chapter in
-            guard let persisted = savedMap[ch.id] else { return ch }
-            var merged = ch
-            merged.isRead = persisted.isRead
-            merged.readingSeconds = persisted.readingSeconds
-            merged.progress = persisted.progress
-            return merged
+        guard !fetchedChapters.isEmpty || !saved.isEmpty else { return }
+
+        let chapters: [Chapter]
+        if fetchedChapters.isEmpty {
+            // Network failed — fall back to DB chapters
+            chapters = saved
+        } else {
+            let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+            chapters = fetchedChapters.map { ch -> Chapter in
+                guard let persisted = savedMap[ch.id] else { return ch }
+                var merged = ch
+                merged.isRead = persisted.isRead
+                merged.readingSeconds = persisted.readingSeconds
+                merged.progress = persisted.progress
+                return merged
+            }
         }
 
         let lastTouched = saved
