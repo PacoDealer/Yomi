@@ -317,6 +317,20 @@ struct NovelDetailView: View {
                         }
                     }
                 }
+                // Reading progress bar
+                if !chapters.isEmpty {
+                    let readCount = chapters.filter { $0.isRead }.count
+                    if readCount > 0 {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ProgressView(value: Double(readCount), total: Double(chapters.count))
+                                .tint(.accentColor)
+                            Text("\(readCount) of \(chapters.count) chapters · \(Int(Double(readCount) / Double(chapters.count) * 100))%")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 if !isLoadingChapters && !chapters.isEmpty {
                     Button {
                         if let ch = resumeChapter {
