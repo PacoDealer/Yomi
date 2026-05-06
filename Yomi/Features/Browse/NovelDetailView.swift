@@ -36,8 +36,10 @@ struct NovelDetailView: View {
     // MARK: - Resume helpers
 
     private var resumeChapter: NovelChapter? {
-        // In-progress (readAt set but not isRead — e.g. abandoned mid-way)
-        if let inProgress = chapters.first(where: { !$0.isRead && $0.readAt != nil }) { return inProgress }
+        // In-progress: scroll saved (any amount) or readAt touched but not fully read
+        if let inProgress = chapters.first(where: {
+            !$0.isRead && (($0.lastScrollPercent ?? 0) > 0.01 || $0.readAt != nil)
+        }) { return inProgress }
         // First unread
         if let firstUnread = chapters.first(where: { !$0.isRead }) { return firstUnread }
         // All read — return last
@@ -45,7 +47,7 @@ struct NovelDetailView: View {
     }
 
     private var hasStartedReading: Bool {
-        chapters.contains { $0.isRead || $0.readAt != nil }
+        chapters.contains { $0.isRead || $0.readAt != nil || ($0.lastScrollPercent ?? 0) > 0.01 }
     }
 
     private var displayedChapters: [NovelChapter] {
