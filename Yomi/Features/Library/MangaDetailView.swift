@@ -181,6 +181,20 @@ struct MangaDetailView: View {
                         }
                     }
 
+                    // Reading progress bar
+                    if !chapters.isEmpty {
+                        let readCount = chapters.filter { $0.isRead }.count
+                        if readCount > 0 {
+                            VStack(alignment: .leading, spacing: 3) {
+                                ProgressView(value: Double(readCount), total: Double(chapters.count))
+                                    .tint(.accentColor)
+                                Text("\(readCount) of \(chapters.count) chapters · \(Int(Double(readCount) / Double(chapters.count) * 100))%")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
                     // Start / Resume reading button
                     if !isLoadingChapters && !chapters.isEmpty && bridge != nil {
                         Button {
