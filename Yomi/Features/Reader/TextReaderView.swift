@@ -224,20 +224,23 @@ struct TextReaderView: View {
             }
 
             TextReaderOverlayView(
-                novel:            novel,
-                chapter:          activeChapter,
-                fontSize:         $fontSize,
-                novelTheme:       $novelTheme,
-                fontFamily:       $fontFamily,
-                hPadding:         $hPadding,
-                showOverlay:      $showOverlay,
-                isSpeaking:       $isSpeaking,
-                hasPrevChapter:   hasPrevChapter,
-                hasNextChapter:   hasNextChapter,
-                onDismiss:        { dismiss() },
-                onPrevChapter:    { navigateToChapter(currentChapterIndex - 1) },
-                onNextChapter:    { navigateToChapter(currentChapterIndex + 1) },
-                onToggleTTS:      { toggleTTS() }
+                novel:                novel,
+                chapter:              activeChapter,
+                currentChapterIndex:  currentChapterIndex,
+                chapters:             chapters,
+                fontSize:             $fontSize,
+                novelTheme:           $novelTheme,
+                fontFamily:           $fontFamily,
+                hPadding:             $hPadding,
+                showOverlay:          $showOverlay,
+                isSpeaking:           $isSpeaking,
+                hasPrevChapter:       hasPrevChapter,
+                hasNextChapter:       hasNextChapter,
+                onDismiss:            { dismiss() },
+                onPrevChapter:        { navigateToChapter(currentChapterIndex - 1) },
+                onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
+                onJumpToChapter:      { navigateToChapter($0) },
+                onToggleTTS:          { toggleTTS() }
             )
         }
         .navigationBarHidden(true)
@@ -552,20 +555,25 @@ struct ReaderWebView: UIViewRepresentable {
 // MARK: - TextReaderOverlayView
 
 struct TextReaderOverlayView: View {
-    let novel:           Novel
-    let chapter:         NovelChapter
+    let novel:                Novel
+    let chapter:              NovelChapter
+    let currentChapterIndex:  Int
+    let chapters:             [NovelChapter]
     @Binding var fontSize:    Double
     @Binding var novelTheme:  NovelTheme
     @Binding var fontFamily:  String
     @Binding var hPadding:    Int
     @Binding var showOverlay: Bool
     @Binding var isSpeaking:  Bool
-    var hasPrevChapter:  Bool = false
-    var hasNextChapter:  Bool = false
-    let onDismiss:       () -> Void
-    var onPrevChapter:   (() -> Void)? = nil
-    var onNextChapter:   (() -> Void)? = nil
-    var onToggleTTS:     (() -> Void)? = nil
+    var hasPrevChapter:       Bool = false
+    var hasNextChapter:       Bool = false
+    let onDismiss:            () -> Void
+    var onPrevChapter:        (() -> Void)? = nil
+    var onNextChapter:        (() -> Void)? = nil
+    var onJumpToChapter:      ((Int) -> Void)? = nil
+    var onToggleTTS:          (() -> Void)? = nil
+
+    @State private var showChapterSheet = false
 
     private let paddingOptions: [(label: String, value: Int)] = [
         ("Narrow", 8), ("Normal", 16), ("Wide", 28)
@@ -597,9 +605,68 @@ struct TextReaderOverlayView: View {
                             .foregroundStyle(.white.opacity(0.7)).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    if !chapters.isEmpty {
+                        Button {
+                            showChapterSheet = true
+                        } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
+                .sheet(isPresented: $showChapterSheet) {
+                    NavigationStack {
+                        List(chapters.indices, id: \.self) { idx in
+                            let ch = chapters[idx]
+                            Button {
+                                showChapterSheet = false
+                                onJumpToChapter?(idx)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(ch.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(idx == currentChapterIndex ? Color.accentColor : .primary)
+                                            .fontWeight(idx == currentChapterIndex ? .semibold : .regular)
+                                        if ch.isRead {
+                                            Text("Read")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        } else if let pct = ch.lastScrollPercent, pct > 0.01 {
+                                            Text("\(Int(pct * 100))%")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    if idx == currentChapterIndex {
+                                        Image(systemName: "play.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.accentColor)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .id(idx)
+                        }
+                        .navigationTitle("Chapters")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { showChapterSheet = false }
+                            }
+                        }
+                        .onAppear {
+                            // Scroll to current chapter immediately
+                        }
+                    }
+                    .presentationDetents([.medium, .large])
+                }
             }
 
             Spacer()
