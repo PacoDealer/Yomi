@@ -66,27 +66,30 @@ struct ContinueReadingRow: View {
                 }
             }
         }
-        .task {
-            let mangas = await Task.detached(priority: .userInitiated) {
-                (try? MangaQueries.fetchRecentlyRead(limit: 10)) ?? []
-            }.value
-            let novels = await Task.detached(priority: .userInitiated) {
-                (try? NovelQueries.fetchRecentlyRead(limit: 10)) ?? []
-            }.value
+        .onAppear { Task { await loadItems() } }
+    }
 
-            let merged: [ContinueItem] = (mangas.map { .manga($0) } + novels.map { .novel($0) })
-                .sorted {
-                    switch ($0.lastReadAt, $1.lastReadAt) {
-                    case let (a?, b?): return a > b
-                    case (.some, .none): return true
-                    default: return false
-                    }
+    private func loadItems() async {
+        async let mangaFetch = Task.detached(priority: .userInitiated) {
+            (try? MangaQueries.fetchRecentlyRead(limit: 10)) ?? []
+        }.value
+        async let novelFetch = Task.detached(priority: .userInitiated) {
+            (try? NovelQueries.fetchRecentlyRead(limit: 10)) ?? []
+        }.value
+        let (mangas, novels) = await (mangaFetch, novelFetch)
+
+        let merged: [ContinueItem] = (mangas.map { .manga($0) } + novels.map { .novel($0) })
+            .sorted {
+                switch ($0.lastReadAt, $1.lastReadAt) {
+                case let (a?, b?): return a > b
+                case (.some, .none): return true
+                default: return false
                 }
-                .prefix(10)
-                .map { $0 }
+            }
+            .prefix(10)
+            .map { $0 }
 
-            await MainActor.run { items = merged }
-        }
+        await MainActor.run { items = merged }
     }
 }
 
