@@ -62,19 +62,28 @@ struct InsightsView: View {
                                     .padding(.bottom, 10)
 
                                 VStack(spacing: 0) {
+                                    let maxSeconds = mangaStats.first?.seconds ?? 1
                                     ForEach(Array(mangaStats.enumerated()), id: \.element.title) { index, stat in
-                                        HStack {
-                                            Text(stat.title)
-                                                .font(.subheadline)
-                                                .lineLimit(1)
-                                            Spacer()
-                                            Text(formatDuration(stat.seconds))
-                                                .font(.subheadline)
-                                                .foregroundStyle(.secondary)
-                                                .monospacedDigit()
+                                        ZStack(alignment: .leading) {
+                                            GeometryReader { geo in
+                                                Rectangle()
+                                                    .fill(Color.accentColor.opacity(0.12))
+                                                    .frame(width: geo.size.width * min(Double(stat.seconds) / Double(maxSeconds), 1.0))
+                                            }
+                                            HStack {
+                                                Text(stat.title)
+                                                    .font(.subheadline)
+                                                    .lineLimit(1)
+                                                Spacer()
+                                                Text(formatDuration(stat.seconds))
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.secondary)
+                                                    .monospacedDigit()
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 12)
                                         }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
+                                        .frame(height: 44)
                                         .background(Color(.secondarySystemGroupedBackground))
 
                                         if index < mangaStats.count - 1 {
