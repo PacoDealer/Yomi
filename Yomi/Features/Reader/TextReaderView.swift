@@ -85,6 +85,7 @@ struct TextReaderView: View {
     @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
 
     @State private var showOverlay = true
+    @State private var showFinishedBanner = false
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
     @State private var lastKnownScrollPercent: Double? = nil
@@ -199,9 +200,11 @@ struct TextReaderView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
                     },
                     onReadComplete: {
-                        guard !AppSettings.shared.isIncognito else { return }
-                        let chapterId = activeChapter.id
-                        Task { try? NovelQueries.markRead(chapterId: chapterId) }
+                        if !AppSettings.shared.isIncognito {
+                            let chapterId = activeChapter.id
+                            Task { try? NovelQueries.markRead(chapterId: chapterId) }
+                        }
+                        withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
                     },
                     restoreScrollPercent: activeChapter.lastScrollPercent,
                     onScrollUpdate: { pct in
@@ -214,6 +217,10 @@ struct TextReaderView: View {
                     }
                 )
                 .ignoresSafeArea()
+            }
+
+            if showFinishedBanner {
+                chapterFinishedBanner
             }
 
             TextReaderOverlayView(
@@ -256,6 +263,47 @@ struct TextReaderView: View {
         }
     }
 
+    // MARK: - Chapter Finished Banner
+
+    @ViewBuilder private var chapterFinishedBanner: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.title3)
+                Text(hasNextChapter ? "Chapter finished" : "All caught up!")
+                    .font(.subheadline).fontWeight(.medium)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if hasNextChapter {
+                    Button {
+                        navigateToChapter(currentChapterIndex + 1)
+                    } label: {
+                        Label("Next", systemImage: "chevron.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline).fontWeight(.semibold)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 36)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                withAnimation(.easeOut(duration: 0.25)) { showFinishedBanner = false }
+            }
+        }
+    }
+
     // MARK: - Scroll Position
 
     private func flushScrollPercent() {
@@ -285,6 +333,7 @@ struct TextReaderView: View {
     private func navigateToChapter(_ index: Int) {
         guard index >= 0, index < chapters.count else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        showFinishedBanner = false
         stopTTS()
         flushScrollPercent()
         lastKnownScrollPercent = nil
