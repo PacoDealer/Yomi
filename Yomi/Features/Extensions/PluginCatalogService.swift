@@ -189,7 +189,7 @@ private struct MangayomiEntry: Decodable {
     // MARK: - Helpers
 
     func isInstalled(_ entry: PluginCatalogEntry) -> Bool {
-        ExtensionManager.shared.installed.contains(where: { $0.name == entry.name })
+        ExtensionManager.shared.installed.contains(where: { $0.id == entry.id || $0.name == entry.name })
     }
 
     func isGroupInstalled(_ group: PluginCatalogGroup) -> Bool {
@@ -198,7 +198,8 @@ private struct MangayomiEntry: Decodable {
 
     /// Returns the catalog entry for an installed extension if a newer version is available.
     func availableUpdate(for ext: Extension) -> PluginCatalogEntry? {
-        guard let entry = entries.first(where: { $0.name == ext.name }) else { return nil }
+        let entry = entries.first(where: { $0.id == ext.id }) ?? entries.first(where: { $0.name == ext.name })
+        guard let entry else { return nil }
         return Self.isNewer(entry.version, than: ext.version) ? entry : nil
     }
 

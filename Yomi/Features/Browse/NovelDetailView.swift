@@ -25,6 +25,7 @@ struct NovelDetailView: View {
     @State private var selectedCoverItem: PhotosPickerItem? = nil
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
+    @State private var chapterSearchText: String = ""
 
     init(novel: Novel, bridge: JSBridge? = nil) {
         _novel = State(initialValue: novel)
@@ -51,7 +52,10 @@ struct NovelDetailView: View {
     }
 
     private var displayedChapters: [NovelChapter] {
-        let base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
+        var base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
+        if !chapterSearchText.isEmpty {
+            base = base.filter { $0.name.localizedStandardContains(chapterSearchText) }
+        }
         return chaptersDescending ? base.reversed() : base
     }
 
@@ -364,9 +368,32 @@ struct NovelDetailView: View {
             } else if chapters.isEmpty {
                 Text("No chapters found.").font(.subheadline).foregroundStyle(.secondary)
             } else {
-                ForEach(displayedChapters, id: \.id) { chapter in
-                    chapterRow(chapter)
-                        .id("ch_\(chapter.id)")
+                if chapters.count > 30 {
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.subheadline)
+                        TextField("Search chapters", text: $chapterSearchText)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        if !chapterSearchText.isEmpty {
+                            Button { chapterSearchText = "" } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                }
+                if displayedChapters.isEmpty && !chapterSearchText.isEmpty {
+                    Text("No chapters matching \"\(chapterSearchText)\"")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                } else {
+                    ForEach(displayedChapters, id: \.id) { chapter in
+                        chapterRow(chapter)
+                            .id("ch_\(chapter.id)")
+                    }
                 }
             }
         } header: {
