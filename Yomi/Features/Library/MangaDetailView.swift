@@ -302,6 +302,18 @@ struct MangaDetailView: View {
                                 chapters = chapters.map { ch in
                                     ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
                                 }
+                            },
+                            onMarkPreviousRead: {
+                                guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
+                                      pos > 0 else { return }
+                                let ids = chapters[0..<pos].filter { !$0.isRead }.map { $0.id }
+                                guard !ids.isEmpty else { return }
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                let markSet = Set(ids)
+                                Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, isRead: true) } }
+                                chapters = chapters.map { ch in
+                                    markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
+                                }
                             }
                         )
                     }
@@ -1048,6 +1060,7 @@ private struct ChapterRow: View {
     var onTap: (() -> Void)? = nil
     var onLongPress: (() -> Void)? = nil
     var onToggleRead: (() -> Void)? = nil
+    var onMarkPreviousRead: (() -> Void)? = nil
 
     private var dm: DownloadManager { DownloadManager.shared }
 
@@ -1147,6 +1160,12 @@ private struct ChapterRow: View {
                           systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
                 }
                 .tint(chapter.isRead ? .orange : .green)
+                if let markPrev = onMarkPreviousRead {
+                    Button(action: markPrev) {
+                        Label("Mark previous", systemImage: "checkmark.circle")
+                    }
+                    .tint(.blue)
+                }
             }
         }
     }

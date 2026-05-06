@@ -439,6 +439,21 @@ struct NovelDetailView: View {
                           systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
                 }
                 .tint(chapter.isRead ? .orange : .green)
+                Button {
+                    guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
+                          pos > 0 else { return }
+                    let ids = chapters[0..<pos].filter { !$0.isRead }.map { $0.id }
+                    guard !ids.isEmpty else { return }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    let markSet = Set(ids)
+                    Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0) } }
+                    chapters = chapters.map { ch in
+                        markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
+                    }
+                } label: {
+                    Label("Mark previous", systemImage: "checkmark.circle")
+                }
+                .tint(.blue)
             }
         }
         .onLongPressGesture {
