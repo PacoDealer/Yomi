@@ -102,6 +102,8 @@ struct ChapterReaderView: View {
             ReaderOverlayView(
                 manga: manga,
                 chapter: activeChapter,
+                currentChapterIndex: currentChapterIndex,
+                chapters: chapters,
                 currentPage: $currentPage,
                 totalPages: pages.count,
                 readerMode: $readerMode,
@@ -113,7 +115,8 @@ struct ChapterReaderView: View {
                 onDismiss: { dismiss() },
                 onDiscuss: { showDiscussSheet = true },
                 onPrevChapter: { navigateToChapter(currentChapterIndex - 1) },
-                onNextChapter: { navigateToChapter(currentChapterIndex + 1) }
+                onNextChapter: { navigateToChapter(currentChapterIndex + 1) },
+                onJumpToChapter: { navigateToChapter($0) }
             )
         }
         .navigationBarHidden(true)
@@ -543,6 +546,8 @@ struct WebtoonReaderView: View {
 struct ReaderOverlayView: View {
     let manga: Manga
     let chapter: Chapter
+    let currentChapterIndex: Int
+    let chapters: [Chapter]
     @Binding var currentPage: Int
     let totalPages: Int
     @Binding var readerMode: ReaderMode
@@ -555,6 +560,9 @@ struct ReaderOverlayView: View {
     let onDiscuss: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
+    var onJumpToChapter: ((Int) -> Void)? = nil
+
+    @State private var showChapterSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -591,6 +599,18 @@ struct ReaderOverlayView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                    if !chapters.isEmpty {
+                        Button {
+                            showChapterSheet = true
+                        } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                    }
+
                     if discussURL != nil {
                         Button(action: onDiscuss) {
                             Image(systemName: "bubble.left.and.bubble.right")
@@ -610,6 +630,51 @@ struct ReaderOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
+                .sheet(isPresented: $showChapterSheet) {
+                    NavigationStack {
+                        List(chapters.indices, id: \.self) { idx in
+                            let ch = chapters[idx]
+                            Button {
+                                showChapterSheet = false
+                                onJumpToChapter?(idx)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(ch.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(idx == currentChapterIndex ? Color.accentColor : .primary)
+                                            .fontWeight(idx == currentChapterIndex ? .semibold : .regular)
+                                        if ch.isRead {
+                                            Text("Read")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        } else if ch.lastPageRead > 0 {
+                                            Text("Page \(ch.lastPageRead + 1)")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    if idx == currentChapterIndex {
+                                        Image(systemName: "play.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.accentColor)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .id(idx)
+                        }
+                        .navigationTitle("Chapters")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { showChapterSheet = false }
+                            }
+                        }
+                    }
+                    .presentationDetents([.medium, .large])
+                }
             }
 
             Spacer()
