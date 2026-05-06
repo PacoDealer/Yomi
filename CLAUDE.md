@@ -41,6 +41,13 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 3. `resumeChapter`/`hasStartedReading` in `NovelDetailView` now check `lastScrollPercent > 0.01` — chapters opened before reaching 90% were previously invisible to resume detection
 4. Chapter list sheet in novel reader: list button in `TextReaderOverlayView` top bar opens sheet with all chapters, read/progress status, accent color for current; tap jumps; auto-scrolls to current chapter after 100ms delay
 5. Chapter list sheet in manga reader: same pattern in `ReaderOverlayView` for `ChapterReaderView`
+6. Mark previous chapters as read: trailing swipe action "Mark previous" on `ChapterRow` (manga) and `NovelChapterRow`; finds chapter position in ascending source array, bulk-marks all lower-index chapters via `ChapterQueries.setRead` / `NovelQueries.markRead(chapterId:)`, updates local `@State` with a `Set`
+7. Chapter search in detail views: inline search field (shown only when `chapters.count > 30`) in both `MangaDetailView` and `NovelDetailView`; `ContentUnavailableView` empty-search state; search applied after scanlator/status filter
+8. Reading progress bar in detail headers: `ProgressView(value:total:)` above the resume button in both `MangaDetailView` and `NovelDetailView`; shows read-count/total-chapters + caption
+9. `ContinueReadingRow` refresh fix: replaced `.task { }` (fires once per view lifetime) with `.onAppear { Task { await loadItems() } }` — row now re-queries DB every time the library tab is shown
+10. `ContinueReadingCell` DB fallback: if bridge returns empty chapters (network failure / Cloudflare block), falls back to DB-saved chapters — mirrors `MangaDetailView.loadChapters()` S55 fix
+11. Plugin update detection by ID: `PluginCatalogService.isInstalled` + `availableUpdate(for:)` now match by `ext.id` first, falling back to `ext.name` — prevents false "no update" when catalog uses the same ID with a different name string
+12. Relative time bar in Insights "By Title": each row wrapped in `ZStack(alignment:.leading)` with `GeometryReader` background `Rectangle().fill(Color.accentColor.opacity(0.12))` scaled to `stat.seconds / maxSeconds`; visually compares reading time across titles at a glance
 
 **Current DB/code state:**
 - DB at v17_novel_scroll (18 migrations total, next must be v18_)
