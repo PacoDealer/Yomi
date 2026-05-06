@@ -34,9 +34,18 @@ final class LibraryViewModel {
     var searchText: String = ""
     var isLoading: Bool = false
     var errorMessage: String? = nil
-    var sortOrder: SortOrder = .lastRead
-    /// When nil → show all manga regardless of reading status. Only applies to manga.
-    var statusFilter: ReadingStatus? = nil
+    var sortOrder: SortOrder = {
+        SortOrder(rawValue: UserDefaults.standard.string(forKey: "librarySortOrder") ?? "") ?? .lastRead
+    }() {
+        didSet { UserDefaults.standard.set(sortOrder.rawValue, forKey: "librarySortOrder") }
+    }
+    /// When nil → show all titles regardless of reading status.
+    var statusFilter: ReadingStatus? = {
+        guard let raw = UserDefaults.standard.string(forKey: "libraryStatusFilter") else { return nil }
+        return ReadingStatus(rawValue: raw)
+    }() {
+        didSet { UserDefaults.standard.set(statusFilter?.rawValue, forKey: "libraryStatusFilter") }
+    }
 
     // MARK: - Categories
 
