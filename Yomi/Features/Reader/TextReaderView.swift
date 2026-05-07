@@ -229,6 +229,7 @@ struct TextReaderView: View {
                 currentChapterIndex:  currentChapterIndex,
                 chapters:             chapters,
                 fontSize:             $fontSize,
+                lineSpacing:          $lineSpacing,
                 novelTheme:           $novelTheme,
                 fontFamily:           $fontFamily,
                 hPadding:             $hPadding,
@@ -253,6 +254,7 @@ struct TextReaderView: View {
             AppSettings.shared.novelTheme  = v.rawValue
             AppSettings.shared.novelSepia  = (v == .sepia)
         }
+        .onChange(of: lineSpacing) { _, v in AppSettings.shared.lineSpacing = v }
         .onChange(of: fontFamily) { _, v in AppSettings.shared.novelFontFamily = v }
         .onChange(of: hPadding)   { _, v in AppSettings.shared.novelHorizontalPadding = v }
         .onAppear {
@@ -560,6 +562,7 @@ struct TextReaderOverlayView: View {
     let currentChapterIndex:  Int
     let chapters:             [NovelChapter]
     @Binding var fontSize:    Double
+    @Binding var lineSpacing: Double
     @Binding var novelTheme:  NovelTheme
     @Binding var fontFamily:  String
     @Binding var hPadding:    Int
@@ -577,6 +580,9 @@ struct TextReaderOverlayView: View {
 
     private let paddingOptions: [(label: String, value: Int)] = [
         ("Narrow", 8), ("Normal", 16), ("Wide", 28)
+    ]
+    private let lineSpacingOptions: [(label: String, value: Double)] = [
+        ("Tight", 1.3), ("Normal", 1.6), ("Airy", 2.0)
     ]
 
     var body: some View {
@@ -725,6 +731,34 @@ struct TextReaderOverlayView: View {
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
                                         .background(hPadding == opt.value ? Color.white : Color.clear)
+                                }
+                            }
+                        }
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Row 2b: Line spacing
+                    HStack(spacing: 16) {
+                        Image(systemName: "text.alignleft")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                        Text("Spacing")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.6))
+                        Spacer()
+                        HStack(spacing: 0) {
+                            ForEach(lineSpacingOptions, id: \.label) { opt in
+                                Button {
+                                    lineSpacing = opt.value
+                                } label: {
+                                    Text(opt.label)
+                                        .font(.caption2).fontWeight(.medium)
+                                        .foregroundStyle(abs(lineSpacing - opt.value) < 0.05 ? Color.black : Color.white.opacity(0.7))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(abs(lineSpacing - opt.value) < 0.05 ? Color.white : Color.clear)
                                 }
                             }
                         }
