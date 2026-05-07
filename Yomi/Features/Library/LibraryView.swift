@@ -77,6 +77,28 @@ struct LibraryView: View {
                                                              unreadCount: viewModel.unreadCounts[manga.id] ?? 0)
                                             }
                                             .buttonStyle(.plain)
+                                            .contextMenu {
+                                                Menu {
+                                                    ForEach(ReadingStatus.allCases) { status in
+                                                        Button {
+                                                            let id = manga.id
+                                                            Task.detached { try? MangaQueries.updateReadingStatus(mangaId: id, status: status) }
+                                                        } label: {
+                                                            Label(status.label, systemImage: status.systemImage)
+                                                        }
+                                                    }
+                                                } label: {
+                                                    Label("Reading Status", systemImage: "bookmark")
+                                                }
+                                                Divider()
+                                                Button(role: .destructive) {
+                                                    let m = manga
+                                                    Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
+                                                    Task { await viewModel.loadLibrary() }
+                                                } label: {
+                                                    Label("Remove from Library", systemImage: "trash")
+                                                }
+                                            }
                                             Divider().padding(.leading, 76)
                                         }
                                     }
@@ -135,6 +157,29 @@ struct LibraryView: View {
                                                     )
                                                 }
                                                 .buttonStyle(.plain)
+                                                .contextMenu {
+                                                    Menu {
+                                                        ForEach(ReadingStatus.allCases) { status in
+                                                            Button {
+                                                                let id = novel.id
+                                                                Task.detached { try? NovelQueries.updateReadingStatus(novelId: id, status: status) }
+                                                            } label: {
+                                                                Label(status.label, systemImage: status.systemImage)
+                                                            }
+                                                        }
+                                                    } label: {
+                                                        Label("Reading Status", systemImage: "bookmark")
+                                                    }
+                                                    Divider()
+                                                    Button(role: .destructive) {
+                                                        var updated = novel
+                                                        updated.inLibrary = false
+                                                        Task.detached { try? NovelQueries.upsert(updated) }
+                                                        Task { await viewModel.loadLibrary() }
+                                                    } label: {
+                                                        Label("Remove from Library", systemImage: "trash")
+                                                    }
+                                                }
                                                 Divider().padding(.leading, 76)
                                             }
                                         }
