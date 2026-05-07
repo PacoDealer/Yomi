@@ -8,11 +8,14 @@ struct MangaCoverCell: View {
     var isSelected: Bool = false
     var onLongPress: (() -> Void)? = nil
     var onSelect: (() -> Void)? = nil
+    var onReadingStatusChange: ((ReadingStatus) -> Void)? = nil
+    var onRemoveFromLibrary: (() -> Void)? = nil
     @State private var unreadCount: Int = 0
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
     @State private var readProgress: Double = 0   // 0.0 – 1.0, 0 = not started
     @State private var dbInLibrary: Bool = false
+    @State private var currentReadingStatus: ReadingStatus = .none
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -30,6 +33,31 @@ struct MangaCoverCell: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { onSelect?() }
+            }
+        }
+        .contextMenu {
+            if !isSelecting {
+                Menu {
+                    ForEach(ReadingStatus.allCases) { status in
+                        Button {
+                            onReadingStatusChange?(status)
+                            currentReadingStatus = status
+                        } label: {
+                            Label(status.label, systemImage: status.systemImage)
+                            if currentReadingStatus == status {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Reading Status", systemImage: "bookmark")
+                }
+                Divider()
+                Button(role: .destructive) {
+                    onRemoveFromLibrary?()
+                } label: {
+                    Label("Remove from Library", systemImage: "trash")
+                }
             }
         }
         .onLongPressGesture(minimumDuration: 0.4) {
@@ -60,11 +88,12 @@ struct MangaCoverCell: View {
             async let unread   = Task.detached { (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0 }.value
             async let dlCount  = Task.detached { (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0 }.value
             async let allChaps = Task.detached { (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? [] }.value
-            async let inLib    = Task.detached { (try? MangaQueries.fetchOne(id: manga.id))?.inLibrary ?? false }.value
-            let (u, d, all, lib) = await (unread, dlCount, allChaps, inLib)
-            unreadCount     = u
-            downloadedCount = d
-            dbInLibrary     = lib
+            async let dbManga  = Task.detached { try? MangaQueries.fetchOne(id: manga.id) }.value
+            let (u, d, all, fetched) = await (unread, dlCount, allChaps, dbManga)
+            unreadCount            = u
+            downloadedCount        = d
+            dbInLibrary            = fetched?.inLibrary ?? false
+            currentReadingStatus   = fetched?.readingStatus ?? manga.readingStatus
             sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
             if !all.isEmpty {
                 let readCount = all.filter { $0.isRead }.count

@@ -102,6 +102,15 @@ struct LibraryView: View {
                                                             selectedIds.insert(manga.id)
                                                         }
                                                     }
+                                                },
+                                                onReadingStatusChange: { status in
+                                                    let id = manga.id
+                                                    Task.detached { try? MangaQueries.updateReadingStatus(mangaId: id, status: status) }
+                                                },
+                                                onRemoveFromLibrary: {
+                                                    let m = manga
+                                                    Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
+                                                    Task { await viewModel.loadLibrary() }
                                                 }
                                             )
                                         }
@@ -135,10 +144,19 @@ struct LibraryView: View {
                                             ForEach(viewModel.displayedNovels) { novel in
                                                 NovelLibraryCoverCell(
                                                     novel: novel,
-                                                    unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0
-                                                ) {
-                                                    selectedNovel = novel; showNovelDetail = true
-                                                }
+                                                    unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
+                                                    onTap: { selectedNovel = novel; showNovelDetail = true },
+                                                    onReadingStatusChange: { status in
+                                                        let id = novel.id
+                                                        Task.detached { try? NovelQueries.updateReadingStatus(novelId: id, status: status) }
+                                                    },
+                                                    onRemoveFromLibrary: {
+                                                        var updated = novel
+                                                        updated.inLibrary = false
+                                                        Task.detached { try? NovelQueries.upsert(updated) }
+                                                        Task { await viewModel.loadLibrary() }
+                                                    }
+                                                )
                                             }
                                         }
                                         .padding(.horizontal, 12)
@@ -505,10 +523,13 @@ private struct NovelLibraryCoverCell: View {
     let novel: Novel
     let unreadCount: Int
     let onTap: () -> Void
+    var onReadingStatusChange: ((ReadingStatus) -> Void)? = nil
+    var onRemoveFromLibrary: (() -> Void)? = nil
 
     @State private var sourceName: String? = nil
     @State private var settings = AppSettings.shared
     @State private var readProgress: Double = 0
+    @State private var currentReadingStatus: ReadingStatus = .none
 
     var body: some View {
         Button(action: onTap) {
@@ -571,15 +592,40 @@ private struct NovelLibraryCoverCell: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Menu {
+                ForEach(ReadingStatus.allCases) { status in
+                    Button {
+                        onReadingStatusChange?(status)
+                        currentReadingStatus = status
+                    } label: {
+                        Label(status.label, systemImage: status.systemImage)
+                        if currentReadingStatus == status {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            } label: {
+                Label("Reading Status", systemImage: "bookmark")
+            }
+            Divider()
+            Button(role: .destructive) {
+                onRemoveFromLibrary?()
+            } label: {
+                Label("Remove from Library", systemImage: "trash")
+            }
+        }
         .task(id: novel.id) {
             sourceName = ExtensionManager.shared.installed
                 .first(where: { $0.id == novel.sourceId })?.name
-            let chapters = await Task.detached {
-                (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
-            }.value
+            let (chapters, fetched) = await (
+                Task.detached { (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? [] }.value,
+                Task.detached { try? NovelQueries.fetchOne(id: novel.id) }.value
+            )
             if !chapters.isEmpty {
                 readProgress = Double(chapters.filter { $0.isRead }.count) / Double(chapters.count)
             }
+            currentReadingStatus = fetched?.readingStatus ?? novel.readingStatus
         }
     }
 }
