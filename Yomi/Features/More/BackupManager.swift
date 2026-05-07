@@ -184,6 +184,7 @@ import Observation
         if let v = c.chapterNumber { d["chapterNumber"] = v }
         if let v = c.readAt        { d["readAt"]        = ISO8601DateFormatter().string(from: v) }
         if let v = c.scanlator     { d["scanlator"]     = v }
+        if c.lastPageRead > 0      { d["lastPageRead"]  = c.lastPageRead }
         return d
     }
 
