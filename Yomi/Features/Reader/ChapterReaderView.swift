@@ -30,6 +30,7 @@ struct ChapterReaderView: View {
     @State private var sessionSeconds: Int = 0
     @State private var discussURL: URL? = nil
     @State private var showDiscussSheet = false
+    @State private var showFinishedBanner = false
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -99,6 +100,10 @@ struct ChapterReaderView: View {
                 }
             }
 
+            if showFinishedBanner {
+                chapterFinishedBanner
+            }
+
             ReaderOverlayView(
                 manga: manga,
                 chapter: activeChapter,
@@ -163,6 +168,9 @@ struct ChapterReaderView: View {
         }
         .onChange(of: currentPage) { _, newPage in
             if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+            if pages.count > 0 && newPage == pages.count - 1 {
+                withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
+            }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage == pages.count - 1 {
                 markChapterRead()
                 if MALService.shared.isLoggedIn {
@@ -187,6 +195,47 @@ struct ChapterReaderView: View {
         .sheet(isPresented: $showDiscussSheet) {
             if let url = discussURL {
                 DiscussWebSheet(url: url)
+            }
+        }
+    }
+
+    // MARK: - Chapter Finished Banner
+
+    @ViewBuilder private var chapterFinishedBanner: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.title3)
+                Text(hasNextChapter ? "Chapter finished" : "All caught up!")
+                    .font(.subheadline).fontWeight(.medium)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if hasNextChapter {
+                    Button {
+                        navigateToChapter(currentChapterIndex + 1)
+                    } label: {
+                        Label("Next", systemImage: "chevron.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline).fontWeight(.semibold)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 36)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                withAnimation(.easeOut(duration: 0.25)) { showFinishedBanner = false }
             }
         }
     }
@@ -218,6 +267,7 @@ struct ChapterReaderView: View {
     // MARK: - Navigation
 
     private func navigateToChapter(_ index: Int) {
+        showFinishedBanner = false
         readingTimer?.invalidate()
         readingTimer = nil
 
