@@ -182,6 +182,20 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     private func checkNovelUpdates(for novel: Novel) async {
+        let settings = AppSettings.shared
+
+        if settings.skipUpdateNotStarted && novel.lastReadAt == nil { return }
+        if settings.skipUpdateCompleted && novel.status.lowercased().contains("completed") { return }
+        if settings.skipUpdateWithUnread {
+            let all    = (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
+            let unread = all.filter { !$0.isRead }
+            if !unread.isEmpty { return }
+        }
+        if !settings.excludedCategoryIds.isEmpty {
+            let assigned = (try? CategoryQueries.categoriesForNovel(novelId: novel.id)) ?? []
+            if assigned.contains(where: { settings.excludedCategoryIds.contains($0.id) }) { return }
+        }
+
         let sourceId  = novel.sourceId
         let novelPath = novel.path
         let novelId   = novel.id
