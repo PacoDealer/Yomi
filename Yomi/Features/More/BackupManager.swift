@@ -59,15 +59,21 @@ import Observation
                     ["novelId": $0["novelId"], "categoryId": $0["categoryId"]]
                 }
             }
+            let mangaCatPairs  = try await appDatabase.read { db -> [[String: String]] in
+                try Row.fetchAll(db, sql: "SELECT mangaId, categoryId FROM manga_category").map {
+                    ["mangaId": $0["mangaId"], "categoryId": $0["categoryId"]]
+                }
+            }
 
             let payload: [String: Any] = [
-                "version":         2,
-                "exportedAt":      ISO8601DateFormatter().string(from: Date()),
-                "mangas":          mangas.map        { encodeManga($0) },
-                "chapters":        chapters.map      { encodeChapter($0) },
-                "novels":          novels.map        { encodeNovel($0) },
-                "novelChapters":   novelChapters.map { encodeNovelChapter($0) },
-                "novelCategories": novelCatPairs
+                "version":          2,
+                "exportedAt":       ISO8601DateFormatter().string(from: Date()),
+                "mangas":           mangas.map        { encodeManga($0) },
+                "chapters":         chapters.map      { encodeChapter($0) },
+                "novels":           novels.map        { encodeNovel($0) },
+                "novelChapters":    novelChapters.map { encodeNovelChapter($0) },
+                "novelCategories":  novelCatPairs,
+                "mangaCategories":  mangaCatPairs
             ]
 
             let data = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
@@ -119,6 +125,7 @@ import Observation
             let novelDicts        = payload["novels"]          as? [[String: Any]] ?? []
             let novelChapterDicts = payload["novelChapters"]   as? [[String: Any]] ?? []
             let novelCatPairs     = payload["novelCategories"] as? [[String: String]] ?? []
+            let mangaCatPairs     = payload["mangaCategories"] as? [[String: String]] ?? []
 
             for dict in novelDicts {
                 if let novel = decodeNovel(dict) {
@@ -136,6 +143,13 @@ import Observation
                     try db.execute(
                         sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
                         arguments: [novelId, catId]
+                    )
+                }
+                for pair in mangaCatPairs {
+                    guard let mangaId = pair["mangaId"], let catId = pair["categoryId"] else { continue }
+                    try db.execute(
+                        sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
+                        arguments: [mangaId, catId]
                     )
                 }
             }
