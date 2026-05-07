@@ -64,10 +64,12 @@ import Observation
                     ["mangaId": $0["mangaId"], "categoryId": $0["categoryId"]]
                 }
             }
+            let categories     = try CategoryQueries.fetchAll()
 
             let payload: [String: Any] = [
-                "version":          2,
+                "version":          3,
                 "exportedAt":       ISO8601DateFormatter().string(from: Date()),
+                "categories":       categories.map     { encodeCategory($0) },
                 "mangas":           mangas.map        { encodeManga($0) },
                 "chapters":         chapters.map      { encodeChapter($0) },
                 "novels":           novels.map        { encodeNovel($0) },
@@ -121,6 +123,22 @@ import Observation
                 }
             }
 
+            // Categories (v3 backup) — must restore before assignment pairs
+            let categoryDicts = payload["categories"] as? [[String: Any]] ?? []
+            _ = try await appDatabase.write { db in
+                for dict in categoryDicts {
+                    guard
+                        let id   = dict["id"]   as? String,
+                        let name = dict["name"] as? String,
+                        let sort = dict["sort"] as? Int
+                    else { continue }
+                    try db.execute(
+                        sql: "INSERT OR IGNORE INTO category (id, name, sort) VALUES (?, ?, ?)",
+                        arguments: [id, name, sort]
+                    )
+                }
+            }
+
             // Novels (v2 backup)
             let novelDicts        = payload["novels"]          as? [[String: Any]] ?? []
             let novelChapterDicts = payload["novelChapters"]   as? [[String: Any]] ?? []
@@ -159,6 +177,10 @@ import Observation
     }
 
     // MARK: - Encode Helpers
+
+    private func encodeCategory(_ c: Category) -> [String: Any] {
+        ["id": c.id, "name": c.name, "sort": c.sort]
+    }
 
     private func encodeManga(_ m: Manga) -> [String: Any] {
         var d: [String: Any] = [
