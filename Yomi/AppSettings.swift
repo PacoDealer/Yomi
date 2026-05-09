@@ -91,6 +91,11 @@ import Observation
         didSet { defaults.set(novelFontFamily, forKey: "novelFontFamily") }
     }
 
+    /// Justify paragraph text in the novel reader
+    var novelJustifyText: Bool {
+        didSet { defaults.set(novelJustifyText, forKey: "novelJustifyText") }
+    }
+
     /// Horizontal padding (points) for the novel reader body: 8 | 16 | 24
     var novelHorizontalPadding: Int {
         didSet { defaults.set(novelHorizontalPadding, forKey: "novelHorizontalPadding") }
@@ -275,6 +280,7 @@ import Observation
             novelTheme = "Light"
         }
         novelFontFamily         = d.string(forKey: "novelFontFamily")              ?? "Serif"
+        novelJustifyText        = d.object(forKey: "novelJustifyText") as? Bool ?? false
         novelHorizontalPadding  = d.object(forKey: "novelHorizontalPadding") as? Int ?? 16
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
         // Migrate from legacy single-URL key if multi-URL key is not yet stored
