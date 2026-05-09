@@ -14,6 +14,12 @@ struct InsightsView: View {
     @State private var titlesStarted: Int = 0
     @State private var mangaStats: [(title: String, seconds: Int)] = []
 
+    // Manga vs novel split
+    @State private var mangaChaptersRead: Int = 0
+    @State private var novelChaptersRead: Int = 0
+    @State private var mangaSeconds: Int = 0
+    @State private var novelSeconds: Int = 0
+
     private let cardColumns = [
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
@@ -52,6 +58,30 @@ struct InsightsView: View {
                                      color: .green)
                         }
                         .padding(.horizontal, 16)
+
+                        // MARK: Manga vs Novel breakdown
+                        if mangaChaptersRead > 0 || novelChaptersRead > 0 {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Breakdown")
+                                    .font(.headline)
+                                    .padding(.horizontal, 16)
+                                    .padding(.bottom, 10)
+
+                                VStack(spacing: 0) {
+                                    breakdownRow(label: "Manga",
+                                                 icon: "book.closed.fill",
+                                                 chapters: mangaChaptersRead,
+                                                 seconds: mangaSeconds)
+                                    Divider().padding(.leading, 16)
+                                    breakdownRow(label: "Novel",
+                                                 icon: "text.book.closed.fill",
+                                                 chapters: novelChaptersRead,
+                                                 seconds: novelSeconds)
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .padding(.horizontal, 16)
+                            }
+                        }
 
                         // MARK: By manga
                         if !mangaStats.isEmpty {
@@ -111,7 +141,7 @@ struct InsightsView: View {
     // MARK: - Load
 
     private func loadStats() async {
-        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int)]) in
+        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int)], Int, Int, Int, Int) in
 
             let calendar = Calendar.current
 
@@ -193,15 +223,19 @@ struct InsightsView: View {
             }
             let stats = (mangaStats + novelStats).sorted { $0.seconds > $1.seconds }
 
-            return (streak, totalSeconds, readCount, titlesStarted, stats)
+            return (streak, totalSeconds, readCount, titlesStarted, stats, mangaReadCount, novelReadCount, mangaSeconds, novelSeconds)
         }.value
 
         await MainActor.run {
-            streak = result.0
-            totalSeconds = result.1
-            readChaptersCount = result.2
-            titlesStarted = result.3
-            mangaStats = result.4
+            streak              = result.0
+            totalSeconds        = result.1
+            readChaptersCount   = result.2
+            titlesStarted       = result.3
+            mangaStats          = result.4
+            mangaChaptersRead   = result.5
+            novelChaptersRead   = result.6
+            self.mangaSeconds   = result.7
+            self.novelSeconds   = result.8
             isLoading = false
         }
     }
@@ -216,6 +250,33 @@ struct InsightsView: View {
         }
         if seconds >= 60 { return "\(seconds / 60)m" }
         return "\(seconds)s"
+    }
+
+    @ViewBuilder
+    private func breakdownRow(label: String, icon: String, chapters: Int, seconds: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 20)
+            Text(label)
+                .font(.subheadline)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(chapters) chapters")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                if seconds > 0 {
+                    Text(formatDuration(seconds))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.secondarySystemGroupedBackground))
     }
 }
 
