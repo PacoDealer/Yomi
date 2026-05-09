@@ -28,7 +28,7 @@ Yomi/
 ├── Features/
 │   ├── Library/
 │   │   ├── LibraryView.swift        # Saved manga grid/list (AppSettings.libraryDisplayMode toggle) + category chips + ContinueReadingRow + multi-select
-│   │   ├── LibraryViewModel.swift   # State, filtering, SortOrder (lastRead/alphabetical/lastUpdated/unreadCount); unreadCounts dict from single GROUP BY query
+│   │   ├── LibraryViewModel.swift   # State, filtering, SortOrder (lastRead/alphabetical/lastUpdated/unreadCount/readingTime); unreadCounts dict from single GROUP BY query; sortOrder+statusFilter backed by UserDefaults
 │   │   ├── CategoryView.swift       # Category CRUD UI (create, rename, reorder, delete)
 │   │   ├── ContinueReadingRow.swift # Horizontal scrollable row of recently read manga
 │   │   ├── MangaCoverCell.swift     # Cover cell + shimmer skeleton + selection mode (isSelecting/isSelected overlays, long press enters select) + MangaListRow (list mode)
@@ -57,7 +57,7 @@ Yomi/
 │   │   ├── PluginsView.swift        # Installed plugins + Browse catalog (PluginCatalogService, Install button per entry) + NSFW filter
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Plugin Repos / Suwayomi (test connection button, setup guide link) / OPDS (URL + auth + test) / Advanced (NavigationLink)
 │   │   ├── AdvancedSettingsView.swift # Cache (image/plugin/WebView), Network (read-only), Database (log export), Build info
-│   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + per-manga time list
+│   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + manga/novel breakdown section + per-title time list with relative bars and "N" novel badges
 │   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
 │   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
@@ -118,7 +118,7 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v15_novel_notes — last migration as of S52)
+### Current tables (migration v17_novel_scroll — last migration as of S64)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
@@ -149,11 +149,13 @@ novel        (id, path, sourceId, title, coverURL, summary, author, status,
               genres JSON, inLibrary, lastReadAt, lastUpdatedAt,
               readingSeconds INTEGER NOT NULL DEFAULT 0,
               readingStatus TEXT NOT NULL DEFAULT 'none',
+              customCoverPath TEXT,
               notes TEXT)
 
 novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
                readAt, releaseTime,
-               readingSeconds INTEGER NOT NULL DEFAULT 0)
+               readingSeconds INTEGER NOT NULL DEFAULT 0,
+               lastScrollPercent REAL)
 
 novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
                 categoryId TEXT NOT NULL FK→category ON DELETE CASCADE,
@@ -177,8 +179,10 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v13_custom_cover**: `ALTER TABLE manga ADD COLUMN customCoverPath TEXT`
 - **v14_manga_notes**: `ALTER TABLE manga ADD COLUMN notes TEXT`
 - **v15_novel_notes**: `ALTER TABLE novel ADD COLUMN notes TEXT`
+- **v16_novel_custom_cover**: `ALTER TABLE novel ADD COLUMN customCoverPath TEXT`
+- **v17_novel_scroll**: `ALTER TABLE novel_chapter ADD COLUMN lastScrollPercent REAL`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v16_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v18_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
