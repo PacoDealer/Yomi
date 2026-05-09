@@ -49,8 +49,21 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 11. Plugin update detection by ID: `PluginCatalogService.isInstalled` + `availableUpdate(for:)` now match by `ext.id` first, falling back to `ext.name` — prevents false "no update" when catalog uses the same ID with a different name string
 12. Relative time bar in Insights "By Title": each row wrapped in `ZStack(alignment:.leading)` with `GeometryReader` background `Rectangle().fill(Color.accentColor.opacity(0.12))` scaled to `stat.seconds / maxSeconds`; visually compares reading time across titles at a glance
 
+**S63 shipped:**
+1. Line spacing control in novel reader overlay: Tight/Normal/Airy segmented capsule picker added to `TextReaderOverlayView` between font/margin row and theme swatches; `@Binding var lineSpacing: Double`; onChange persists to `AppSettings.shared.lineSpacing`
+2. Chapter finished banner in manga reader: `ChapterReaderView` gets identical spring-animated bottom banner to `TextReaderView` (S61); triggers when `currentPage == pages.count - 1`; "Next →" calls `navigateToChapter(currentChapterIndex + 1)`; `showFinishedBanner = false` reset in `navigateToChapter`
+3. Backup v3 — categories: `encodeCategory` added; `categories` key in export payload; `importBackup` restores category rows via `INSERT OR IGNORE` before assignment pairs — fresh-device restore no longer leaves `manga_category`/`novel_category` rows pointing to missing category IDs. Bumped backup `version` to 3
+4. Backup fix — manga `readingStatus`: `encodeManga` was missing `readingStatus`; `decodeManga` now decodes it with `ReadingStatus(rawValue:) ?? .none`
+5. Backup fix — chapter `lastPageRead`: `encodeChapter` was omitting `lastPageRead > 0`; now encoded so resume position survives backup/restore
+6. Backup fix — manga category assignments: `exportBackup` fetches `manga_category` rows and includes `"mangaCategories"` key; `importBackup` restores them in the same DB write block as `novel_category`
+7. Novel refresh smart-skip parity: `checkNovelUpdates` now applies `skipUpdateNotStarted`, `skipUpdateCompleted`, `skipUpdateWithUnread`, and `excludedCategoryIds` — previously novels were always refreshed regardless of these settings
+8. Library context menu (grid + list, manga + novel): long-press on any cover cell or list row shows Reading Status submenu (Plan to read / Reading / On hold / Completed / Dropped) and destructive "Remove from Library"; DB write on status change; `loadLibrary()` called on remove
+9. `MangaListRow` custom cover fix: list-mode manga rows were ignoring `customCoverPath` and always using `AsyncImage(url:)`; now mirrors `NovelLibraryListRow` pattern
+10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
+
 **Current DB/code state:**
 - DB at v17_novel_scroll (18 migrations total, next must be v18_)
+- Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
 
