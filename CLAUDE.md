@@ -20,7 +20,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S62 — 2026-05-06)
+## Current state (post S64 — 2026-05-09)
 
 S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.
 
@@ -48,6 +48,15 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 10. `ContinueReadingCell` DB fallback: if bridge returns empty chapters (network failure / Cloudflare block), falls back to DB-saved chapters — mirrors `MangaDetailView.loadChapters()` S55 fix
 11. Plugin update detection by ID: `PluginCatalogService.isInstalled` + `availableUpdate(for:)` now match by `ext.id` first, falling back to `ext.name` — prevents false "no update" when catalog uses the same ID with a different name string
 12. Relative time bar in Insights "By Title": each row wrapped in `ZStack(alignment:.leading)` with `GeometryReader` background `Rectangle().fill(Color.accentColor.opacity(0.12))` scaled to `stat.seconds / maxSeconds`; visually compares reading time across titles at a glance
+
+**S64 shipped:**
+1. Reading time in detail view headers: `MangaDetailView` and `NovelDetailView` progress bar caption now appends "· Xh Ym" (computed from `chapters.reduce(0) { $0 + $1.readingSeconds }`) when total > 0; new `formatReadingTime(_ seconds: Int) -> String` private helper in both views
+2. `InsightsView` manga/novel breakdown: "Breakdown" section between stat cards and "By Title" shows manga vs novel chapter counts and reading time separately; 4 new state vars (`mangaChaptersRead`, `novelChaptersRead`, `mangaSeconds`, `novelSeconds`) threaded through `loadStats()` return tuple (now 9 elements); `breakdownRow(@ViewBuilder)` helper renders each row
+3. `InsightsView` novel badge in "By Title": `isNovel: Bool` added to stats tuple; novel entries show small accentColor "N" badge before title — matches ContinueReadingRow badge pattern; tuple type updated throughout `loadStats()`
+4. `HistoryView` `.onAppear` refresh: `.task { await loadHistory() }` → `.onAppear { Task { await loadHistory() } }` — history now re-queries DB every time the History tab becomes visible (same pattern as S62 ContinueReadingRow fix)
+5. `LibraryView` `.onAppear` refresh: `.task { await viewModel.loadLibrary() }` → `.onAppear { Task { await viewModel.loadLibrary() } }` — library reloads on every navigation return (e.g. after marking chapters read in detail view)
+6. Library sort by reading time: `SortOrder.readingTime = "Reading Time"` added to `LibraryViewModel`; systemImage `"timer"`; sorts `displayedManga` and `displayedNovels` by `readingSeconds` descending; auto-appears in sort menu via `SortOrder.allCases`
+7. `HistoryView` novel chapter subtitle shows in-progress chapter: replaces `readAt != nil` filter with `(inProgress ?? lastFullyRead)?.name` — shows where user actually stopped (lastScrollPercent > 0.01) rather than last finished chapter
 
 **S63 shipped:**
 1. Line spacing control in novel reader overlay: Tight/Normal/Airy segmented capsule picker added to `TextReaderOverlayView` between font/margin row and theme swatches; `@Binding var lineSpacing: Double`; onChange persists to `AppSettings.shared.lineSpacing`
