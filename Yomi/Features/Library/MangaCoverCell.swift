@@ -234,10 +234,17 @@ struct MangaListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: manga.coverURL) { img in
-                img.resizable().scaledToFill()
-            } placeholder: {
-                Color.secondary.opacity(0.15)
+            Group {
+                if let customPath = manga.customCoverPath,
+                   let uiImage = UIImage(contentsOfFile: customPath) {
+                    Image(uiImage: uiImage).resizable().scaledToFill()
+                } else {
+                    AsyncImage(url: manga.coverURL) { img in
+                        img.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.secondary.opacity(0.15)
+                    }
+                }
             }
             .frame(width: 48, height: 68)
             .clipShape(RoundedRectangle(cornerRadius: 6))
