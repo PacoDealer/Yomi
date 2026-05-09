@@ -146,7 +146,7 @@ struct HistoryView: View {
                 }
             }
             .searchable(text: $searchQuery, prompt: "Search history")
-            .task { await loadHistory() }
+            .onAppear { Task { await loadHistory() } }
         }
     }
 

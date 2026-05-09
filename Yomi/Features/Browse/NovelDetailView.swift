@@ -321,10 +321,15 @@ struct NovelDetailView: View {
                 if !chapters.isEmpty {
                     let readCount = chapters.filter { $0.isRead }.count
                     if readCount > 0 {
+                        let totalSecs = chapters.reduce(0) { $0 + $1.readingSeconds }
                         VStack(alignment: .leading, spacing: 3) {
                             ProgressView(value: Double(readCount), total: Double(chapters.count))
                                 .tint(.accentColor)
-                            Text("\(readCount) of \(chapters.count) chapters · \(Int(Double(readCount) / Double(chapters.count) * 100))%")
+                            let pct = Int(Double(readCount) / Double(chapters.count) * 100)
+                            let caption = totalSecs > 0
+                                ? "\(readCount) of \(chapters.count) chapters · \(pct)% · \(formatReadingTime(totalSecs))"
+                                : "\(readCount) of \(chapters.count) chapters · \(pct)%"
+                            Text(caption)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -505,6 +510,18 @@ struct NovelDetailView: View {
                 selectedChapterIds = [chapter.id]
             }
         }
+    }
+
+    // MARK: - Formatting
+
+    private func formatReadingTime(_ seconds: Int) -> String {
+        if seconds >= 3600 {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            return "\(h)h \(m)m"
+        }
+        if seconds >= 60 { return "\(seconds / 60)m" }
+        return "\(seconds)s"
     }
 
     // MARK: - Toggle Library
