@@ -7,6 +7,7 @@ enum SortOrder: String, CaseIterable, Identifiable {
     case alphabetical = "Alphabetical"
     case lastUpdated  = "Last Updated"
     case unreadCount  = "Unread"
+    case readingTime  = "Reading Time"
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum SortOrder: String, CaseIterable, Identifiable {
         case .alphabetical: return "textformat.abc"
         case .lastUpdated:  return "arrow.clockwise"
         case .unreadCount:  return "book.closed"
+        case .readingTime:  return "timer"
         }
     }
 }
@@ -115,6 +117,8 @@ final class LibraryViewModel {
             sorted = base.sorted {
                 (unreadCounts[$0.id] ?? 0) > (unreadCounts[$1.id] ?? 0)
             }
+        case .readingTime:
+            sorted = base.sorted { $0.readingSeconds > $1.readingSeconds }
         }
         guard !searchText.isEmpty else { return sorted }
         return sorted.filter { $0.title.localizedStandardContains(searchText) }
@@ -150,6 +154,8 @@ final class LibraryViewModel {
             sorted = base.sorted {
                 (novelUnreadCounts[$0.id] ?? 0) > (novelUnreadCounts[$1.id] ?? 0)
             }
+        case .readingTime:
+            sorted = base.sorted { $0.readingSeconds > $1.readingSeconds }
         }
         guard !searchText.isEmpty else { return sorted }
         return sorted.filter { $0.title.localizedStandardContains(searchText) }

@@ -322,9 +322,7 @@ struct LibraryView: View {
                     NovelDetailView(novel: novel)
                 }
             }
-            .task {
-                await viewModel.loadLibrary()
-            }
+            .onAppear { Task { await viewModel.loadLibrary() } }
         }
     }
 
