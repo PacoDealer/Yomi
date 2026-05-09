@@ -238,11 +238,14 @@ struct HistoryView: View {
                 }
             }
             for novel in novels {
-                if let chapters = try? NovelQueries.fetchChapters(novelId: novel.id),
-                   let lastRead = chapters.filter({ $0.readAt != nil })
-                       .sorted(by: { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) })
-                       .first {
-                    map[novel.id] = lastRead.name
+                if let chapters = try? NovelQueries.fetchChapters(novelId: novel.id) {
+                    // Prefer the in-progress chapter (partially read), then fall back to last fully-read
+                    let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
+                    let lastFullyRead = chapters
+                        .filter { $0.readAt != nil }
+                        .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
+                        .first
+                    map[novel.id] = (inProgress ?? lastFullyRead)?.name
                 }
             }
 
