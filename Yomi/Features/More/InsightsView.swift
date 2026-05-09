@@ -12,7 +12,7 @@ struct InsightsView: View {
     @State private var readChaptersCount: Int = 0
     @State private var totalSeconds: Int = 0
     @State private var titlesStarted: Int = 0
-    @State private var mangaStats: [(title: String, seconds: Int)] = []
+    @State private var mangaStats: [(title: String, seconds: Int, isNovel: Bool)] = []
 
     // Manga vs novel split
     @State private var mangaChaptersRead: Int = 0
@@ -100,7 +100,16 @@ struct InsightsView: View {
                                                     .fill(Color.accentColor.opacity(0.12))
                                                     .frame(width: geo.size.width * min(Double(stat.seconds) / Double(maxSeconds), 1.0))
                                             }
-                                            HStack {
+                                            HStack(spacing: 6) {
+                                                if stat.isNovel {
+                                                    Text("N")
+                                                        .font(.system(size: 8, weight: .bold))
+                                                        .foregroundStyle(.white)
+                                                        .padding(.horizontal, 3)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.accentColor.opacity(0.85),
+                                                                    in: RoundedRectangle(cornerRadius: 3))
+                                                }
                                                 Text(stat.title)
                                                     .font(.subheadline)
                                                     .lineLimit(1)
@@ -141,7 +150,7 @@ struct InsightsView: View {
     // MARK: - Load
 
     private func loadStats() async {
-        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int)], Int, Int, Int, Int) in
+        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int, isNovel: Bool)], Int, Int, Int, Int) in
 
             let calendar = Calendar.current
 
@@ -211,15 +220,15 @@ struct InsightsView: View {
             let titlesStarted = mangaTitlesStarted + novelTitlesStarted
 
             // --- By title (manga + novels merged) ---
-            let mangaStats: [(title: String, seconds: Int)] = allManga.compactMap { manga in
+            let mangaStats: [(title: String, seconds: Int, isNovel: Bool)] = allManga.compactMap { manga in
                 let secs = (chaptersByManga[manga.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
                 guard secs > 0 else { return nil }
-                return (title: manga.title, seconds: secs)
+                return (title: manga.title, seconds: secs, isNovel: false)
             }
-            let novelStats: [(title: String, seconds: Int)] = allNovels.compactMap { novel in
+            let novelStats: [(title: String, seconds: Int, isNovel: Bool)] = allNovels.compactMap { novel in
                 let secs = (chaptersByNovel[novel.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
                 guard secs > 0 else { return nil }
-                return (title: novel.title, seconds: secs)
+                return (title: novel.title, seconds: secs, isNovel: true)
             }
             let stats = (mangaStats + novelStats).sorted { $0.seconds > $1.seconds }
 
