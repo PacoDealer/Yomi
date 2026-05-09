@@ -166,7 +166,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v17_` (v16_ used for novel.customCoverPath in S58)
+- Next migration prefix must be `v18_` (v17_ used for novel_chapter.lastScrollPercent in S60)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -185,13 +185,13 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 
 ## Key file paths
 ```
-Yomi/AppSettings.swift                         # @Observable singleton, UserDefaults, 16 props (incl. libraryColumns, keepScreenOn, isIncognito, showUnreadBadge)
+Yomi/AppSettings.swift                         # @Observable singleton, UserDefaults, 35+ props (incl. libraryColumns, keepScreenOn, isIncognito, showUnreadBadge, lineSpacing, libraryDisplayMode)
 Yomi/ContentView.swift                         # Root TabView with AppRouter binding
 Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBUG seed, .tint + .preferredColorScheme on ContentView
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v16_novel_custom_cover; next must be v17_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v17_novel_scroll; next must be v18_
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift
