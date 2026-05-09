@@ -573,6 +573,7 @@ private struct NovelLibraryCoverCell: View {
     @State private var settings = AppSettings.shared
     @State private var readProgress: Double = 0
     @State private var currentReadingStatus: ReadingStatus = .none
+    @State private var lastReadChapterName: String? = nil
 
     var body: some View {
         Button(action: onTap) {
@@ -610,14 +611,27 @@ private struct NovelLibraryCoverCell: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    if readProgress > 0 && readProgress < 1 {
-                        GeometryReader { geo in
-                            Rectangle()
-                                .fill(Color.accentColor)
-                                .frame(width: geo.size.width * readProgress, height: 3)
+                    VStack(spacing: 0) {
+                        if let name = lastReadChapterName, readProgress > 0 {
+                            Text(name)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.black.opacity(0.65))
                         }
-                        .frame(height: 3)
+                        if readProgress > 0 && readProgress < 1 {
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * readProgress, height: 3)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(height: 3)
+                        }
                     }
                 }
 
@@ -669,6 +683,11 @@ private struct NovelLibraryCoverCell: View {
                 readProgress = Double(chapters.filter { $0.isRead }.count) / Double(chapters.count)
             }
             currentReadingStatus = fetched?.readingStatus ?? novel.readingStatus
+            let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
+            let lastRead = chapters
+                .filter { $0.readAt != nil }
+                .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) })
+            lastReadChapterName = (inProgress ?? lastRead)?.name
         }
     }
 }

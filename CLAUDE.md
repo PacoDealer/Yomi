@@ -20,6 +20,12 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
+## Current state (post S65 — 2026-05-09)
+
+**S65 shipped:**
+1. Last-read chapter label on library covers: both `MangaCoverCell` and `NovelLibraryCoverCell` show the most recently read chapter name as a `black.opacity(0.65)` semi-transparent label stacked above the progress bar inside `.overlay(alignment: .bottom)`. Only shown when `readProgress > 0`. Manga uses chapter with latest `readAt`; novel prefers in-progress (`lastScrollPercent > 0.01 && !isRead`) over fully-read.
+2. Reading activity calendar in InsightsView: 13-week rolling heatmap in new `ReadingCalendarView` private struct, placed between stat cards and Breakdown. Month labels use `ZStack + .offset(x:)` to avoid width-clipping. Intensity: `accentColor.opacity(min(0.35 + Double(count-1)*0.18, 1.0))`. Calendar data built in `loadStats()` Task.detached, returned as 10th tuple element, assigned via `MainActor.run`.
+
 ## Current state (post S64 — 2026-05-09)
 
 S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.

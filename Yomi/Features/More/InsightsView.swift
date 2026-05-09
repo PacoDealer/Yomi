@@ -20,6 +20,9 @@ struct InsightsView: View {
     @State private var mangaSeconds: Int = 0
     @State private var novelSeconds: Int = 0
 
+    // Reading activity calendar (day → chapters read)
+    @State private var readingCalendar: [DateComponents: Int] = [:]
+
     private let cardColumns = [
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
@@ -58,6 +61,16 @@ struct InsightsView: View {
                                      color: .green)
                         }
                         .padding(.horizontal, 16)
+
+                        // MARK: Reading activity calendar
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Reading Activity")
+                                .font(.headline)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 10)
+                            ReadingCalendarView(activityMap: readingCalendar)
+                                .padding(.horizontal, 16)
+                        }
 
                         // MARK: Manga vs Novel breakdown
                         if mangaChaptersRead > 0 || novelChaptersRead > 0 {
@@ -150,7 +163,7 @@ struct InsightsView: View {
     // MARK: - Load
 
     private func loadStats() async {
-        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int, isNovel: Bool)], Int, Int, Int, Int) in
+        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int, isNovel: Bool)], Int, Int, Int, Int, [DateComponents: Int]) in
 
             let calendar = Calendar.current
 
@@ -232,7 +245,18 @@ struct InsightsView: View {
             }
             let stats = (mangaStats + novelStats).sorted { $0.seconds > $1.seconds }
 
-            return (streak, totalSeconds, readCount, titlesStarted, stats, mangaReadCount, novelReadCount, mangaSeconds, novelSeconds)
+            // --- Reading activity calendar (day → chapters read) ---
+            var calendarMap: [DateComponents: Int] = [:]
+            for ch in readMangaChapters where ch.readAt != nil {
+                let dc = calendar.dateComponents([.year, .month, .day], from: ch.readAt!)
+                calendarMap[dc, default: 0] += 1
+            }
+            for ch in readNovelChapters where ch.readAt != nil {
+                let dc = calendar.dateComponents([.year, .month, .day], from: ch.readAt!)
+                calendarMap[dc, default: 0] += 1
+            }
+
+            return (streak, totalSeconds, readCount, titlesStarted, stats, mangaReadCount, novelReadCount, mangaSeconds, novelSeconds, calendarMap)
         }.value
 
         await MainActor.run {
@@ -245,6 +269,7 @@ struct InsightsView: View {
             novelChaptersRead   = result.6
             self.mangaSeconds   = result.7
             self.novelSeconds   = result.8
+            readingCalendar     = result.9
             isLoading = false
         }
     }
@@ -327,6 +352,100 @@ private struct StatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - ReadingCalendarView
+
+private struct ReadingCalendarView: View {
+    let activityMap: [DateComponents: Int]
+
+    private let cal = Calendar.current
+    private let cellSize: CGFloat = 12
+    private let gap: CGFloat = 3
+
+    private var gridData: (start: Date, today: Date, dayLabels: [String], monthLabels: [Int: String]) {
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let firstWD = cal.firstWeekday
+        let daysToStart = (weekday - firstWD + 7) % 7
+        let thisWeekStart = cal.date(byAdding: .day, value: -daysToStart, to: today)!
+        let start = cal.date(byAdding: .weekOfYear, value: -12, to: thisWeekStart)!
+
+        let dayLabels: [String] = (0..<7).map { offset in
+            let wd = (firstWD - 1 + offset) % 7  // 0=Sun…6=Sat
+            return ["S", "M", "T", "W", "T", "F", "S"][wd]
+        }
+
+        let fmt = DateFormatter(); fmt.dateFormat = "MMM"
+        var monthLabels: [Int: String] = [:]
+        var lastMonth = -1
+        for weekIdx in 0..<13 {
+            let weekStart = cal.date(byAdding: .weekOfYear, value: weekIdx, to: start)!
+            let month = cal.component(.month, from: weekStart)
+            if month != lastMonth { monthLabels[weekIdx] = fmt.string(from: weekStart); lastMonth = month }
+        }
+
+        return (start, today, dayLabels, monthLabels)
+    }
+
+    private func cellColor(date: Date, today: Date) -> Color {
+        if date > today { return Color.secondary.opacity(0.06) }
+        let dc = cal.dateComponents([.year, .month, .day], from: date)
+        let count = activityMap[dc] ?? 0
+        guard count > 0 else { return Color.secondary.opacity(0.15) }
+        return Color.accentColor.opacity(min(0.35 + Double(count - 1) * 0.18, 1.0))
+    }
+
+    var body: some View {
+        let (start, today, dayLabels, monthLabels) = gridData
+        let weekWidth = cellSize + gap          // 15 pt per column
+        let dayLabelWidth: CGFloat = 10
+
+        VStack(alignment: .leading, spacing: 6) {
+            // Month labels: ZStack with absolute offsets so text isn't clipped to cellSize
+            HStack(spacing: 0) {
+                Color.clear.frame(width: dayLabelWidth + gap)
+                ZStack(alignment: .topLeading) {
+                    Color.clear.frame(width: CGFloat(13) * weekWidth - gap, height: 11)
+                    ForEach(0..<13, id: \.self) { weekIdx in
+                        if let label = monthLabels[weekIdx] {
+                            Text(label)
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                                .offset(x: CGFloat(weekIdx) * weekWidth)
+                        }
+                    }
+                }
+            }
+
+            // Day labels + week columns
+            HStack(alignment: .top, spacing: gap) {
+                VStack(spacing: gap) {
+                    ForEach(0..<7, id: \.self) { dayIdx in
+                        Text(dayIdx % 2 == 1 ? dayLabels[dayIdx] : "")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .frame(width: dayLabelWidth, height: cellSize, alignment: .trailing)
+                    }
+                }
+                ForEach(0..<13, id: \.self) { weekIdx in
+                    VStack(spacing: gap) {
+                        ForEach(0..<7, id: \.self) { dayIdx in
+                            let date = cal.date(byAdding: .day, value: weekIdx * 7 + dayIdx, to: start)!
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(cellColor(date: date, today: today))
+                                .frame(width: cellSize, height: cellSize)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
