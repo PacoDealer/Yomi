@@ -347,9 +347,8 @@ private struct ContinueReadingNovelCell: View {
             let chapters = await Task.detached {
                 (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
             }.value
-            // Include in-progress chapters (not yet marked read but have scroll progress or readAt)
             let touched = chapters
-                .filter { $0.isRead || $0.readAt != nil || ($0.lastScrollPercent ?? 0) > 0 }
+                .filter { $0.isRead || ($0.lastScrollPercent ?? 0) > 0.01 }
                 .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
             lastChapterName = touched.first?.name
             if !chapters.isEmpty {
@@ -387,7 +386,7 @@ private struct ContinueReadingNovelCell: View {
 
         // Resume: in-progress first, then first unread, then last chapter
         let resumeChapter: NovelChapter?
-        if let inProgress = chapters.first(where: { !$0.isRead && $0.readAt != nil }) {
+        if let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 }) {
             resumeChapter = inProgress
         } else if let firstUnread = chapters.first(where: { !$0.isRead }) {
             resumeChapter = firstUnread
