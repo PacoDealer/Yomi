@@ -16,6 +16,7 @@ struct MangaCoverCell: View {
     @State private var readProgress: Double = 0   // 0.0 – 1.0, 0 = not started
     @State private var dbInLibrary: Bool = false
     @State private var currentReadingStatus: ReadingStatus = .none
+    @State private var lastReadChapterName: String? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -99,6 +100,10 @@ struct MangaCoverCell: View {
                 let readCount = all.filter { $0.isRead }.count
                 readProgress = Double(readCount) / Double(all.count)
             }
+            lastReadChapterName = all
+                .filter { $0.readAt != nil }
+                .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) })?
+                .name
         }
     }
 
@@ -164,14 +169,29 @@ struct MangaCoverCell: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if readProgress > 0 && readProgress < 1 && !isSelecting {
-                    GeometryReader { geo in
-                        Rectangle()
-                            .fill(Color.accentColor)
-                            .frame(width: geo.size.width * readProgress, height: 3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                if !isSelecting {
+                    VStack(spacing: 0) {
+                        if let name = lastReadChapterName, readProgress > 0 {
+                            Text(name)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.black.opacity(0.65))
+                        }
+                        if readProgress > 0 && readProgress < 1 {
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * readProgress, height: 3)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(height: 3)
+                        }
                     }
-                    .frame(height: 3)
                 }
             }
 
