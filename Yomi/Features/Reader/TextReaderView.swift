@@ -82,6 +82,7 @@ struct TextReaderView: View {
     @State private var lineSpacing: Double     = AppSettings.shared.lineSpacing
     @State private var novelTheme: NovelTheme  = NovelTheme(rawValue: AppSettings.shared.novelTheme) ?? .light
     @State private var fontFamily: String      = AppSettings.shared.novelFontFamily
+    @State private var justifyText: Bool       = AppSettings.shared.novelJustifyText
     @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
 
     @State private var showOverlay = true
@@ -130,6 +131,7 @@ struct TextReaderView: View {
                 font-family: \(fontFamilyCSS);
                 font-size: \(fs)px;
                 line-height: \(ls);
+                text-align: \(justifyText ? "justify" : "start");
                 padding: 24px \(hp)px 200px \(hp)px;
                 background: \(bg);
                 color: \(fg);
@@ -232,6 +234,7 @@ struct TextReaderView: View {
                 lineSpacing:          $lineSpacing,
                 novelTheme:           $novelTheme,
                 fontFamily:           $fontFamily,
+                justifyText:          $justifyText,
                 hPadding:             $hPadding,
                 showOverlay:          $showOverlay,
                 isSpeaking:           $isSpeaking,
@@ -255,8 +258,9 @@ struct TextReaderView: View {
             AppSettings.shared.novelSepia  = (v == .sepia)
         }
         .onChange(of: lineSpacing) { _, v in AppSettings.shared.lineSpacing = v }
-        .onChange(of: fontFamily) { _, v in AppSettings.shared.novelFontFamily = v }
-        .onChange(of: hPadding)   { _, v in AppSettings.shared.novelHorizontalPadding = v }
+        .onChange(of: fontFamily)    { _, v in AppSettings.shared.novelFontFamily = v }
+        .onChange(of: justifyText)  { _, v in AppSettings.shared.novelJustifyText = v }
+        .onChange(of: hPadding)     { _, v in AppSettings.shared.novelHorizontalPadding = v }
         .onAppear {
             sessionStart  = Date()
             readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
@@ -564,8 +568,9 @@ struct TextReaderOverlayView: View {
     @Binding var fontSize:    Double
     @Binding var lineSpacing: Double
     @Binding var novelTheme:  NovelTheme
-    @Binding var fontFamily:  String
-    @Binding var hPadding:    Int
+    @Binding var fontFamily:   String
+    @Binding var justifyText:  Bool
+    @Binding var hPadding:     Int
     @Binding var showOverlay: Bool
     @Binding var isSpeaking:  Bool
     var hasPrevChapter:       Bool = false
@@ -700,13 +705,13 @@ struct TextReaderOverlayView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Row 2: Font family + horizontal margin
-                    HStack(spacing: 16) {
+                    // Row 2: Font family + justify + horizontal margin
+                    HStack(spacing: 12) {
                         // Font family toggle
                         Button {
                             fontFamily = (fontFamily == "Serif") ? "System" : "Serif"
                         } label: {
-                            Text(fontFamily == "Serif" ? "Aa" : "Aa")
+                            Text("Aa")
                                 .font(fontFamily == "Serif"
                                       ? .system(.subheadline, design: .serif).bold()
                                       : .subheadline.bold())
@@ -715,6 +720,16 @@ struct TextReaderOverlayView: View {
                                 .padding(.vertical, 6)
                                 .background(Color.white.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
                                 .clipShape(Capsule())
+                        }
+
+                        // Text justify toggle
+                        Button { justifyText.toggle() } label: {
+                            Image(systemName: "text.justify")
+                                .font(.subheadline)
+                                .foregroundStyle(justifyText ? Color.white : Color.white.opacity(0.45))
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(justifyText ? 0.18 : 0.06))
+                                .clipShape(Circle())
                         }
 
                         Spacer()

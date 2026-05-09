@@ -20,7 +20,11 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S65 — 2026-05-09)
+## Current state (post S66 — 2026-05-09)
+
+**S66 shipped:**
+1. Text justification toggle in novel reader: `novelJustifyText: Bool` in `AppSettings`; `text-align: justify/start` in CSS body of `styledHTML`; circular `"text.justify"` icon button in Row 2 of `TextReaderOverlayView` between the Aa toggle and the margin picker; persisted via `onChange → AppSettings.shared.novelJustifyText`.
+2. Home screen quick actions: `AppDelegate` (UIApplicationDelegate) added to `YomiApp.swift` via `@UIApplicationDelegateAdaptor`; registers "Continue Reading" (`book.fill`) and "Browse" (`safari.fill`) shortcut items in `didFinishLaunchingWithOptions`; `performActionFor shortcutItem` routes to `appRouter.selectedTab` on `DispatchQueue.main`. `launchOptions[.shortcutItem]` omitted — deprecated iOS 26; `performActionFor` covers both cold and foregrounded launch.
 
 **S65 shipped:**
 1. Last-read chapter label on library covers: both `MangaCoverCell` and `NovelLibraryCoverCell` show the most recently read chapter name as a `black.opacity(0.65)` semi-transparent label stacked above the progress bar inside `.overlay(alignment: .bottom)`. Only shown when `readProgress > 0`. Manga uses chapter with latest `readAt`; novel prefers in-progress (`lastScrollPercent > 0.01 && !isRead`) over fully-read.
