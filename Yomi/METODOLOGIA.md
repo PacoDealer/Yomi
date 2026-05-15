@@ -27,7 +27,7 @@ without seeing what they omitted. Claude Code reading first prevents this class 
 - All code, commits, docs, and communication in English (from S15 onward).
 
 ### Session start
-`cd /Users/martingamberg/Documents/GitHub/Yomi` → open Claude Code.
+`cd /Users/martingamberg/Projects/Yomi/iOS` → open Claude Code.
 CLAUDE.md loads automatically with full context. No pasting required.
 If starting a session after a long gap: read ROADMAP.md to confirm current state.
 
@@ -43,7 +43,7 @@ If starting a session after a long gap: read ROADMAP.md to confirm current state
 Claude Code is capable of reading files, planning, implementing, building, and iterating without a human relay. The workflow that uses Claude.ai to generate prompts for Claude Code to execute treats Claude Code as a dumb executor — this is suboptimal. Claude Code-first is better: Claude Code reads actual file state, generates its own implementation plan, writes code, builds, fixes errors, and commits. Claude.ai is reserved for session-level strategy.
 
 ### CLAUDE.md
-Located at `/Users/martingamberg/Documents/GitHub/Yomi/CLAUDE.md`. Loaded automatically every session. Contains: tech stack, iOS 26 rules, GRDB/concurrency rules, key file paths, current session state, build command, App Store checklist. Update after every session close. This file replaces the session-start paste ritual.
+Located at `/Users/martingamberg/Projects/Yomi/iOS/CLAUDE.md`. Loaded automatically every session. Contains: tech stack, iOS 26 rules, GRDB/concurrency rules, key file paths, current session state, build command, App Store checklist. Update after every session close. This file replaces the session-start paste ritual.
 
 ### Memory system
 Located at `~/.claude/projects/-Users-martingamberg/memory/`. Contains `MEMORY.md` (index) and `project_yomi.md` (project state). Persists project path, tech stack, and session state across conversations.
@@ -838,7 +838,7 @@ Webnovel (may need extra headers). These can be written as TypeScript plugins us
 
 - **PluginCatalogService pattern**: `@Observable` singleton that owns remote catalog state (`entries`, `isLoading`, `errorMessage`). `fetchCatalog()` is a plain `async func` — call from `.task {}` in the View. Never call from `init()`. `isInstalled()` cross-references `ExtensionManager.shared.installed` by name.
 
-- **Firebase Hosting as plugin CDN**: project yomi-plugins, live at https://yomi-plugins.web.app. `index.json` + `.js` files in `~/Desktop/yomi-firebase/public/`. Deploy: `cd ~/Desktop/yomi-firebase && firebase deploy --only hosting`. Firebase folder lives outside the Xcode repo (`~/Desktop/yomi-firebase`) — not committed to git.
+- **Firebase Hosting as plugin CDN**: project yomi-plugins, live at https://yomi-plugins.web.app. `index.json` + `.js` files in `~/Projects/Yomi/Firebase/public/`. Deploy: `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting`. Firebase folder lives outside the Xcode repo (`~/Projects/Yomi/Firebase`) — not committed to git.
 
 - **esbuild IIFE for JSContext**: `format: 'iife'`, `bundle: true`, `platform: 'browser'`, `target: 'es6'`. Output is a self-contained JS file with no `import`/`require` statements — directly evaluatable by `JSContext.evaluateScript()`.
 

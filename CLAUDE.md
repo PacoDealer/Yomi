@@ -168,11 +168,14 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Deliver results via `await MainActor.run { state = result }`
 - `appDatabase` is `nonisolated(unsafe) var` at module level — never wrap in an actor
 - `ExtensionManager.shared` is MainActor-isolated — capture a local closure before entering Task.detached
+- **Never read `AppSettings.shared` properties inside `Task.detached`.** Capture any needed values as local constants on MainActor before entering the detached task — `AppSettings` is not thread-safe.
 
 ### File editing
 - **Always read the target file before editing it.** Never write against assumptions.
 - **When replacing an entire file: explicitly check what the new file omits vs the current file.** Silent deletion of existing logic is the #1 source of regressions (OnboardingView, markRead() both dropped this way in S21).
-- One file at a time. Compile after each new file.
+- **Before removing or renaming any public symbol (function, property, type): grep for all call sites first.** A symbol that looks unused in its own file may be the only path through a critical flow elsewhere.
+- **Before editing doc sections (ROADMAP/METODOLOGIA/ARQUITECTURA/CLAUDE.md): read the current content of that section.** Never update docs from memory — diffs, not recollection.
+- Compile before touching a third unrelated file. Chaining two tightly coupled edits then compiling is fine; letting errors compound across unrelated files is not.
 - Never create a file that isn't strictly required.
 
 ### GRDB
@@ -182,11 +185,24 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - `appDatabase.read` from `@MainActor` context requires `try await`
 - **INSERT OR IGNORE pattern**: `try ch.insert(db, onConflict: .ignore)` — never use `ch.save(db)` for chapter list persistence (save = INSERT OR REPLACE which overwrites existing read/download state)
 
+### Diagnosing errors
+- **Read the full build error before touching any code.** Never fix what you expect — fix what the compiler says.
+- After a session gap of more than a few days: run a build before writing any new code. DerivedData and simulator state can drift.
+
 ### iOS 26 patterns
 - TabView: `Tab("title", systemImage:) {}` — `.tabItem {}` renders nothing in iOS 26
 - `Text + Text` is deprecated — use `Text("\(Text(…)) …")` interpolation
 - `.tint()` and `.preferredColorScheme()` go on `ContentView()` inside WindowGroup, NOT on WindowGroup/Scene itself
 - `@Observable` singletons in App structs require `@State` to drive re-evaluation (not just `AppSettings.shared.property`)
+
+### Image loading
+- **Never use `AsyncImage` for cover images or manga pages.** `AsyncImage` has no disk cache — every app launch re-fetches all images. Use `KFImage` from Kingfisher (SPM: `https://github.com/onevcat/Kingfisher`). Drop-in replacement: `KFImage(url)` instead of `AsyncImage(url:)`.
+- Kingfisher provides automatic disk + memory cache. Cover images load instantly after the first fetch.
+- For manga page images inside readers, `AsyncImage` is acceptable (pages are transient — not worth caching to disk).
+
+### Database performance
+- **Always add an index when a new table is queried by a non-primary-key column.** Current indexes: `idx_chapter_mangaid`, `idx_chapter_unread`, `idx_novel_chapter_novelid` — added in v18_ migration.
+- Every new `WHERE column = ?` query pattern on a large table needs a corresponding index.
 
 ### Plugin system
 - Never build `JSBridge(scriptURL: ext.sourceListURL)` — URL in DB goes stale. Always reconstruct from `FileManager` + `ext.id`

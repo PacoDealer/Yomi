@@ -74,8 +74,7 @@ Yomi/
 │       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
 │       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
 │       ├── OPDSService.swift        # OPDS Atom XML SAX parser (XMLParserDelegate). OPDSFeed/OPDSEntry models. Nav vs acquisition detection via link rel/type. Basic Auth. absoluteURL() resolution.
-│       ├── CFBypassManager.swift    # Cloudflare auto-bypass: hidden 1×1pt WKWebView attached to keyWindow; polls httpCookieStore every 0.5s; copies cf_clearance to HTTPCookieStorage.shared on success; 10s timeout
-│       └── CFBypassView.swift       # Manual CF bypass sheet: full UIViewRepresentable WKWebView + URL bar; copies cookies to HTTPCookieStorage.shared; opened by shield toolbar button in SourceBrowseView
+│       └── CFBypassView.swift       # Manual CF bypass sheet + CFBypassManager enum (auto-bypass: hidden 1×1pt WKWebView, polls httpCookieStore every 0.5s, copies cf_clearance to HTTPCookieStorage.shared, 10s timeout); opened by shield toolbar button in SourceBrowseView
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 39 properties. Covers reader mode/font/theme, OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color, alternate icon, libraryDisplayMode, suwayomiURL, opdsURL/opdsUsername/opdsPassword.
 YomiWidget/                          # Widget extension target (bundle ID: pacodealer.Yomi.widget)
 ├── YomiWidget.swift                 # @main YomiWidgetBundle. ContinueReadingWidget (StaticConfiguration, kind: "YomiContinueReading"). TimelineProvider: reads from App Group UserDefaults, refreshes every 30 min. Views: small (cover+text), medium (3 tiles), large (2×3 grid).
@@ -253,8 +252,8 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `scheduleChapterNotification(mangaTitle:newCount:)` — immediate local notification
 - Trigger: MangaDetailView, first library save, only if `!hasRequestedNotifications`
 
-### CFBypassManager (Yomi/Features/Extensions/CFBypassManager.swift)
-Singleton-style `actor` (or class). Provides Cloudflare bypass in two modes:
+### CFBypassManager (enum inside Yomi/Features/Extensions/CFBypassView.swift)
+Namespace `enum` (not a standalone file). Provides Cloudflare bypass in two modes:
 - **Auto-bypass** (`autoBypass(url:) async → Bool`): attaches a hidden 1×1pt WKWebView to keyWindow for up to 10s. Polls `httpCookieStore` every 0.5s for `cf_clearance`. On success: copies all domain cookies to `HTTPCookieStorage.shared` → returns `true`. On timeout → returns `false`. No UI shown.
 - **Manual bypass**: `CFBypassView` sheet with real WKWebView + URL bar. User navigates the CF challenge. `cf_clearance` copy happens on success.
 
@@ -411,8 +410,8 @@ Injected via `injectRequireShim(into: ctx)` as an IIFE. Module cache prevents do
 **Project:** yomi-plugins
 **URL:** https://yomi-plugins.web.app
 **index.json:** https://yomi-plugins.web.app/index.json
-**Local folder:** `~/Desktop/yomi-firebase/` (outside Xcode repo, not committed to git)
-**Deploy:** `cd ~/Desktop/yomi-firebase && firebase deploy --only hosting`
+**Local folder:** `~/Projects/Yomi/Firebase/` (outside Xcode repo, not committed to git)
+**Deploy:** `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting`
 
 **Structure:**
 ```
