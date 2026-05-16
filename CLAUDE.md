@@ -80,11 +80,23 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 9. `MangaListRow` custom cover fix: list-mode manga rows were ignoring `customCoverPath` and always using `AsyncImage(url:)`; now mirrors `NovelLibraryListRow` pattern
 10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
 
+**S67 shipped (2026-05-15):**
+1. Kingfisher 8.9.0 via SPM — `CoverImage.swift` wrapper; all 21 `AsyncImage` cover usages migrated across 11 files
+2. `v18_indexes` migration — 3 DB indexes on `chapter` and `novel_chapter` tables
+3. `markChapterRead()` double-fire fix — `didMarkCurrentChapterRead` guard in `ChapterReaderView`
+4. Spanish comments cleaned in `DatabaseManager.swift` and `ChapterQueries.swift`
+
+**S68 shipped (2026-05-15):**
+1. `LibraryViewModel.displayedManga`/`displayedNovels` converted from computed to stored properties — sort/filter runs only when data changes
+2. iOS 26 Liquid Glass on reader overlays — `ReaderOverlayView` + `TextReaderOverlayView` use `Rectangle().glassEffect().ignoresSafeArea()` replacing gradient bars
+
 **Current DB/code state:**
 - DB at v18_indexes (19 migrations total, next must be v19_)
 - Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
+- Image caching: ✅ Kingfisher — all cover images cached to disk; no more re-fetch on cold start
+- Build environment: Xcode 26.5 installed; **iOS 26.5 simulator runtime not yet downloaded** — download from Xcode → Settings → Platforms to enable simulator builds
 
 **App Store status:** Apple Developer account created. Blocked on icon design only for submission.
 
