@@ -21,6 +21,10 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S70 — 2026-05-16)
+
+S70 (2026-05-16): Auto iCloud backup + Kingfisher cache fix. (1) **Auto iCloud backup**: `AppSettings.iCloudAutoBackup: Bool` (default `true`); `YomiApp.onChange(scenePhase == .background)` triggers `BackupManager.shared.uploadToICloud()` when enabled — library backed up automatically every time user leaves the app; toggle exposed in `BackupView` iCloud section. (2) **Kingfisher cache clear fix**: `AdvancedSettingsView` "Clear image cache" button now also calls `ImageCache.default.clearCache()` (Kingfisher memory + disk) in addition to `URLCache.shared` — previously tapping the button left the Kingfisher disk cache intact.
+
 ## Current state (post S69 — 2026-05-16)
 
 S69 (2026-05-16): iCloud Drive backup sync. `BackupManager` extended with `uploadToICloud()`, `downloadFromICloud()`, `checkICloudBackup()` — all file I/O in `Task.detached` (off main thread); `buildBackupData() async throws -> Data` extracted from `exportBackup()` and shared by both local export and iCloud upload paths; `ICloudSyncStatus` enum tracks idle/uploading/downloading/success/unavailable/error; `lastICloudUploadDate: Date?` persisted to UserDefaults. `BackupView` gains an iCloud section at the top: "Back up to iCloud" button, last backup timestamp (`checkICloudBackup()` on appear), "Restore from iCloud" button guarded by `confirmationDialog`. `Yomi.entitlements` gets `com.apple.developer.ubiquity-container-identifiers: ["iCloud.pacodealer.Yomi"]`. **One-time Xcode step required**: Target → Signing & Capabilities → + Capability → iCloud → check "iCloud Documents" to activate provisioning.

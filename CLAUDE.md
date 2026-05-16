@@ -90,6 +90,10 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 1. `LibraryViewModel.displayedManga`/`displayedNovels` converted from computed to stored properties — sort/filter runs only when data changes
 2. iOS 26 Liquid Glass on reader overlays — `ReaderOverlayView` + `TextReaderOverlayView` use `Rectangle().glassEffect().ignoresSafeArea()` replacing gradient bars
 
+**S70 shipped (2026-05-16):**
+1. Auto iCloud backup — `AppSettings.iCloudAutoBackup: Bool` (default true); `YomiApp.scenePhase == .background` triggers `BackupManager.shared.uploadToICloud()`; toggle in BackupView iCloud section
+2. Kingfisher cache clear fix — `AdvancedSettingsView` "Clear image cache" now calls `ImageCache.default.clearCache()` (Kingfisher disk+memory) in addition to `URLCache.shared`
+
 **S69 shipped (2026-05-16):**
 1. iCloud Drive backup sync — `BackupManager`: `buildBackupData()` extracted and shared by local export + iCloud upload; `uploadToICloud()` / `downloadFromICloud()` / `checkICloudBackup()` with `Task.detached` file I/O; `ICloudSyncStatus` enum; `lastICloudUploadDate` in UserDefaults
 2. `BackupView`: iCloud section at top — "Back up to iCloud", last backup timestamp, "Restore from iCloud" (confirmationDialog); status refreshed on appear
