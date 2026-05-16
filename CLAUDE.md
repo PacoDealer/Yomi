@@ -82,6 +82,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 
 **S73 shipped (2026-05-16):**
 1. Notification deep linking — tapping a chapter-update notification navigates to the manga/novel detail. `AppDelegate` conforms to `UNUserNotificationCenterDelegate`; reads `mediaId`/`mediaType` from `userInfo`, sets `appRouter.pendingOpenMangaId` or `pendingOpenNovelId`. `LibraryView` observes both properties via `.onChange`, fetches from DB in `Task.detached`, presents `MangaDetailView` or `NovelDetailView`. `scheduleChapterNotification` now accepts `mediaId: String?` and `mediaType: String`.
+2. Live-testing fixes: (a) Chapter number formatting in `MangaDetailView.ChapterRow` — whole-number chapter indices now show "Chapter 1" (not "Chapter 1.0") using `truncatingRemainder(dividingBy: 1) == 0` check; fractional chapters (e.g. 1.5) still show one decimal. (b) "Restore scroll position" artifact in novel reader — `ReaderWebView.makeUIView` now uses `config.websiteDataStore = .nonPersistent()` so iOS can't match scroll state across chapter loads; `didFinish` also runs a JS `TreeWalker` to remove any "Restore scroll position" DOM element injected by source websites before chapter content renders.
 
 **S67 shipped (2026-05-15):**
 1. Kingfisher 8.9.0 via SPM — `CoverImage.swift` wrapper; all 21 `AsyncImage` cover usages migrated across 11 files
