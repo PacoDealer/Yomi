@@ -620,187 +620,170 @@ struct ReaderOverlayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar
-            ZStack(alignment: .bottom) {
-                LinearGradient(
-                    colors: [Color.black.opacity(0.8), Color.clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 88)
-                .ignoresSafeArea(edges: .top)
+            // Top bar — Liquid Glass
+            HStack(spacing: 12) {
+                Button(action: onDismiss) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
 
-                HStack(spacing: 12) {
-                    Button(action: onDismiss) {
-                        Image(systemName: "chevron.left")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(manga.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                    Text(chapter.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if !chapters.isEmpty {
+                    Button {
+                        showChapterSheet = true
+                    } label: {
+                        Image(systemName: "list.bullet")
                             .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(manga.title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(chapter.name)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !chapters.isEmpty {
-                        Button {
-                            showChapterSheet = true
-                        } label: {
-                            Image(systemName: "list.bullet")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                    }
-
-                    if discussURL != nil {
-                        Button(action: onDiscuss) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                        }
-                    }
-
-                    Picker("Mode", selection: $readerMode) {
-                        Image(systemName: "book.pages").tag(ReaderMode.horizontalRTL)
-                        Image(systemName: "book.pages.fill").tag(ReaderMode.horizontalLTR)
-                        Image(systemName: "scroll").tag(ReaderMode.verticalScroll)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 108)
-                    .colorScheme(.dark)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-                .sheet(isPresented: $showChapterSheet) {
-                    let target = currentChapterIndex
-                    NavigationStack {
-                        ScrollViewReader { proxy in
-                            List(chapters.indices, id: \.self) { idx in
-                                let ch = chapters[idx]
-                                Button {
-                                    showChapterSheet = false
-                                    onJumpToChapter?(idx)
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(ch.name)
-                                                .font(.subheadline)
-                                                .foregroundStyle(idx == target ? Color.accentColor : .primary)
-                                                .fontWeight(idx == target ? .semibold : .regular)
-                                            if ch.isRead {
-                                                Text("Read")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            } else if ch.lastPageRead > 0 {
-                                                Text("Page \(ch.lastPageRead + 1)")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        Spacer()
-                                        if idx == target {
-                                            Image(systemName: "play.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(Color.accentColor)
+
+                if discussURL != nil {
+                    Button(action: onDiscuss) {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.title3)
+                    }
+                }
+
+                Picker("Mode", selection: $readerMode) {
+                    Image(systemName: "book.pages").tag(ReaderMode.horizontalRTL)
+                    Image(systemName: "book.pages.fill").tag(ReaderMode.horizontalLTR)
+                    Image(systemName: "scroll").tag(ReaderMode.verticalScroll)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 108)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .background {
+                Rectangle()
+                    .glassEffect()
+                    .ignoresSafeArea(edges: .top)
+            }
+            .sheet(isPresented: $showChapterSheet) {
+                let target = currentChapterIndex
+                NavigationStack {
+                    ScrollViewReader { proxy in
+                        List(chapters.indices, id: \.self) { idx in
+                            let ch = chapters[idx]
+                            Button {
+                                showChapterSheet = false
+                                onJumpToChapter?(idx)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(ch.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(idx == target ? Color.accentColor : .primary)
+                                            .fontWeight(idx == target ? .semibold : .regular)
+                                        if ch.isRead {
+                                            Text("Read")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        } else if ch.lastPageRead > 0 {
+                                            Text("Page \(ch.lastPageRead + 1)")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
                                         }
                                     }
-                                }
-                                .buttonStyle(.plain)
-                                .id(idx)
-                            }
-                            .navigationTitle("Chapters")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    Button("Done") { showChapterSheet = false }
+                                    Spacer()
+                                    if idx == target {
+                                        Image(systemName: "play.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.accentColor)
+                                    }
                                 }
                             }
-                            .onAppear {
-                                Task { @MainActor in
-                                    try? await Task.sleep(for: .milliseconds(100))
-                                    proxy.scrollTo(target, anchor: .center)
-                                }
+                            .buttonStyle(.plain)
+                            .id(idx)
+                        }
+                        .navigationTitle("Chapters")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { showChapterSheet = false }
+                            }
+                        }
+                        .onAppear {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(100))
+                                proxy.scrollTo(target, anchor: .center)
                             }
                         }
                     }
-                    .presentationDetents([.medium, .large])
                 }
+                .presentationDetents([.medium, .large])
             }
 
             Spacer()
 
-            // Bottom bar
-            ZStack(alignment: .top) {
-                LinearGradient(
-                    colors: [Color.clear, Color.black.opacity(0.8)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 88)
-                .ignoresSafeArea(edges: .bottom)
-
-                HStack(spacing: 8) {
-                    Button {
-                        onPrevChapter()
-                    } label: {
-                        Image(systemName: "chevron.left.2")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(hasPrevChapter ? .white : .white.opacity(0.25))
-                            .frame(width: 44, height: 44)
-                    }
-                    .disabled(!hasPrevChapter)
-
-                    if showPageNumber && totalPages > 1 {
-                        VStack(spacing: 4) {
-                            Text("\(currentPage + 1) / \(totalPages)")
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.8))
-                                .monospacedDigit()
-
-                            if readerMode != .verticalScroll {
-                                Slider(
-                                    value: Binding(
-                                        get: { Double(currentPage) },
-                                        set: { currentPage = Int($0.rounded()) }
-                                    ),
-                                    in: 0...Double(totalPages - 1),
-                                    step: 1
-                                )
-                                .tint(.white)
-                                .environment(\.colorScheme, .dark)
-                            }
-                        }
-                    } else {
-                        Spacer()
-                    }
-
-                    Button {
-                        onNextChapter()
-                    } label: {
-                        Image(systemName: "chevron.right.2")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(hasNextChapter ? .white : .white.opacity(0.25))
-                            .frame(width: 44, height: 44)
-                    }
-                    .disabled(!hasNextChapter)
+            // Bottom bar — Liquid Glass
+            HStack(spacing: 8) {
+                Button {
+                    onPrevChapter()
+                } label: {
+                    Image(systemName: "chevron.left.2")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(hasPrevChapter ? .primary : .primary.opacity(0.3))
+                        .frame(width: 44, height: 44)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .disabled(!hasPrevChapter)
+
+                if showPageNumber && totalPages > 1 {
+                    VStack(spacing: 4) {
+                        Text("\(currentPage + 1) / \(totalPages)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+
+                        if readerMode != .verticalScroll {
+                            Slider(
+                                value: Binding(
+                                    get: { Double(currentPage) },
+                                    set: { currentPage = Int($0.rounded()) }
+                                ),
+                                in: 0...Double(totalPages - 1),
+                                step: 1
+                            )
+                        }
+                    }
+                } else {
+                    Spacer()
+                }
+
+                Button {
+                    onNextChapter()
+                } label: {
+                    Image(systemName: "chevron.right.2")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(hasNextChapter ? .primary : .primary.opacity(0.3))
+                        .frame(width: 44, height: 44)
+                }
+                .disabled(!hasNextChapter)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .background {
+                Rectangle()
+                    .glassEffect()
+                    .ignoresSafeArea(edges: .bottom)
             }
         }
         .opacity(showOverlay ? 1 : 0)

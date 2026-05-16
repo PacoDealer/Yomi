@@ -29,24 +29,40 @@ final class LibraryViewModel {
 
     // MARK: - State
 
-    var mangas: [Manga] = []
-    var novels: [Novel] = []
-    var unreadCounts: [String: Int] = [:]
-    var novelUnreadCounts: [String: Int] = [:]
-    var searchText: String = ""
+    var mangas: [Manga] = [] { didSet { rebuildDisplayed() } }
+    var novels: [Novel] = [] { didSet { rebuildDisplayed() } }
+    var unreadCounts: [String: Int] = [:] { didSet { rebuildDisplayed() } }
+    var novelUnreadCounts: [String: Int] = [:] { didSet { rebuildDisplayed() } }
+    var searchText: String = "" { didSet { rebuildDisplayed() } }
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var sortOrder: SortOrder = {
         SortOrder(rawValue: UserDefaults.standard.string(forKey: "librarySortOrder") ?? "") ?? .lastRead
     }() {
-        didSet { UserDefaults.standard.set(sortOrder.rawValue, forKey: "librarySortOrder") }
+        didSet {
+            UserDefaults.standard.set(sortOrder.rawValue, forKey: "librarySortOrder")
+            rebuildDisplayed()
+        }
     }
     /// When nil → show all titles regardless of reading status.
     var statusFilter: ReadingStatus? = {
         guard let raw = UserDefaults.standard.string(forKey: "libraryStatusFilter") else { return nil }
         return ReadingStatus(rawValue: raw)
     }() {
-        didSet { UserDefaults.standard.set(statusFilter?.rawValue, forKey: "libraryStatusFilter") }
+        didSet {
+            UserDefaults.standard.set(statusFilter?.rawValue, forKey: "libraryStatusFilter")
+            rebuildDisplayed()
+        }
+    }
+
+    // MARK: - Cached display arrays
+
+    private(set) var displayedManga: [Manga] = []
+    private(set) var displayedNovels: [Novel] = []
+
+    private func rebuildDisplayed() {
+        displayedManga = buildDisplayedManga()
+        displayedNovels = buildDisplayedNovels()
     }
 
     // MARK: - Categories
@@ -66,6 +82,7 @@ final class LibraryViewModel {
         guard let catId = selectedCategoryId else {
             filteredIds = []
             filteredNovelIds = []
+            rebuildDisplayed()
             return
         }
         Task.detached {
@@ -74,6 +91,7 @@ final class LibraryViewModel {
             await MainActor.run {
                 self.filteredIds = Set(mangaIds)
                 self.filteredNovelIds = Set(novelIds)
+                self.rebuildDisplayed()
             }
         }
     }
@@ -85,10 +103,9 @@ final class LibraryViewModel {
         }
     }
 
-    // MARK: - Computed
+    // MARK: - Display builders
 
-    /// Manga shown in the grid: category-filtered, sorted by sortOrder, then title search.
-    var displayedManga: [Manga] {
+    private func buildDisplayedManga() -> [Manga] {
         let categoryFiltered = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
         let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Manga]
@@ -124,8 +141,7 @@ final class LibraryViewModel {
         return sorted.filter { $0.title.localizedStandardContains(searchText) }
     }
 
-    /// Novels shown in the grid: category-filtered, status-filtered, sorted by sortOrder, then title search.
-    var displayedNovels: [Novel] {
+    private func buildDisplayedNovels() -> [Novel] {
         let categoryFiltered = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
         let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Novel]
