@@ -751,7 +751,7 @@ struct ReaderOverlayView: View {
                     Image(systemName: "chevron.left.2")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(hasPrevChapter ? .primary : .primary.opacity(0.3))
+                        .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
                         .frame(width: 44, height: 44)
                 }
                 .disabled(!hasPrevChapter)
@@ -784,7 +784,7 @@ struct ReaderOverlayView: View {
                     Image(systemName: "chevron.right.2")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(hasNextChapter ? .primary : .primary.opacity(0.3))
+                        .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
                         .frame(width: 44, height: 44)
                 }
                 .disabled(!hasNextChapter)

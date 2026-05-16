@@ -815,7 +815,7 @@ struct TextReaderOverlayView: View {
                     Button { onPrevChapter?() } label: {
                         Image(systemName: "chevron.left.2")
                             .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(hasPrevChapter ? .primary : .primary.opacity(0.3))
+                            .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
                             .frame(width: 56, height: 40)
                     }
                     .disabled(!hasPrevChapter)
@@ -833,7 +833,7 @@ struct TextReaderOverlayView: View {
                     Button { onNextChapter?() } label: {
                         Image(systemName: "chevron.right.2")
                             .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(hasNextChapter ? .primary : .primary.opacity(0.3))
+                            .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
                             .frame(width: 56, height: 40)
                     }
                     .disabled(!hasNextChapter)
