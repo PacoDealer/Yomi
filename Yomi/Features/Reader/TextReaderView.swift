@@ -592,253 +592,245 @@ struct TextReaderOverlayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Top bar ──────────────────────────────────────────────────
-            ZStack(alignment: .bottom) {
-                LinearGradient(colors: [Color.black.opacity(0.8), Color.clear],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 100)
-                    .ignoresSafeArea(edges: .top)
-
-                HStack(spacing: 12) {
-                    Button(action: onDismiss) {
-                        Image(systemName: "chevron.left")
-                            .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(.white)
+            // ── Top bar — Liquid Glass ────────────────────────────────────
+            HStack(spacing: 12) {
+                Button(action: onDismiss) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3).fontWeight(.semibold)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(novel.title)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .lineLimit(1)
+                    Text(chapter.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if !chapters.isEmpty {
+                    Button {
+                        showChapterSheet = true
+                    } label: {
+                        Image(systemName: "list.bullet")
+                            .font(.title3)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(novel.title)
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(.white).lineLimit(1)
-                        Text(chapter.name)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7)).lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if !chapters.isEmpty {
-                        Button {
-                            showChapterSheet = true
-                        } label: {
-                            Image(systemName: "list.bullet")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-                .sheet(isPresented: $showChapterSheet) {
-                    let target = currentChapterIndex
-                    NavigationStack {
-                        ScrollViewReader { proxy in
-                            List(chapters.indices, id: \.self) { idx in
-                                let ch = chapters[idx]
-                                Button {
-                                    showChapterSheet = false
-                                    onJumpToChapter?(idx)
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(ch.name)
-                                                .font(.subheadline)
-                                                .foregroundStyle(idx == target ? Color.accentColor : .primary)
-                                                .fontWeight(idx == target ? .semibold : .regular)
-                                            if ch.isRead {
-                                                Text("Read")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            } else if let pct = ch.lastScrollPercent, pct > 0.01 {
-                                                Text("\(Int(pct * 100))%")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        Spacer()
-                                        if idx == target {
-                                            Image(systemName: "play.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(Color.accentColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .background {
+                Rectangle()
+                    .glassEffect()
+                    .ignoresSafeArea(edges: .top)
+            }
+            .sheet(isPresented: $showChapterSheet) {
+                let target = currentChapterIndex
+                NavigationStack {
+                    ScrollViewReader { proxy in
+                        List(chapters.indices, id: \.self) { idx in
+                            let ch = chapters[idx]
+                            Button {
+                                showChapterSheet = false
+                                onJumpToChapter?(idx)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(ch.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(idx == target ? Color.accentColor : .primary)
+                                            .fontWeight(idx == target ? .semibold : .regular)
+                                        if ch.isRead {
+                                            Text("Read")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        } else if let pct = ch.lastScrollPercent, pct > 0.01 {
+                                            Text("\(Int(pct * 100))%")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
                                         }
                                     }
-                                }
-                                .buttonStyle(.plain)
-                                .id(idx)
-                            }
-                            .navigationTitle("Chapters")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    Button("Done") { showChapterSheet = false }
+                                    Spacer()
+                                    if idx == target {
+                                        Image(systemName: "play.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.accentColor)
+                                    }
                                 }
                             }
-                            .onAppear {
-                                Task { @MainActor in
-                                    try? await Task.sleep(for: .milliseconds(100))
-                                    proxy.scrollTo(target, anchor: .center)
-                                }
+                            .buttonStyle(.plain)
+                            .id(idx)
+                        }
+                        .navigationTitle("Chapters")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { showChapterSheet = false }
+                            }
+                        }
+                        .onAppear {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(100))
+                                proxy.scrollTo(target, anchor: .center)
                             }
                         }
                     }
-                    .presentationDetents([.medium, .large])
                 }
+                .presentationDetents([.medium, .large])
             }
 
             Spacer()
 
-            // ── Bottom bar ───────────────────────────────────────────────
-            ZStack(alignment: .top) {
-                LinearGradient(colors: [Color.clear, Color.black.opacity(0.9)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 240)
-                    .ignoresSafeArea(edges: .bottom)
+            // ── Bottom bar — Liquid Glass ─────────────────────────────────
+            VStack(spacing: 14) {
 
-                VStack(spacing: 14) {
-
-                    // Row 1: Font size slider
-                    HStack(spacing: 10) {
-                        Text("A").font(.caption).foregroundStyle(.white.opacity(0.7))
-                        Slider(value: $fontSize, in: 14...28, step: 1).tint(.white)
-                        Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.white.opacity(0.7))
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Row 2: Font family + justify + horizontal margin
-                    HStack(spacing: 12) {
-                        // Font family toggle
-                        Button {
-                            fontFamily = (fontFamily == "Serif") ? "System" : "Serif"
-                        } label: {
-                            Text("Aa")
-                                .font(fontFamily == "Serif"
-                                      ? .system(.subheadline, design: .serif).bold()
-                                      : .subheadline.bold())
-                                .foregroundStyle(fontFamily == "Serif" ? Color.white : Color.white.opacity(0.5))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.white.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
-                                .clipShape(Capsule())
-                        }
-
-                        // Text justify toggle
-                        Button { justifyText.toggle() } label: {
-                            Image(systemName: "text.justify")
-                                .font(.subheadline)
-                                .foregroundStyle(justifyText ? Color.white : Color.white.opacity(0.45))
-                                .frame(width: 34, height: 34)
-                                .background(Color.white.opacity(justifyText ? 0.18 : 0.06))
-                                .clipShape(Circle())
-                        }
-
-                        Spacer()
-
-                        // Margin control: Narrow / Normal / Wide
-                        HStack(spacing: 0) {
-                            ForEach(paddingOptions, id: \.value) { opt in
-                                Button {
-                                    hPadding = opt.value
-                                } label: {
-                                    Text(opt.label)
-                                        .font(.caption2).fontWeight(.medium)
-                                        .foregroundStyle(hPadding == opt.value ? Color.black : Color.white.opacity(0.7))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(hPadding == opt.value ? Color.white : Color.clear)
-                                }
-                            }
-                        }
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Capsule())
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Row 2b: Line spacing
-                    HStack(spacing: 16) {
-                        Image(systemName: "text.alignleft")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
-                        Text("Spacing")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.6))
-                        Spacer()
-                        HStack(spacing: 0) {
-                            ForEach(lineSpacingOptions, id: \.label) { opt in
-                                Button {
-                                    lineSpacing = opt.value
-                                } label: {
-                                    Text(opt.label)
-                                        .font(.caption2).fontWeight(.medium)
-                                        .foregroundStyle(abs(lineSpacing - opt.value) < 0.05 ? Color.black : Color.white.opacity(0.7))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(abs(lineSpacing - opt.value) < 0.05 ? Color.white : Color.clear)
-                                }
-                            }
-                        }
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Capsule())
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Row 3: Theme swatches
-                    HStack(spacing: 12) {
-                        Spacer()
-                        ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
-                            Button {
-                                novelTheme = theme
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(theme.swatchColor)
-                                        .frame(width: 30, height: 30)
-                                        .overlay(
-                                            Circle()
-                                                .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
-                                        )
-                                    if novelTheme == theme {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundStyle(theme.isDark ? Color.white : Color.black)
-                                    }
-                                }
-                            }
-                        }
-                        Spacer()
-                    }
-
-                    // Row 4: Prev / TTS / Next chapter
-                    HStack(spacing: 0) {
-                        Button { onPrevChapter?() } label: {
-                            Image(systemName: "chevron.left.2")
-                                .font(.title3).fontWeight(.semibold)
-                                .foregroundStyle(hasPrevChapter ? .white : .white.opacity(0.25))
-                                .frame(width: 56, height: 40)
-                        }
-                        .disabled(!hasPrevChapter)
-
-                        Spacer()
-
-                        Button { onToggleTTS?() } label: {
-                            Image(systemName: isSpeaking ? "stop.circle.fill" : "play.circle")
-                                .font(.title2)
-                                .foregroundStyle(isSpeaking ? Color.accentColor : .white.opacity(0.7))
-                        }
-
-                        Spacer()
-
-                        Button { onNextChapter?() } label: {
-                            Image(systemName: "chevron.right.2")
-                                .font(.title3).fontWeight(.semibold)
-                                .foregroundStyle(hasNextChapter ? .white : .white.opacity(0.25))
-                                .frame(width: 56, height: 40)
-                        }
-                        .disabled(!hasNextChapter)
-                    }
-                    .padding(.horizontal, 8)
+                // Row 1: Font size slider
+                HStack(spacing: 10) {
+                    Text("A").font(.caption).foregroundStyle(.secondary)
+                    Slider(value: $fontSize, in: 14...28, step: 1)
+                    Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.secondary)
                 }
-                .padding(.top, 16)
+                .padding(.horizontal, 20)
+
+                // Row 2: Font family + justify + horizontal margin
+                HStack(spacing: 12) {
+                    Button {
+                        fontFamily = (fontFamily == "Serif") ? "System" : "Serif"
+                    } label: {
+                        Text("Aa")
+                            .font(fontFamily == "Serif"
+                                  ? .system(.subheadline, design: .serif).bold()
+                                  : .subheadline.bold())
+                            .foregroundStyle(fontFamily == "Serif" ? Color.primary : Color.primary.opacity(0.5))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.primary.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
+                            .clipShape(Capsule())
+                    }
+
+                    Button { justifyText.toggle() } label: {
+                        Image(systemName: "text.justify")
+                            .font(.subheadline)
+                            .foregroundStyle(justifyText ? Color.primary : Color.primary.opacity(0.45))
+                            .frame(width: 34, height: 34)
+                            .background(Color.primary.opacity(justifyText ? 0.18 : 0.06))
+                            .clipShape(Circle())
+                    }
+
+                    Spacer()
+
+                    // Margin control: Narrow / Normal / Wide
+                    HStack(spacing: 0) {
+                        ForEach(paddingOptions, id: \.value) { opt in
+                            Button {
+                                hPadding = opt.value
+                            } label: {
+                                Text(opt.label)
+                                    .font(.caption2).fontWeight(.medium)
+                                    .foregroundStyle(hPadding == opt.value ? Color.black : Color.primary.opacity(0.7))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(hPadding == opt.value ? Color.white : Color.clear)
+                            }
+                        }
+                    }
+                    .background(Color.primary.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 20)
+
+                // Row 2b: Line spacing
+                HStack(spacing: 16) {
+                    Image(systemName: "text.alignleft")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Spacing")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    HStack(spacing: 0) {
+                        ForEach(lineSpacingOptions, id: \.label) { opt in
+                            Button {
+                                lineSpacing = opt.value
+                            } label: {
+                                Text(opt.label)
+                                    .font(.caption2).fontWeight(.medium)
+                                    .foregroundStyle(abs(lineSpacing - opt.value) < 0.05 ? Color.black : Color.primary.opacity(0.7))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(abs(lineSpacing - opt.value) < 0.05 ? Color.white : Color.clear)
+                            }
+                        }
+                    }
+                    .background(Color.primary.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 20)
+
+                // Row 3: Theme swatches
+                HStack(spacing: 12) {
+                    Spacer()
+                    ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
+                        Button {
+                            novelTheme = theme
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(theme.swatchColor)
+                                    .frame(width: 30, height: 30)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1)
+                                    )
+                                if novelTheme == theme {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(theme.isDark ? Color.white : Color.black)
+                                }
+                            }
+                        }
+                    }
+                    Spacer()
+                }
+
+                // Row 4: Prev / TTS / Next chapter
+                HStack(spacing: 0) {
+                    Button { onPrevChapter?() } label: {
+                        Image(systemName: "chevron.left.2")
+                            .font(.title3).fontWeight(.semibold)
+                            .foregroundStyle(hasPrevChapter ? .primary : .primary.opacity(0.3))
+                            .frame(width: 56, height: 40)
+                    }
+                    .disabled(!hasPrevChapter)
+
+                    Spacer()
+
+                    Button { onToggleTTS?() } label: {
+                        Image(systemName: isSpeaking ? "stop.circle.fill" : "play.circle")
+                            .font(.title2)
+                            .foregroundStyle(isSpeaking ? Color.accentColor : .secondary)
+                    }
+
+                    Spacer()
+
+                    Button { onNextChapter?() } label: {
+                        Image(systemName: "chevron.right.2")
+                            .font(.title3).fontWeight(.semibold)
+                            .foregroundStyle(hasNextChapter ? .primary : .primary.opacity(0.3))
+                            .frame(width: 56, height: 40)
+                    }
+                    .disabled(!hasNextChapter)
+                }
+                .padding(.horizontal, 8)
+            }
+            .padding(.top, 16)
+            .background {
+                Rectangle()
+                    .glassEffect()
+                    .ignoresSafeArea(edges: .bottom)
             }
         }
         .opacity(showOverlay ? 1 : 0)
