@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 // MARK: - ReaderMode
 
@@ -16,8 +17,10 @@ struct ChapterReaderView: View {
     let chapters: [Chapter]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
 
     @State private var settings = AppSettings.shared
+    @State private var shouldRequestReview = false
     @State private var currentChapterIndex: Int
     @State private var pages: [String] = []
     @State private var isLoading = true
@@ -198,6 +201,9 @@ struct ChapterReaderView: View {
                 DiscussWebSheet(url: url)
             }
         }
+        .onChange(of: shouldRequestReview) { _, should in
+            if should { requestReview(); shouldRequestReview = false }
+        }
     }
 
     // MARK: - Chapter Finished Banner
@@ -263,6 +269,11 @@ struct ChapterReaderView: View {
                     .appendingPathComponent("Downloads/\(mid)/\(cid)")
                 try? FileManager.default.removeItem(at: dir)
                 try? DownloadQueries.markNotDownloaded(chapterId: cid)
+            }
+            await MainActor.run {
+                if AppSettings.shared.recordChapterRead() {
+                    self.shouldRequestReview = true
+                }
             }
         }
     }

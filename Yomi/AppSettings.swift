@@ -80,6 +80,18 @@ import Observation
         didSet { defaults.set(readingReminderDays, forKey: "readingReminderDays") }
     }
 
+    // MARK: - App Store review
+
+    var chaptersReadCount: Int {
+        didSet { defaults.set(chaptersReadCount, forKey: "chaptersReadCount") }
+    }
+
+    /// Call after each chapter is marked read. Returns true when a review prompt threshold is hit.
+    func recordChapterRead() -> Bool {
+        chaptersReadCount += 1
+        return [10, 50, 200].contains(chaptersReadCount)
+    }
+
     // MARK: - Notifications
 
     var hasRequestedNotifications: Bool {
@@ -333,5 +345,6 @@ import Observation
         iCloudAutoBackup         = d.object(forKey: "iCloudAutoBackup")        as? Bool ?? true
         readingReminderEnabled   = d.object(forKey: "readingReminderEnabled") as? Bool ?? false
         readingReminderDays      = d.object(forKey: "readingReminderDays")    as? Int  ?? 2
+        chaptersReadCount        = d.object(forKey: "chaptersReadCount")      as? Int  ?? 0
     }
 }

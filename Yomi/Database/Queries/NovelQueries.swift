@@ -1,19 +1,19 @@
 import Foundation
 import GRDB
 
-/// Operaciones CRUD para las tablas novel y novel_chapter
+/// CRUD operations for the novel and novel_chapter tables
 enum NovelQueries {
 
-    // MARK: - Novel: Lectura
+    // MARK: - Novel: Read
 
-    /// Devuelve todas las novelas guardadas en la base de datos
+    /// Returns all novels stored in the database
     nonisolated static func fetchAll() throws -> [Novel] {
         try appDatabase.read { db in
             try Novel.fetchAll(db)
         }
     }
 
-    /// Devuelve solo las novelas que el usuario agregó a su biblioteca
+    /// Returns only novels the user has added to their library
     nonisolated static func fetchLibrary() throws -> [Novel] {
         try appDatabase.read { db in
             try Novel
@@ -22,14 +22,14 @@ enum NovelQueries {
         }
     }
 
-    /// Devuelve la novela con el id indicado, o nil si no existe
+    /// Returns the novel with the given id, or nil if not found
     nonisolated static func fetchOne(id: String) throws -> Novel? {
         try appDatabase.read { db in
             try Novel.fetchOne(db, key: id)
         }
     }
 
-    /// Devuelve novelas con lastReadAt != nil, ordenadas por fecha de lectura descendente
+    /// Returns novels with lastReadAt != nil, ordered by read date descending
     nonisolated static func fetchHistory() throws -> [Novel] {
         try appDatabase.read { db in
             try Novel
@@ -39,7 +39,7 @@ enum NovelQueries {
         }
     }
 
-    /// Devuelve novelas con lastReadAt != nil, ordenadas por fecha de lectura descendente, con límite
+    /// Returns recently read novels, ordered by read date descending, up to limit
     nonisolated static func fetchRecentlyRead(limit: Int = 10) throws -> [Novel] {
         try appDatabase.read { db in
             try Novel
@@ -50,39 +50,39 @@ enum NovelQueries {
         }
     }
 
-    // MARK: - Novel: Escritura
+    // MARK: - Novel: Write
 
-    /// Inserta una nueva novela; falla si ya existe un registro con el mismo id
+    /// Inserts a new novel; throws if a row with the same id already exists
     nonisolated static func insert(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
             try novel.insert(db)
         }
     }
 
-    /// Actualiza todos los campos de una novela existente por su id
+    /// Updates all fields of an existing novel by id
     nonisolated static func update(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
             try novel.update(db)
         }
     }
 
-    /// Inserta o actualiza una novela (usa el id como clave)
+    /// Inserts or updates a novel (uses id as key)
     nonisolated static func upsert(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
             try novel.save(db)
         }
     }
 
-    // MARK: - Novel: Eliminación
+    // MARK: - Novel: Delete
 
-    /// Elimina la novela con el id indicado (no lanza error si no existe)
+    /// Deletes the novel with the given id (no-op if not found)
     nonisolated static func delete(id: String) throws {
         try appDatabase.write { db in
             _ = try Novel.deleteOne(db, key: id)
         }
     }
 
-    /// Borra lastReadAt de una novela (swipe-to-delete en History)
+    /// Clears lastReadAt for a novel (swipe-to-delete in History)
     nonisolated static func clearLastRead(novelId: String) throws {
         _ = try appDatabase.write { db in
             try Novel
@@ -91,7 +91,7 @@ enum NovelQueries {
         }
     }
 
-    /// Actualiza lastUpdatedAt de una novela a la fecha actual
+    /// Sets lastUpdatedAt to now for the given novel
     nonisolated static func touchLastUpdated(novelId: String) throws {
         _ = try appDatabase.write { db in
             try Novel
@@ -100,7 +100,7 @@ enum NovelQueries {
         }
     }
 
-    /// Actualiza la nota personal del usuario para una novela
+    /// Saves the user's personal notes for a novel
     nonisolated static func updateNotes(novelId: String, notes: String) throws {
         _ = try appDatabase.write { db in
             try Novel
@@ -109,7 +109,7 @@ enum NovelQueries {
         }
     }
 
-    /// Actualiza el readingStatus de una novela (estado definido por el usuario)
+    /// Updates the user-defined reading status for a novel
     nonisolated static func updateReadingStatus(novelId: String, status: ReadingStatus) throws {
         _ = try appDatabase.write { db in
             try Novel
@@ -118,9 +118,9 @@ enum NovelQueries {
         }
     }
 
-    // MARK: - NovelChapter: Lectura
+    // MARK: - NovelChapter: Read
 
-    /// Devuelve todos los capítulos de una novela ordenados por número de capítulo ascendente
+    /// Returns all chapters for a novel ordered by chapter number ascending
     nonisolated static func fetchChapters(novelId: String) throws -> [NovelChapter] {
         try appDatabase.read { db in
             try NovelChapter
@@ -130,7 +130,7 @@ enum NovelQueries {
         }
     }
 
-    /// Devuelve el conteo de capítulos no leídos agrupado por novelId
+    /// Returns unread chapter counts grouped by novelId
     nonisolated static func fetchUnreadCountsByNovel() throws -> [String: Int] {
         try appDatabase.read { db in
             let rows = try Row.fetchAll(db, sql: """
@@ -145,9 +145,9 @@ enum NovelQueries {
         }
     }
 
-    // MARK: - NovelChapter: Escritura
+    // MARK: - NovelChapter: Write
 
-    /// Inserta capítulos en lote usando INSERT OR IGNORE — nunca sobreescribe isRead ni readingSeconds existentes
+    /// Bulk-inserts chapters using INSERT OR IGNORE — never overwrites existing isRead or readingSeconds
     nonisolated static func insertAllIgnoringConflicts(_ chapters: [NovelChapter]) throws {
         _ = try appDatabase.write { db in
             for ch in chapters {
@@ -156,14 +156,14 @@ enum NovelQueries {
         }
     }
 
-    /// Inserta o actualiza un capítulo (usa el id como clave)
+    /// Inserts or updates a chapter (uses id as key)
     nonisolated static func upsertChapter(_ chapter: NovelChapter) throws {
         _ = try appDatabase.write { db in
             try chapter.save(db)
         }
     }
 
-    /// Inserta o actualiza un lote de capítulos en una sola transacción
+    /// Inserts or updates a batch of chapters in a single transaction
     nonisolated static func upsertChapters(_ chapters: [NovelChapter]) throws {
         _ = try appDatabase.write { db in
             for chapter in chapters {
@@ -172,7 +172,7 @@ enum NovelQueries {
         }
     }
 
-    /// Acumula segundos de lectura en un capítulo y actualiza lastReadAt + readingSeconds en la novela.
+    /// Accumulates reading seconds on a chapter and updates lastReadAt + readingSeconds on the novel.
     /// Single atomic write — no read-modify-write race.
     nonisolated static func addReadingTime(chapterId: String, novelId: String, seconds: Int) throws {
         _ = try appDatabase.write { db in
@@ -188,7 +188,7 @@ enum NovelQueries {
         }
     }
 
-    /// Marca un capítulo como leído: isRead=true, readAt=ahora
+    /// Marks a chapter as read: isRead=true, readAt=now
     nonisolated static func markRead(chapterId: String) throws {
         _ = try appDatabase.write { db in
             try NovelChapter
@@ -200,7 +200,7 @@ enum NovelQueries {
         }
     }
 
-    /// Marca un capítulo como no leído: isRead=false, readAt=nil
+    /// Marks a chapter as unread: isRead=false, readAt=nil
     nonisolated static func markUnread(chapterId: String) throws {
         _ = try appDatabase.write { db in
             try NovelChapter
@@ -220,7 +220,7 @@ enum NovelQueries {
         }
     }
 
-    /// Marca todos los capítulos de una novela como leídos o no leídos en una sola escritura.
+    /// Marks all chapters of a novel as read or unread in a single write
     nonisolated static func markAllChapters(novelId: String, read: Bool) throws {
         _ = try appDatabase.write { db in
             try NovelChapter
