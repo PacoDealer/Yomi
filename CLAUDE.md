@@ -80,6 +80,9 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 9. `MangaListRow` custom cover fix: list-mode manga rows were ignoring `customCoverPath` and always using `AsyncImage(url:)`; now mirrors `NovelLibraryListRow` pattern
 10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
 
+**S73 shipped (2026-05-16):**
+1. Notification deep linking — tapping a chapter-update notification navigates to the manga/novel detail. `AppDelegate` conforms to `UNUserNotificationCenterDelegate`; reads `mediaId`/`mediaType` from `userInfo`, sets `appRouter.pendingOpenMangaId` or `pendingOpenNovelId`. `LibraryView` observes both properties via `.onChange`, fetches from DB in `Task.detached`, presents `MangaDetailView` or `NovelDetailView`. `scheduleChapterNotification` now accepts `mediaId: String?` and `mediaType: String`.
+
 **S67 shipped (2026-05-15):**
 1. Kingfisher 8.9.0 via SPM — `CoverImage.swift` wrapper; all 21 `AsyncImage` cover usages migrated across 11 files
 2. `v18_indexes` migration — 3 DB indexes on `chapter` and `novel_chapter` tables

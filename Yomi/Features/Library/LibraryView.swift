@@ -13,6 +13,8 @@ struct LibraryView: View {
     @State private var showNovelDetail = false
     @State private var randomMangaDest: Manga? = nil
     @State private var showRandomManga = false
+    @State private var deepLinkManga: Manga? = nil
+    @State private var showDeepLinkManga = false
     var onBrowseTap: (() -> Void)? = nil
 
     init(viewModel: LibraryViewModel = LibraryViewModel(), onBrowseTap: (() -> Void)? = nil) {
@@ -323,7 +325,34 @@ struct LibraryView: View {
                     NovelDetailView(novel: novel)
                 }
             }
+            .navigationDestination(isPresented: $showDeepLinkManga) {
+                if let manga = deepLinkManga {
+                    MangaDetailView(manga: manga)
+                }
+            }
             .onAppear { Task { await viewModel.loadLibrary() } }
+            .onChange(of: appRouter.pendingOpenMangaId) { _, id in
+                guard let id else { return }
+                appRouter.pendingOpenMangaId = nil
+                Task.detached {
+                    guard let manga = try? MangaQueries.fetchOne(id: id) else { return }
+                    await MainActor.run {
+                        deepLinkManga = manga
+                        showDeepLinkManga = true
+                    }
+                }
+            }
+            .onChange(of: appRouter.pendingOpenNovelId) { _, id in
+                guard let id else { return }
+                appRouter.pendingOpenNovelId = nil
+                Task.detached {
+                    guard let novel = try? NovelQueries.fetchOne(id: id) else { return }
+                    await MainActor.run {
+                        selectedNovel = novel
+                        showNovelDetail = true
+                    }
+                }
+            }
         }
     }
 
