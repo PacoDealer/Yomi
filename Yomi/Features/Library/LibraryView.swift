@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
@@ -527,11 +528,11 @@ private struct NovelLibraryListRow: View {
                    let uiImage = UIImage(contentsOfFile: customPath) {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
-                    AsyncImage(url: novel.coverURL) { img in
-                        img.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.secondary.opacity(0.15)
-                    }
+                    KFImage(novel.coverURL)
+                        .placeholder { Color.secondary.opacity(0.15) }
+                        .fade(duration: 0.2)
+                        .resizable()
+                        .scaledToFill()
                 }
             }
             .frame(width: 48, height: 68)
@@ -585,15 +586,7 @@ private struct NovelLibraryCoverCell: View {
                             .resizable()
                             .aspectRatio(2 / 3, contentMode: .fill)
                     } else {
-                        AsyncImage(url: novel.coverURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.secondary.opacity(0.3))
-                                .aspectRatio(2 / 3, contentMode: .fit)
-                        }
+                        CoverImage(url: novel.coverURL)
                     }
                 }
                 .cornerRadius(8)

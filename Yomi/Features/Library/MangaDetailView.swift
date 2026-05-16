@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Kingfisher
 
 struct MangaDetailView: View {
 
@@ -108,15 +109,7 @@ struct MangaDetailView: View {
                                     .resizable()
                                     .aspectRatio(2 / 3, contentMode: .fill)
                             } else {
-                                AsyncImage(url: manga.coverURL) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(2 / 3, contentMode: .fill)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(Color.secondary.opacity(0.3))
-                                        .aspectRatio(2 / 3, contentMode: .fit)
-                                }
+                                CoverImage(url: manga.coverURL)
                             }
                         }
                         .frame(width: 110)

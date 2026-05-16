@@ -3,14 +3,14 @@ import GRDB
 
 // MARK: - appDatabase
 
-/// Módulo-level DatabaseQueue accesible desde cualquier contexto de aislamiento.
-/// Se asigna una sola vez en DatabaseManager.setup() antes de que se ejecute
-/// cualquier query. GRDB DatabaseQueue es internamente thread-safe.
+/// Module-level DatabaseQueue accessible from any isolation context.
+/// Assigned once in DatabaseManager.setup() before any query runs.
+/// GRDB DatabaseQueue is internally thread-safe.
 nonisolated(unsafe) var appDatabase: DatabaseQueue!
 
 // MARK: - DatabaseManager
 
-/// Gestiona la conexión y las migraciones de la base de datos SQLite
+/// Manages the SQLite database connection and migrations.
 final class DatabaseManager {
 
     // MARK: - Singleton
@@ -20,7 +20,7 @@ final class DatabaseManager {
 
     // MARK: - Setup
 
-    /// Abre (o crea) yomi.db en el directorio de Documentos del usuario y ejecuta las migraciones
+    /// Opens (or creates) yomi.db in the user's Documents directory and runs migrations.
     func setup() throws {
         let fileURL = try FileManager.default
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -30,28 +30,24 @@ final class DatabaseManager {
         try migrate(appDatabase)
     }
 
-    // MARK: - Migraciones
+    // MARK: - Migrations
 
     private func migrate(_ db: DatabaseQueue) throws {
         var migrator = DatabaseMigrator()
 
-        // v1 — tablas iniciales
+        // v1 — initial tables
         migrator.registerMigration("v1_initial") { db in
 
-            // Tabla manga
             try db.create(table: "manga", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
                 t.column("path",          .text).notNull()
                 t.column("sourceId",      .text).notNull()
                 t.column("title",         .text).notNull()
-                // URLs almacenadas como cadena de texto
                 t.column("coverURL",      .text)
                 t.column("summary",       .text)
                 t.column("author",        .text)
                 t.column("artist",        .text)
-                // Enum serializado como su rawValue
                 t.column("status",        .text).notNull().defaults(to: "unknown")
-                // Array de géneros serializado como JSON (ej: ["Acción","Aventura"])
                 t.column("genres",        .text).notNull().defaults(to: "[]")
                 t.column("inLibrary",     .boolean).notNull().defaults(to: false)
                 t.column("isLocal",       .boolean).notNull().defaults(to: false)
@@ -59,10 +55,8 @@ final class DatabaseManager {
                 t.column("lastUpdatedAt", .datetime)
             }
 
-            // Tabla chapter
             try db.create(table: "chapter", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
-                // Clave foránea hacia manga
                 t.column("mangaId",       .text).notNull().references("manga", onDelete: .cascade)
                 t.column("path",          .text).notNull()
                 t.column("name",          .text).notNull()
@@ -70,18 +64,15 @@ final class DatabaseManager {
                 t.column("isRead",        .boolean).notNull().defaults(to: false)
                 t.column("isDownloaded",  .boolean).notNull().defaults(to: false)
                 t.column("readAt",        .datetime)
-                // Valor entre 0.0 y 1.0
                 t.column("progress",      .double).notNull().defaults(to: 0.0)
             }
 
-            // Tabla category
             try db.create(table: "category", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
                 t.column("name", .text).notNull()
                 t.column("sort", .integer).notNull().defaults(to: 0)
             }
 
-            // Tabla source
             try db.create(table: "source", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
                 t.column("name",        .text).notNull()
@@ -120,17 +111,14 @@ final class DatabaseManager {
                 t.column("summary",       .text)
                 t.column("author",        .text)
                 t.column("status",        .text).notNull().defaults(to: "unknown")
-                // Array de géneros serializado como JSON
                 t.column("genres",        .text).notNull().defaults(to: "[]")
                 t.column("inLibrary",     .boolean).notNull().defaults(to: false)
                 t.column("lastReadAt",    .datetime)
                 t.column("lastUpdatedAt", .datetime)
             }
 
-            // Tabla novel_chapter
             try db.create(table: "novel_chapter", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
-                // Clave foránea hacia novel
                 t.column("novelId",       .text).notNull().references("novel", onDelete: .cascade)
                 t.column("path",          .text).notNull()
                 t.column("name",          .text).notNull()
@@ -240,6 +228,15 @@ final class DatabaseManager {
             try db.alter(table: "novel_chapter") { t in
                 t.add(column: "lastScrollPercent", .double)
             }
+        }
+
+        migrator.registerMigration("v18_indexes") { db in
+            try db.create(index: "idx_chapter_mangaid",
+                          on: "chapter", columns: ["mangaId"], ifNotExists: true)
+            try db.create(index: "idx_chapter_unread",
+                          on: "chapter", columns: ["mangaId", "isRead"], ifNotExists: true)
+            try db.create(index: "idx_novel_chapter_novelid",
+                          on: "novel_chapter", columns: ["novelId"], ifNotExists: true)
         }
 
         try migrator.migrate(db)

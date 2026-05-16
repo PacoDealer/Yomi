@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - ContinueItem
 
@@ -119,17 +120,7 @@ private struct ContinueReadingCell: View {
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
                         } else {
-                            AsyncImage(url: manga.coverURL) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                                case .failure:
-                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
-                                        .overlay { Image(systemName: "book.closed").foregroundStyle(.secondary) }
-                                default:
-                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
-                                }
-                            }
+                            CoverImage(url: manga.coverURL)
                         }
                     }
                     .frame(width: 90)
@@ -279,17 +270,7 @@ private struct ContinueReadingNovelCell: View {
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
                         } else {
-                            AsyncImage(url: novel.coverURL) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                                case .failure:
-                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
-                                        .overlay { Image(systemName: "text.book.closed").foregroundStyle(.secondary) }
-                                default:
-                                    Rectangle().fill(.quaternary).aspectRatio(2 / 3, contentMode: .fill)
-                                }
-                            }
+                            CoverImage(url: novel.coverURL)
                         }
                     }
                     .frame(width: 90)

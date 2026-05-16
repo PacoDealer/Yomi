@@ -31,6 +31,7 @@ struct ChapterReaderView: View {
     @State private var discussURL: URL? = nil
     @State private var showDiscussSheet = false
     @State private var showFinishedBanner = false
+    @State private var didMarkCurrentChapterRead = false
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -243,6 +244,8 @@ struct ChapterReaderView: View {
     // MARK: - Mark as Read
 
     private func markChapterRead() {
+        guard !didMarkCurrentChapterRead else { return }
+        didMarkCurrentChapterRead = true
         let cid = activeChapter.id
         let mid = activeChapter.mangaId
         let wasDownloaded = activeChapter.isDownloaded
@@ -268,6 +271,7 @@ struct ChapterReaderView: View {
 
     private func navigateToChapter(_ index: Int) {
         showFinishedBanner = false
+        didMarkCurrentChapterRead = false
         readingTimer?.invalidate()
         readingTimer = nil
 

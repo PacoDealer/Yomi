@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - MangaCoverCell
 
@@ -116,20 +117,11 @@ struct MangaCoverCell: View {
                         .resizable()
                         .aspectRatio(2 / 3, contentMode: .fill)
                 } else {
-                    AsyncImage(url: manga.coverURL) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                        case .failure:
-                            SkeletonView(showIcon: true)
-                                .aspectRatio(2 / 3, contentMode: .fit)
-                        default:
-                            SkeletonView(showIcon: false)
-                                .aspectRatio(2 / 3, contentMode: .fit)
-                        }
-                    }
+                    KFImage(manga.coverURL)
+                        .placeholder { SkeletonView(showIcon: false).aspectRatio(2 / 3, contentMode: .fit) }
+                        .fade(duration: 0.2)
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
                 }
             }
             .cornerRadius(8)
@@ -259,11 +251,11 @@ struct MangaListRow: View {
                    let uiImage = UIImage(contentsOfFile: customPath) {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
-                    AsyncImage(url: manga.coverURL) { img in
-                        img.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.secondary.opacity(0.15)
-                    }
+                    KFImage(manga.coverURL)
+                        .placeholder { Color.secondary.opacity(0.15) }
+                        .fade(duration: 0.2)
+                        .resizable()
+                        .scaledToFill()
                 }
             }
             .frame(width: 48, height: 68)

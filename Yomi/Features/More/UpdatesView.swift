@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - UpdateEntry
 
@@ -407,11 +408,7 @@ private struct MangaUpdateHeader: View {
                 if let path = manga.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                     Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
                 } else {
-                    AsyncImage(url: manga.coverURL) { image in
-                        image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Color.secondary.opacity(0.3))
-                    }
+                    CoverImage(url: manga.coverURL)
                 }
             }
             .frame(width: 20, height: 30)
@@ -471,11 +468,7 @@ private struct NovelUpdateHeader: View {
                 if let path = novel.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                     Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
                 } else {
-                    AsyncImage(url: novel.coverURL) { image in
-                        image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Color.secondary.opacity(0.3))
-                    }
+                    CoverImage(url: novel.coverURL)
                 }
             }
             .frame(width: 20, height: 30)

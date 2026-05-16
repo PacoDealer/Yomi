@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - BrowseView
 
@@ -161,13 +162,13 @@ struct BrowseView: View {
                                     SuwayomiBrowseView(source: src)
                                 } label: {
                                     HStack(spacing: 12) {
-                                        AsyncImage(url: URL(string: "\(SuwayomiService.shared.baseURL)\(src.iconUrl)")) { img in
-                                            img.resizable().scaledToFill()
-                                        } placeholder: {
-                                            Image(systemName: "network").foregroundStyle(.secondary)
-                                        }
-                                        .frame(width: 32, height: 32)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        KFImage(URL(string: "\(SuwayomiService.shared.baseURL)\(src.iconUrl)"))
+                                            .placeholder { Image(systemName: "network").foregroundStyle(.secondary) }
+                                            .fade(duration: 0.2)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 32, height: 32)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(src.name).font(.body)
@@ -200,13 +201,13 @@ struct BrowseView: View {
                                     } label: {
                                         HStack(spacing: 12) {
                                             if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                                                AsyncImage(url: coverURL) { img in
-                                                    img.resizable().scaledToFill()
-                                                } placeholder: {
-                                                    Image(systemName: "folder").foregroundStyle(.secondary)
-                                                }
-                                                .frame(width: 32, height: 32)
-                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                KFImage(coverURL)
+                                                    .placeholder { Image(systemName: "folder").foregroundStyle(.secondary) }
+                                                    .fade(duration: 0.2)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 32, height: 32)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 6))
                                             } else {
                                                 Image(systemName: "folder")
                                                     .frame(width: 32, height: 32)
@@ -461,17 +462,19 @@ struct CatalogGroupRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: group.primaryEntry.iconURL.flatMap { URL(string: $0) }) { image in
-                image.resizable().aspectRatio(1, contentMode: .fit)
-            } placeholder: {
-                Image(systemName: "puzzlepiece.extension")
-                    .resizable().aspectRatio(1, contentMode: .fit)
-                    .padding(8)
-                    .foregroundStyle(.secondary)
-                    .background(Color.secondary.opacity(0.12))
-            }
-            .frame(width: 40, height: 40)
-            .cornerRadius(8)
+            KFImage(group.primaryEntry.iconURL.flatMap { URL(string: $0) })
+                .placeholder {
+                    Image(systemName: "puzzlepiece.extension")
+                        .resizable().aspectRatio(1, contentMode: .fit)
+                        .padding(8)
+                        .foregroundStyle(.secondary)
+                        .background(Color.secondary.opacity(0.12))
+                }
+                .fade(duration: 0.2)
+                .resizable()
+                .aspectRatio(1, contentMode: .fit)
+                .frame(width: 40, height: 40)
+                .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(group.name).font(.headline)
@@ -702,20 +705,20 @@ private struct ExtensionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: ext.iconURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
-            } placeholder: {
-                Image(systemName: "puzzlepiece.extension")
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
-                    .padding(8)
-                    .foregroundStyle(.secondary)
-                    .background(Color.secondary.opacity(0.15))
-            }
-            .frame(width: 44, height: 44)
-            .cornerRadius(8)
+            KFImage(ext.iconURL)
+                .placeholder {
+                    Image(systemName: "puzzlepiece.extension")
+                        .resizable()
+                        .aspectRatio(1, contentMode: .fit)
+                        .padding(8)
+                        .foregroundStyle(.secondary)
+                        .background(Color.secondary.opacity(0.15))
+                }
+                .fade(duration: 0.2)
+                .resizable()
+                .aspectRatio(1, contentMode: .fit)
+                .frame(width: 44, height: 44)
+                .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(ext.name)
@@ -1086,19 +1089,9 @@ private struct NovelCoverCell: View {
             NovelDetailView(novel: novel, bridge: bridge)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                AsyncImage(url: novel.coverURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(2 / 3, contentMode: .fill)
-                    default:
-                        Color.secondary.opacity(0.3)
-                            .aspectRatio(2 / 3, contentMode: .fit)
-                    }
-                }
-                .cornerRadius(8)
-                .clipped()
+                CoverImage(url: novel.coverURL)
+                    .cornerRadius(8)
+                    .clipped()
                 .overlay(alignment: .topLeading) {
                     if !novel.inLibrary && dbInLibrary {
                         Image(systemName: "bookmark.fill")

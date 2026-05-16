@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - OPDSBrowseView
 // Fetches and displays one OPDS feed (navigation or acquisition).
@@ -97,14 +98,13 @@ struct OPDSBrowseView: View {
     private func navRow(_ entry: OPDSEntry) -> some View {
         HStack(spacing: 12) {
             if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                AsyncImage(url: coverURL) { phase in
-                    switch phase {
-                    case .success(let img): img.resizable().scaledToFill()
-                    default: Image(systemName: "folder").foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                KFImage(coverURL)
+                    .placeholder { Image(systemName: "folder").foregroundStyle(.secondary) }
+                    .fade(duration: 0.2)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 Image(systemName: "folder")
                     .frame(width: 40, height: 40)
@@ -137,14 +137,7 @@ struct OPDSBrowseView: View {
         VStack(alignment: .leading, spacing: 4) {
             Group {
                 if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                    AsyncImage(url: coverURL) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                        default:
-                            Color.secondary.opacity(0.3).aspectRatio(2 / 3, contentMode: .fit)
-                        }
-                    }
+                    CoverImage(url: coverURL)
                 } else {
                     Color.secondary.opacity(0.3).aspectRatio(2 / 3, contentMode: .fit)
                 }
@@ -172,14 +165,13 @@ struct OPDSBrowseView: View {
         } label: {
             HStack(spacing: 12) {
                 if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                    AsyncImage(url: coverURL) { phase in
-                        switch phase {
-                        case .success(let img): img.resizable().scaledToFill()
-                        default: Color.secondary.opacity(0.3)
-                        }
-                    }
-                    .frame(width: 40, height: 55)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    KFImage(coverURL)
+                        .placeholder { Color.secondary.opacity(0.3) }
+                        .fade(duration: 0.2)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 40, height: 55)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
                     Color.secondary.opacity(0.3)
                         .frame(width: 40, height: 55)
@@ -230,17 +222,14 @@ struct OPDSItemDetailView: View {
                     // Cover + metadata header
                     HStack(alignment: .top, spacing: 16) {
                         if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                            AsyncImage(url: coverURL) { phase in
-                                switch phase {
-                                case .success(let img):
-                                    img.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                                default:
-                                    Color.secondary.opacity(0.3)
-                                }
-                            }
-                            .frame(width: 100, height: 150)
-                            .cornerRadius(8)
-                            .clipped()
+                            KFImage(coverURL)
+                                .placeholder { Color.secondary.opacity(0.3) }
+                                .fade(duration: 0.2)
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                                .frame(width: 100, height: 150)
+                                .cornerRadius(8)
+                                .clipped()
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(entry.title)
