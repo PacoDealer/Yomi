@@ -1150,7 +1150,10 @@ private struct ChapterRow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if let number = chapter.chapterNumber {
-                        Text("Chapter \(number, specifier: "%.1f")")
+                        let formatted = number.truncatingRemainder(dividingBy: 1) == 0
+                            ? "Chapter \(Int(number))"
+                            : String(format: "Chapter %.1f", number)
+                        Text(formatted)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
