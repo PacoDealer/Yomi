@@ -90,6 +90,10 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 1. `LibraryViewModel.displayedManga`/`displayedNovels` converted from computed to stored properties — sort/filter runs only when data changes
 2. iOS 26 Liquid Glass on reader overlays — `ReaderOverlayView` + `TextReaderOverlayView` use `Rectangle().glassEffect().ignoresSafeArea()` replacing gradient bars
 
+**S72 shipped (2026-05-16):**
+1. App Store review prompt — `AppSettings.chaptersReadCount` + `recordChapterRead()` (milestones 10/50/200); both readers use `@Environment(\.requestReview)` + `shouldRequestReview` flag pattern; incognito-safe
+2. Spanish comment cleanup — `MangaQueries.swift` and `NovelQueries.swift` fully translated to English
+
 **S71 shipped (2026-05-16):**
 1. Reading reminders — `NotificationManager.scheduleReadingReminder/cancelReadingReminder/checkAuthorizationStatus`; `AppSettings.readingReminderEnabled` + `readingReminderDays`; `YomiApp` wires into `scenePhase`; toggle + picker in `UpdatesSettingsView`
 

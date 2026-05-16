@@ -21,6 +21,10 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S72 — 2026-05-16)
+
+S72 (2026-05-16): App Store review prompt + Spanish comment cleanup. (1) **App Store review prompt**: `AppSettings.chaptersReadCount: Int` incremented by `recordChapterRead()` (returns true at milestones 10, 50, 200); `ChapterReaderView` and `TextReaderView` both import StoreKit and use `@Environment(\.requestReview)` + `@State shouldRequestReview`; `.onChange(of: shouldRequestReview)` fires `requestReview()`; incognito-safe (no DB write → no count increment). (2) **Spanish comment cleanup**: `MangaQueries.swift` and `NovelQueries.swift` fully translated to English (completes the S67 cleanup that covered only `DatabaseManager` and `ChapterQueries`).
+
 ## Current state (post S71 — 2026-05-16)
 
 S71 (2026-05-16): Reading reminders. `NotificationManager`: `scheduleReadingReminder(lastReadTitle:afterDays:)` schedules a `UNCalendarNotificationTrigger` firing at 10am on day N with "Continue [Title]?" body; `cancelReadingReminder()` removes the pending request; `checkAuthorizationStatus()` syncs `isAuthorized` on foreground. `AppSettings`: `readingReminderEnabled: Bool` (default false, opt-in) + `readingReminderDays: Int` (default 2). `YomiApp.onChange(scenePhase)`: on `.active` — cancel reminder + refresh auth; on `.background` — fetch most recently read title via `Task.detached` (MangaQueries then NovelQueries fallback), schedule reminder when enabled. `UpdatesSettingsView`: reading reminders toggle + "Remind me after" `Picker` (1/2/3 days, 1 week) shown when enabled; disabling cancels pending reminder.
