@@ -36,8 +36,8 @@ enum ICloudSyncStatus: Equatable {
         FileManager.default.ubiquityIdentityToken != nil
     }
 
-    private static let containerID  = "iCloud.pacodealer.Yomi"
-    private static let backupFile   = "YomiBackup.json"
+    private nonisolated(unsafe) static let containerID  = "iCloud.pacodealer.Yomi"
+    private nonisolated(unsafe) static let backupFile   = "YomiBackup.json"
 
     // MARK: - Tachiyomi Import
 
@@ -166,7 +166,7 @@ enum ICloudSyncStatus: Equatable {
                     try FileManager.default.startDownloadingUbiquitousItem(at: url)
                     let deadline = Date().addingTimeInterval(30)
                     while Date() < deadline {
-                        Thread.sleep(forTimeInterval: 0.5)
+                        try await Task.sleep(nanoseconds: 500_000_000)
                         let status = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
                         if status.ubiquitousItemDownloadingStatus == .current { break }
                     }
@@ -193,7 +193,7 @@ enum ICloudSyncStatus: Equatable {
         }.value
     }
 
-    private static func iCloudBackupURL() -> URL? {
+    private nonisolated static func iCloudBackupURL() -> URL? {
         guard let container = FileManager.default.url(
             forUbiquityContainerIdentifier: containerID
         ) else { return nil }
