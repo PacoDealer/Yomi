@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import Kingfisher
 
 // MARK: - DownloadViewModel
 
@@ -161,14 +162,10 @@ private struct MangaSectionHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            AsyncImage(url: manga.coverURL) { image in
-                image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-            } placeholder: {
-                Rectangle().fill(Color.secondary.opacity(0.3))
-            }
-            .frame(width: 32, height: 48)
-            .cornerRadius(4)
-            .clipped()
+            CoverImage(url: manga.coverURL)
+                .frame(width: 32, height: 48)
+                .cornerRadius(4)
+                .clipped()
 
             Text(manga.title)
                 .font(.headline)

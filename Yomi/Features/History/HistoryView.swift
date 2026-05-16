@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - HistoryItem
 
@@ -285,15 +286,7 @@ private struct HistoryRow: View {
                         .resizable()
                         .aspectRatio(2 / 3, contentMode: .fill)
                 } else {
-                    AsyncImage(url: coverURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(2 / 3, contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.3))
-                            .aspectRatio(2 / 3, contentMode: .fit)
-                    }
+                    CoverImage(url: coverURL)
                 }
             }
             .frame(width: 48)

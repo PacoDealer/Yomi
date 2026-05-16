@@ -1,5 +1,5 @@
 {
-  "originHash" : "d77223ea3cadaebd2154378ec5005b6ebefcef3b34a4dafa368b0c4f16c0561c",
+  "originHash" : "37985e5d3ab7293b6593ba1b71bb11bf4d97ee8bd6032061fea651ad67b274ee",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -8,6 +8,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "36e30a6f1ef10e4194f6af0cff90888526f0c115"
+      }
+    },
+    {
+      "identity" : "kingfisher",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Kingfisher",
+      "state" : {
+        "revision" : "cf8be20d07654570554c8a8a4952bc8a5766a8b0",
+        "version" : "8.9.0"
       }
     }
   ],

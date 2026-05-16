@@ -1,12 +1,12 @@
 import Foundation
 import GRDB
 
-/// Operaciones CRUD para la tabla chapter
+/// CRUD operations for the chapter table.
 enum ChapterQueries {
 
     // MARK: - Read
 
-    /// Devuelve todos los capítulos de un manga ordenados por chapterNumber ASC, nulos al final
+    /// Returns all chapters for a manga ordered by chapterNumber ASC, nulls last.
     nonisolated static func fetchAll(mangaId: String) throws -> [Chapter] {
         try appDatabase.read { db in
             try Chapter
@@ -16,14 +16,14 @@ enum ChapterQueries {
         }
     }
 
-    /// Devuelve el capítulo con el id indicado, o nil si no existe
+    /// Returns the chapter with the given id, or nil if not found.
     nonisolated static func fetchOne(id: String) throws -> Chapter? {
         try appDatabase.read { db in
             try Chapter.fetchOne(db, key: id)
         }
     }
 
-    /// Devuelve el número de capítulos descargados de un manga
+    /// Returns the number of downloaded chapters for a manga.
     nonisolated static func downloadedCount(mangaId: String) throws -> Int {
         try appDatabase.read { db in
             try Chapter
@@ -33,8 +33,7 @@ enum ChapterQueries {
         }
     }
 
-    /// Devuelve un diccionario [mangaId: unreadCount] para todos los manga de la biblioteca.
-    /// Una sola query SQL, sin N+1.
+    /// Returns a [mangaId: unreadCount] dictionary for all library manga in a single SQL query.
     nonisolated static func fetchUnreadCountsByManga() throws -> [String: Int] {
         try appDatabase.read { db in
             let rows = try Row.fetchAll(
@@ -45,7 +44,7 @@ enum ChapterQueries {
         }
     }
 
-    /// Devuelve los capítulos no leídos de un manga ordenados por chapterNumber ASC, nulos al final
+    /// Returns unread chapters for a manga ordered by chapterNumber ASC, nulls last.
     nonisolated static func fetchUnread(mangaId: String) throws -> [Chapter] {
         try appDatabase.read { db in
             try Chapter
@@ -58,21 +57,21 @@ enum ChapterQueries {
 
     // MARK: - Write
 
-    /// Inserta un nuevo capítulo; falla si ya existe un registro con el mismo id
+    /// Inserts a new chapter; fails if a record with the same id already exists.
     nonisolated static func insert(_ chapter: Chapter) throws {
         _ = try appDatabase.write { db in
             try chapter.insert(db)
         }
     }
 
-    /// Inserta o actualiza un capítulo (save = insert or replace)
+    /// Inserts or updates a chapter (save = INSERT OR REPLACE).
     nonisolated static func upsert(_ chapter: Chapter) throws {
         _ = try appDatabase.write { db in
             try chapter.save(db)
         }
     }
 
-    /// Inserta o actualiza una colección de capítulos en una sola transacción
+    /// Inserts or updates a collection of chapters in a single transaction.
     nonisolated static func upsertAll(_ chapters: [Chapter]) throws {
         _ = try appDatabase.write { db in
             for chapter in chapters {
@@ -81,9 +80,9 @@ enum ChapterQueries {
         }
     }
 
-    /// Inserta capítulos nuevos ignorando conflictos (INSERT OR IGNORE).
-    /// Nunca sobreescribe isRead, isDownloaded ni progress de filas existentes.
-    /// Llamar después de obtener la lista desde JSBridge, antes del merge con DB.
+    /// Inserts new chapters ignoring conflicts (INSERT OR IGNORE).
+    /// Never overwrites existing isRead, isDownloaded, or progress values.
+    /// Call after fetching the chapter list from JSBridge, before merging with DB state.
     nonisolated static func insertAllIgnoringConflicts(_ chapters: [Chapter]) throws {
         _ = try appDatabase.write { db in
             for chapter in chapters {
@@ -92,9 +91,9 @@ enum ChapterQueries {
         }
     }
 
-    /// Inserta el manga y sus capítulos en una sola transacción (INSERT OR IGNORE).
-    /// El INSERT OR IGNORE del manga garantiza que la FK constraint se satisfaga
-    /// aunque el manga no esté todavía en la biblioteca (browsing sin añadir al library).
+    /// Inserts a manga and its chapters in a single transaction (INSERT OR IGNORE).
+    /// The manga INSERT OR IGNORE ensures the FK constraint is satisfied even when
+    /// the manga is not yet in the library (browsing without adding to library).
     nonisolated static func insertMangaAndChapters(manga: Manga, chapters: [Chapter]) throws {
         _ = try appDatabase.write { db in
             try manga.insert(db, onConflict: .ignore)
@@ -106,7 +105,7 @@ enum ChapterQueries {
 
     // MARK: - Progress
 
-    /// Marca un capítulo como leído con isRead=true, readAt=ahora y progress=1.0 (UPDATE directo, sin fetch previo)
+    /// Marks a chapter as read with isRead=true, readAt=now, progress=1.0 (direct UPDATE, no prior fetch).
     nonisolated static func markRead(id: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -116,7 +115,7 @@ enum ChapterQueries {
         }
     }
 
-    /// Marca un capítulo como leído con isRead=true y readAt=ahora (UPDATE directo, sin fetch previo)
+    /// Marks a chapter as read with isRead=true and readAt=now (direct UPDATE, no prior fetch).
     nonisolated static func markRead(id: String, mangaId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -127,7 +126,7 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
-    /// Marca un capítulo como leído o no leído (isRead flexible)
+    /// Marks a chapter as read or unread.
     nonisolated static func setRead(chapterId: String, isRead: Bool) throws {
         _ = try appDatabase.write { db in
             if isRead {
@@ -144,7 +143,7 @@ enum ChapterQueries {
         }
     }
 
-    /// Marca todos los capítulos de un manga como leídos con isRead=true y readAt=ahora
+    /// Marks all chapters for a manga as read with isRead=true and readAt=now.
     nonisolated static func markAllRead(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -155,7 +154,7 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
-    /// Actualiza progress, readingSeconds y lastPageRead de un capítulo (UPDATE directo, sin fetch previo)
+    /// Updates progress, readingSeconds, and lastPageRead for a chapter (direct UPDATE, no prior fetch).
     nonisolated static func updateProgress(id: String, progress: Double, readingSeconds: Int, lastPageRead: Int = 0) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -165,7 +164,7 @@ enum ChapterQueries {
         }
     }
 
-    /// Acumula segundos de lectura en readingSeconds del capítulo
+    /// Accumulates reading seconds into the chapter's readingSeconds total.
     nonisolated static func addReadingTime(id: String, seconds: Int) throws {
         guard seconds > 0 else { return }
         _ = try appDatabase.write { db in
@@ -177,14 +176,14 @@ enum ChapterQueries {
 
     // MARK: - Delete
 
-    /// Elimina el capítulo con el id indicado (no lanza error si no existe)
+    /// Deletes the chapter with the given id (no-op if not found).
     nonisolated static func delete(id: String) throws {
         _ = try appDatabase.write { db in
             _ = try Chapter.deleteOne(db, key: id)
         }
     }
 
-    /// Elimina todos los capítulos de un manga
+    /// Deletes all chapters for a manga.
     nonisolated static func deleteAll(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try Chapter
