@@ -70,6 +70,16 @@ import Observation
         didSet { defaults.set(iCloudAutoBackup, forKey: "iCloudAutoBackup") }
     }
 
+    // MARK: - Reading reminders
+
+    var readingReminderEnabled: Bool {
+        didSet { defaults.set(readingReminderEnabled, forKey: "readingReminderEnabled") }
+    }
+
+    var readingReminderDays: Int {
+        didSet { defaults.set(readingReminderDays, forKey: "readingReminderDays") }
+    }
+
     // MARK: - Notifications
 
     var hasRequestedNotifications: Bool {
@@ -321,5 +331,7 @@ import Observation
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
         opdsPassword             = d.string(forKey: "opdsPassword")             ?? ""
         iCloudAutoBackup         = d.object(forKey: "iCloudAutoBackup")        as? Bool ?? true
+        readingReminderEnabled   = d.object(forKey: "readingReminderEnabled") as? Bool ?? false
+        readingReminderDays      = d.object(forKey: "readingReminderDays")    as? Int  ?? 2
     }
 }
