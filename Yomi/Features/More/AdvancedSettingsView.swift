@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import Kingfisher
 
 // MARK: - AdvancedSettingsView
 
@@ -24,6 +25,7 @@ struct AdvancedSettingsView: View {
         Section("Cache") {
             Button("Clear image cache") {
                 URLCache.shared.removeAllCachedResponses()
+                ImageCache.default.clearCache()
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
             .foregroundStyle(.primary)

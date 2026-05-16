@@ -81,8 +81,11 @@ struct YomiApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background, settings.appLockEnabled {
-                isLocked = true
+            if phase == .background {
+                if settings.appLockEnabled { isLocked = true }
+                if settings.iCloudAutoBackup {
+                    Task { await BackupManager.shared.uploadToICloud() }
+                }
             }
         }
     }

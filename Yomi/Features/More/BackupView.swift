@@ -17,6 +17,7 @@ struct BackupView: View {
     @State private var showRestoreConfirm = false
     @State private var iCloudBackupExists = false
     @State private var iCloudBackupDate: Date? = nil
+    @State private var settings = AppSettings.shared
 
     // MARK: - Body
 
@@ -147,6 +148,10 @@ struct BackupView: View {
                         }
                     }
 
+                    Toggle(isOn: $settings.iCloudAutoBackup) {
+                        Label("Back up automatically", systemImage: "icloud")
+                    }
+
                     if iCloudBackupExists {
                         Button {
                             showRestoreConfirm = true
@@ -159,7 +164,7 @@ struct BackupView: View {
         } header: {
             Text("iCloud")
         } footer: {
-            Text("iCloud backup merges into your library. Enable via Xcode → Target → Signing & Capabilities → iCloud → iCloud Documents.")
+            Text("When enabled, Yomi backs up your library automatically each time you leave the app. Restoring merges the backup into your current library.")
                 .font(.caption)
         }
     }

@@ -64,6 +64,12 @@ import Observation
         didSet { defaults.set(showNSFW, forKey: "showNSFW") }
     }
 
+    // MARK: - Backup
+
+    var iCloudAutoBackup: Bool {
+        didSet { defaults.set(iCloudAutoBackup, forKey: "iCloudAutoBackup") }
+    }
+
     // MARK: - Notifications
 
     var hasRequestedNotifications: Bool {
@@ -314,5 +320,6 @@ import Observation
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
         opdsPassword             = d.string(forKey: "opdsPassword")             ?? ""
+        iCloudAutoBackup         = d.object(forKey: "iCloudAutoBackup")        as? Bool ?? true
     }
 }
