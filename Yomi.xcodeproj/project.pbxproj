@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0E2B3AB12F658FC9006E6D41 /* GRDB */; };
 		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +90,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */,
+				EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,6 +145,7 @@
 			name = Yomi;
 			packageProductDependencies = (
 				0E2B3AB12F658FC9006E6D41 /* GRDB */,
+				514D11379D494BB1B5834DDA /* Kingfisher */,
 			);
 			productName = Yomi;
 			productReference = 0EE530CD2F64CF600074B935 /* Yomi.app */;
@@ -199,6 +202,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */,
+				9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0EE530CE2F64CF600074B935 /* Products */;
@@ -532,6 +536,14 @@
 				kind = branch;
 			};
 		};
+		9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -539,6 +551,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
+		};
+		514D11379D494BB1B5834DDA /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

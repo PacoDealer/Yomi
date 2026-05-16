@@ -81,7 +81,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
 
 **Current DB/code state:**
-- DB at v17_novel_scroll (18 migrations total, next must be v18_)
+- DB at v18_indexes (19 migrations total, next must be v19_)
 - Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
@@ -179,7 +179,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v18_` (v17_ used for novel_chapter.lastScrollPercent in S60)
+- Next migration prefix must be `v19_` (v18_ used for DB indexes in S67)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -217,7 +217,7 @@ Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBU
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v17_novel_scroll; next must be v18_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v18_indexes; next must be v19_
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift

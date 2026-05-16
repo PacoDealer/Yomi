@@ -1,5 +1,6 @@
 import SwiftUI
 import CryptoKit
+import Kingfisher
 
 // MARK: - Constants
 
@@ -442,18 +443,20 @@ private struct InstalledExtensionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: ext.iconURL) { image in
-                image.resizable().aspectRatio(1, contentMode: .fit)
-            } placeholder: {
-                Image(systemName: "puzzlepiece.extension")
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
-                    .padding(8)
-                    .foregroundStyle(.secondary)
-                    .background(Color.secondary.opacity(0.15))
-            }
-            .frame(width: 40, height: 40)
-            .cornerRadius(8)
+            KFImage(ext.iconURL)
+                .placeholder {
+                    Image(systemName: "puzzlepiece.extension")
+                        .resizable()
+                        .aspectRatio(1, contentMode: .fit)
+                        .padding(8)
+                        .foregroundStyle(.secondary)
+                        .background(Color.secondary.opacity(0.15))
+                }
+                .fade(duration: 0.2)
+                .resizable()
+                .aspectRatio(1, contentMode: .fit)
+                .frame(width: 40, height: 40)
+                .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(ext.name).font(.headline)

@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Kingfisher
 
 struct NovelDetailView: View {
     @State private var novel: Novel
@@ -264,13 +265,7 @@ struct NovelDetailView: View {
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
                         } else {
-                            AsyncImage(url: novel.coverURL) { image in
-                                image.resizable().aspectRatio(2 / 3, contentMode: .fill)
-                            } placeholder: {
-                                Rectangle()
-                                    .fill(Color.secondary.opacity(0.3))
-                                    .aspectRatio(2 / 3, contentMode: .fit)
-                            }
+                            CoverImage(url: novel.coverURL)
                         }
                     }
                     .frame(width: 110)
