@@ -21,6 +21,10 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S69 — 2026-05-16)
+
+S69 (2026-05-16): iCloud Drive backup sync. `BackupManager` extended with `uploadToICloud()`, `downloadFromICloud()`, `checkICloudBackup()` — all file I/O in `Task.detached` (off main thread); `buildBackupData() async throws -> Data` extracted from `exportBackup()` and shared by both local export and iCloud upload paths; `ICloudSyncStatus` enum tracks idle/uploading/downloading/success/unavailable/error; `lastICloudUploadDate: Date?` persisted to UserDefaults. `BackupView` gains an iCloud section at the top: "Back up to iCloud" button, last backup timestamp (`checkICloudBackup()` on appear), "Restore from iCloud" button guarded by `confirmationDialog`. `Yomi.entitlements` gets `com.apple.developer.ubiquity-container-identifiers: ["iCloud.pacodealer.Yomi"]`. **One-time Xcode step required**: Target → Signing & Capabilities → + Capability → iCloud → check "iCloud Documents" to activate provisioning.
+
 ## Current state (post S68 — 2026-05-15)
 
 S67 (2026-05-15): Infrastructure fix — all four code audit issues resolved. (1) **Kingfisher image cache**: Kingfisher 8.9.0 added via SPM; `CoverImage.swift` reusable wrapper (`KFImage` with 2/3 aspect ratio, fade transition, secondary placeholder); all 21 `AsyncImage` usages across 11 files migrated to `CoverImage` or `KFImage` (readers and widget left unchanged per policy). Cover images now load instantly after first fetch from disk+memory cache. (2) **DB indexes**: `v18_indexes` migration adds `idx_chapter_mangaid`, `idx_chapter_unread` on `chapter` and `idx_novel_chapter_novelid` on `novel_chapter` — eliminates full table scans on library load and unread count queries. (3) **Double markChapterRead() fix**: `@State private var didMarkCurrentChapterRead = false` guard added to `ChapterReaderView` — prevents both `onChange(of: currentPage)` and `onDisappear` from writing to DB on the same chapter; flag resets in `navigateToChapter`. (4) **Spanish comments cleanup**: all Spanish comments in `DatabaseManager.swift` and `ChapterQueries.swift` translated to English.

@@ -58,8 +58,8 @@ Yomi/
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance / About / Plugin Repos / Suwayomi (test connection button, setup guide link) / OPDS (URL + auth + test) / Advanced (NavigationLink)
 │   │   ├── AdvancedSettingsView.swift # Cache (image/plugin/WebView), Network (read-only), Database (log export), Build info
 │   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + manga/novel breakdown section + per-title time list with relative bars and "N" novel badges
-│   │   ├── BackupManager.swift      # Export/import JSON (manga + chapters)
-│   │   ├── BackupView.swift         # UI: ShareLink export + fileImporter import
+│   │   ├── BackupManager.swift      # Export/import JSON (manga+chapters+novels+categories); buildBackupData() shared by local export + iCloud upload; uploadToICloud/downloadFromICloud/checkICloudBackup via Task.detached FileManager; ICloudSyncStatus enum; lastICloudUploadDate in UserDefaults
+│   │   ├── BackupView.swift         # UI: iCloud section (top), ShareLink export, fileImporter import, Tachiyomi import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView
 │   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdatesRow

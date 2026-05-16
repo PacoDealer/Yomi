@@ -90,6 +90,12 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 1. `LibraryViewModel.displayedManga`/`displayedNovels` converted from computed to stored properties — sort/filter runs only when data changes
 2. iOS 26 Liquid Glass on reader overlays — `ReaderOverlayView` + `TextReaderOverlayView` use `Rectangle().glassEffect().ignoresSafeArea()` replacing gradient bars
 
+**S69 shipped (2026-05-16):**
+1. iCloud Drive backup sync — `BackupManager`: `buildBackupData()` extracted and shared by local export + iCloud upload; `uploadToICloud()` / `downloadFromICloud()` / `checkICloudBackup()` with `Task.detached` file I/O; `ICloudSyncStatus` enum; `lastICloudUploadDate` in UserDefaults
+2. `BackupView`: iCloud section at top — "Back up to iCloud", last backup timestamp, "Restore from iCloud" (confirmationDialog); status refreshed on appear
+3. `Yomi.entitlements`: `com.apple.developer.ubiquity-container-identifiers: ["iCloud.pacodealer.Yomi"]`
+4. **Xcode step**: Target → Signing & Capabilities → + iCloud → check "iCloud Documents" to activate the capability
+
 **Current DB/code state:**
 - DB at v18_indexes (19 migrations total, next must be v19_)
 - Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
