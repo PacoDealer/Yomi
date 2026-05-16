@@ -21,6 +21,10 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S71 — 2026-05-16)
+
+S71 (2026-05-16): Reading reminders. `NotificationManager`: `scheduleReadingReminder(lastReadTitle:afterDays:)` schedules a `UNCalendarNotificationTrigger` firing at 10am on day N with "Continue [Title]?" body; `cancelReadingReminder()` removes the pending request; `checkAuthorizationStatus()` syncs `isAuthorized` on foreground. `AppSettings`: `readingReminderEnabled: Bool` (default false, opt-in) + `readingReminderDays: Int` (default 2). `YomiApp.onChange(scenePhase)`: on `.active` — cancel reminder + refresh auth; on `.background` — fetch most recently read title via `Task.detached` (MangaQueries then NovelQueries fallback), schedule reminder when enabled. `UpdatesSettingsView`: reading reminders toggle + "Remind me after" `Picker` (1/2/3 days, 1 week) shown when enabled; disabling cancels pending reminder.
+
 ## Current state (post S70 — 2026-05-16)
 
 S70 (2026-05-16): Auto iCloud backup + Kingfisher cache fix. (1) **Auto iCloud backup**: `AppSettings.iCloudAutoBackup: Bool` (default `true`); `YomiApp.onChange(scenePhase == .background)` triggers `BackupManager.shared.uploadToICloud()` when enabled — library backed up automatically every time user leaves the app; toggle exposed in `BackupView` iCloud section. (2) **Kingfisher cache clear fix**: `AdvancedSettingsView` "Clear image cache" button now also calls `ImageCache.default.clearCache()` (Kingfisher memory + disk) in addition to `URLCache.shared` — previously tapping the button left the Kingfisher disk cache intact.
