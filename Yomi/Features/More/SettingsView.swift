@@ -543,10 +543,33 @@ private struct UpdatesSettingsView: View {
             Section {
                 Toggle(isOn: $settings.sendUpdateNotifications) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Push notifications")
+                        Text("Chapter update notifications")
                         Text("Send a notification when new chapters are found")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: $settings.readingReminderEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reading reminders")
+                        Text("Remind you to read if you haven't opened Yomi in a while")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: settings.readingReminderEnabled) { _, enabled in
+                    if !enabled {
+                        NotificationManager.shared.cancelReadingReminder()
+                    }
+                }
+
+                if settings.readingReminderEnabled {
+                    Picker("Remind me after", selection: $settings.readingReminderDays) {
+                        Text("1 day").tag(1)
+                        Text("2 days").tag(2)
+                        Text("3 days").tag(3)
+                        Text("1 week").tag(7)
                     }
                 }
             }

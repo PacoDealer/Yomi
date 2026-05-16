@@ -81,10 +81,27 @@ struct YomiApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await NotificationManager.shared.checkAuthorizationStatus() }
+                NotificationManager.shared.cancelReadingReminder()
+            }
             if phase == .background {
                 if settings.appLockEnabled { isLocked = true }
                 if settings.iCloudAutoBackup {
                     Task { await BackupManager.shared.uploadToICloud() }
+                }
+                if settings.readingReminderEnabled {
+                    let days = settings.readingReminderDays
+                    Task {
+                        let title = await Task.detached {
+                            (try? MangaQueries.fetchRecentlyRead(limit: 1))?.first?.title
+                                ?? (try? NovelQueries.fetchRecentlyRead(limit: 1))?.first?.title
+                        }.value
+                        NotificationManager.shared.scheduleReadingReminder(
+                            lastReadTitle: title,
+                            afterDays: days
+                        )
+                    }
                 }
             }
         }
