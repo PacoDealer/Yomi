@@ -177,7 +177,10 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let count = newChapters.count
         if AppSettings.shared.sendUpdateNotifications {
             await MainActor.run {
-                NotificationManager.shared.scheduleChapterNotification(mangaTitle: title, newCount: count)
+                NotificationManager.shared.scheduleChapterNotification(
+                    mangaTitle: title, newCount: count,
+                    mediaId: mangaId, mediaType: "manga"
+                )
             }
         }
     }
@@ -241,7 +244,10 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let count = newChapters.count
         if AppSettings.shared.sendUpdateNotifications {
             await MainActor.run {
-                NotificationManager.shared.scheduleChapterNotification(mangaTitle: title, newCount: count)
+                NotificationManager.shared.scheduleChapterNotification(
+                    mangaTitle: title, newCount: count,
+                    mediaId: novelId, mediaType: "novel"
+                )
             }
         }
     }
