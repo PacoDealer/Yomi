@@ -450,6 +450,10 @@ struct ReaderWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.dataDetectorTypes = []
+        // Non-persistent store prevents iOS from matching scroll state from a previous
+        // chapter (all chapters share nil/about:blank baseURL) and showing the
+        // "Restore scroll position" callout on every new chapter load.
+        config.websiteDataStore = .nonPersistent()
 
         config.userContentController.add(context.coordinator, name: "readComplete")
         config.userContentController.add(context.coordinator, name: "scrollPosition")
@@ -548,6 +552,22 @@ struct ReaderWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard !hasRestored else { return }
             hasRestored = true
+            webView.scrollView.setContentOffset(.zero, animated: false)
+            // Strip any "Restore scroll position" element injected by the source website.
+            let cleanupJS = """
+            (function() {
+                var tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+                var node;
+                while ((node = tw.nextNode())) {
+                    if (node.textContent.trim() === 'Restore scroll position') {
+                        var p = node.parentElement;
+                        if (p) { p.remove(); }
+                        break;
+                    }
+                }
+            })();
+            """
+            webView.evaluateJavaScript(cleanupJS)
             guard let pct = restoreScrollPercent, pct > 0.01 else { return }
             let js = """
             (function() {
