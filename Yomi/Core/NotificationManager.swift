@@ -71,13 +71,17 @@ final class NotificationManager {
             .removePendingNotificationRequests(withIdentifiers: ["yomi.readingReminder"])
     }
 
-    func scheduleChapterNotification(mangaTitle: String, newCount: Int) {
+    func scheduleChapterNotification(mangaTitle: String, newCount: Int,
+                                      mediaId: String? = nil, mediaType: String = "manga") {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
         content.title = mangaTitle
         content.body  = "\(newCount) new chapter\(newCount == 1 ? "" : "s") available"
         content.sound = .default
+        if let id = mediaId {
+            content.userInfo = ["mediaId": id, "mediaType": mediaType]
+        }
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let safeTitle = mangaTitle.filter { $0.isLetter || $0.isNumber || $0 == " " }.prefix(60)

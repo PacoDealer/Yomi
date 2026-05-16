@@ -3,10 +3,11 @@ import UIKit
 
 // MARK: - AppDelegate
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
         application.shortcutItems = [
             UIApplicationShortcutItem(
                 type: "com.yomi.continueReading",
@@ -29,6 +30,32 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      completionHandler: @escaping (Bool) -> Void) {
         handleShortcut(shortcutItem)
         completionHandler(true)
+    }
+
+    // Called when user taps a delivered notification.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        if let mediaId = userInfo["mediaId"] as? String,
+           let mediaType = userInfo["mediaType"] as? String {
+            DispatchQueue.main.async {
+                appRouter.selectedTab = AppRouter.tabLibrary
+                if mediaType == "novel" {
+                    appRouter.pendingOpenNovelId = mediaId
+                } else {
+                    appRouter.pendingOpenMangaId = mediaId
+                }
+            }
+        }
+        completionHandler()
+    }
+
+    // Allow notifications to display while app is in foreground.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 
     private func handleShortcut(_ item: UIApplicationShortcutItem) {

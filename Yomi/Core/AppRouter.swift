@@ -2,12 +2,12 @@ import Foundation
 
 // MARK: - appRouter
 
-/// Module-level singleton accesible desde cualquier contexto de aislamiento.
+/// Module-level singleton accessible from any isolation context.
 nonisolated(unsafe) var appRouter = AppRouter()
 
 // MARK: - AppRouter
 
-/// Gestiona la navegación global entre tabs de la app.
+/// Manages global tab navigation and deep-link state.
 @Observable
 final class AppRouter {
 
@@ -25,6 +25,10 @@ final class AppRouter {
 
     /// When true, BrowseView will switch its sub-tab to Extensions and reset this flag.
     var openBrowseExtensions: Bool = false
+
+    /// Set by AppDelegate when a chapter-update notification is tapped; LibraryView observes and navigates.
+    var pendingOpenMangaId: String? = nil
+    var pendingOpenNovelId: String? = nil
 
     // MARK: - Init
 
