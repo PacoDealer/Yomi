@@ -2,6 +2,17 @@ import Foundation
 import GRDB
 import Observation
 
+// MARK: - ICloudSyncStatus
+
+enum ICloudSyncStatus: Equatable {
+    case idle
+    case uploading
+    case downloading
+    case success
+    case unavailable
+    case error(String)
+}
+
 // MARK: - BackupManager
 
 @Observable final class BackupManager {
@@ -13,6 +24,20 @@ import Observation
     var lastBackupDate: Date? = nil
     var errorMessage: String? = nil
     var lastTachiyomiImportSummary: String? = nil
+
+    // MARK: - iCloud state
+
+    var iCloudStatus: ICloudSyncStatus = .idle
+    var lastICloudUploadDate: Date? = {
+        UserDefaults.standard.object(forKey: "lastICloudUploadDate") as? Date
+    }()
+
+    var isICloudAvailable: Bool {
+        FileManager.default.ubiquityIdentityToken != nil
+    }
+
+    private static let containerID  = "iCloud.pacodealer.Yomi"
+    private static let backupFile   = "YomiBackup.json"
 
     // MARK: - Tachiyomi Import
 
@@ -50,35 +75,7 @@ import Observation
         defer { isExporting = false }
 
         do {
-            let mangas         = try MangaQueries.fetchAll()
-            let chapters       = try await appDatabase.read { try Chapter.fetchAll($0) }
-            let novels         = try NovelQueries.fetchAll()
-            let novelChapters  = try await appDatabase.read { try NovelChapter.fetchAll($0) }
-            let novelCatPairs  = try await appDatabase.read { db -> [[String: String]] in
-                try Row.fetchAll(db, sql: "SELECT novelId, categoryId FROM novel_category").map {
-                    ["novelId": $0["novelId"], "categoryId": $0["categoryId"]]
-                }
-            }
-            let mangaCatPairs  = try await appDatabase.read { db -> [[String: String]] in
-                try Row.fetchAll(db, sql: "SELECT mangaId, categoryId FROM manga_category").map {
-                    ["mangaId": $0["mangaId"], "categoryId": $0["categoryId"]]
-                }
-            }
-            let categories     = try CategoryQueries.fetchAll()
-
-            let payload: [String: Any] = [
-                "version":          3,
-                "exportedAt":       ISO8601DateFormatter().string(from: Date()),
-                "categories":       categories.map     { encodeCategory($0) },
-                "mangas":           mangas.map        { encodeManga($0) },
-                "chapters":         chapters.map      { encodeChapter($0) },
-                "novels":           novels.map        { encodeNovel($0) },
-                "novelChapters":    novelChapters.map { encodeNovelChapter($0) },
-                "novelCategories":  novelCatPairs,
-                "mangaCategories":  mangaCatPairs
-            ]
-
-            let data = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
+            let data = try await buildBackupData()
             let datePart = Date().formatted(.iso8601)
                 .replacingOccurrences(of: ":", with: "-")
             let filename = "yomi-backup-\(datePart).json"
@@ -90,6 +87,119 @@ import Observation
             errorMessage = error.localizedDescription
             return nil
         }
+    }
+
+    private func buildBackupData() async throws -> Data {
+        let mangas         = try MangaQueries.fetchAll()
+        let chapters       = try await appDatabase.read { try Chapter.fetchAll($0) }
+        let novels         = try NovelQueries.fetchAll()
+        let novelChapters  = try await appDatabase.read { try NovelChapter.fetchAll($0) }
+        let novelCatPairs  = try await appDatabase.read { db -> [[String: String]] in
+            try Row.fetchAll(db, sql: "SELECT novelId, categoryId FROM novel_category").map {
+                ["novelId": $0["novelId"], "categoryId": $0["categoryId"]]
+            }
+        }
+        let mangaCatPairs  = try await appDatabase.read { db -> [[String: String]] in
+            try Row.fetchAll(db, sql: "SELECT mangaId, categoryId FROM manga_category").map {
+                ["mangaId": $0["mangaId"], "categoryId": $0["categoryId"]]
+            }
+        }
+        let categories = try CategoryQueries.fetchAll()
+
+        let payload: [String: Any] = [
+            "version":         3,
+            "exportedAt":      ISO8601DateFormatter().string(from: Date()),
+            "categories":      categories.map     { encodeCategory($0) },
+            "mangas":          mangas.map         { encodeManga($0) },
+            "chapters":        chapters.map       { encodeChapter($0) },
+            "novels":          novels.map         { encodeNovel($0) },
+            "novelChapters":   novelChapters.map  { encodeNovelChapter($0) },
+            "novelCategories": novelCatPairs,
+            "mangaCategories": mangaCatPairs
+        ]
+        return try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
+    }
+
+    // MARK: - iCloud upload / download
+
+    func uploadToICloud() async {
+        guard isICloudAvailable else { iCloudStatus = .unavailable; return }
+        iCloudStatus = .uploading
+        do {
+            let data = try await buildBackupData()
+            try await Task.detached {
+                guard let dest = Self.iCloudBackupURL() else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+                let tmp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("YomiBackup_upload.json")
+                try data.write(to: tmp)
+                if FileManager.default.fileExists(atPath: dest.path) {
+                    _ = try FileManager.default.replaceItemAt(dest, withItemAt: tmp)
+                } else {
+                    try FileManager.default.moveItem(at: tmp, to: dest)
+                }
+            }.value
+            let now = Date()
+            UserDefaults.standard.set(now, forKey: "lastICloudUploadDate")
+            lastICloudUploadDate = now
+            iCloudStatus = .success
+        } catch {
+            iCloudStatus = .error(error.localizedDescription)
+        }
+    }
+
+    func downloadFromICloud() async {
+        guard isICloudAvailable else { iCloudStatus = .unavailable; return }
+        iCloudStatus = .downloading
+        do {
+            let data = try await Task.detached {
+                guard let url = Self.iCloudBackupURL() else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+                guard FileManager.default.fileExists(atPath: url.path) else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+                // Ensure the file is downloaded locally before reading
+                let vals = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                if vals.ubiquitousItemDownloadingStatus != .current {
+                    try FileManager.default.startDownloadingUbiquitousItem(at: url)
+                    let deadline = Date().addingTimeInterval(30)
+                    while Date() < deadline {
+                        Thread.sleep(forTimeInterval: 0.5)
+                        let status = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                        if status.ubiquitousItemDownloadingStatus == .current { break }
+                    }
+                }
+                return try Data(contentsOf: url)
+            }.value
+
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("YomiBackup_restore.json")
+            try data.write(to: tmp)
+            await importBackup(from: tmp)
+            iCloudStatus = errorMessage == nil ? .success : .error(errorMessage ?? "Unknown error")
+        } catch {
+            iCloudStatus = .error(error.localizedDescription)
+        }
+    }
+
+    func checkICloudBackup() async -> (exists: Bool, date: Date?) {
+        return await Task.detached {
+            guard let url = Self.iCloudBackupURL() else { return (false, nil) }
+            guard FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }
+            let vals = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            return (true, vals?.contentModificationDate)
+        }.value
+    }
+
+    private static func iCloudBackupURL() -> URL? {
+        guard let container = FileManager.default.url(
+            forUbiquityContainerIdentifier: containerID
+        ) else { return nil }
+        let docs = container.appendingPathComponent("Documents")
+        try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+        return docs.appendingPathComponent(backupFile)
     }
 
     // MARK: - Import

@@ -14,11 +14,15 @@ struct BackupView: View {
     @State private var showImportSuccess = false
     @State private var showTachiyomiPicker = false
     @State private var showTachiyomiSuccess = false
+    @State private var showRestoreConfirm = false
+    @State private var iCloudBackupExists = false
+    @State private var iCloudBackupDate: Date? = nil
 
     // MARK: - Body
 
     var body: some View {
         List {
+            iCloudSection
             exportSection
             importSection
             tachiyomiImportSection
@@ -27,6 +31,11 @@ struct BackupView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            let result = await backupManager.checkICloudBackup()
+            iCloudBackupExists = result.exists
+            iCloudBackupDate = result.date
+        }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
                 ShareLink(
@@ -58,6 +67,23 @@ struct BackupView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "Restore from iCloud?",
+            isPresented: $showRestoreConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Restore", role: .destructive) {
+                Task {
+                    await backupManager.downloadFromICloud()
+                    let result = await backupManager.checkICloudBackup()
+                    iCloudBackupExists = result.exists
+                    iCloudBackupDate = result.date
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will merge the iCloud backup into your current library.")
+        }
         .alert("Import complete", isPresented: $showImportSuccess) {
             Button("OK", role: .cancel) {}
         }
@@ -67,6 +93,74 @@ struct BackupView: View {
             if let summary = backupManager.lastTachiyomiImportSummary {
                 Text(summary)
             }
+        }
+    }
+
+    // MARK: - iCloud Section
+
+    @ViewBuilder
+    private var iCloudSection: some View {
+        Section {
+            if !backupManager.isICloudAvailable {
+                Label("iCloud not available", systemImage: "icloud.slash")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            } else {
+                switch backupManager.iCloudStatus {
+                case .uploading:
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text("Uploading to iCloud…")
+                            .foregroundStyle(.secondary)
+                    }
+                case .downloading:
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text("Downloading from iCloud…")
+                            .foregroundStyle(.secondary)
+                    }
+                case .error(let msg):
+                    Text(msg)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                default:
+                    Button {
+                        Task {
+                            await backupManager.uploadToICloud()
+                            let result = await backupManager.checkICloudBackup()
+                            iCloudBackupExists = result.exists
+                            iCloudBackupDate = result.date
+                        }
+                    } label: {
+                        Label("Back up to iCloud", systemImage: "icloud.and.arrow.up")
+                    }
+
+                    if let date = iCloudBackupDate {
+                        LabeledContent("Last iCloud backup") {
+                            Text(date.formatted(.relative(presentation: .named)))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if let date = backupManager.lastICloudUploadDate {
+                        LabeledContent("Last iCloud backup") {
+                            Text(date.formatted(.relative(presentation: .named)))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if iCloudBackupExists {
+                        Button {
+                            showRestoreConfirm = true
+                        } label: {
+                            Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("iCloud")
+        } footer: {
+            Text("iCloud backup merges into your library. Enable via Xcode → Target → Signing & Capabilities → iCloud → iCloud Documents.")
+                .font(.caption)
         }
     }
 

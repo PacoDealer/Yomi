@@ -6,5 +6,9 @@
 	<array>
 		<string>group.pacodealer.Yomi</string>
 	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.pacodealer.Yomi</string>
+	</array>
 </dict>
 </plist>
