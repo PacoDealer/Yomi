@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 import WebKit
 import AVFoundation
 
@@ -71,6 +72,9 @@ struct TextReaderView: View {
     let chapters: [NovelChapter]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
+
+    @State private var shouldRequestReview = false
 
     @State private var currentChapterIndex: Int
     @State private var rawContent: String = ""
@@ -204,7 +208,14 @@ struct TextReaderView: View {
                     onReadComplete: {
                         if !AppSettings.shared.isIncognito {
                             let chapterId = activeChapter.id
-                            Task { try? NovelQueries.markRead(chapterId: chapterId) }
+                            Task {
+                                try? NovelQueries.markRead(chapterId: chapterId)
+                                await MainActor.run {
+                                    if AppSettings.shared.recordChapterRead() {
+                                        shouldRequestReview = true
+                                    }
+                                }
+                            }
                         }
                         withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
                     },
@@ -261,6 +272,9 @@ struct TextReaderView: View {
         .onChange(of: fontFamily)    { _, v in AppSettings.shared.novelFontFamily = v }
         .onChange(of: justifyText)  { _, v in AppSettings.shared.novelJustifyText = v }
         .onChange(of: hPadding)     { _, v in AppSettings.shared.novelHorizontalPadding = v }
+        .onChange(of: shouldRequestReview) { _, should in
+            if should { requestReview(); shouldRequestReview = false }
+        }
         .onAppear {
             sessionStart  = Date()
             readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }

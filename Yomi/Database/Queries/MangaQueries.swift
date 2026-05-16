@@ -1,26 +1,26 @@
 import Foundation
 import GRDB
 
-/// Operaciones CRUD para la tabla manga
+/// CRUD operations for the manga table
 enum MangaQueries {
 
-    // MARK: - Lectura
+    // MARK: - Read
 
-    /// Devuelve todos los manga guardados en la base de datos
+    /// Returns all manga stored in the database
     nonisolated static func fetchAll() throws -> [Manga] {
         try appDatabase.read { db in
             try Manga.fetchAll(db)
         }
     }
 
-    /// Devuelve el manga con el id indicado, o nil si no existe
+    /// Returns the manga with the given id, or nil if not found
     nonisolated static func fetchOne(id: String) throws -> Manga? {
         try appDatabase.read { db in
             try Manga.fetchOne(db, key: id)
         }
     }
 
-    /// Devuelve solo los manga que el usuario agregó a su biblioteca
+    /// Returns only manga the user has added to their library
     nonisolated static func fetchLibrary() throws -> [Manga] {
         try appDatabase.read { db in
             try Manga
@@ -29,7 +29,7 @@ enum MangaQueries {
         }
     }
 
-    /// Devuelve todos los manga con lastReadAt != nil, ordenados por fecha de lectura descendente
+    /// Returns manga with lastReadAt != nil, ordered by read date descending
     nonisolated static func fetchHistory() throws -> [Manga] {
         try appDatabase.read { db in
             try Manga
@@ -39,7 +39,7 @@ enum MangaQueries {
         }
     }
 
-    /// Devuelve manga con lastReadAt != nil, ordenados por fecha de lectura descendente, con límite
+    /// Returns recently read manga, ordered by read date descending, up to limit
     nonisolated static func fetchRecentlyRead(limit: Int = 50) throws -> [Manga] {
         try appDatabase.read { db in
             try Manga
@@ -50,8 +50,7 @@ enum MangaQueries {
         }
     }
 
-    /// Devuelve los manga en biblioteca ordenados por lastUpdatedAt DESC.
-    /// Excluye los que tienen lastUpdatedAt nil.
+    /// Returns library manga ordered by lastUpdatedAt DESC, excluding rows with nil lastUpdatedAt
     nonisolated static func fetchLibraryByLastUpdated() throws -> [Manga] {
         try appDatabase.read { db in
             try Manga
@@ -62,9 +61,9 @@ enum MangaQueries {
         }
     }
 
-    // MARK: - Escritura
+    // MARK: - Write
 
-    /// Alterna inLibrary, actualiza lastUpdatedAt y guarda; devuelve el manga actualizado
+    /// Toggles inLibrary, sets lastUpdatedAt to now, saves, and returns the updated manga
     @discardableResult
     nonisolated static func toggleLibrary(manga: Manga) throws -> Manga {
         var updated = manga
@@ -76,28 +75,28 @@ enum MangaQueries {
         return updated
     }
 
-    /// Inserta un nuevo manga; falla si ya existe un registro con el mismo id
+    /// Inserts a new manga; throws if a row with the same id already exists
     nonisolated static func insert(_ manga: Manga) throws {
         _ = try appDatabase.write { db in
             try manga.insert(db)
         }
     }
 
-    /// Actualiza todos los campos de un manga existente por su id
+    /// Updates all fields of an existing manga by id
     nonisolated static func update(_ manga: Manga) throws {
         _ = try appDatabase.write { db in
             try manga.update(db)
         }
     }
 
-    /// Inserta o actualiza un manga (save = insert or replace)
+    /// Inserts or updates a manga (save = INSERT OR REPLACE)
     nonisolated static func upsert(_ manga: Manga) throws {
         _ = try appDatabase.write { db in
             try manga.save(db)
         }
     }
 
-    /// Actualiza lastReadAt a la fecha actual para el manga indicado
+    /// Sets lastReadAt to now for the given manga
     nonisolated static func touchLastRead(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try Manga
@@ -106,7 +105,7 @@ enum MangaQueries {
         }
     }
 
-    /// Borra lastReadAt del manga (lo saca del historial de lectura)
+    /// Clears lastReadAt for the given manga (removes it from history)
     nonisolated static func clearLastRead(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -116,7 +115,7 @@ enum MangaQueries {
         }
     }
 
-    /// Actualiza lastUpdatedAt a la fecha actual para el manga indicado
+    /// Sets lastUpdatedAt to now for the given manga
     nonisolated static func touchLastUpdated(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try Manga
@@ -125,7 +124,7 @@ enum MangaQueries {
         }
     }
 
-    /// Actualiza el estado de lectura definido por el usuario
+    /// Updates the user-defined reading status for a manga
     nonisolated static func updateReadingStatus(mangaId: String, status: ReadingStatus) throws {
         _ = try appDatabase.write { db in
             try Manga
@@ -134,7 +133,7 @@ enum MangaQueries {
         }
     }
 
-    /// Guarda las notas personales del usuario para un manga
+    /// Saves the user's personal notes for a manga
     nonisolated static func updateNotes(mangaId: String, notes: String?) throws {
         _ = try appDatabase.write { db in
             try Manga
@@ -143,9 +142,9 @@ enum MangaQueries {
         }
     }
 
-    // MARK: - Eliminación
+    // MARK: - Delete
 
-    /// Elimina el manga con el id indicado (no lanza error si no existe)
+    /// Deletes the manga with the given id (no-op if not found)
     nonisolated static func delete(id: String) throws {
         _ = try appDatabase.write { db in
             _ = try Manga.deleteOne(db, key: id)
