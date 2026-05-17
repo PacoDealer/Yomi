@@ -258,7 +258,6 @@ extension Manga: FetchableRecord, PersistableRecord {
         author        = row["author"]
         artist        = row["artist"]
         status        = MangaStatus(rawValue: row["status"]) ?? .unknown
-        // Decodifica el JSON almacenado de vuelta a [String]
         let raw: String = row["genres"] ?? "[]"
         genres        = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
         inLibrary      = row["inLibrary"]
@@ -281,7 +280,6 @@ extension Manga: FetchableRecord, PersistableRecord {
         container["author"]          = author
         container["artist"]          = artist
         container["status"]          = status.rawValue
-        // Serializa [String] a JSON para guardarlo en la columna TEXT
         container["genres"]          = (try? JSONEncoder().encode(genres))
                                            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         container["inLibrary"]       = inLibrary
@@ -400,7 +398,6 @@ extension Novel: FetchableRecord, PersistableRecord {
         summary       = row["summary"]
         author        = row["author"]
         status        = row["status"] ?? "unknown"
-        // Decodifica el JSON almacenado de vuelta a [String]
         let raw: String = row["genres"] ?? "[]"
         genres        = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
         inLibrary      = row["inLibrary"]
@@ -421,7 +418,6 @@ extension Novel: FetchableRecord, PersistableRecord {
         container["summary"]         = summary
         container["author"]          = author
         container["status"]          = status
-        // Serializa [String] a JSON para guardarlo en la columna TEXT
         container["genres"]          = (try? JSONEncoder().encode(genres))
                                            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         container["inLibrary"]       = inLibrary
