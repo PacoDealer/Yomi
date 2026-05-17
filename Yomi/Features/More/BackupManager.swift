@@ -36,8 +36,8 @@ enum ICloudSyncStatus: Equatable {
         FileManager.default.ubiquityIdentityToken != nil
     }
 
-    private nonisolated(unsafe) static let containerID  = "iCloud.pacodealer.Yomi"
-    private nonisolated(unsafe) static let backupFile   = "YomiBackup.json"
+    private nonisolated static let containerID  = "iCloud.pacodealer.Yomi"
+    private nonisolated static let backupFile   = "YomiBackup.json"
 
     // MARK: - Tachiyomi Import
 

@@ -1,10 +1,10 @@
 import Foundation
 import GRDB
 
-/// Operaciones de descarga para la tabla chapter
+/// Download operations for the chapter table.
 enum DownloadQueries {
 
-    /// Marca un capítulo como descargado con isDownloaded=true y downloadedAt=ahora
+    /// Sets isDownloaded=true and downloadedAt=now for the given chapter.
     nonisolated static func markDownloaded(chapterId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -14,7 +14,7 @@ enum DownloadQueries {
         }
     }
 
-    /// Marca un capítulo como no descargado con isDownloaded=false y downloadedAt=nil
+    /// Sets isDownloaded=false and downloadedAt=nil for the given chapter.
     nonisolated static func markNotDownloaded(chapterId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -24,7 +24,7 @@ enum DownloadQueries {
         }
     }
 
-    /// Devuelve los capítulos descargados de un manga, ordenados por chapterNumber ASC NULLS LAST
+    /// Returns downloaded chapters for a manga, ordered by chapterNumber ASC NULLS LAST.
     nonisolated static func fetchDownloaded(mangaId: String) throws -> [Chapter] {
         try appDatabase.read { db in
             try Chapter
@@ -35,7 +35,7 @@ enum DownloadQueries {
         }
     }
 
-    /// Devuelve todos los capítulos descargados de cualquier manga
+    /// Returns all downloaded chapters across all manga.
     nonisolated static func fetchAllDownloaded() throws -> [Chapter] {
         try appDatabase.read { db in
             try Chapter
@@ -44,8 +44,8 @@ enum DownloadQueries {
         }
     }
 
-    /// Resetea isDownloaded=false y downloadedAt=nil para el capítulo indicado.
-    /// No borra el archivo local — la eliminación del archivo es responsabilidad del caller.
+    /// Clears isDownloaded and downloadedAt for the given chapter.
+    /// Does not delete the local file — file deletion is the caller's responsibility.
     nonisolated static func deleteDownloadRecord(chapterId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
