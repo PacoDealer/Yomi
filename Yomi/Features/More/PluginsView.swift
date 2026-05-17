@@ -578,7 +578,8 @@ private struct InstallFromURLSheet: View {
         isInstalling = true
         errorMessage = nil
 
-        if extensionManager.installed.contains(where: { $0.id == id }) {
+        let nameToCheck = pluginName.trimmingCharacters(in: .whitespaces)
+        if extensionManager.installed.contains(where: { $0.id == id || (!nameToCheck.isEmpty && $0.name.lowercased() == nameToCheck.lowercased()) }) {
             errorMessage = "This plugin is already installed."
             isInstalling = false
             return
