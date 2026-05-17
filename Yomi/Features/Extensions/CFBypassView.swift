@@ -193,7 +193,7 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 enum CFBypassConstants {
     /// User-Agent used by both JSBridge (SOURCE._fetchSync) and the bypass WKWebView.
     /// Cloudflare binds cf_clearance to the UA that solved the challenge — they must match.
-    nonisolated(unsafe) static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+    nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
 }
 
 enum CFBypassManager {
