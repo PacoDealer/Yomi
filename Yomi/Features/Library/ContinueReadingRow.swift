@@ -42,10 +42,10 @@ struct ContinueReadingRow: View {
     @State private var items: [ContinueItem] = []
 
     var body: some View {
-        Group {
-            if items.isEmpty {
-                EmptyView()
-            } else {
+        // Outer VStack always present so .onAppear fires even when items is empty.
+        // A Group containing EmptyView() has no layout presence — onAppear never fires.
+        VStack(spacing: 0) {
+            if !items.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Continue Reading")
                         .font(.headline)
