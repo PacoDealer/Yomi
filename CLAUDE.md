@@ -80,6 +80,9 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 9. `MangaListRow` custom cover fix: list-mode manga rows were ignoring `customCoverPath` and always using `AsyncImage(url:)`; now mirrors `NovelLibraryListRow` pattern
 10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
 
+**S75 shipped (2026-05-17):**
+1. Plugin duplicate install via URL — `installFromURL()` in `PluginsView.swift` only checked `$0.id == id`, allowing re-install of an already-installed plugin under a different ID (e.g. catalog hash vs manual URL). Now also checks name (case-insensitive) so "FreeWebNovel" cannot be installed twice regardless of which path was used first.
+
 **S74 shipped (2026-05-16):**
 1. `ContinueReadingRow` never loaded items — body used `Group { EmptyView() }.onAppear` which never fires (Group with EmptyView has no layout presence). Fixed by replacing with `VStack(spacing: 0)` which is always in the hierarchy.
 2. Status badge text wrapping — `StatusBadge` (manga), `NovelStatusBadge`, and `ReadingStatusMenu` label all lacked `lineLimit(1)` + `fixedSize(horizontal: true, vertical: false)`, causing text like "Ongoing" and "Not set" to wrap character-by-character in narrow HStack containers. Fixed in `MangaDetailView.swift` and `NovelDetailView.swift`.
