@@ -556,8 +556,13 @@ private struct GlobalSearchView: View {
                     description: Text("Install a source from More → Plugins before searching.")
                 )
             } else if pendingCount > 0 && sections.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Searching \(pendingCount) source\(pendingCount == 1 ? "" : "s")…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !sections.isEmpty {
                 resultsList
             } else if searchQuery.count >= 2 {

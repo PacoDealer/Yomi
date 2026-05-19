@@ -545,19 +545,18 @@ struct MangaDetailView: View {
             NavigationStack {
                 List {
                     ForEach(allCategories) { cat in
-                        Button {
-                            Task { await toggleCategory(cat) }
-                        } label: {
-                            HStack {
-                                Text(cat.name)
-                                Spacer()
-                                if assignedCategoryIds.contains(cat.id) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(.tint)
-                                }
+                        HStack {
+                            Text(cat.name)
+                            Spacer()
+                            if assignedCategoryIds.contains(cat.id) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { await toggleCategory(cat) }
+                        }
                     }
                 }
                 .navigationTitle("Categories")
