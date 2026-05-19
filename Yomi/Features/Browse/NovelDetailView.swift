@@ -682,17 +682,21 @@ struct NovelDetailView: View {
             )
         }
 
-        // Persist to DB (INSERT OR IGNORE — preserves existing isRead/readingSeconds)
-        await Task.detached {
-            try? NovelQueries.insertAllIgnoringConflicts(fetched)
-        }.value
+        if novel.inLibrary {
+            // Persist to DB (INSERT OR IGNORE — preserves existing isRead/readingSeconds)
+            await Task.detached {
+                try? NovelQueries.insertAllIgnoringConflicts(fetched)
+            }.value
 
-        // Re-fetch from DB to merge persisted read state
-        let merged = await Task.detached {
-            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? fetched
-        }.value
-
-        chapters = merged
+            // Re-fetch from DB to merge persisted read state
+            let merged = await Task.detached {
+                (try? NovelQueries.fetchChapters(novelId: novelId)) ?? fetched
+            }.value
+            chapters = merged
+        } else {
+            // Browse-only (not in library) — no DB row exists, use remote data directly
+            chapters = fetched
+        }
         isLoadingChapters = false
     }
 }
