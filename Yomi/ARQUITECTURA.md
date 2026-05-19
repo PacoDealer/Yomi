@@ -117,7 +117,7 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v18_indexes — last migration as of S67)
+### Current tables (migration v19_source_indexes — last migration as of S77)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
@@ -181,8 +181,9 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v16_novel_custom_cover**: `ALTER TABLE novel ADD COLUMN customCoverPath TEXT`
 - **v17_novel_scroll**: `ALTER TABLE novel_chapter ADD COLUMN lastScrollPercent REAL`
 - **v18_indexes**: adds `idx_chapter_mangaid`, `idx_chapter_unread` on `chapter`; `idx_novel_chapter_novelid` on `novel_chapter`
+- **v19_source_indexes**: adds `idx_manga_sourceid` on `manga(sourceId)`; `idx_novel_sourceid` on `novel(sourceId)`
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v19_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v20_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control

@@ -239,6 +239,13 @@ final class DatabaseManager {
                           on: "novel_chapter", columns: ["novelId"], ifNotExists: true)
         }
 
+        migrator.registerMigration("v19_source_indexes") { db in
+            try db.create(index: "idx_manga_sourceid",
+                          on: "manga", columns: ["sourceId"], ifNotExists: true)
+            try db.create(index: "idx_novel_sourceid",
+                          on: "novel", columns: ["sourceId"], ifNotExists: true)
+        }
+
         try migrator.migrate(db)
     }
 }

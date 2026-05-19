@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var settings = AppSettings.shared
     @State private var isSelecting = false
     @State private var selectedIds: Set<String> = []
+    @State private var selectedNovelIds: Set<String> = []
     @State private var showNewCategorySheet = false
     @State private var newCategoryName = ""
     @State private var selectedNovel: Novel? = nil
@@ -144,7 +145,7 @@ struct LibraryView: View {
                                     .padding(.top, 4)
                                 }
                             }
-                            if !isSelecting && !viewModel.displayedNovels.isEmpty {
+                            if !viewModel.displayedNovels.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Novels")
                                         .font(.headline)
@@ -194,6 +195,23 @@ struct LibraryView: View {
                                                     novel: novel,
                                                     unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
                                                     onTap: { selectedNovel = novel; showNovelDetail = true },
+                                                    isSelecting: isSelecting,
+                                                    isSelected: selectedNovelIds.contains(novel.id),
+                                                    onLongPress: {
+                                                        withAnimation(.spring(duration: 0.2)) {
+                                                            isSelecting = true
+                                                            selectedNovelIds.insert(novel.id)
+                                                        }
+                                                    },
+                                                    onSelect: {
+                                                        withAnimation(.spring(duration: 0.15)) {
+                                                            if selectedNovelIds.contains(novel.id) {
+                                                                selectedNovelIds.remove(novel.id)
+                                                            } else {
+                                                                selectedNovelIds.insert(novel.id)
+                                                            }
+                                                        }
+                                                    },
                                                     onReadingStatusChange: { status in
                                                         let id = novel.id
                                                         Task.detached { try? NovelQueries.updateReadingStatus(novelId: id, status: status) }
@@ -235,7 +253,7 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle(isSelecting
-                ? (selectedIds.isEmpty ? "Select" : "\(selectedIds.count) selected")
+                ? { let total = selectedIds.count + selectedNovelIds.count; return total == 0 ? "Select" : "\(total) selected" }()
                 : "Library")
             .safeAreaInset(edge: .top, spacing: 0) {
                 categoryTabBar
@@ -248,16 +266,22 @@ struct LibraryView: View {
                             withAnimation(.spring(duration: 0.2)) {
                                 isSelecting = false
                                 selectedIds = []
+                                selectedNovelIds = []
                             }
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(selectedIds.count == viewModel.displayedManga.count ? "Deselect All" : "Select All") {
+                        let allManga = Set(viewModel.displayedManga.map { $0.id })
+                        let allNovels = Set(viewModel.displayedNovels.map { $0.id })
+                        let allSelected = selectedIds == allManga && selectedNovelIds == allNovels
+                        Button(allSelected ? "Deselect All" : "Select All") {
                             withAnimation(.spring(duration: 0.15)) {
-                                if selectedIds.count == viewModel.displayedManga.count {
+                                if allSelected {
                                     selectedIds = []
+                                    selectedNovelIds = []
                                 } else {
-                                    selectedIds = Set(viewModel.displayedManga.map { $0.id })
+                                    selectedIds = allManga
+                                    selectedNovelIds = allNovels
                                 }
                             }
                         }
@@ -359,7 +383,8 @@ struct LibraryView: View {
     // MARK: - Selection Action Bar
 
     private var selectionActionBar: some View {
-        HStack {
+        let noneSelected = selectedIds.isEmpty && selectedNovelIds.isEmpty
+        return HStack {
             Spacer()
             Button { Task { await markSelectedRead() } } label: {
                 VStack(spacing: 3) {
@@ -367,7 +392,7 @@ struct LibraryView: View {
                     Text("Mark Read").font(.caption2)
                 }
             }
-            .disabled(selectedIds.isEmpty)
+            .disabled(noneSelected)
             Spacer()
             Button { Task { await downloadSelected() } } label: {
                 VStack(spacing: 3) {
@@ -383,7 +408,7 @@ struct LibraryView: View {
                     Text("Remove").font(.caption2)
                 }
             }
-            .disabled(selectedIds.isEmpty)
+            .disabled(noneSelected)
             .tint(.red)
             Spacer()
         }
@@ -393,6 +418,7 @@ struct LibraryView: View {
 
     private func removeSelected() async {
         let ids = selectedIds
+        let novelIds = selectedNovelIds
         await Task.detached(priority: .userInitiated) {
             for id in ids {
                 guard var manga = try? MangaQueries.fetchOne(id: id) else { continue }
@@ -403,21 +429,29 @@ struct LibraryView: View {
                     .appendingPathComponent("Downloads/\(id)")
                 try? FileManager.default.removeItem(at: dir)
             }
+            for id in novelIds {
+                guard var novel = try? NovelQueries.fetchOne(id: id) else { continue }
+                novel.inLibrary = false
+                try? NovelQueries.upsert(novel)
+            }
         }.value
         await viewModel.loadLibrary()
         withAnimation(.spring(duration: 0.2)) {
             isSelecting = false
             selectedIds = []
+            selectedNovelIds = []
         }
     }
 
     private func markSelectedRead() async {
         let ids = selectedIds
+        let novelIds = selectedNovelIds
         await Task.detached(priority: .userInitiated) {
             for id in ids { try? ChapterQueries.markAllRead(mangaId: id) }
+            for id in novelIds { try? NovelQueries.markAllChapters(novelId: id, read: true) }
         }.value
         await viewModel.loadLibrary()
-        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = [] }
+        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
     }
 
     private func downloadSelected() async {
@@ -436,7 +470,7 @@ struct LibraryView: View {
                   let bridge = em.bridge(for: ext) else { continue }
             unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
         }
-        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = [] }
+        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
     }
 
     // MARK: - Category Tab Bar
@@ -596,6 +630,10 @@ private struct NovelLibraryCoverCell: View {
     let novel: Novel
     let unreadCount: Int
     let onTap: () -> Void
+    var isSelecting: Bool = false
+    var isSelected: Bool = false
+    var onLongPress: (() -> Void)? = nil
+    var onSelect: (() -> Void)? = nil
     var onReadingStatusChange: ((ReadingStatus) -> Void)? = nil
     var onRemoveFromLibrary: (() -> Void)? = nil
 
@@ -606,6 +644,7 @@ private struct NovelLibraryCoverCell: View {
     @State private var lastReadChapterName: String? = nil
 
     var body: some View {
+        ZStack(alignment: .topLeading) {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 4) {
                 Group {
@@ -671,27 +710,30 @@ private struct NovelLibraryCoverCell: View {
             }
         }
         .buttonStyle(.plain)
+        .disabled(isSelecting)
         .contextMenu {
-            Menu {
-                ForEach(ReadingStatus.allCases) { status in
-                    Button {
-                        onReadingStatusChange?(status)
-                        currentReadingStatus = status
-                    } label: {
-                        Label(status.label, systemImage: status.systemImage)
-                        if currentReadingStatus == status {
-                            Image(systemName: "checkmark")
+            if !isSelecting {
+                Menu {
+                    ForEach(ReadingStatus.allCases) { status in
+                        Button {
+                            onReadingStatusChange?(status)
+                            currentReadingStatus = status
+                        } label: {
+                            Label(status.label, systemImage: status.systemImage)
+                            if currentReadingStatus == status {
+                                Image(systemName: "checkmark")
+                            }
                         }
                     }
+                } label: {
+                    Label("Reading Status", systemImage: "bookmark")
                 }
-            } label: {
-                Label("Reading Status", systemImage: "bookmark")
-            }
-            Divider()
-            Button(role: .destructive) {
-                onRemoveFromLibrary?()
-            } label: {
-                Label("Remove from Library", systemImage: "trash")
+                Divider()
+                Button(role: .destructive) {
+                    onRemoveFromLibrary?()
+                } label: {
+                    Label("Remove from Library", systemImage: "trash")
+                }
             }
         }
         .task(id: novel.id) {
@@ -710,6 +752,37 @@ private struct NovelLibraryCoverCell: View {
                 .filter { $0.readAt != nil }
                 .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) })
             lastReadChapterName = (inProgress ?? lastRead)?.name
+        }
+
+        if isSelecting {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { onSelect?() }
+        }
+        } // ZStack
+        .onLongPressGesture(minimumDuration: 0.4) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onLongPress?()
+        }
+        .overlay(alignment: .topLeading) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? Color.accentColor : Color.black.opacity(0.35))
+                            .padding(1)
+                    )
+                    .padding(6)
+            }
+        }
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentColor, lineWidth: 2.5)
+            }
         }
     }
 }

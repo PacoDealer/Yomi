@@ -119,7 +119,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 4. **Xcode step**: Target → Signing & Capabilities → + iCloud → check "iCloud Documents" to activate the capability
 
 **Current DB/code state:**
-- DB at v18_indexes (19 migrations total, next must be v19_)
+- DB at v19_source_indexes (20 migrations total, next must be v20_)
 - Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
@@ -219,7 +219,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v19_` (v18_ used for DB indexes in S67)
+- Next migration prefix must be `v20_` (v19_ used for source indexes in S77)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -257,7 +257,7 @@ Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBU
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v18_indexes; next must be v19_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v19_source_indexes; next must be v20_
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift
@@ -311,3 +311,4 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 ## Session close
 1. Update all three docs in one prompt: ROADMAP.md + METODOLOGIA.md + ARQUITECTURA.md
 2. **Commit and push to GitHub** — every session ends with `git add -A && git commit && git push`. No exceptions.
+3. **If JS plugins were modified** — copy changed `.js` files to `~/Projects/Yomi/Firebase/public/` and run: `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting` (requires `firebase login --reauth` if credentials expired).
