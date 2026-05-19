@@ -112,6 +112,7 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let wv = WKWebView()
+        wv.customUserAgent = CFBypassConstants.userAgent
         wv.navigationDelegate = context.coordinator
         context.coordinator.webView = wv
         navigate(wv)

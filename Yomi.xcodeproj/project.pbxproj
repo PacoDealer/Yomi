@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0E2B3AB12F658FC9006E6D41 /* GRDB */; };
-		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
 /* End PBXBuildFile section */
 
@@ -23,15 +23,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		AABB000BAABB000BAABB000B /* Embed App Extensions */ = {
+		AABB000BAABB000BAABB000B /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed App Extensions */,
+				AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -45,11 +45,9 @@
 		0EFAD6B52F844D91005DBC92 /* Exceptions for "Yomi" folder in "Yomi" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Resources/aquamanga.js,
 				Resources/asurascans.js,
 				Resources/comick.js,
 				Resources/mangadex.js,
-				Resources/novelfire.js,
 				Resources/royalroad.js,
 				Resources/scribblehub.js,
 				"Resources/test-source.js",
@@ -132,7 +130,7 @@
 				0EE530C92F64CF600074B935 /* Sources */,
 				0EE530CA2F64CF600074B935 /* Frameworks */,
 				0EE530CB2F64CF600074B935 /* Resources */,
-				AABB000BAABB000BAABB000B /* Embed App Extensions */,
+				AABB000BAABB000BAABB000B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -181,7 +179,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					0EE530CC2F64CF600074B935 = {
 						CreatedOnToolsVersion = 26.3;
@@ -316,6 +314,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -372,6 +371,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};

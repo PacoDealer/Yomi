@@ -73,37 +73,40 @@ var plugin = {
                   $("div.description").text().trim() ||
                   $("div.novel-summary").text().trim() || "";
 
-    // Fetch chapter list from /book/{slug}/chapters (paginated, first page)
-    var chapUrl = BASE_URL + novelPath + "/chapters?page=1";
-    var chapHtml = SOURCE.fetch(chapUrl);
-    var $c = cheerio.load(chapHtml);
+    // Fetch chapter list from /book/{slug}/chapters (paginated, newest-first)
+    // Try page=1 first; fall back to page=0; fall back to detail page inline chapters.
     var chapters = [];
 
-    // Try both ul.chapter-list and li.chapter-item patterns
-    var chapItems = $c("ul.chapter-list li a");
-    if (!chapItems.length) chapItems = $c("li.chapter-item a");
-    if (!chapItems.length) chapItems = $c("div.chapter-list a");
+    function parseChaptersFromHTML(html) {
+      var $c = cheerio.load(html);
+      var chapItems = $c("ul.chapter-list li a, ol.chapter-list li a");
+      if (!chapItems.length) chapItems = $c("li.chapter-item a");
+      if (!chapItems.length) chapItems = $c("div.chapter-list a");
+      if (!chapItems.length) chapItems = $c("a[href*='/chapter-']");
+      var items = [];
+      chapItems.each(function(i, el) {
+        var chPath = $c(el).attr("href") || "";
+        if (chPath && !chPath.startsWith("/") && !chPath.startsWith("http")) chPath = "/" + chPath;
+        if (chPath.startsWith(BASE_URL)) chPath = chPath.slice(BASE_URL.length);
+        // Skip pagination links and non-chapter hrefs
+        if (!chPath.includes("/chapter") && !chPath.match(/\/ch-?\d/)) return;
+        var chName = $c(el).find("strong.chapter-title, span.chapter-title").text().trim() ||
+                     $c(el).text().trim();
+        var chNoText = $c(el).find("span.chapter-no, span.chno").text().trim();
+        var chNo = parseFloat(chNoText) || parseFloat((chPath.match(/chapter-?([\d.]+)/i) || [])[1]) || (i + 1);
+        if (chPath && chName) items.push({ id: chPath, path: chPath, name: chName, chapterNumber: chNo });
+      });
+      return items;
+    }
 
-    chapItems.each(function(i, el) {
-      var chPath = el.attr("href") || "";
-      if (chPath && !chPath.startsWith("/") && !chPath.startsWith("http")) chPath = "/" + chPath;
-      // Make absolute paths relative
-      if (chPath.startsWith(BASE_URL)) chPath = chPath.slice(BASE_URL.length);
-      var chName = el.find("strong.chapter-title").text().trim() ||
-                   el.find("span.chapter-title").text().trim() ||
-                   el.text().trim();
-      var chNoText = el.find("span.chapter-no").text().trim() ||
-                     el.find("span.chno").text().trim() || "";
-      var chNo = parseFloat(chNoText) || (i + 1);
-      if (chPath && chName) {
-        chapters.push({
-          id: chPath,
-          path: chPath,
-          name: chName || ("Chapter " + chNo),
-          chapterNumber: chNo
-        });
-      }
-    });
+    var chapUrl = BASE_URL + novelPath + "/chapters?page=1";
+    chapters = parseChaptersFromHTML(SOURCE.fetch(chapUrl));
+    if (!chapters.length) {
+      chapters = parseChaptersFromHTML(SOURCE.fetch(BASE_URL + novelPath + "/chapters?page=0"));
+    }
+    if (!chapters.length) {
+      chapters = parseChaptersFromHTML(html); // fall back to detail page
+    }
 
     return {
       name: name,

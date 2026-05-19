@@ -79,6 +79,15 @@ final class ExtensionManager {
             )
             try? ExtensionQueries.upsert(ext)
 
+            // Remove any legacy com.yomi.{filename} entry left over from old ID scheme
+            let legacyId = "com.yomi.\(plugin.filename)"
+            if installed.contains(where: { $0.id == legacyId }) {
+                try? ExtensionQueries.delete(id: legacyId)
+                try? FileManager.default.removeItem(
+                    at: extensionsDirectory.appendingPathComponent("\(legacyId).js"))
+                installed.removeAll { $0.id == legacyId }
+            }
+
             if !installed.contains(where: { $0.id == id }) {
                 installed.append(ext)
             }
