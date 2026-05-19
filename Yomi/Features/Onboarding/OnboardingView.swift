@@ -93,7 +93,7 @@ private struct InstallPluginPage: View {
                     .font(.largeTitle).fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                Text("Plugins connect Yomi to content sources. Browse the Yomi catalog to install your first one.")
+                Text("Yomi connects to content sources via user-installed plugins. Browse the catalog in the Extensions tab to install your first one.")
                     .font(.body)
                     .foregroundStyle(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
