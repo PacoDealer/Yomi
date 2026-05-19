@@ -181,19 +181,18 @@ struct NovelDetailView: View {
             NavigationStack {
                 List {
                     ForEach(allCategories) { cat in
-                        Button {
-                            Task { await toggleCategory(cat) }
-                        } label: {
-                            HStack {
-                                Text(cat.name)
-                                Spacer()
-                                if assignedCategoryIds.contains(cat.id) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(.tint)
-                                }
+                        HStack {
+                            Text(cat.name)
+                            Spacer()
+                            if assignedCategoryIds.contains(cat.id) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { await toggleCategory(cat) }
+                        }
                     }
                 }
                 .navigationTitle("Categories")
@@ -626,10 +625,10 @@ struct NovelDetailView: View {
         let path = novel.path
         let sourceId = novel.sourceId
 
-        // Resolve bridge lazily if not provided at init (e.g. navigated from Updates/History)
-        if bridge == nil {
-            let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId })
-            bridge = ext.flatMap { ExtensionManager.shared.bridge(for: $0) }
+        // Always resolve a fresh bridge — reusing a bridge from SourceBrowseView risks
+        // JSContext thread-safety issues when the context was last used on a different thread.
+        if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
+            bridge = ExtensionManager.shared.bridge(for: ext)
         }
 
         guard let b = bridge else {

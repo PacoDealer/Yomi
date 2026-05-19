@@ -20,6 +20,10 @@ struct OnboardingView: View {
                     AppSettings.shared.hasSeenOnboarding = true
                     appRouter.selectedTab = AppRouter.tabMore
                     dismiss()
+                    // Delay so MoreView's NavigationStack is rendered before the push fires.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        appRouter.openMorePlugins = true
+                    }
                 })
                 .tag(2)
             }

@@ -39,11 +39,7 @@ struct BackupView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
-                ShareLink(
-                    item: url,
-                    subject: Text("Yomi Backup"),
-                    message: Text("My Yomi library backup")
-                )
+                ActivitySheet(items: [url])
             }
         }
         .fileImporter(
@@ -248,6 +244,18 @@ struct BackupView: View {
             }
         }
     }
+}
+
+// MARK: - ActivitySheet
+
+private struct ActivitySheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Preview
