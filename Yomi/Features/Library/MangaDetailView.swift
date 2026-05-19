@@ -11,6 +11,7 @@ struct MangaDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
+    @State private var showCFBypass = false
     @State private var downloadManager = DownloadManager.shared
 
     // Feature 1 — Category assignment
@@ -256,9 +257,26 @@ struct MangaDetailView: View {
                     }
                     .padding(.vertical, 4)
                 } else if chapters.isEmpty {
-                    Text(bridge == nil ? "No source available for this manga." : "No chapters found.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if bridge == nil {
+                        Text("No source available for this manga.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
+                        VStack(spacing: 10) {
+                            Label("Cloudflare blocked this source.", systemImage: "shield.slash")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            Button {
+                                showCFBypass = true
+                            } label: {
+                                Label("Bypass Cloudflare", systemImage: "shield.slash")
+                                    .font(.subheadline)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        Text("No chapters found.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
                 } else {
                     scanlatorChipRow
                     if chapters.count > 30 {
@@ -517,6 +535,12 @@ struct MangaDetailView: View {
         .task { computeStorageSize() }
         .task { notesText = manga.notes ?? "" }
         .task { aniListScore = await AniListService.shared.fetchScore(title: manga.title, isManga: true) }
+        .sheet(isPresented: $showCFBypass) {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
+                bridge?.clearCFBlock()
+                Task { await loadChapters() }
+            }
+        }
         .sheet(isPresented: $showNotesSheet) {
             NotesEditorSheet(mangaTitle: manga.title, text: $notesText) {
                 let id = manga.id
