@@ -5,6 +5,7 @@ import SwiftUI
 struct MoreView: View {
     @State private var catalogService   = PluginCatalogService.shared
     @State private var extensionManager = ExtensionManager.shared
+    @State private var showPlugins      = false
 
     private var pluginUpdateCount: Int {
         extensionManager.installed.filter {
@@ -69,8 +70,15 @@ struct MoreView: View {
                 }
             }
             .navigationTitle("More")
+            .navigationDestination(isPresented: $showPlugins) { PluginsView() }
         }
         .task { await catalogService.fetchCatalog() }
+        .onChange(of: appRouter.openMorePlugins) { _, open in
+            if open {
+                showPlugins = true
+                appRouter.openMorePlugins = false
+            }
+        }
     }
 }
 
