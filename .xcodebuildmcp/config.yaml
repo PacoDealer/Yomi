@@ -1,0 +1,7 @@
+schemaVersion: 1
+sessionDefaults:
+  projectPath: /Users/martingamberg/Projects/Yomi/iOS/Yomi.xcodeproj
+  scheme: Yomi
+  simulatorId: 34C346C3-F274-4DE0-A7B2-E9D2DE0CCA97
+  simulatorName: iPhone 17 Pro
+  simulatorPlatform: iOS Simulator
