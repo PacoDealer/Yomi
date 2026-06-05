@@ -101,7 +101,6 @@ final class DatabaseManager {
 
         migrator.registerMigration("v3_novels") { db in
 
-            // Tabla novel
             try db.create(table: "novel", ifNotExists: true) { t in
                 t.primaryKey("id", .text)
                 t.column("path",          .text).notNull()

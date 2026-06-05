@@ -1,12 +1,12 @@
 import Foundation
 import GRDB
 
-/// Operaciones CRUD para la tabla category y la join table manga_category
+/// CRUD operations for the category table and manga_category / novel_category join tables
 enum CategoryQueries {
 
     // MARK: - Category CRUD
 
-    /// Devuelve todas las categorías ordenadas por sort ASC, luego name ASC
+    /// Returns all categories ordered by sort ASC, then name ASC
     nonisolated static func fetchAll() throws -> [Category] {
         try appDatabase.read { db in
             try Category
@@ -15,7 +15,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Crea una nueva categoría con sort = (máximo actual) + 1 y la persiste
+    /// Creates a new category with sort = (current max) + 1 and persists it
     @discardableResult
     nonisolated static func insert(name: String) throws -> Category {
         try appDatabase.write { db in
@@ -33,7 +33,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Renombra una categoría existente
+    /// Renames an existing category
     nonisolated static func rename(id: String, name: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -43,14 +43,14 @@ enum CategoryQueries {
         }
     }
 
-    /// Elimina una categoría; las filas de manga_category se eliminan por CASCADE
+    /// Deletes a category; manga_category rows are removed by CASCADE
     nonisolated static func delete(id: String) throws {
         _ = try appDatabase.write { db in
             _ = try Category.deleteOne(db, key: id)
         }
     }
 
-    /// Actualiza el valor de sort de una categoría
+    /// Updates the sort value of a category
     nonisolated static func updateSort(id: String, sort: Int) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -62,7 +62,7 @@ enum CategoryQueries {
 
     // MARK: - manga_category join
 
-    /// Asigna un manga a una categoría (INSERT OR IGNORE — no falla si ya existe)
+    /// Assigns a manga to a category (INSERT OR IGNORE — no-op if already assigned)
     nonisolated static func assign(mangaId: String, categoryId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -72,7 +72,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Elimina la asignación de un manga a una categoría
+    /// Removes the assignment of a manga to a category
     nonisolated static func unassign(mangaId: String, categoryId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -82,7 +82,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Devuelve las categorías asignadas a un manga, ordenadas por sort ASC
+    /// Returns categories assigned to a manga, ordered by sort ASC
     nonisolated static func categoriesForManga(mangaId: String) throws -> [Category] {
         try appDatabase.read { db in
             try Category.fetchAll(
@@ -99,7 +99,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Devuelve los mangaId asignados a una categoría
+    /// Returns mangaIds assigned to a category
     nonisolated static func mangaIds(inCategory categoryId: String) throws -> [String] {
         try appDatabase.read { db in
             try String.fetchAll(
@@ -112,7 +112,7 @@ enum CategoryQueries {
 
     // MARK: - novel_category join
 
-    /// Asigna una novela a una categoría (INSERT OR IGNORE)
+    /// Assigns a novel to a category (INSERT OR IGNORE)
     nonisolated static func assignNovel(novelId: String, categoryId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -122,7 +122,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Elimina la asignación de una novela a una categoría
+    /// Removes the assignment of a novel to a category
     nonisolated static func unassignNovel(novelId: String, categoryId: String) throws {
         _ = try appDatabase.write { db in
             try db.execute(
@@ -132,7 +132,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Devuelve las categorías asignadas a una novela, ordenadas por sort ASC
+    /// Returns categories assigned to a novel, ordered by sort ASC
     nonisolated static func categoriesForNovel(novelId: String) throws -> [Category] {
         try appDatabase.read { db in
             try Category.fetchAll(
@@ -149,7 +149,7 @@ enum CategoryQueries {
         }
     }
 
-    /// Devuelve los novelId asignados a una categoría
+    /// Returns novelIds assigned to a category
     nonisolated static func novelIds(inCategory categoryId: String) throws -> [String] {
         try appDatabase.read { db in
             try String.fetchAll(

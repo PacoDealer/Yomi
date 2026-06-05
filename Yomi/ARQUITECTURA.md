@@ -69,7 +69,7 @@ Yomi/
 │   │   └── TachiyomiBackupParser.swift  # Hand-written protobuf3 decoder + gzip decompressor (libz via bridging header). ProtoReader class. Decodes BackupManga + BackupChapter matching Mihon proto schema. Source ID map [UInt64: String]. Unmapped sources → "tachiyomi_{id}" placeholder.
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge — Formats A/B/C/D; shims; require(); searchManga; POST support; Cloudflare detection
-│       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() method kept for dev use — call removed from YomiApp in S19
+│       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() #if DEBUG only — wraps test-source.js install for Simulator; guarded in init()
 │       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache(); multi-format parser (Yomi/LNReader/Mangayomi)
 │       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
 │       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
@@ -82,7 +82,7 @@ YomiWidget/                          # Widget extension target (bundle ID: pacod
 └── YomiWidget.entitlements          # App Groups: group.pacodealer.Yomi
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
 ├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
-├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults.
+├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults, NSPrivacyAccessedAPICategoryFileTimestamp, NSPrivacyAccessedAPICategoryDiskSpace.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
 │   # Note: 15 production plugins hosted on Firebase (S40). Manga: mangadex, asurascans, aquamanga.

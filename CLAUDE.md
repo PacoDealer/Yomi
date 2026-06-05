@@ -20,7 +20,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
 
-## Current state (post S66 — 2026-05-09)
+## Current state (post S78 — 2026-06-04)
 
 **S66 shipped:**
 1. Text justification toggle in novel reader: `novelJustifyText: Bool` in `AppSettings`; `text-align: justify/start` in CSS body of `styledHTML`; circular `"text.justify"` icon button in Row 2 of `TextReaderOverlayView` between the Aa toggle and the margin picker; persisted via `onChange → AppSettings.shared.novelJustifyText`.

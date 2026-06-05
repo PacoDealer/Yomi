@@ -77,7 +77,7 @@ enum NovelQueries {
 
     /// Deletes the novel with the given id (no-op if not found)
     nonisolated static func delete(id: String) throws {
-        try appDatabase.write { db in
+        _ = try appDatabase.write { db in
             _ = try Novel.deleteOne(db, key: id)
         }
     }
@@ -160,15 +160,6 @@ enum NovelQueries {
     nonisolated static func upsertChapter(_ chapter: NovelChapter) throws {
         _ = try appDatabase.write { db in
             try chapter.save(db)
-        }
-    }
-
-    /// Inserts or updates a batch of chapters in a single transaction
-    nonisolated static func upsertChapters(_ chapters: [NovelChapter]) throws {
-        _ = try appDatabase.write { db in
-            for chapter in chapters {
-                try chapter.save(db)
-            }
         }
     }
 

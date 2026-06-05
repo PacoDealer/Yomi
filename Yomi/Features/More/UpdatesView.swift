@@ -1,5 +1,6 @@
 import SwiftUI
 import Kingfisher
+import CryptoKit
 
 // MARK: - UpdateEntry
 
@@ -135,18 +136,24 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     private func checkUpdates(for manga: Manga) async {
-        let settings = AppSettings.shared
+        let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications) =
+            await MainActor.run {
+                (AppSettings.shared.skipUpdateNotStarted,
+                 AppSettings.shared.skipUpdateCompleted,
+                 AppSettings.shared.skipUpdateWithUnread,
+                 AppSettings.shared.excludedCategoryIds,
+                 AppSettings.shared.sendUpdateNotifications)
+            }
 
-        // Smart skip conditions
-        if settings.skipUpdateNotStarted && manga.lastReadAt == nil { return }
-        if settings.skipUpdateCompleted && manga.status == .completed { return }
-        if settings.skipUpdateWithUnread {
+        if skipNotStarted && manga.lastReadAt == nil { return }
+        if skipCompleted && manga.status == .completed { return }
+        if skipWithUnread {
             let unread = (try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []
             if !unread.isEmpty { return }
         }
-        if !settings.excludedCategoryIds.isEmpty {
+        if !excludedIds.isEmpty {
             let assigned = (try? CategoryQueries.categoriesForManga(mangaId: manga.id)) ?? []
-            if assigned.contains(where: { settings.excludedCategoryIds.contains($0.id) }) { return }
+            if assigned.contains(where: { excludedIds.contains($0.id) }) { return }
         }
 
         let sourceId  = manga.sourceId
@@ -175,7 +182,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let title = manga.title
         let count = newChapters.count
-        if AppSettings.shared.sendUpdateNotifications {
+        if sendNotifications {
             await MainActor.run {
                 NotificationManager.shared.scheduleChapterNotification(
                     mangaTitle: title, newCount: count,
@@ -186,18 +193,25 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     private func checkNovelUpdates(for novel: Novel) async {
-        let settings = AppSettings.shared
+        let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications) =
+            await MainActor.run {
+                (AppSettings.shared.skipUpdateNotStarted,
+                 AppSettings.shared.skipUpdateCompleted,
+                 AppSettings.shared.skipUpdateWithUnread,
+                 AppSettings.shared.excludedCategoryIds,
+                 AppSettings.shared.sendUpdateNotifications)
+            }
 
-        if settings.skipUpdateNotStarted && novel.lastReadAt == nil { return }
-        if settings.skipUpdateCompleted && novel.status.lowercased().contains("completed") { return }
-        if settings.skipUpdateWithUnread {
+        if skipNotStarted && novel.lastReadAt == nil { return }
+        if skipCompleted && novel.status.lowercased().contains("completed") { return }
+        if skipWithUnread {
             let all    = (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
             let unread = all.filter { !$0.isRead }
             if !unread.isEmpty { return }
         }
-        if !settings.excludedCategoryIds.isEmpty {
+        if !excludedIds.isEmpty {
             let assigned = (try? CategoryQueries.categoriesForNovel(novelId: novel.id)) ?? []
-            if assigned.contains(where: { settings.excludedCategoryIds.contains($0.id) }) { return }
+            if assigned.contains(where: { excludedIds.contains($0.id) }) { return }
         }
 
         let sourceId  = novel.sourceId
@@ -220,10 +234,11 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let newChapters: [NovelChapter] = source.chapters
             .filter { !localPaths.contains($0.path) }
-            .enumerated()
-            .map { offset, ch in
-                NovelChapter(
-                    id: "\(novelId)-ch-\(localChapters.count + offset)",
+            .map { ch in
+                let hashBytes = SHA256.hash(data: Data((novelId + ch.path).utf8))
+                let stableId = hashBytes.prefix(8).map { String(format: "%02x", $0) }.joined()
+                return NovelChapter(
+                    id: stableId,
                     novelId: novelId,
                     path: ch.path,
                     name: ch.name,
@@ -242,7 +257,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let title = novel.title
         let count = newChapters.count
-        if AppSettings.shared.sendUpdateNotifications {
+        if sendNotifications {
             await MainActor.run {
                 NotificationManager.shared.scheduleChapterNotification(
                     mangaTitle: title, newCount: count,
@@ -411,7 +426,7 @@ private struct MangaUpdateHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Group {
-                if let path = manga.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                if let path = manga.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                     Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
                 } else {
                     CoverImage(url: manga.coverURL)
@@ -471,7 +486,7 @@ private struct NovelUpdateHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Group {
-                if let path = novel.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                if let path = novel.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                     Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
                 } else {
                     CoverImage(url: novel.coverURL)
