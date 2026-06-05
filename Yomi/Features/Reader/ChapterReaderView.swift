@@ -846,7 +846,13 @@ private struct WebView: UIViewRepresentable {
             status: .hiatus, genres: [], inLibrary: true, isLocal: false,
             lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
         ),
-        bridge: JSBridge(scriptURL: Bundle.main.url(forResource: "test-source", withExtension: "js")!)!,
+        bridge: {
+            guard let url = Bundle.main.url(forResource: "test-source", withExtension: "js"),
+                  let b = JSBridge(scriptURL: url) else {
+                fatalError("test-source.js must be in the Debug target for Simulator previews")
+            }
+            return b
+        }(),
         chapters: [],
         chapterIndex: 0
     )
