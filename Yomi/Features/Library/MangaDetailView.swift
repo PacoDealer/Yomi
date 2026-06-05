@@ -104,7 +104,7 @@ struct MangaDetailView: View {
                     // Cover + meta
                     HStack(alignment: .top, spacing: 14) {
                         Group {
-                            if let customPath = manga.customCoverPath,
+                            if let customPath = manga.resolvedCustomCoverPath,
                                let uiImage = UIImage(contentsOfFile: customPath) {
                                 Image(uiImage: uiImage)
                                     .resizable()
@@ -560,7 +560,7 @@ struct MangaDetailView: View {
                 try? FileManager.default.createDirectory(at: coversDir, withIntermediateDirectories: true)
                 let fileURL = coversDir.appendingPathComponent("\(manga.id).jpg")
                 try? data.write(to: fileURL)
-                manga.customCoverPath = fileURL.path
+                manga.customCoverPath = "Covers/\(manga.id).jpg"
                 let updated = manga
                 Task.detached { try? MangaQueries.update(updated) }
             }

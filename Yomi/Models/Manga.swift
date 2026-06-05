@@ -1,6 +1,5 @@
 import Foundation
 
-/// Estado de publicación del manga
 enum MangaStatus: String, Codable {
     case unknown    = "unknown"
     case ongoing    = "ongoing"
@@ -9,7 +8,6 @@ enum MangaStatus: String, Codable {
     case cancelled  = "cancelled"
 }
 
-/// Estado de lectura definido por el usuario
 enum ReadingStatus: String, Codable, CaseIterable, Identifiable {
     case none       = "none"
     case planToRead = "planToRead"
@@ -43,42 +41,34 @@ enum ReadingStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// Representa una obra (manga, manhwa, manhua o novela ligera)
 struct Manga: Identifiable, Codable {
-    /// Identificador único local
     let id: String
-    /// Ruta relativa dentro de la fuente (usada para construir URLs)
     let path: String
-    /// ID de la fuente/plugin desde donde proviene
     let sourceId: String
-    /// Título de la obra
     var title: String
-    /// URL de la portada
     var coverURL: URL?
-    /// Sinopsis o descripción
     var summary: String?
-    /// Nombre del autor
     var author: String?
-    /// Nombre del artista (puede diferir del autor en algunas obras)
     var artist: String?
-    /// Estado de publicación
     var status: MangaStatus
-    /// Lista de géneros
     var genres: [String]
-    /// Indica si el usuario agregó esta obra a su biblioteca
     var inLibrary: Bool
-    /// Indica si la obra proviene de una fuente local (archivos del dispositivo)
     var isLocal: Bool
-    /// Fecha y hora de la última vez que el usuario leyó esta obra
     var lastReadAt: Date?
-    /// Fecha y hora de la última actualización de metadatos
     var lastUpdatedAt: Date?
-    /// Segundos totales de tiempo de lectura registrado
     var readingSeconds: Int
-    /// Estado de lectura definido por el usuario
     var readingStatus: ReadingStatus = .none
-    /// Ruta local a portada personalizada (nil = usar coverURL de la fuente)
+    /// Relative path under Documents (e.g. "Covers/<id>.jpg"). Absolute paths are legacy.
     var customCoverPath: String? = nil
-    /// Notas personales del usuario sobre esta obra
     var notes: String? = nil
+
+    /// Returns the absolute filesystem path for the custom cover, handling both
+    /// legacy absolute paths (stored before S78 fix) and new relative paths.
+    var resolvedCustomCoverPath: String? {
+        guard let stored = customCoverPath else { return nil }
+        if stored.hasPrefix("/") { return stored }
+        return FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(stored).path
+    }
 }

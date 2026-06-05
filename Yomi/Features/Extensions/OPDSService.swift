@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 // MARK: - OPDS Models
 
@@ -162,7 +163,7 @@ private final class OPDSXMLDelegate: NSObject, XMLParserDelegate {
         case "entry":
             if !entryTitle.isEmpty {
                 entries.append(OPDSEntry(
-                    id: entryId.isEmpty ? UUID().uuidString : entryId,
+                    id: entryId.isEmpty ? stableId(from: entryTitle + (entryNavigationHref ?? "")) : entryId,
                     title: entryTitle,
                     author: entryAuthor,
                     summary: entrySummary,
@@ -231,5 +232,10 @@ private final class OPDSXMLDelegate: NSObject, XMLParserDelegate {
         OPDSFeed(title: feedTitle.isEmpty ? "OPDS Catalog" : feedTitle,
                  entries: entries,
                  nextPageHref: nextPageHref)
+    }
+
+    private func stableId(from input: String) -> String {
+        let bytes = SHA256.hash(data: Data(input.utf8))
+        return bytes.prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 }

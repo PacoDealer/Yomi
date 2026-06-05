@@ -3,7 +3,7 @@ import Observation
 
 // MARK: - MALService
 
-private let clientId    = "05f23cb2e297b7d0d65cd6ce1ffd6e1d"
+private let clientId    = AppSecrets.malClientId
 private let redirectURI = "yomi://mal/callback"
 private let baseURL     = "https://api.myanimelist.net/v2"
 

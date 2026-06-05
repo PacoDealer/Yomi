@@ -587,7 +587,7 @@ private struct NovelLibraryListRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Group {
-                if let customPath = novel.customCoverPath,
+                if let customPath = novel.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {

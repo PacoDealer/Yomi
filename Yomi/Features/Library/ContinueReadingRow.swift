@@ -115,7 +115,7 @@ private struct ContinueReadingCell: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
                     Group {
-                        if let path = manga.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                        if let path = manga.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
@@ -265,7 +265,7 @@ private struct ContinueReadingNovelCell: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
                     Group {
-                        if let path = novel.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                        if let path = novel.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)

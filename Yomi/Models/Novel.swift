@@ -2,64 +2,47 @@ import Foundation
 
 // MARK: - Novel
 
-/// Representa una novela ligera (light novel, web novel)
 struct Novel: Identifiable, Codable {
-    /// Identificador único local
     let id: String
-    /// Ruta relativa dentro de la fuente (usada para construir URLs)
     let path: String
-    /// ID de la fuente/plugin desde donde proviene
     let sourceId: String
-    /// Título de la obra
     var title: String
-    /// URL de la portada
     var coverURL: URL?
-    /// Sinopsis o descripción
     var summary: String?
-    /// Nombre del autor
     var author: String?
-    /// Estado de publicación en formato libre ("ongoing", "completed", "hiatus", etc.)
     var status: String
-    /// Lista de géneros
     var genres: [String]
-    /// Indica si el usuario agregó esta obra a su biblioteca
     var inLibrary: Bool
-    /// Fecha y hora de la última vez que el usuario leyó esta obra
     var lastReadAt: Date?
-    /// Fecha y hora de la última actualización de metadatos
     var lastUpdatedAt: Date?
-    /// Segundos totales de tiempo de lectura registrado
     var readingSeconds: Int
-    /// Estado de lectura definido por el usuario (mismo enum que Manga)
     var readingStatus: ReadingStatus
-    /// Nota personal del usuario sobre esta obra
     var notes: String?
-    /// Ruta local a una portada personalizada elegida por el usuario
+    /// Relative path under Documents (e.g. "Covers/<id>.jpg"). Absolute paths are legacy.
     var customCoverPath: String? = nil
+
+    /// Returns the absolute filesystem path for the custom cover, handling both
+    /// legacy absolute paths (stored before S78 fix) and new relative paths.
+    var resolvedCustomCoverPath: String? {
+        guard let stored = customCoverPath else { return nil }
+        if stored.hasPrefix("/") { return stored }
+        return FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(stored).path
+    }
 }
 
 // MARK: - NovelChapter
 
-/// Representa un capítulo de una novela ligera
 struct NovelChapter: Identifiable, Codable, Hashable {
-    /// Identificador único local
     let id: String
-    /// ID de la novela a la que pertenece este capítulo
     let novelId: String
-    /// Ruta relativa dentro de la fuente (usada para obtener el contenido HTML)
     let path: String
-    /// Nombre o título del capítulo
     var name: String
-    /// Número de capítulo; puede ser nil si la fuente no lo provee
     var chapterNumber: Double?
-    /// Indica si el usuario ya leyó este capítulo
     var isRead: Bool
-    /// Fecha y hora en que el usuario terminó o marcó como leído el capítulo
     var readAt: Date?
-    /// Fecha de publicación original del capítulo (texto libre según la fuente)
     var releaseTime: String?
-    /// Segundos totales de tiempo de lectura registrado para este capítulo
     var readingSeconds: Int
-    /// Porcentaje de scroll (0–1) al que el usuario dejó el capítulo; nil = no leído
     var lastScrollPercent: Double? = nil
 }

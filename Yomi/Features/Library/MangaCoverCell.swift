@@ -111,7 +111,7 @@ struct MangaCoverCell: View {
     private var cellContent: some View {
         VStack(alignment: .leading, spacing: 4) {
             Group {
-                if let customPath = manga.customCoverPath,
+                if let customPath = manga.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
                     Image(uiImage: uiImage)
                         .resizable()
@@ -247,7 +247,7 @@ struct MangaListRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Group {
-                if let customPath = manga.customCoverPath,
+                if let customPath = manga.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {

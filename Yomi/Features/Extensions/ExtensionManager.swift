@@ -10,7 +10,9 @@ final class ExtensionManager {
     static let shared = ExtensionManager()
     private init() {
         loadInstalled()
+        #if DEBUG
         seedBundledPlugins()
+        #endif
     }
 
     // MARK: - State
