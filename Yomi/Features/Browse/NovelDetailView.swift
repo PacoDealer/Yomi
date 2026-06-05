@@ -229,7 +229,7 @@ struct NovelDetailView: View {
                 try? FileManager.default.createDirectory(at: coversDir, withIntermediateDirectories: true)
                 let fileURL = coversDir.appendingPathComponent("\(novel.id).jpg")
                 try? data.write(to: fileURL)
-                novel.customCoverPath = fileURL.path
+                novel.customCoverPath = "Covers/\(novel.id).jpg"
                 let updated = novel
                 Task.detached { try? NovelQueries.upsert(updated) }
             }
@@ -258,7 +258,7 @@ struct NovelDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 14) {
                     Group {
-                        if let customPath = novel.customCoverPath,
+                        if let customPath = novel.resolvedCustomCoverPath,
                            let uiImage = UIImage(contentsOfFile: customPath) {
                             Image(uiImage: uiImage)
                                 .resizable()

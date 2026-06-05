@@ -163,7 +163,7 @@ struct HistoryView: View {
                 HistoryRow(
                     title: manga.title,
                     coverURL: manga.coverURL,
-                    customCoverPath: manga.customCoverPath,
+                    customCoverPath: manga.resolvedCustomCoverPath,
                     lastReadAt: manga.lastReadAt,
                     sourceName: ExtensionManager.shared.installed
                         .first { $0.id == manga.sourceId }?.name ?? manga.sourceId,
@@ -178,7 +178,7 @@ struct HistoryView: View {
                 HistoryRow(
                     title: novel.title,
                     coverURL: novel.coverURL,
-                    customCoverPath: novel.customCoverPath,
+                    customCoverPath: novel.resolvedCustomCoverPath,
                     lastReadAt: novel.lastReadAt,
                     sourceName: ExtensionManager.shared.installed
                         .first { $0.id == novel.sourceId }?.name ?? novel.sourceId,

@@ -45,9 +45,19 @@
 		0EFAD6B52F844D91005DBC92 /* Exceptions for "Yomi" folder in "Yomi" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Resources/aquamanga.js,
 				Resources/asurascans.js,
+				Resources/babelnovel.js,
+				Resources/boxnovel.js,
 				Resources/comick.js,
+				Resources/freewebnovel.js,
+				Resources/lightnovelpub.js,
 				Resources/mangadex.js,
+				Resources/mtlnovel.js,
+				Resources/novelbin.js,
+				Resources/novelfire.js,
+				Resources/novelhall.js,
+				Resources/readwn.js,
 				Resources/royalroad.js,
 				Resources/scribblehub.js,
 				"Resources/test-source.js",
@@ -534,8 +544,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
 			requirement = {
-				branch = master;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
 			};
 		};
 		9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {

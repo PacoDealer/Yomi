@@ -71,15 +71,6 @@ enum ChapterQueries {
         }
     }
 
-    /// Inserts or updates a collection of chapters in a single transaction.
-    nonisolated static func upsertAll(_ chapters: [Chapter]) throws {
-        _ = try appDatabase.write { db in
-            for chapter in chapters {
-                try chapter.save(db)
-            }
-        }
-    }
-
     /// Inserts new chapters ignoring conflicts (INSERT OR IGNORE).
     /// Never overwrites existing isRead, isDownloaded, or progress values.
     /// Call after fetching the chapter list from JSBridge, before merging with DB state.
