@@ -19,6 +19,13 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
+- `Yomi/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
+- `Yomi/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
+- `Yomi/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
+
+## Design track (S79 — 2026-07-16, no code)
+
+Design redesign kicked off. Full research + a justified design system were produced (see `Yomi/DESIGN_HANDOFF.md` → `DESIGN_SYSTEM.md` → `DESIGN_RESEARCH.md`). Concept locked: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed decisions: default accent **Vermilion `#E5473A`**, default canvas **Ink (warm `#14110F`)**, ink/screentone texture, **serif** novel reader body, **Space Grotesk + Space Mono** standard (user-swappable). Visuals get produced in **Claude Design** (reads this repo → hands a bundle to Claude Code). App-icon direction now defined (unblocks the App Store icon). Next: v0.3 screen specs + Appearance Studio + icon production. No Swift changed this session.
 
 ## Current state (post S78 — 2026-06-04)
 
@@ -133,7 +140,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 | # | Issue | Notes |
 |---|-------|-------|
 | 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
-| 2 | App icon missing | User designing — 3-layer PNG for iOS 26 Icon Composer. |
+| 2 | App icon missing | Direction defined S79 (ink/screentone + vermilion, layered for Icon Composer) — see `Yomi/DESIGN_SYSTEM.md` §7 + `Yomi/DESIGN_HANDOFF.md` Phase 2. Art still to be produced. |
 | 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
 | 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
