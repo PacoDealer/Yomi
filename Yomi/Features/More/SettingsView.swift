@@ -39,10 +39,7 @@ struct SettingsView: View {
         ("Minimal", "AppIconMinimal"),
     ]
 
-    private let accentSwatches: [String] = [
-        "#FF6B6B", "#FF9F43", "#FECA57", "#48DBFB", "#0ABDE3",
-        "#006BA6", "#5F27CD", "#C56BFF", "#FF6EB4", "#00D2A4",
-    ]
+    private let accentSwatches = YomiTokens.Accent.presets.map(\.hex)
 
     var body: some View {
         List {
