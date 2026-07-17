@@ -12,56 +12,19 @@ enum NovelTheme: String, CaseIterable {
     case dark   = "Dark"
     case amoled = "AMOLED"
 
-    var bg: String {
-        switch self {
-        case .light:  return "#FFFFFF"
-        case .sepia:  return "#F8F1E3"   // Research-validated warm cream (Apple Books standard)
-        case .warm:   return "#1A1209"   // Dark amber night
-        case .dark:   return "#1C1C1E"   // iOS system dark
-        case .amoled: return "#0A0A0A"   // Near-black avoids OLED scroll pixel jitter
-        }
-    }
+    private var token: YomiTokens.ReaderTheme { YomiTokens.Reader.theme(named: rawValue) }
 
-    var fg: String {
-        switch self {
-        case .light:  return "#1C1C1E"
-        case .sepia:  return "#2C2015"   // Dark warm brown for sepia
-        case .warm:   return "#CDB38B"   // Warm amber text
-        case .dark:   return "#E8E8E8"
-        case .amoled: return "#E0E0E0"
-        }
-    }
-
-    var linkColor: String {
-        switch self {
-        case .light, .sepia: return "#0A6ADA"
-        case .warm, .dark, .amoled: return "#5BA3F5"
-        }
-    }
-
-    var isDark: Bool {
-        switch self {
-        case .dark, .amoled, .warm: return true
-        case .light, .sepia:        return false
-        }
-    }
+    var bg:        String { token.bg }
+    var fg:        String { token.fg }
+    var linkColor: String { token.link }
+    var isDark:    Bool   { token.isDark }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
 
     /// Color for the theme swatch circle in the overlay
-    var swatchColor: Color {
-        switch self {
-        case .light:  return Color(white: 1.0)
-        case .sepia:  return Color(red: 0.961, green: 0.929, blue: 0.839)
-        case .warm:   return Color(red: 0.102, green: 0.071, blue: 0.035)
-        case .dark:   return Color(red: 0.11,  green: 0.11,  blue: 0.118)
-        case .amoled: return Color(white: 0.0)
-        }
-    }
+    var swatchColor: Color { token.bgColor }
 
-    var uiColor: UIColor {
-        UIColor(hex: bg) ?? .systemBackground
-    }
+    var uiColor: UIColor { UIColor(hex: bg) ?? .systemBackground }
 }
 
 // MARK: - TextReaderView
