@@ -27,7 +27,7 @@ without seeing what they omitted. Claude Code reading first prevents this class 
 - All code, commits, docs, and communication in English (from S15 onward).
 
 ### Session start
-`cd /Users/martingamberg/Projects/Yomi/iOS` → open Claude Code.
+`cd /Users/martingamberg/Desktop/Projects/Yomi/iOS` → open Claude Code.
 CLAUDE.md loads automatically with full context. No pasting required.
 If starting a session after a long gap: read ROADMAP.md to confirm current state.
 
@@ -43,7 +43,7 @@ If starting a session after a long gap: read ROADMAP.md to confirm current state
 Claude Code is capable of reading files, planning, implementing, building, and iterating without a human relay. The workflow that uses Claude.ai to generate prompts for Claude Code to execute treats Claude Code as a dumb executor — this is suboptimal. Claude Code-first is better: Claude Code reads actual file state, generates its own implementation plan, writes code, builds, fixes errors, and commits. Claude.ai is reserved for session-level strategy.
 
 ### CLAUDE.md
-Located at `/Users/martingamberg/Projects/Yomi/iOS/CLAUDE.md`. Loaded automatically every session. Contains: tech stack, iOS 26 rules, GRDB/concurrency rules, key file paths, current session state, build command, App Store checklist. Update after every session close. This file replaces the session-start paste ritual.
+Located at `/Users/martingamberg/Desktop/Projects/Yomi/iOS/CLAUDE.md`. Loaded automatically every session. Contains: tech stack, iOS 26 rules, GRDB/concurrency rules, key file paths, current session state, build command, App Store checklist. Update after every session close. This file replaces the session-start paste ritual.
 
 ### Memory system
 Located at `~/.claude/projects/-Users-martingamberg/memory/`. Contains `MEMORY.md` (index) and `project_yomi.md` (project state). Persists project path, tech stack, and session state across conversations.
