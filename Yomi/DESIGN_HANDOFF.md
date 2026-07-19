@@ -121,3 +121,20 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 - **Convention docs updated for S79:** `CLAUDE.md` (design-track note + docs listed), `ROADMAP.md` (S79 state), `METODOLOGIA.md` (S79 session row).
 - **⚠️ Not yet committed.** Per your session-close protocol, commit + push these so nothing is lost:
   `git add -A && git commit -m "S79: design track — research + design system + handoff" && git push`
+
+---
+
+## Update — 2026-07-18 (S79 cont.)
+- **All 10 screens produced in Claude Design and approved:** Library, Manga Reader, Novel Reader (heroes) + v0.3: Appearance Studio, Detail, Browse, Settings, Onboarding, Empty state, More hub. Export versioned at `Yomi/design/YOMI Screens.dc.html`.
+- **v0.3 spec written** in `DESIGN_SYSTEM.md` (§12–18: Appearance Studio, Browse, Detail, Settings/More, secondary screens, icon direction, motion).
+- **App icon direction CHOSEN: Option A — "Y." monogram** (Space Grotesk `Y` + Vermilion `#E5473A` dot, on warm Ink ground + screentone). Rejected: crescent+dot (read as a security camera). To be *developed* next session.
+- **Project folder moved to `~/Desktop/Projects/Yomi`** (git intact; path refs in CLAUDE.md/METODOLOGIA fixed to Desktop).
+
+### NEXT SESSION — start here
+1. **Develop the app icon (Option A "Y.")** — resolve proportions / stroke weight / screentone density; build 3-layer art (bg / mid / mark) + a pure-white layer for Icon Composer (Xcode 26); export default/dark/tinted/clear.
+2. **Update the onboarding mark (N.08)** to match the final icon (currently the rejected crescent).
+3. **Hand off to Claude Code** — implement the system in SwiftUI: add Space Grotesk + Space Mono, update `DesignTokens.swift` (warm Ink surfaces + Vermilion default + theming model), add a `Notation` helper, build the Appearance Studio, apply components + screens from the Claude Design bundle.
+4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 17+, description (drafted S46), submit.
+
+⚠️ **Commit + push before closing:**
+`cd ~/Desktop/Projects/Yomi/iOS && git add -A && git commit -m "S79 cont: v0.3 screens approved + icon direction A + handoff" && git push`
