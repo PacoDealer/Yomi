@@ -263,4 +263,60 @@ Same components (cover cells, notation, hero, list rows). Full layout in **v0.3*
 4. **Novel reader body = serif by default, sans as an option.** ✅ (per the readability research)
 5. **Grotesk + Mono = the standard, user-swappable** via the Appearance Studio. ✅
 
-_— v0.2 delivered. Next: v0.3 (Browse + Detail) and/or hand this repo to Claude Design to produce the visuals._
+_— v0.2 delivered. The three hero screens (Library, Manga Reader, Novel Reader) are **APPROVED & versioned** at `Yomi/design/YOMI Screens.dc.html` (2026‑07‑18), produced in Claude Design and QA'd against this system (Ink `#14110F` ✅, Vermilion scarce ✅, Grotesk+Mono ✅, notation ✅). v0.3 below._
+
+---
+
+# v0.3 — Appearance Studio + remaining screens
+_Status: DRAFT for the next Claude Design batch. Same rules; every decision keeps its → Reason._
+
+## 12. The Appearance Studio (flagship differentiator)
+A dedicated screen at **Settings → Appearance**. This is the screen that sells the App Store listing — build it to shine.
+
+- **Live preview (pinned top):** a compact device preview showing one library cover cell + one line of reader text + the tab bar, updating instantly as any control changes.
+  → Reason: instant feedback is the delight (the "knobs" feeling); the user literally watches beauty and control coexist — this is the answer to "linda + customizable."
+- **Axis 1 · Theme (Canvas):** horizontal preset row — Ink · Midnight · Paper · Sepia — each a swatch showing its real bg, active one ringed in accent; plus **Custom…** → bg color picker. Surfaces + text hierarchy auto-derive with contrast guardrails.
+  → Reason: the black↔white range you asked for; auto-derivation means even a custom bg stays legible (no broken combos).
+- **Axis 2 · Accent:** the 11 swatches (Vermilion default) + **Custom…** picker, with a live **AA-contrast badge** on the current canvas.
+  → Reason: scarce, load-bearing, user-owned; the AA badge blocks illegible picks before they happen.
+- **Axis 3 · Type:** UI font (Space Grotesk default + curated alts) · Reading font (Serif default · Sans · OpenDyslexic) · size (14–28) · line-height (Tight/Normal/Airy) · reading margin.
+  → Reason: decision #5 — standard but swappable, curated so swaps stay intentional.
+- **Extras (toggles):** OLED true-black · per-cover ambient accent (optional) · unread badge on/off · cover corners (rounded/sharp) · grid density (2–4). **Reset to defaults.**
+- **Anatomy:** iOS grouped-Form on canvas surfaces; each row = Grotesk label + Mono value; preset rows are horizontal swatch strips; preview pinned above the form.
+  → Reason overall: no competitor ships a beautiful, guardrailed theming studio — this is the differentiator and the hero screenshot.
+
+## 13. Browse
+- Segmented: **Sources · Extensions · Search**.
+- Source browse: the cover-cell grid (component 9.1) + Popular/Latest segmented (when the source supports it) + "Load more"; source language chip (Mono).
+- Global search: per-source result sections — Grotesk source header + Mono result count — streaming spinners per source.
+  → Reason: reuse Library components for consistency; the streaming multi-source search is an existing strength — keep it, just re-skin.
+
+## 14. Detail (Manga / Novel)
+- **Header:** full-width blurred cover backdrop (dark scrim) with a crisp cover thumb (110pt) + title (Grotesk title-1) + author (Grotesk callout, secondary) + Mono metadata line (`STATUS // ONGOING · CH. 128`) + AniList score badge (accent star, scarce) + genre chips (Mono, surface-2).
+- **Actions:** primary **Read / Resume** (accent pill) · heart (library) · reading-status pill · overflow (edit categories, notes, custom cover).
+- **Progress:** accent bar + `X / Y · Nh Ym` (Mono).
+- **Chapter list:** rows = `CH. NNN` (Mono) + name (Grotesk) + date (Mono, tertiary) + read-state (dimmed) + inline download; long-press selection mode; sort + search (when > 30).
+- Notes section; category assignment sheet.
+  → Reason: keeps every existing feature; notation unifies all metadata; accent only on the primary action + score.
+
+## 15. Settings / More
+- **More tab:** grouped list — Library (categories) · **Appearance** (→ Appearance Studio, prominent) · Reading · Sources & servers · Tracking (MAL/AniList) · Data (backup/iCloud) · About.
+- Rows: SF Symbol leading + Grotesk label + Mono value/state; standard iOS Form on canvas surfaces.
+  → Reason: gives the Appearance Studio a front-door; consistent notation for values.
+
+## 16. Secondary screens (concise)
+- **Onboarding:** 2–3 full-screen pages, one **ink/screentone illustration** each, Grotesk title + footnote body + primary CTA; gated by `hasSeenOnboarding`. → the signature texture's natural home.
+- **Insights:** stat cards (Grotesk number + Mono label) · reading-activity calendar heatmap (accent intensity) · by-title bars. Keep, re-skin to tokens.
+- **History / Updates / Downloads:** list rows (9.4) with Mono metadata; section headers grouped (`TODAY` / `THIS WEEK`, Mono).
+- **Empty states everywhere:** component 9.9 (ink illustration + Grotesk + footnote + primary button).
+
+## 17. App icon — expanded direction (the App Store blocker)
+- **Concept options to explore** (all in Ink & Screentone, warm ground, scarce Vermilion): (a) a brush-ink **crescent/moon** — ties "reading at night" + Velvet Moon; (b) a stylized **読** in ink; (c) an abstract **open book / open eye** in ink.
+- **Build:** 3 layers — background (flat warm field + screentone) / mid shape / foreground ink mark; a **pure-white layer** for Tinted/Clear; rounded corners; assemble in **Icon Composer** (Xcode 26); test legibility at 40pt.
+  → Reason: iOS 26 layered-icon guidance + principle #5; a single clear idea (≤3 words) that carries the brand texture. This unblocks submission.
+
+## 18. Motion (key transitions)
+- Manga page turn: slide `.3s` · chrome toggle: opacity `.2s` · **theme switch: crossfade `.25s`** (no hard flash) · immersive hide (status/tab bar) `.2s`. Glass only on chrome.
+  → Reason: purposeful, stable, anti-NN/g — premium calm.
+
+_— v0.3 draft ready for the next Claude Design batch. Recommended order to produce: **Appearance Studio → Detail → Browse → Settings/More → Onboarding + empty states**. The app icon (§17) runs in parallel as its own task._

@@ -12,7 +12,7 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - Firebase Hosting: https://yomi-plugins.web.app
 
 ## Project path
-`/Users/martingamberg/Projects/Yomi/iOS`
+`/Users/martingamberg/Desktop/Projects/Yomi/iOS`
 
 ## Key docs (read these at session start)
 - `Yomi/ROADMAP.md` — current state, planned work, tech debt
