@@ -151,7 +151,7 @@ Human-authored text (titles, author, synopsis) stays in **Grotesk**; machine/cat
 **UI icons:** SF Symbols only, weight matched to text.
 → Reason: native consistency, dynamic-type + accessibility for free, zero maintenance.
 
-**App icon (the App Store blocker) — direction:** a single, simple mark built in the **Ink & Screentone** language — proposal: a stylized `読`/kitsune-or-crescent silhouette in ink, over a warm ground, with a screentone-dot texture and a scarce Vermilion accent. Built as **layered** art (background / mid / foreground) for **Icon Composer** (Xcode 26); specify a **pure-white layer** so Tinted/Clear modes stay legible; rounded corners; concept expressible in ≤3 words.
+**App icon (App Store blocker) — FINAL (S79, 2026-07-18):** the **"Y." monogram** — a centered Space Grotesk `Y` + the scarce Vermilion `#E5473A` dot, on a warm ground with subtle screentone. **Two themes only: Ink (`#14110F`, default) + Paper (`#F3ECDD`, light alternate)** — mirroring the app canvas themes; colored-ground/colored-dot variants were explored and dropped. Built as **layered** art (background+screentone / mark / pure-white) for **Icon Composer** (Xcode 26); pure-white layer keeps Tinted/Clear legible; ship full-square 1024 (system masks corners). Source vector: `Yomi/design/Y-outlined.svg`; assets: `Yomi/design/icons/`.
 → Reason: iOS 26 layered-icon guidance (research: foreground/mid/background, pure-white layer, simplicity, rounded corners for light) + principle #5 makes the icon carry the brand texture. This unblocks App Store while being unmistakably YOMI. (Detailed icon exploration = its own task once the system is signed off.)
 
 ---
@@ -311,6 +311,8 @@ A dedicated screen at **Settings → Appearance**. This is the screen that sells
 - **Empty states everywhere:** component 9.9 (ink illustration + Grotesk + footnote + primary button).
 
 ## 17. App icon — expanded direction (the App Store blocker)
+
+> **RESOLVED 2026-07-18 — Option A "Y." monogram chosen (Ink default + Paper alternate, with the Vermilion dot). See §7 + `Yomi/design/icons/`. The options below are historical exploration.**
 - **Concept options to explore** (all in Ink & Screentone, warm ground, scarce Vermilion): (a) a brush-ink **crescent/moon** — ties "reading at night" + Velvet Moon; (b) a stylized **読** in ink; (c) an abstract **open book / open eye** in ink.
 - **Build:** 3 layers — background (flat warm field + screentone) / mid shape / foreground ink mark; a **pure-white layer** for Tinted/Clear; rounded corners; assemble in **Icon Composer** (Xcode 26); test legibility at 40pt.
   → Reason: iOS 26 layered-icon guidance + principle #5; a single clear idea (≤3 words) that carries the brand texture. This unblocks submission.
