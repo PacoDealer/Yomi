@@ -140,7 +140,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 | # | Issue | Notes |
 |---|-------|-------|
 | 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
-| 2 | App icon missing | Direction defined S79 (ink/screentone + vermilion, layered for Icon Composer) — see `Yomi/DESIGN_SYSTEM.md` §7 + `Yomi/DESIGN_HANDOFF.md` Phase 2. Art still to be produced. |
+| 2 | ~~App icon missing~~ | ✅ Designed S79 — "Y." monogram (Space Grotesk Y + Vermilion `#E5473A` dot), **Ink** default + **Paper** alternate. Flattened 1024 + Icon Composer layers in `Yomi/design/icons/`; vector `Yomi/design/Y-outlined.svg`. TODO: assemble in Icon Composer + upload. |
 | 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
 | 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
@@ -308,7 +308,7 @@ cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting
 Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
-- App icon — missing (user designing)
+- App icon — ✅ designed S79 ("Y." monogram, Ink + Paper); assets in `Yomi/design/icons/`. TODO: Icon Composer + upload.
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

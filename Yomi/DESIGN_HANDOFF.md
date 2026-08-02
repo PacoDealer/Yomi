@@ -138,3 +138,17 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 
 ⚠️ **Commit + push before closing:**
 `cd ~/Desktop/Projects/Yomi/iOS && git add -A && git commit -m "S79 cont: v0.3 screens approved + icon direction A + handoff" && git push`
+
+---
+
+## Update — 2026-07-18 (S79 cont. · session close)
+- **App icon FINALIZED.** Option A "Y." monogram: centered Space Grotesk `Y` + scarce Vermilion `#E5473A` dot on warm ground + subtle screentone. **Two themes only: Ink (`#14110F`) = default, Paper (`#F3ECDD`) = light alternate** (mirror the app canvas themes). Colored-ground/dot variants explored and dropped. Dot kept (wordmark tie + sole accent).
+- **Assets in `Yomi/design/icons/`:** `AppIcon-Ink-1024.png`, `AppIcon-Paper-1024.png`, vector source `Y-outlined.svg`, and `layers/` (Ink-bg/mark/white + Paper-bg/mark/white) for Icon Composer. The 10 approved screen designs are in `Yomi/design/YOMI Screens.dc.html`.
+
+### NEXT SESSION — start here (updated)
+1. **Assemble the icon in Icon Composer** (Xcode 26): new doc → `layers/Ink-bg.png` as background, `layers/Ink-mark.png` as foreground, mark `Ink-white.png` as the pure-white/Tinted layer; repeat with the Paper layers as an alternate icon. QUICK PATH: drop `AppIcon-Ink-1024.png` straight into the asset catalog to ship now.
+2. **Update the onboarding mark (N.08)** in Claude Design to the final "Y." (currently the rejected crescent).
+3. **Hand off to Claude Code** — implement the design system in SwiftUI (Space Grotesk + Space Mono; warm-Ink `DesignTokens` + Vermilion default + theming model; Notation helper; Appearance Studio; apply components/screens); wire the two alternate icons (Ink/Paper) via `setAlternateIconName` from the Appearance Studio.
+4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 17+, description (drafted S46), submit.
+
+⚠️ **Commit + push:** `cd ~/Desktop/Projects/Yomi/iOS && git add -A && git commit -m "S79 cont: final app icon (Y. monogram, Ink+Paper) + docs" && git push`
