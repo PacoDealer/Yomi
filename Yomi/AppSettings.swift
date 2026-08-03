@@ -41,12 +41,23 @@ import Observation
         didSet { defaults.set(theme, forKey: "theme") }
     }
 
-    /// Derived from theme — reactive because theme is now a stored property.
+    /// Canvas preset: "Ink" | "Midnight" | "Paper" | "Sepia" | "" (follow device).
+    /// Replaces the old theme picker as the primary appearance axis.
+    var canvas: String {
+        didSet { defaults.set(canvas, forKey: "canvas") }
+    }
+
+    /// Color scheme derived from canvas first, legacy theme as fallback.
     var colorScheme: ColorScheme? {
-        switch theme {
-        case "Light": return .light
-        case "Dark":  return .dark
-        default:      return nil
+        switch canvas {
+        case "Ink", "Midnight": return .dark
+        case "Paper", "Sepia":  return .light
+        default:
+            switch theme {
+            case "Light": return .light
+            case "Dark":  return .dark
+            default:      return nil
+            }
         }
     }
 
@@ -291,7 +302,19 @@ import Observation
         fontSize                = d.object(forKey: "fontSize")    as? Double ?? 18.0
         lineSpacing             = d.object(forKey: "lineSpacing") as? Double ?? 1.6
         theme                   = d.string(forKey: "theme")                  ?? "System"
-        accentColor             = d.string(forKey: "accentColor")            ?? "#FF6B6B"
+        // canvas: migrate from legacy theme + pureBlack on first launch.
+        if let saved = d.string(forKey: "canvas"), !saved.isEmpty {
+            canvas = saved
+        } else {
+            let savedTheme     = d.string(forKey: "theme")         ?? "System"
+            let savedPureBlack = d.object(forKey: "pureBlack") as? Bool ?? false
+            switch savedTheme {
+            case "Dark":  canvas = savedPureBlack ? "Midnight" : "Ink"
+            case "Light": canvas = "Paper"
+            default:      canvas = ""   // follow device
+            }
+        }
+        accentColor             = d.string(forKey: "accentColor")            ?? "#E5473A"
         useSystemFont           = d.object(forKey: "useSystemFont") as? Bool ?? true
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
