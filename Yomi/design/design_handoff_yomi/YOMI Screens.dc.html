@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#14110F;}
+a{color:var(--accent,#E5473A);text-decoration:none;}
+a:hover{opacity:.8;}
+::-webkit-scrollbar{width:0;height:0;}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="--bg:#14110F;--s1:#1E1A17;--s2:#2A2521;--tx:#F4EFE7;--tx2:rgba(244,239,231,.60);--tx3:rgba(244,239,231,.34);--hair:rgba(244,239,231,.10);--accent:#E5473A;--on-accent:#FFF8F5;--glass:rgba(30,26,23,.62);--glassbrd:rgba(244,239,231,.12);--glasssh:0 10px 34px rgba(0,0,0,.5);--cols:3;--rbg:#F8F1E3;--rfg:#2C2015;--rfg2:rgba(44,32,21,.55);--rlink:#0A6ADA;min-height:100vh;background:#14110F;padding:56px 72px 96px;box-sizing:border-box;font-family:'Space Grotesk',sans-serif;">
+
+  <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:8px;">
+    <div style="font-size:44px;font-weight:700;letter-spacing:1px;color:#F4EFE7;">YOMI<span style="color:var(--accent);">.</span></div>
+    <div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);padding-bottom:9px;">reading instrument / living archive</div>
+  </div>
+  <div style="font-family:'Space Mono',monospace;font-size:12px;color:rgba(244,239,231,.36);margin-bottom:44px;">DESIGN_SYSTEM v0.2 &nbsp;·&nbsp; §9·A screens &nbsp;·&nbsp; canvas INK &nbsp;·&nbsp; accent VERMILION</div>
+  </sc-if>
+
+  <div style="display:flex;flex-wrap:wrap;gap:64px 64px;align-items:flex-start;max-width:1480px;padding-top:{{ gridPad }};">
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Library">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.01</span> &nbsp; LIBRARY</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ libraryDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+
+            <div style="padding:8px 16px 0;display:flex;align-items:flex-end;justify-content:space-between;">
+              <div style="font-size:26px;font-weight:500;letter-spacing:-.5px;">Library</div>
+              <div style="display:flex;gap:18px;align-items:center;color:var(--tx2);">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M21 3 13 11"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l6 6"></path></svg>
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+              </div>
+            </div>
+
+            <div style="margin:12px 16px 0;height:38px;border-radius:100px;background:var(--s2);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--tx2);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              <span style="font-size:15px;">Search library</span>
+            </div>
+
+            <div style="margin-top:16px;padding:0 16px;display:flex;gap:22px;border-bottom:1px solid var(--hair);overflow-x:auto;">
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--accent);border-bottom:3px solid var(--accent);border-radius:2px 2px 0 0;margin-bottom:-1px;white-space:nowrap;">All</div>
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--tx2);white-space:nowrap;">Manga</div>
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--tx2);white-space:nowrap;">Novels</div>
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--tx2);white-space:nowrap;">Reading</div>
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--tx2);white-space:nowrap;">Completed</div>
+              <div style="font-size:16px;font-weight:500;padding-bottom:9px;color:var(--tx3);white-space:nowrap;">+</div>
+            </div>
+
+            <div style="padding:16px;display:flex;flex-direction:column;gap:26px;">
+
+              <sc-if value="{{ showHero }}" hint-placeholder-val="{{ true }}">
+                <div style="border-radius:16px;padding:14px;display:flex;gap:14px;background:linear-gradient(120deg,rgba(122,28,20,.55),rgba(30,26,23,.75));border:1px solid var(--hair);">
+                  <div style="width:74px;height:104px;border-radius:10px;flex-shrink:0;background:linear-gradient(160deg,#3a0f0c,#7a1c14);position:relative;overflow:hidden;">
+                    <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;color:rgba(255,255,255,.18);">CM</div>
+                  </div>
+                  <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+                    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.4px;color:var(--tx2);">CONTINUE READING</div>
+                    <div style="font-size:22px;font-weight:500;margin-top:4px;line-height:1.15;">Chainsaw Man</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-top:6px;">CH. 042 · <span style="color:var(--accent);">68%</span> · 12H 40M</div>
+                    <div style="margin-top:auto;display:flex;align-items:center;gap:12px;padding-top:14px;">
+                      <div style="height:36px;padding:0 16px;border-radius:100px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;gap:7px;font-weight:500;font-size:13px;"><svg width="11" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"></path></svg>Resume</div>
+                      <div style="flex:1;height:3px;border-radius:2px;background:var(--hair);position:relative;"><div style="position:absolute;left:0;top:0;bottom:0;width:68%;background:var(--accent);border-radius:2px;"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+                  <div style="font-size:22px;font-weight:500;">Up next</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">See all</div>
+                </div>
+                <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;">
+                  <sc-for list="{{ upNext }}" as="item" hint-placeholder-count="4">
+                    <div style="width:104px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                      <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:{{ item.bg }};">
+                        <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">{{ item.mark }}</div>
+                        <div style="position:absolute;top:7px;left:7px;font-family:'Space Mono',monospace;font-weight:700;font-size:14px;color:var(--tx2);text-shadow:0 1px 3px rgba(0,0,0,.6);">{{ item.idx }}</div>
+                        <sc-if value="{{ item.mid }}" hint-placeholder-val="{{ true }}">
+                          <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.4);"><div style="height:3px;background:var(--accent);width:{{ item.pct }};"></div></div>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:13px;line-height:1.25;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ item.title }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+                  <div style="font-size:22px;font-weight:500;">Library</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">48</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:12px;">
+                  <sc-for list="{{ libraryManga }}" as="item" hint-placeholder-count="6">
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                      <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:{{ item.bg }};">
+                        <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:34px;color:rgba(255,255,255,.16);letter-spacing:1px;">{{ item.mark }}</div>
+                        <div style="position:absolute;top:8px;left:8px;font-family:'Space Mono',monospace;font-weight:700;font-size:15px;color:var(--tx2);text-shadow:0 1px 3px rgba(0,0,0,.6);">{{ item.idx }}</div>
+                        <sc-if value="{{ item.showUnread }}" hint-placeholder-val="{{ true }}">
+                          <div style="position:absolute;top:6px;right:6px;font-family:'Space Mono',monospace;font-weight:700;font-size:11px;color:var(--on-accent);background:var(--accent);border-radius:100px;padding:2px 7px;">{{ item.unread }}</div>
+                        </sc-if>
+                        <div style="position:absolute;left:0;right:0;bottom:0;">
+                          <sc-if value="{{ item.hasProgress }}" hint-placeholder-val="{{ true }}">
+                            <div style="font-family:'Space Mono',monospace;font-size:11px;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.lastRead }}</div>
+                          </sc-if>
+                          <sc-if value="{{ item.mid }}" hint-placeholder-val="{{ true }}">
+                            <div style="height:3px;background:rgba(0,0,0,.4);"><div style="height:3px;background:var(--accent);width:{{ item.pct }};"></div></div>
+                          </sc-if>
+                        </div>
+                      </div>
+                      <div style="font-size:13px;line-height:1.25;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ item.title }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);">{{ item.source }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+                  <div style="font-size:22px;font-weight:500;">Novels</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">12</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:12px;">
+                  <sc-for list="{{ novels }}" as="item" hint-placeholder-count="3">
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                      <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:{{ item.bg }};">
+                        <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:34px;color:rgba(255,255,255,.16);letter-spacing:1px;">{{ item.mark }}</div>
+                        <div style="position:absolute;top:8px;left:8px;font-family:'Space Mono',monospace;font-weight:700;font-size:15px;color:var(--tx2);text-shadow:0 1px 3px rgba(0,0,0,.6);">{{ item.idx }}</div>
+                        <div style="position:absolute;top:6px;right:6px;font-family:'Space Mono',monospace;font-weight:700;font-size:10px;color:var(--tx2);background:rgba(0,0,0,.45);border-radius:4px;padding:2px 5px;">NOVEL</div>
+                        <div style="position:absolute;left:0;right:0;bottom:0;">
+                          <sc-if value="{{ item.hasProgress }}" hint-placeholder-val="{{ true }}">
+                            <div style="font-family:'Space Mono',monospace;font-size:11px;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.lastRead }}</div>
+                          </sc-if>
+                          <sc-if value="{{ item.mid }}" hint-placeholder-val="{{ true }}">
+                            <div style="height:3px;background:rgba(0,0,0,.4);"><div style="height:3px;background:var(--accent);width:{{ item.pct }};"></div></div>
+                          </sc-if>
+                        </div>
+                      </div>
+                      <div style="font-size:13px;line-height:1.25;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ item.title }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);">{{ item.source }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="height:70px;"></div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg>
+              <span style="font-size:11px;font-weight:500;">Library</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              <span style="font-size:11px;font-weight:500;">Browse</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+              <span style="font-size:11px;font-weight:500;">History</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg>
+              <span style="font-size:11px;font-weight:500;">Updates</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+              <span style="font-size:11px;font-weight:500;">More</span>
+            </div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Manga Reader">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.02</span> &nbsp; MANGA READER</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ mangaDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;background:#0A0807;color:#F4EFE7;font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="position:absolute;inset:0;padding:52px 8px 8px;display:flex;flex-direction:column;gap:4px;background:#080706;">
+            <div style="flex:1.7;position:relative;overflow:hidden;background:#ece7dd;">
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,#d9d3c7,#ece7dd 55%);"></div>
+              <div style="position:absolute;top:-40px;right:-30px;width:150px;height:150px;border-radius:100px;background:#17120e;box-shadow:0 0 0 6px #ece7dd,0 0 0 8px #17120e;"></div>
+              <div style="position:absolute;top:-40px;right:-30px;width:150px;height:150px;border-radius:100px;background:radial-gradient(rgba(236,231,221,.55) 1.1px,transparent 1.4px) 0 0/7px 7px;"></div>
+              <div style="position:absolute;left:0;bottom:0;width:62%;height:70%;background:repeating-linear-gradient(72deg,#17120e 0 2px,transparent 2px 9px);-webkit-mask-image:linear-gradient(45deg,#000,transparent 78%);mask-image:linear-gradient(45deg,#000,transparent 78%);"></div>
+              <div style="position:absolute;left:14px;bottom:-8px;width:120px;height:64%;background:#17120e;border-radius:60px 60px 0 0;"></div>
+              <div style="position:absolute;right:22px;bottom:20px;max-width:44%;padding:9px 13px;background:#fff;border:2px solid #17120e;border-radius:16px 16px 4px 16px;font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:13px;line-height:1.2;color:#17120e;">It's already here.</div>
+            </div>
+            <div style="flex:1;position:relative;overflow:hidden;background:#e4dfd4;">
+              <div style="position:absolute;inset:0;background:repeating-linear-gradient(100deg,rgba(23,18,14,.55) 0 1.5px,transparent 1.5px 8px);"></div>
+              <div style="position:absolute;inset:0;background:radial-gradient(rgba(23,18,14,.18) 1px,transparent 1.3px) 0 0/6px 6px;-webkit-mask-image:radial-gradient(circle at 30% 60%,#000,transparent 60%);mask-image:radial-gradient(circle at 30% 60%,#000,transparent 60%);"></div>
+              <div style="position:absolute;left:18px;top:16px;max-width:46%;padding:8px 12px;background:#fff;border:2px solid #17120e;border-radius:16px 16px 16px 4px;font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:12px;line-height:1.2;color:#17120e;">Don't look away.</div>
+            </div>
+            <div style="flex:1.35;display:flex;gap:4px;">
+              <div style="flex:1;position:relative;overflow:hidden;background:#17120e;">
+                <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgba(236,231,221,.9),transparent 42%);"></div>
+                <div style="position:absolute;left:50%;top:45%;width:26px;height:26px;border-radius:100px;background:#17120e;transform:translate(-50%,-50%);"></div>
+                <div style="position:absolute;inset:0;background:radial-gradient(rgba(236,231,221,.5) 1px,transparent 1.3px) 0 0/6px 6px;-webkit-mask-image:radial-gradient(circle at 50% 45%,transparent 40%,#000 70%);mask-image:radial-gradient(circle at 50% 45%,transparent 40%,#000 70%);"></div>
+              </div>
+              <div style="flex:1.5;position:relative;overflow:hidden;background:#ece7dd;">
+                <div style="position:absolute;inset:0;background:linear-gradient(160deg,#e4dfd4,#cfc9bd);"></div>
+                <div style="position:absolute;right:-20px;bottom:-30px;width:100px;height:100px;border-radius:100px;background:radial-gradient(rgba(23,18,14,.32) 1px,transparent 1.3px) 0 0/6px 6px,#c6bfb1;"></div>
+                <div style="position:absolute;left:14px;top:14px;width:52%;height:34%;background:#17120e;border-radius:4px 40px 4px 4px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.6);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:#F4EFE7;">
+              <svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+            </div>
+            <div style="flex:1;text-align:center;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,.6);">Chainsaw Man</div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.55);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:#F4EFE7;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path></svg>
+            </div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.55);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:#F4EFE7;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"></path></svg>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:14px;background:rgba(20,17,15,.62);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 10px 34px rgba(0,0,0,.55);">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">CH. 042 · 12/48</div>
+              <div style="display:flex;align-items:center;gap:18px;color:#F4EFE7;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14M9 12l9 7V5z"></path></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14M15 12L6 5v14z"></path></svg>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">12</span>
+              <div style="flex:1;height:4px;border-radius:2px;background:rgba(244,239,231,.16);position:relative;">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:25%;background:var(--accent);border-radius:2px;"></div>
+                <div style="position:absolute;left:25%;top:50%;width:16px;height:16px;border-radius:100px;background:#F4EFE7;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.5);"></div>
+              </div>
+              <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">48</span>
+            </div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Novel Reader">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.03</span> &nbsp; NOVEL READER</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ novelDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;background:var(--rbg);color:var(--rfg);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="position:absolute;inset:0;overflow-y:auto;padding:96px 26px 340px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.4px;color:var(--rfg2);margin-bottom:10px;">VOL. 03 / CH. 27</div>
+            <div style="font-size:26px;font-weight:500;letter-spacing:-.4px;margin-bottom:22px;line-height:1.15;">The Weight of Small Numbers</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.6;color:var(--rfg);max-width:34em;">
+              <p style="margin:0 0 1em;">The lantern guttered once and went still, and in that pause he understood the corridor was listening. Every archive keeps its own silence; this one had teeth.</p>
+              <p style="margin:0 0 1em;">He set his palm flat against the cold shelf and counted the spines by touch — forty, then forty-one — until the numbers stopped meaning anything and became a kind of prayer he had not intended to make.</p>
+              <p style="margin:0 0 1em;">Somewhere below, water moved through stone. He had been told the lower stacks flooded every spring, that whole decades of record dissolved into the dark and were simply, quietly, let go. Nobody grieved them. That, he decided, was the part he could not forgive.</p>
+              <p style="margin:0;">So he began to read faster, as if speed were a form of rescue, as if a page held in memory were a page saved from the water.</p>
+            </div>
+          </div>
+
+          <div style="position:absolute;top:56px;left:12px;right:12px;display:flex;align-items:center;gap:10px;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.6);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(0,0,0,.08);box-shadow:0 8px 24px rgba(0,0,0,.14);color:var(--rfg);">
+              <svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+            </div>
+            <div style="flex:1;text-align:center;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Re:Zero</div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.6);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(0,0,0,.08);box-shadow:0 8px 24px rgba(0,0,0,.14);color:var(--rfg);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path></svg>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;border-radius:24px;padding:14px;display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.62);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(0,0,0,.08);box-shadow:0 10px 30px rgba(0,0,0,.18);color:var(--rfg);">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.05);border-radius:100px;padding:8px 16px;">
+              <span style="font-size:16px;">A</span>
+              <span style="font-family:'Space Mono',monospace;font-size:13px;color:var(--rfg2);">18 PT</span>
+              <span style="font-size:24px;">A</span>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <div style="flex:1;text-align:center;font-family:'Newsreader',serif;font-size:15px;padding:8px 0;border-radius:100px;background:#fff;color:var(--rfg);box-shadow:0 1px 3px rgba(0,0,0,.15);">Serif</div>
+              <div style="flex:1;text-align:center;font-size:14px;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg2);">Sans</div>
+              <div style="flex:1;text-align:center;font-size:14px;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg2);">OpenDys</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg);">Line <span style="font-family:'Space Mono',monospace;color:var(--rfg2);">1.6</span></div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg);">Margin <span style="font-family:'Space Mono',monospace;color:var(--rfg2);">M</span></div>
+              <div style="width:44px;display:flex;align-items:center;justify-content:center;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg2);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg></div>
+              <div style="width:44px;display:flex;align-items:center;justify-content:center;padding:8px 0;border-radius:100px;background:rgba(0,0,0,.05);color:var(--rfg2);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="M15.5 8.5a5 5 0 010 7"></path></svg></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--rfg2);">THEME</span>
+              <div title="Paper" style="width:22px;height:22px;border-radius:100px;background:#F7F1E6;border:1px solid rgba(0,0,0,.15);"></div>
+              <div title="Sepia" style="width:22px;height:22px;border-radius:100px;background:#F3E7D2;box-shadow:0 0 0 2px var(--rbg),0 0 0 4px var(--accent);"></div>
+              <div title="Ink" style="width:22px;height:22px;border-radius:100px;background:#2A211B;border:1px solid rgba(0,0,0,.18);"></div>
+              <div title="Midnight" style="width:22px;height:22px;border-radius:100px;background:#000000;border:1px solid rgba(255,255,255,.22);"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid rgba(0,0,0,.08);padding-top:11px;">
+              <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--rfg2);">CH. 27 · <span style="color:var(--accent);">64%</span></div>
+              <div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;"><div style="height:3px;width:64%;background:var(--accent);border-radius:2px;"></div></div>
+            </div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Appearance Studio">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.04</span> &nbsp; APPEARANCE STUDIO</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ studioDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding:96px 16px 40px;display:flex;flex-direction:column;gap:26px;">
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:10px;">LIVE PREVIEW</div>
+              <div style="border-radius:16px;padding:12px;background:var(--s1);border:1px solid var(--hair);">
+                <div style="border-radius:12px;background:var(--bg);border:1px solid var(--hair);padding:12px;display:flex;gap:12px;">
+                  <div style="width:64px;height:96px;flex-shrink:0;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(160deg,#3a0f0c,#7a1c14);">
+                    <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:rgba(255,255,255,.16);">CM</div>
+                    <div style="position:absolute;top:6px;left:6px;font-family:'Space Mono',monospace;font-weight:700;font-size:12px;color:var(--accent);text-shadow:0 1px 3px rgba(0,0,0,.6);">N.01</div>
+                    <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.4);"><div style="height:3px;width:68%;background:var(--accent);"></div></div>
+                  </div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+                    <div style="font-size:16px;font-weight:500;">Chainsaw Man</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:4px;">CH. 042 · <span style="color:var(--accent);">68%</span> · 12H 40M</div>
+                    <div style="height:1px;background:var(--hair);margin:10px 0;"></div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:var(--tx);">The lantern guttered once and went still, and in that pause he understood the corridor was listening.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:10px;">CANVAS</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="border-radius:12px;overflow:hidden;border:2px solid var(--accent);">
+                  <div style="height:52px;background:#14110F;position:relative;padding:8px;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="width:60%;height:6px;border-radius:3px;background:rgba(244,239,231,.85);"></div>
+                    <div style="display:flex;gap:5px;align-items:center;"><div style="width:24px;height:12px;border-radius:3px;background:#2A2521;"></div><div style="width:8px;height:8px;border-radius:100px;background:var(--accent);"></div></div>
+                  </div>
+                  <div style="padding:7px 10px;background:var(--s1);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;">Ink</span><span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--tx2);">#14110F</span></div>
+                </div>
+                <div style="border-radius:12px;overflow:hidden;border:2px solid var(--hair);">
+                  <div style="height:52px;background:#000;position:relative;padding:8px;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="width:60%;height:6px;border-radius:3px;background:#fff;"></div>
+                    <div style="display:flex;gap:5px;align-items:center;"><div style="width:24px;height:12px;border-radius:3px;background:#1C1C1E;"></div><div style="width:8px;height:8px;border-radius:100px;background:var(--accent);"></div></div>
+                  </div>
+                  <div style="padding:7px 10px;background:var(--s1);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;">Midnight</span><span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--tx2);">#000000</span></div>
+                </div>
+                <div style="border-radius:12px;overflow:hidden;border:2px solid var(--hair);">
+                  <div style="height:52px;background:#F7F1E6;position:relative;padding:8px;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="width:60%;height:6px;border-radius:3px;background:#1A1512;"></div>
+                    <div style="display:flex;gap:5px;align-items:center;"><div style="width:24px;height:12px;border-radius:3px;background:#EEE7D8;"></div><div style="width:8px;height:8px;border-radius:100px;background:var(--accent);"></div></div>
+                  </div>
+                  <div style="padding:7px 10px;background:var(--s1);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;">Paper</span><span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--tx2);">#F7F1E6</span></div>
+                </div>
+                <div style="border-radius:12px;overflow:hidden;border:2px solid var(--hair);">
+                  <div style="height:52px;background:#F3E7D2;position:relative;padding:8px;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="width:60%;height:6px;border-radius:3px;background:#3A2C18;"></div>
+                    <div style="display:flex;gap:5px;align-items:center;"><div style="width:24px;height:12px;border-radius:3px;background:#EADBC0;"></div><div style="width:8px;height:8px;border-radius:100px;background:var(--accent);"></div></div>
+                  </div>
+                  <div style="padding:7px 10px;background:var(--s1);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;">Sepia</span><span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--tx2);">#F3E7D2</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:10px;">ACCENT</div>
+              <div style="display:flex;gap:14px;overflow-x:auto;padding:2px 0 6px;">
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#E5473A;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--bg),0 0 0 4px #E5473A;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#FF6B6B;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#FF9F43;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#FECA57;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#0ABDE3;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#006BA6;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#5F27CD;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#C56BFF;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:#00D2A4;"></div>
+                <div style="width:34px;height:34px;flex-shrink:0;border-radius:100px;background:conic-gradient(from 0deg,#e5473a,#ffca57,#00d2a4,#0abde3,#5f27cd,#e5473a);position:relative;"><div style="position:absolute;inset:9px;border-radius:100px;background:var(--bg);"></div></div>
+              </div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:2px;">VERMILION · <span style="color:var(--accent);">#E5473A</span></div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:10px;">TYPE</div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                  <div style="font-size:13px;color:var(--tx2);margin-bottom:7px;">Interface</div>
+                  <div style="display:flex;gap:6px;">
+                    <div style="flex:1;text-align:center;font-size:14px;font-weight:500;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx);box-shadow:inset 0 0 0 1.5px var(--accent);">Space Grotesk</div>
+                    <div style="flex:1;text-align:center;font-size:14px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx2);font-family:-apple-system,system-ui;">System</div>
+                    <div style="flex:1;text-align:center;font-size:14px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx2);">Humanist</div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:13px;color:var(--tx2);margin-bottom:7px;">Reading</div>
+                  <div style="display:flex;gap:6px;">
+                    <div style="flex:1;text-align:center;font-family:'Newsreader',serif;font-size:15px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx);box-shadow:inset 0 0 0 1.5px var(--accent);">Newsreader</div>
+                    <div style="flex:1;text-align:center;font-family:'Newsreader',serif;font-size:15px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx2);">Source Serif</div>
+                    <div style="flex:1;text-align:center;font-size:13px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx2);">Sans</div>
+                    <div style="width:52px;text-align:center;font-size:12px;padding:9px 0;border-radius:100px;background:var(--s2);color:var(--tx2);">Dys</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--tx);"><svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+            <div style="flex:1;text-align:center;font-size:16px;font-weight:500;">Appearance</div>
+            <div style="width:44px;"></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Detail">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.05</span> &nbsp; DETAIL</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ detailDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;">
+
+            <div style="position:relative;height:230px;">
+              <div style="position:absolute;inset:0;background:linear-gradient(160deg,#3a0f0c,#7a1c14);"></div>
+              <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.08) .8px,transparent 1px) 0 0/5px 5px;"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,17,15,.15) 0%,rgba(20,17,15,.55) 55%,var(--bg) 100%);"></div>
+            </div>
+
+            <div style="padding:0 16px;margin-top:-96px;position:relative;">
+              <div style="display:flex;gap:14px;align-items:flex-end;">
+                <div style="width:110px;height:162px;flex-shrink:0;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(160deg,#3a0f0c,#7a1c14);box-shadow:0 10px 28px rgba(0,0,0,.5);">
+                  <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:38px;color:rgba(255,255,255,.18);">CM</div>
+                </div>
+                <div style="flex:1;min-width:0;padding-bottom:4px;">
+                  <div style="font-size:22px;font-weight:700;line-height:1.15;">Chainsaw Man</div>
+                  <div style="font-size:14px;color:var(--tx2);margin-top:5px;">Tatsuki Fujimoto</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:6px;">MANGADEX</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:9px;">
+                    <span style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.4px;color:var(--tx2);background:var(--s2);border-radius:4px;padding:3px 7px;">STATUS // ONGOING</span>
+                    <span style="font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);">94%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:6px;overflow-x:auto;margin-top:16px;padding-bottom:2px;">
+                <span style="font-size:12px;white-space:nowrap;padding:5px 11px;border-radius:100px;background:var(--s2);color:var(--tx);">Action</span>
+                <span style="font-size:12px;white-space:nowrap;padding:5px 11px;border-radius:100px;background:var(--s2);color:var(--tx);">Horror</span>
+                <span style="font-size:12px;white-space:nowrap;padding:5px 11px;border-radius:100px;background:var(--s2);color:var(--tx);">Supernatural</span>
+                <span style="font-size:12px;white-space:nowrap;padding:5px 11px;border-radius:100px;background:var(--s2);color:var(--tx);">Dark</span>
+              </div>
+
+              <div style="margin-top:16px;">
+                <div style="height:3px;border-radius:2px;background:var(--hair);position:relative;"><div style="position:absolute;left:0;top:0;bottom:0;width:29%;background:var(--accent);border-radius:2px;"></div></div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:7px;">28 OF 96 · <span style="color:var(--accent);">29%</span> · 9H 12M</div>
+              </div>
+
+              <div style="margin-top:16px;height:46px;border-radius:100px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;gap:9px;font-weight:500;font-size:15px;"><svg width="13" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"></path></svg>Resume Ch. 42</div>
+
+              <div style="margin-top:24px;">
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:8px;">SYNOPSIS</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--tx);">Denji is a young man trapped in poverty, working off his dead father's debt by harvesting devil corpses with his pet devil-dog Pochita. Betrayed and killed, he fuses with Pochita to become something new — <span style="color:var(--accent);">More</span></div>
+              </div>
+
+              <div style="margin-top:24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div style="display:flex;align-items:baseline;gap:9px;"><span style="font-size:22px;font-weight:500;">Chapters</span><span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">28 / 96</span></div>
+                <div style="display:flex;gap:16px;color:var(--tx2);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M12 16l-4-4M12 16l4-4M5 20h14"></path></svg>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;">
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--hair);">
+                  <div style="width:6px;height:6px;border-radius:100px;background:var(--accent);flex-shrink:0;"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;">Chapter 96 — Bath</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:2px;">2026-07-14 · 19P</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--hair);">
+                  <div style="width:6px;height:6px;border-radius:100px;background:var(--accent);flex-shrink:0;"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;">Chapter 95 — Trip</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:2px;">2026-07-07 · 21P</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--tx3)" stroke="none"><circle cx="12" cy="12" r="10"></circle><path d="M8 12l3 3 5-6" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--hair);">
+                  <div style="width:6px;height:6px;flex-shrink:0;"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;color:var(--tx2);">Chapter 94 — Darkness Devil</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx3);margin-top:2px;">2026-06-30 · 18P</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--tx3)" stroke="none"><circle cx="12" cy="12" r="10"></circle><path d="M8 12l3 3 5-6" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--hair);">
+                  <div style="width:6px;height:6px;flex-shrink:0;"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;color:var(--tx2);">Chapter 93 — Katana vs. Chainsaw</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx3);margin-top:2px;">2026-06-23 · 20P</div></div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"></path></svg>
+                </div>
+              </div>
+
+              <div style="height:20px;"></div>
+            </div>
+          </div>
+
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.55);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:#F4EFE7;"><svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+            <div style="flex:1;"></div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.55);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:var(--accent);"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.3C.4 8.6 1.8 5 5.2 5c2 0 3.3 1.2 3.8 2.3C9.5 6.2 10.8 5 12.8 5c3.4 0 4.8 3.6 3.2 6.7C20 16.1 12 21 12 21z"></path></svg></div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:rgba(20,17,15,.55);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid rgba(244,239,231,.14);box-shadow:0 8px 24px rgba(0,0,0,.5);color:#F4EFE7;"><svg width="20" height="6" viewBox="0 0 22 6" fill="currentColor"><circle cx="3" cy="3" r="2.5"></circle><circle cx="11" cy="3" r="2.5"></circle><circle cx="19" cy="3" r="2.5"></circle></svg></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Browse">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.06</span> &nbsp; BROWSE</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ browseDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+
+            <div style="padding:8px 16px 0;font-size:26px;font-weight:500;letter-spacing:-.5px;">Browse</div>
+
+            <div style="margin:12px 16px 0;height:38px;border-radius:100px;background:var(--s2);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--tx2);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              <span style="font-size:15px;">Search all sources</span>
+            </div>
+
+            <div style="margin:14px 16px 0;display:flex;gap:6px;background:var(--s2);border-radius:100px;padding:3px;">
+              <div style="flex:1;text-align:center;font-size:14px;font-weight:500;padding:7px 0;border-radius:100px;background:var(--accent);color:var(--on-accent);">Sources</div>
+              <div style="flex:1;text-align:center;font-size:14px;padding:7px 0;border-radius:100px;color:var(--tx2);">Global search</div>
+            </div>
+
+            <div style="padding:22px 16px 0;">
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin-bottom:6px;">INSTALLED · 5</div>
+              <div style="display:flex;flex-direction:column;">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(160deg,#7a1c14,#c23a2b);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">MD</div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:16px;">MangaDex</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:1px;">EN · 8.2K TITLES</div></div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(160deg,#1c4a63,#2f7ea0);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">CK</div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:16px;">ComicK</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:1px;">MULTI · 12K TITLES</div></div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(160deg,#324e7a,#5878b0);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">LN</div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:16px;">LNReader</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:1px;">EN · NOVELS</div></div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(160deg,#4a3d22,#7d6a3a);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">WC</div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:16px;">Weeb Central</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:1px;">EN · 6.4K TITLES</div></div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(160deg,#265036,#3f8058);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">SW</div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:16px;">Suwayomi</div><div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-top:1px;">SELF-HOSTED</div></div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:22px 0 0;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 16px 12px;">
+                <div style="font-size:22px;font-weight:500;">Popular on MangaDex</div>
+                <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">See all</div>
+              </div>
+              <div style="display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;">
+                <div style="width:104px;flex-shrink:0;">
+                  <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,#0f2436,#1c4a63);"><div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">FR</div></div>
+                  <div style="font-size:13px;line-height:1.25;margin-top:6px;color:var(--tx);">Frieren</div>
+                </div>
+                <div style="width:104px;flex-shrink:0;">
+                  <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,#241f14,#4a3d22);"><div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">DG</div></div>
+                  <div style="font-size:13px;line-height:1.25;margin-top:6px;color:var(--tx);">Dandadan</div>
+                </div>
+                <div style="width:104px;flex-shrink:0;">
+                  <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,#2a2733,#4a4560);"><div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">JJ</div></div>
+                  <div style="font-size:13px;line-height:1.25;margin-top:6px;color:var(--tx);">Jujutsu Kaisen</div>
+                </div>
+                <div style="width:104px;flex-shrink:0;">
+                  <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,#14181c,#2c3944);"><div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">SM</div></div>
+                  <div style="font-size:13px;line-height:1.25;margin-top:6px;color:var(--tx);">Sakamoto Days</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="height:90px;"></div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Settings">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.07</span> &nbsp; SETTINGS</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ settingsDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding:96px 16px 40px;display:flex;flex-direction:column;gap:22px;">
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">GENERAL</div>
+              <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">Show NSFW content</span><div style="width:44px;height:26px;border-radius:100px;background:var(--s2);position:relative;"><div style="position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:100px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div></div></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">App Lock</span><div style="width:44px;height:26px;border-radius:100px;background:var(--s2);position:relative;"><div style="position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:100px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div></div></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;"><span style="flex:1;font-size:16px;">Incognito mode</span><div style="width:44px;height:26px;border-radius:100px;background:var(--s2);position:relative;"><div style="position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:100px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div></div></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">APPEARANCE</div>
+              <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">Appearance Studio</span><span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);margin-right:8px;">Canvas · Accent · Type</span><svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;"><span style="flex:1;font-size:16px;">Pure black (OLED)</span><div style="width:44px;height:26px;border-radius:100px;background:var(--accent);position:relative;"><div style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:100px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div></div></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">APP ICON</div>
+              <div style="background:var(--s1);border-radius:16px;padding:16px;display:flex;gap:14px;">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;">
+                  <div style="width:76px;height:76px;border-radius:18px;overflow:hidden;position:relative;box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 0 0 .5px rgba(255,255,255,.08);">
+                    <img src="assets/AppIcon-Ink.png" alt="Ink app icon" style="width:100%;height:100%;display:block;">
+                    <sc-if value="{{ appIconInk }}" hint-placeholder-val="{{ true }}">
+                      <div style="position:absolute;inset:0;border-radius:18px;box-shadow:inset 0 0 0 3px var(--accent);"></div>
+                      <div style="position:absolute;bottom:5px;right:5px;width:20px;height:20px;border-radius:100px;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--on-accent)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"></path></svg></div>
+                    </sc-if>
+                  </div>
+                  <span style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.4px;color:var(--tx2);">INK</span>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;">
+                  <div style="width:76px;height:76px;border-radius:18px;overflow:hidden;position:relative;box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 0 0 .5px rgba(0,0,0,.1);">
+                    <img src="assets/AppIcon-Paper.png" alt="Paper app icon" style="width:100%;height:100%;display:block;">
+                    <sc-if value="{{ appIconPaper }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;border-radius:18px;box-shadow:inset 0 0 0 3px var(--accent);"></div>
+                      <div style="position:absolute;bottom:5px;right:5px;width:20px;height:20px;border-radius:100px;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--on-accent)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"></path></svg></div>
+                    </sc-if>
+                  </div>
+                  <span style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.4px;color:var(--tx2);">PAPER</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">LIBRARY</div>
+              <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">Items per row</span><div style="display:flex;align-items:center;gap:2px;background:var(--s2);border-radius:8px;"><div style="width:34px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--tx2);font-size:18px;">−</div><div style="width:32px;text-align:center;font-family:'Space Mono',monospace;font-size:14px;">3</div><div style="width:34px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--tx);font-size:18px;">+</div></div></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;"><span style="flex:1;font-size:16px;">Show unread badge</span><div style="width:44px;height:26px;border-radius:100px;background:var(--accent);position:relative;"><div style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:100px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div></div></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">READING</div>
+              <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">Manga &amp; Webtoon</span><svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;"><span style="flex:1;font-size:16px;">Novels</span><svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">ABOUT</div>
+              <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                <div style="display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--hair);"><span style="flex:1;font-size:16px;">Version</span><span style="font-family:'Space Mono',monospace;font-size:13px;color:var(--tx2);">1.0 · 128</span></div>
+                <div style="display:flex;align-items:center;padding:13px 14px;"><span style="flex:1;font-size:16px;color:var(--accent);">GitHub</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H8M17 7v9"></path></svg></div>
+              </div>
+            </div>
+
+          </div>
+
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--tx);"><svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+            <div style="flex:1;text-align:center;font-size:16px;font-weight:500;">Settings</div>
+            <div style="width:44px;"></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Onboarding">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.08</span> &nbsp; ONBOARDING</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ onboardDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;align-items:center;background:#14110F;color:#F4EFE7;font-family:'Space Grotesk',sans-serif;overflow:hidden;padding:0 32px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;width:100%;">
+
+            <div style="width:150px;height:150px;border-radius:34px;overflow:hidden;box-shadow:0 20px 54px rgba(0,0,0,.55),inset 0 0 0 .5px rgba(255,255,255,.06);">
+              <sc-if value="{{ appIconInk }}" hint-placeholder-val="{{ true }}"><img src="assets/AppIcon-Ink.png" alt="YOMI app icon" style="width:100%;height:100%;display:block;"></sc-if>
+              <sc-if value="{{ appIconPaper }}" hint-placeholder-val="{{ false }}"><img src="assets/AppIcon-Paper.png" alt="YOMI app icon" style="width:100%;height:100%;display:block;"></sc-if>
+            </div>
+
+            <div style="text-align:center;">
+              <div style="font-size:44px;font-weight:700;letter-spacing:1px;line-height:1;">YOMI<span style="color:var(--accent,#E5473A);">.</span></div>
+              <div style="font-size:16px;color:rgba(244,239,231,.6);margin-top:16px;line-height:1.45;max-width:15em;">Manga, manhwa &amp; light novels from any source — a living archive of what you read.</div>
+            </div>
+          </div>
+
+          <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:22px;padding-bottom:56px;">
+            <div style="display:flex;gap:7px;">
+              <div style="width:22px;height:6px;border-radius:100px;background:var(--accent,#E5473A);"></div>
+              <div style="width:6px;height:6px;border-radius:100px;background:rgba(244,239,231,.24);"></div>
+              <div style="width:6px;height:6px;border-radius:100px;background:rgba(244,239,231,.24);"></div>
+            </div>
+            <div style="width:100%;height:52px;border-radius:14px;background:var(--accent,#E5473A);color:#FFF8F5;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;">Get started</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:rgba(244,239,231,.36);">yomi-plugins.web.app</div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Empty state">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.09</span> &nbsp; EMPTY STATE</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ emptyDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;display:flex;flex-direction:column;padding-top:58px;">
+
+            <div style="padding:8px 16px 0;font-size:26px;font-weight:500;letter-spacing:-.5px;">Library</div>
+            <div style="margin:12px 16px 0;height:38px;border-radius:100px;background:var(--s2);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--tx2);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              <span style="font-size:15px;">Search library</span>
+            </div>
+            <div style="margin-top:16px;padding:0 16px;display:flex;gap:22px;border-bottom:1px solid var(--hair);">
+              <div style="font-size:15px;font-weight:500;padding-bottom:9px;color:var(--accent);border-bottom:3px solid var(--accent);border-radius:2px 2px 0 0;margin-bottom:-1px;">All</div>
+              <div style="font-size:16px;font-weight:500;padding-bottom:9px;color:var(--tx3);">+</div>
+            </div>
+
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 40px 80px;gap:22px;">
+              <div style="width:132px;height:132px;position:relative;">
+                <div style="position:absolute;left:14px;top:26px;right:14px;bottom:20px;border-radius:8px;background:var(--s1);box-shadow:inset 0 0 0 2px var(--hair);"></div>
+                <div style="position:absolute;left:14px;top:26px;right:14px;bottom:20px;border-radius:8px;background:radial-gradient(var(--tx3) 1px,transparent 1.3px) 0 0/7px 7px;-webkit-mask-image:linear-gradient(160deg,#000,transparent 80%);mask-image:linear-gradient(160deg,#000,transparent 80%);opacity:.5;"></div>
+                <div style="position:absolute;left:50%;top:50%;width:52px;height:2.5px;transform:translate(-50%,-50%);background:var(--tx3);"></div>
+                <div style="position:absolute;left:50%;top:50%;width:2.5px;height:52px;transform:translate(-50%,-50%);background:var(--tx3);"></div>
+                <div style="position:absolute;left:50%;top:20px;width:14px;height:14px;transform:translate(-50%,0);border-radius:100px;background:var(--accent);"></div>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:500;">Your library is empty</div>
+                <div style="font-size:14px;color:var(--tx2);margin-top:8px;line-height:1.5;max-width:17em;">Titles you add from Browse will live here as a catalog — with covers, progress and notation.</div>
+              </div>
+              <div style="height:46px;padding:0 24px;border-radius:100px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>Browse sources</div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="More">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.10</span> &nbsp; MORE</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ settingsDark }}" hint-size="402px,874px">
+
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+
+            <div style="padding:8px 16px 4px;font-size:26px;font-weight:500;letter-spacing:-.5px;">More</div>
+
+            <div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:20px;">
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">APP</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Settings</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">LIBRARY</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Categories</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">SOURCES</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 3v3a2 2 0 104 0V3h4v4h1a2 2 0 110 4h-1v6a2 2 0 01-2 2h-4v-3a2 2 0 10-4 0v3H4a2 2 0 01-2-2v-4H1a2 2 0 100-4h1V5a2 2 0 012-2z"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Plugins</span>
+                    <span style="font-family:'Space Mono',monospace;font-weight:700;font-size:11px;color:var(--on-accent);background:var(--accent);border-radius:100px;padding:2px 8px;margin-right:8px;">2</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">READING</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Insights</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">TRACKING</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5.5 20a6.5 6.5 0 0113 0"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">MyAnimeList</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">DATA</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--hair);">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v6M9 12l3 3 3-3"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Downloads</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"></rect><rect x="3" y="13" width="18" height="7" rx="2"></rect><path d="M7 7.5h.01M7 16.5h.01"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">Backup</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:0 4px 8px;">ABOUT</div>
+                <div style="background:var(--s1);border-radius:16px;overflow:hidden;">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                    <div style="width:29px;height:29px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx2);flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></div>
+                    <span style="flex:1;font-size:16px;">About</span>
+                    <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-right:8px;">1.0</span>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+            <div style="height:90px;"></div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="History">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.11</span> &nbsp; HISTORY</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ historyDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+            <div style="padding:8px 16px 0;display:flex;align-items:flex-end;justify-content:space-between;">
+              <div style="font-size:26px;font-weight:500;letter-spacing:-.5px;">History</div>
+              <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);">Clear</div>
+            </div>
+            <div style="margin:12px 16px 4px;height:38px;border-radius:100px;background:var(--s2);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--tx2);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+              <span style="font-size:15px;">Search history</span>
+            </div>
+            <sc-for list="{{ history }}" as="sec" hint-placeholder-count="3">
+              <div style="padding:0 16px;">
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:18px 0 2px;">{{ sec.group }}</div>
+                <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="2">
+                  <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair);">
+                    <div style="width:44px;height:62px;border-radius:6px;overflow:hidden;position:relative;flex-shrink:0;background:{{ it.bg }};">
+                      <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .6px,transparent .7px) 0 0/4px 4px;"></div>
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:rgba(255,255,255,.16);">{{ it.mark }}</div>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.title }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-top:5px;">{{ it.note }}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+                      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx3);">{{ it.time }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:9px;letter-spacing:.4px;color:var(--tx2);background:var(--s2);border-radius:4px;padding:2px 6px;">{{ it.kind }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+            <div style="height:96px;"></div>
+          </div>
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Updates">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.12</span> &nbsp; UPDATES</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ updatesDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+            <div style="padding:8px 16px 0;display:flex;align-items:flex-end;justify-content:space-between;">
+              <div style="font-size:26px;font-weight:500;letter-spacing:-.5px;">Updates</div>
+              <div style="display:flex;gap:16px;align-items:center;color:var(--tx2);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+              </div>
+            </div>
+            <sc-for list="{{ updates }}" as="sec" hint-placeholder-count="2">
+              <div style="padding:0 16px;">
+                <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:18px 0 2px;">{{ sec.group }}</div>
+                <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="2">
+                  <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair);">
+                    <div style="width:44px;height:62px;border-radius:6px;overflow:hidden;position:relative;flex-shrink:0;background:{{ it.bg }};">
+                      <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .6px,transparent .7px) 0 0/4px 4px;"></div>
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:rgba(255,255,255,.16);">{{ it.mark }}</div>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.title }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.note }}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0;">
+                      <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:11px;color:var(--on-accent);background:var(--accent);border-radius:100px;padding:2px 8px;">{{ it.count }}</div>
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v6M9 12l3 3 3-3"></path></svg>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+            <div style="height:96px;"></div>
+          </div>
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);position:relative;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Downloads">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.13</span> &nbsp; DOWNLOADS</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ downloadsDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--tx);"><svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+            <div style="flex:1;"></div>
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--tx2);"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"></path></svg></div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding-top:92px;">
+            <div style="padding:0 16px 0;font-size:26px;font-weight:500;letter-spacing:-.5px;">Downloads</div>
+
+            <div style="padding:0 16px;">
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:22px 0 8px;">DOWNLOADING · 2</div>
+              <sc-for list="{{ downloading }}" as="it" hint-placeholder-count="2">
+                <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:44px;height:62px;border-radius:6px;overflow:hidden;position:relative;flex-shrink:0;background:{{ it.bg }};">
+                    <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .6px,transparent .7px) 0 0/4px 4px;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:rgba(255,255,255,.16);">{{ it.mark }}</div>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.title }}</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin:6px 0 8px;">{{ it.note }}</div>
+                    <div style="height:3px;border-radius:2px;background:var(--hair);position:relative;"><div style="position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--accent);width:{{ it.pct }};"></div></div>
+                  </div>
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="1.6" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"></circle><path d="M10 9v6M14 9v6" stroke-linecap="round"></path></svg>
+                </div>
+              </sc-for>
+
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:22px 0 8px;">DOWNLOADED</div>
+              <sc-for list="{{ downloaded }}" as="it" hint-placeholder-count="3">
+                <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair);">
+                  <div style="width:44px;height:62px;border-radius:6px;overflow:hidden;position:relative;flex-shrink:0;background:{{ it.bg }};">
+                    <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .6px,transparent .7px) 0 0/4px 4px;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:rgba(255,255,255,.16);">{{ it.mark }}</div>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.title }}</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-top:5px;">{{ it.note }}</div>
+                  </div>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M1 1l6 6-6 6"></path></svg>
+                </div>
+              </sc-for>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx3);text-align:center;margin:24px 0;">481 MB USED · 75 CHAPTERS</div>
+            </div>
+            <div style="height:24px;"></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Insights">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.14</span> &nbsp; INSIGHTS</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ insightsDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="position:absolute;top:54px;left:12px;right:12px;display:flex;align-items:center;gap:10px;z-index:5;">
+            <div style="width:44px;height:44px;border-radius:100px;display:flex;align-items:center;justify-content:center;background:var(--glass);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--tx);"><svg width="12" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+            <div style="flex:1;"></div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding-top:92px;">
+            <div style="padding:0 16px 0;font-size:26px;font-weight:500;letter-spacing:-.5px;">Insights</div>
+
+            <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+                <div style="background:var(--s1);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px;">
+                  <div style="font-size:30px;font-weight:500;letter-spacing:-1px;line-height:1;">{{ s.num }}</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.5px;color:var(--tx2);">{{ s.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="padding:0 16px;">
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:8px 0 12px;">ACTIVITY · LAST 18 WEEKS</div>
+              <div style="background:var(--s1);border-radius:16px;padding:16px;">
+                <div style="display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;">
+                  <sc-for list="{{ heat }}" as="cell" hint-placeholder-count="70">
+                    <div style="aspect-ratio:1;border-radius:2px;background:var(--accent);opacity:{{ cell.op }};"></div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--tx3);">
+                  <span>MAR</span>
+                  <div style="display:flex;align-items:center;gap:5px;"><span>LESS</span>
+                    <div style="width:9px;height:9px;border-radius:2px;background:var(--accent);opacity:.14;"></div>
+                    <div style="width:9px;height:9px;border-radius:2px;background:var(--accent);opacity:.45;"></div>
+                    <div style="width:9px;height:9px;border-radius:2px;background:var(--accent);opacity:.8;"></div>
+                    <div style="width:9px;height:9px;border-radius:2px;background:var(--accent);opacity:1;"></div>
+                    <span>MORE</span>
+                  </div>
+                  <span>JUL</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:0 16px;">
+              <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.6px;color:var(--tx2);margin:22px 0 12px;">MOST READ</div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <sc-for list="{{ topTitles }}" as="t" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:34px;height:48px;border-radius:5px;overflow:hidden;position:relative;flex-shrink:0;background:{{ t.bg }};">
+                      <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .6px,transparent .7px) 0 0/4px 4px;"></div>
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:rgba(255,255,255,.18);">{{ t.mark }}</div>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
+                        <div style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</div>
+                        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--tx2);margin-left:8px;">{{ t.val }}</div>
+                      </div>
+                      <div style="height:5px;border-radius:3px;background:var(--hair);position:relative;"><div style="position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent);width:{{ t.w }};"></div></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="height:28px;"></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Library — selection">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.15</span> &nbsp; LIBRARY · SELECTION</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ selectionDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+            <div style="padding:8px 16px 0;display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:15px;font-weight:500;color:var(--accent);">Cancel</div>
+              <div style="font-size:17px;font-weight:500;">3 selected</div>
+              <div style="font-size:15px;font-weight:500;color:var(--accent);">All</div>
+            </div>
+            <div style="padding:20px 16px 16px;display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:12px;">
+              <sc-for list="{{ selection }}" as="item" hint-placeholder-count="6">
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:{{ item.bg }};">
+                    <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:34px;color:rgba(255,255,255,.16);">{{ item.mark }}</div>
+                    <sc-if value="{{ item.selected }}" hint-placeholder-val="{{ true }}">
+                      <div style="position:absolute;inset:0;border-radius:10px;box-shadow:inset 0 0 0 2.5px var(--accent);background:rgba(229,71,58,.16);"></div>
+                      <div style="position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:100px;background:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--on-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"></path></svg></div>
+                    </sc-if>
+                    <sc-if value="{{ item.mid }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.4);"><div style="height:3px;background:var(--accent);width:{{ item.pct }};"></div></div>
+                    </sc-if>
+                  </div>
+                  <div style="font-size:13px;line-height:1.25;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ item.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="height:96px;"></div>
+          </div>
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:60px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx);"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"></path></svg><span style="font-size:11px;font-weight:500;">Mark read</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx);"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 20h14"></path></svg><span style="font-size:11px;font-weight:500;">Download</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"></path></svg><span style="font-size:11px;font-weight:500;">Remove</span></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;" data-screen-label="Browse — search">
+      <sc-if value="{{ presentationChrome }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Space Mono',monospace;font-size:13px;color:rgba(244,239,231,.5);"><span style="color:var(--accent);">N.16</span> &nbsp; BROWSE · SEARCH</div></sc-if>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ searchDark }}" hint-size="402px,874px">
+        <div style="height:100%;position:relative;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:'Space Grotesk',sans-serif;overflow:hidden;">
+          <div style="flex:1;overflow-y:auto;padding-top:58px;">
+            <div style="padding:8px 16px 0;font-size:26px;font-weight:500;letter-spacing:-.5px;">Search</div>
+            <div style="margin:12px 16px 0;display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;height:38px;border-radius:100px;background:var(--s2);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--tx);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>
+                <span style="font-size:15px;">berserk</span>
+                <div style="margin-left:auto;width:17px;height:17px;border-radius:100px;background:var(--tx3);display:flex;align-items:center;justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3.5" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg></div>
+              </div>
+              <div style="font-size:15px;font-weight:500;color:var(--accent);">Cancel</div>
+            </div>
+            <div style="padding:8px 16px 0;">
+              <sc-for list="{{ searchGroups }}" as="g" hint-placeholder-count="3">
+                <div style="margin-top:18px;">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+                    <div style="font-size:18px;font-weight:500;">{{ g.source }}</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--tx2);">{{ g.count }}</div>
+                  </div>
+                  <sc-if value="{{ g.loading }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:10px;padding:14px 4px;color:var(--tx3);">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 109 9" opacity=".9"></path></svg>
+                      <span style="font-family:'Space Mono',monospace;font-size:12px;">Searching this source…</span>
+                    </div>
+                  </sc-if>
+                  <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;">
+                    <sc-for list="{{ g.items }}" as="item" hint-placeholder-count="3">
+                      <div style="width:108px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                        <div style="position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:{{ item.bg }};">
+                          <div style="position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.10) .7px,transparent .8px) 0 0/4px 4px;"></div>
+                          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:30px;color:rgba(255,255,255,.16);">{{ item.mark }}</div>
+                          <div style="position:absolute;bottom:6px;right:6px;width:26px;height:26px;border-radius:100px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></div>
+                        </div>
+                        <div style="font-size:13px;line-height:1.25;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ item.title }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="height:96px;"></div>
+            </div>
+          </div>
+          <div style="position:absolute;left:12px;right:12px;bottom:14px;height:56px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;background:var(--glass);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:.5px solid var(--glassbrd);box-shadow:var(--glasssh);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"></path><path d="M8 3v18"></path></svg><span style="font-size:11px;font-weight:500;">Library</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg><span style="font-size:11px;font-weight:500;">Browse</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-size:11px;font-weight:500;">History</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg><span style="font-size:11px;font-weight:500;">Updates</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--tx2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg><span style="font-size:11px;font-weight:500;">More</span></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1640, &quot;height&quot;: 3000 },
+  &quot;accent&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E5473A&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;#E5473A&quot;, &quot;#FF6B6B&quot;, &quot;#FF9F43&quot;, &quot;#0ABDE3&quot;, &quot;#5F27CD&quot;, &quot;#00D2A4&quot;], &quot;section&quot;: &quot;Theme&quot; },
+  &quot;canvas&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Ink&quot;, &quot;options&quot;: [&quot;Ink&quot;, &quot;Midnight&quot;, &quot;Paper&quot;, &quot;Sepia&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Theme&quot; },
+  &quot;appIcon&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Ink&quot;, &quot;options&quot;: [&quot;Ink&quot;, &quot;Paper&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Theme&quot; },
+  &quot;readerTheme&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Sepia&quot;, &quot;options&quot;: [&quot;Light&quot;, &quot;Sepia&quot;, &quot;Warm&quot;, &quot;Dark&quot;, &quot;AMOLED&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Theme&quot; },
+  &quot;gridColumns&quot;: { &quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 3, &quot;min&quot;: 2, &quot;max&quot;: 4, &quot;step&quot;: 1, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Library&quot; },
+  &quot;showContinueHero&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Library&quot; },
+  &quot;showUnreadBadges&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Library&quot; },
+  &quot;presentationChrome&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Export&quot; }
+}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+
+  static CANVAS = {
+    Ink:      { bg:'#14110F', s1:'#1E1A17', s2:'#2A2521', tx:'#F4EFE7', tx2:'rgba(244,239,231,.60)', tx3:'rgba(244,239,231,.34)', hair:'rgba(244,239,231,.10)', dark:true },
+    Midnight: { bg:'#000000', s1:'#111111', s2:'#1C1C1E', tx:'#FFFFFF', tx2:'rgba(255,255,255,.60)', tx3:'rgba(255,255,255,.34)', hair:'rgba(255,255,255,.10)', dark:true },
+    Paper:    { bg:'#F7F1E6', s1:'#FFFFFF', s2:'#EEE7D8', tx:'#1A1512', tx2:'rgba(26,21,18,.58)', tx3:'rgba(26,21,18,.34)', hair:'rgba(26,21,18,.10)', dark:false },
+    Sepia:    { bg:'#F3E7D2', s1:'#FBF3E2', s2:'#EADBC0', tx:'#3A2C18', tx2:'rgba(58,44,24,.62)', tx3:'rgba(58,44,24,.36)', hair:'rgba(58,44,24,.15)', dark:false },
+  };
+  static READER = {
+    Light:  { bg:'#FFFFFF', fg:'#1C1C1E', fg2:'rgba(28,28,30,.55)',   link:'#0A6ADA', isDark:false },
+    Sepia:  { bg:'#F8F1E3', fg:'#2C2015', fg2:'rgba(44,32,21,.55)',   link:'#0A6ADA', isDark:false },
+    Warm:   { bg:'#1A1209', fg:'#CDB38B', fg2:'rgba(205,179,139,.55)',link:'#5BA3F5', isDark:true },
+    Dark:   { bg:'#1C1C1E', fg:'#E8E8E8', fg2:'rgba(232,232,232,.55)',link:'#5BA3F5', isDark:true },
+    AMOLED: { bg:'#0A0A0A', fg:'#E0E0E0', fg2:'rgba(224,224,224,.55)',link:'#5BA3F5', isDark:true },
+  };
+
+  rawManga = [
+    { idx:'01', title:'Chainsaw Man',  source:'MangaDex', unread:12, progress:0.68, lastRead:'CH. 042', bg:'linear-gradient(160deg,#3a0f0c,#7a1c14)', mark:'CM' },
+    { idx:'02', title:'Vinland Saga',  source:'ComicK',   unread:3,  progress:0.40, lastRead:'CH. 118', bg:'linear-gradient(160deg,#0f2436,#1c4a63)', mark:'VS' },
+    { idx:'03', title:'Berserk',       source:'MangaDex', unread:0,  progress:0.92, lastRead:'CH. 364', bg:'linear-gradient(160deg,#241f14,#4a3d22)', mark:'BK' },
+    { idx:'04', title:'Vagabond',      source:'ComicK',   unread:7,  progress:0,    lastRead:'',        bg:'linear-gradient(160deg,#141210,#3a352e)', mark:'VB' },
+    { idx:'05', title:'Blame!',        source:'MangaDex', unread:0,  progress:0.15, lastRead:'CH. 006', bg:'linear-gradient(160deg,#14181c,#2c3944)', mark:'BL' },
+    { idx:'06', title:'Oyasumi Punpun',source:'MangaDex', unread:24, progress:0.55, lastRead:'CH. 073', bg:'linear-gradient(160deg,#2a2733,#4a4560)', mark:'PP' },
+  ];
+  rawNovels = [
+    { idx:'01', title:'Re:Zero − Starting Life in Another World', source:'LNReader', progress:0.30, lastRead:'CH. 27', bg:'linear-gradient(160deg,#1a2740,#324e7a)', mark:'RZ' },
+    { idx:'02', title:'Overlord',       source:'LNReader', progress:0.80, lastRead:'CH. 90', bg:'linear-gradient(160deg,#241033,#4a1f63)', mark:'OL' },
+    { idx:'03', title:'Mushoku Tensei', source:'LNReader', progress:0.12, lastRead:'CH. 04', bg:'linear-gradient(160deg,#12261a,#265036)', mark:'MT' },
+  ];
+  rawUpNext = [
+    { idx:'02', title:'Vinland Saga',  progress:0.40, bg:'linear-gradient(160deg,#0f2436,#1c4a63)', mark:'VS' },
+    { idx:'05', title:'Blame!',        progress:0.15, bg:'linear-gradient(160deg,#14181c,#2c3944)', mark:'BL' },
+    { idx:'06', title:'Oyasumi Punpun',progress:0.55, bg:'linear-gradient(160deg,#2a2733,#4a4560)', mark:'PP' },
+    { idx:'03', title:'Berserk',       progress:0.92, bg:'linear-gradient(160deg,#241f14,#4a3d22)', mark:'BK' },
+  ];
+
+  rawHistory = [
+    { group:'TODAY', items:[
+      { mark:'CM', bg:'linear-gradient(160deg,#3a0f0c,#7a1c14)', title:'Chainsaw Man',   note:'CH. 042 · read to 68%', time:'14:20', kind:'MANGA' },
+      { mark:'RZ', bg:'linear-gradient(160deg,#1a2740,#324e7a)', title:'Re:Zero',         note:'CH. 27 · read to 30%',  time:'09:05', kind:'NOVEL' },
+    ]},
+    { group:'THIS WEEK', items:[
+      { mark:'VS', bg:'linear-gradient(160deg,#0f2436,#1c4a63)', title:'Vinland Saga',    note:'CH. 118',               time:'MON', kind:'MANGA' },
+      { mark:'PP', bg:'linear-gradient(160deg,#2a2733,#4a4560)', title:'Oyasumi Punpun',  note:'CH. 073',               time:'SUN', kind:'MANGA' },
+      { mark:'OL', bg:'linear-gradient(160deg,#241033,#4a1f63)', title:'Overlord',        note:'CH. 90',                time:'SAT', kind:'NOVEL' },
+    ]},
+    { group:'EARLIER', items:[
+      { mark:'BK', bg:'linear-gradient(160deg,#241f14,#4a3d22)', title:'Berserk',         note:'CH. 364',               time:'JUL 28', kind:'MANGA' },
+      { mark:'BL', bg:'linear-gradient(160deg,#14181c,#2c3944)', title:'Blame!',          note:'CH. 006',               time:'JUL 26', kind:'MANGA' },
+    ]},
+  ];
+  rawUpdates = [
+    { group:'TODAY', items:[
+      { mark:'CM', bg:'linear-gradient(160deg,#3a0f0c,#7a1c14)', title:'Chainsaw Man',    note:'CH. 043 · CSM Scans',   count:1, time:'2H' },
+      { mark:'PP', bg:'linear-gradient(160deg,#2a2733,#4a4560)', title:'Oyasumi Punpun',  note:'CH. 074–076 · MangaDex', count:3, time:'5H' },
+    ]},
+    { group:'YESTERDAY', items:[
+      { mark:'VB', bg:'linear-gradient(160deg,#141210,#3a352e)', title:'Vagabond',        note:'CH. 302 · ComicK',      count:1, time:'1D' },
+      { mark:'MT', bg:'linear-gradient(160deg,#12261a,#265036)', title:'Mushoku Tensei',  note:'CH. 05 · LNReader',     count:1, time:'1D' },
+    ]},
+  ];
+  rawDownloading = [
+    { mark:'CM', bg:'linear-gradient(160deg,#3a0f0c,#7a1c14)', title:'Chainsaw Man',   note:'CH. 043 · 18 / 29 pages', pct:'62%' },
+    { mark:'VS', bg:'linear-gradient(160deg,#0f2436,#1c4a63)', title:'Vinland Saga',   note:'CH. 119 · queued',        pct:'0%' },
+  ];
+  rawDownloaded = [
+    { mark:'BK', bg:'linear-gradient(160deg,#241f14,#4a3d22)', title:'Berserk',        note:'42 chapters · 318 MB' },
+    { mark:'PP', bg:'linear-gradient(160deg,#2a2733,#4a4560)', title:'Oyasumi Punpun', note:'24 chapters · 141 MB' },
+    { mark:'OL', bg:'linear-gradient(160deg,#241033,#4a1f63)', title:'Overlord',       note:'9 volumes · 22 MB' },
+  ];
+  rawStats = [
+    { num:'1,284', label:'CHAPTERS READ' },
+    { num:'96',    label:'TITLES' },
+    { num:'182H',  label:'TIME READ' },
+    { num:'23',    label:'DAY STREAK' },
+  ];
+  rawTopTitles = [
+    { mark:'CM', bg:'linear-gradient(160deg,#3a0f0c,#7a1c14)', title:'Chainsaw Man',    val:'42H', w:'100%' },
+    { mark:'BK', bg:'linear-gradient(160deg,#241f14,#4a3d22)', title:'Berserk',         val:'31H', w:'74%' },
+    { mark:'PP', bg:'linear-gradient(160deg,#2a2733,#4a4560)', title:'Oyasumi Punpun',  val:'19H', w:'45%' },
+    { mark:'RZ', bg:'linear-gradient(160deg,#1a2740,#324e7a)', title:'Re:Zero',         val:'12H', w:'29%' },
+  ];
+  rawSearch = [
+    { source:'MangaDex', count:'12 results', loading:false, items:[
+      { mark:'BK', bg:'linear-gradient(160deg,#241f14,#4a3d22)', title:'Berserk' },
+      { mark:'BD', bg:'linear-gradient(160deg,#1c1410,#3d2a1c)', title:'Berserk: Deluxe' },
+      { mark:'GG', bg:'linear-gradient(160deg,#20242a,#3a4450)', title:'Gigantomakhia' },
+    ]},
+    { source:'ComicK', count:'5 results', loading:false, items:[
+      { mark:'BK', bg:'linear-gradient(160deg,#2a1f14,#4a3522)', title:'Berserk' },
+      { mark:'DK', bg:'linear-gradient(160deg,#141822,#2c3550)', title:'Duranki' },
+    ]},
+    { source:'Weeb Central', count:'searching…', loading:true, items:[] },
+  ];
+
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate() { this.applyTheme(); }
+
+  applyTheme() {
+    const el = this.rootRef.current;
+    if (!el) return;
+    const C = this.constructor.CANVAS;
+    const R = this.constructor.READER;
+    const cv = C[this.props.canvas] || C.Ink;
+    const rd = R[this.props.readerTheme] || R.Sepia;
+    const set = (k, v) => el.style.setProperty(k, v);
+    set('--bg', cv.bg); set('--s1', cv.s1); set('--s2', cv.s2);
+    set('--tx', cv.tx); set('--tx2', cv.tx2); set('--tx3', cv.tx3); set('--hair', cv.hair);
+    set('--accent', this.props.accent || '#E5473A');
+    set('--cols', String(this.props.gridColumns ?? 3));
+    set('--rbg', rd.bg); set('--rfg', rd.fg); set('--rfg2', rd.fg2); set('--rlink', rd.link);
+    const G = {
+      Ink:      ['rgba(30,26,23,.62)',  'rgba(244,239,231,.12)', '0 10px 34px rgba(0,0,0,.5)'],
+      Midnight: ['rgba(22,22,24,.6)',   'rgba(255,255,255,.12)', '0 10px 34px rgba(0,0,0,.6)'],
+      Paper:    ['rgba(255,255,255,.72)','rgba(26,21,18,.12)',    '0 10px 30px rgba(0,0,0,.16)'],
+      Sepia:    ['rgba(251,243,226,.74)','rgba(58,44,24,.16)',    '0 10px 30px rgba(0,0,0,.16)'],
+    };
+    const g = G[this.props.canvas] || G.Ink;
+    set('--glass', g[0]); set('--glassbrd', g[1]); set('--glasssh', g[2]);
+  }
+
+  renderVals() {
+    const C = this.constructor.CANVAS;
+    const R = this.constructor.READER;
+    const cv = C[this.props.canvas] || C.Ink;
+    const rd = R[this.props.readerTheme] || R.Sepia;
+    const badges = this.props.showUnreadBadges ?? true;
+    const map = (arr) => arr.map((x) => ({
+      ...x,
+      showUnread: badges && x.unread > 0,
+      hasProgress: x.progress > 0,
+      mid: x.progress > 0 && x.progress < 1,
+      pct: Math.round(x.progress * 100) + '%',
+    }));
+    const seed = [2,7,4,0,1,6,3,5,2,4,7,1,0,3,6,2,5,4,1,7,3,0,2,6,4,1,5,7,2,3,0,6,1,4,7,2,5,3,1,0,6,4,2,7,3,5,1,0,4,6,2,3,7,1,5,0,2,4,6,3,1,7,0,5,2,4,3,6,1,0,7,2,5,3,4,1,6,0,2,7,3,5,1,4,0,6,2,3,7,1,5,4,0,2,6,3,1,7,4,0,2,5,3,6,1,0,4,7,2,3,5,1,0,6,2,4,7,3,1,5,0,2,6,4];
+    const heat = seed.map((n) => ({ op: (0.06 + (n / 7) * 0.94).toFixed(2) }));
+    const appIcon = this.props.appIcon || 'Ink';
+    return {
+      rootRef: this.rootRef,
+      appIconSrc: appIcon === 'Paper' ? 'assets/AppIcon-Paper.png' : 'assets/AppIcon-Ink.png',
+      appIconInk: appIcon !== 'Paper',
+      appIconPaper: appIcon === 'Paper',
+      history: this.rawHistory,
+      updates: this.rawUpdates,
+      downloading: this.rawDownloading,
+      downloaded: this.rawDownloaded,
+      stats: this.rawStats,
+      topTitles: this.rawTopTitles,
+      searchGroups: this.rawSearch,
+      selection: map(this.rawManga).map((x, i) => ({ ...x, selected: i === 0 || i === 2 || i === 3 })),
+      heat,
+      historyDark: cv.dark, updatesDark: cv.dark, downloadsDark: cv.dark,
+      insightsDark: cv.dark, selectionDark: cv.dark, searchDark: cv.dark,
+      libraryManga: map(this.rawManga),
+      novels: map(this.rawNovels),
+      upNext: map(this.rawUpNext),
+      showHero: this.props.showContinueHero ?? true,
+      presentationChrome: this.props.presentationChrome ?? true,
+      gridPad: (this.props.presentationChrome ?? true) ? '0px' : '16px',
+      libraryDark: cv.dark,
+      mangaDark: true,
+      novelDark: rd.isDark,
+      studioDark: cv.dark,
+      detailDark: cv.dark,
+      browseDark: cv.dark,
+      settingsDark: cv.dark,
+      onboardDark: true,
+      emptyDark: cv.dark,
+    };
+  }
+}
+</script>
+</body>
+</html>
