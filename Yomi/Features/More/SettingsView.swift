@@ -29,17 +29,8 @@ private enum ConnectionTestStatus: Equatable {
 
 struct SettingsView: View {
     @State private var settings = AppSettings.shared
-    @State private var showCustomColorPicker = false
     @State private var newRepoURL: String = ""
     @State private var showAddRepo = false
-
-    private let alternateIcons: [(label: String, key: String?)] = [
-        ("Default", nil),
-        ("Dark",    "AppIconDark"),
-        ("Minimal", "AppIconMinimal"),
-    ]
-
-    private let accentSwatches = YomiTokens.Accent.presets.map(\.hex)
 
     var body: some View {
         List {
@@ -126,98 +117,8 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         Section("Appearance") {
-            Picker("Theme", selection: $settings.theme) {
-                Text("System").tag("System")
-                Text("Light").tag("Light")
-                Text("Dark").tag("Dark")
-            }
-            .pickerStyle(.segmented)
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Accent color")
-                    .font(.subheadline)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(accentSwatches, id: \.self) { hex in
-                            swatchButton(hex: hex)
-                        }
-                        Button {
-                            showCustomColorPicker = true
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        AngularGradient(
-                                            gradient: Gradient(colors: [
-                                                .red, .yellow, .green, .cyan, .blue, .purple, .red
-                                            ]),
-                                            center: .center
-                                        )
-                                    )
-                                    .frame(width: 32, height: 32)
-                                if !accentSwatches.contains(settings.accentColor) {
-                                    Circle()
-                                        .strokeBorder(.white, lineWidth: 2.5)
-                                        .frame(width: 32, height: 32)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .sheet(isPresented: $showCustomColorPicker) {
-                            customColorPickerSheet
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            .padding(.vertical, 4)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("App icon")
-                    .font(.subheadline)
-                HStack(spacing: 12) {
-                    ForEach(alternateIcons, id: \.label) { option in
-                        Button {
-                            applyAlternateIcon(option.key)
-                        } label: {
-                            VStack(spacing: 4) {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray5))
-                                    .frame(width: 56, height: 56)
-                                    .overlay(
-                                        Text(option.label.prefix(1))
-                                            .font(.title2.bold())
-                                            .foregroundStyle(.secondary)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(
-                                                settings.alternateIconName == option.key
-                                                    ? Color(hex: settings.accentColor)
-                                                    : Color.clear,
-                                                lineWidth: 2.5
-                                            )
-                                    )
-                                Text(option.label)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-
-            Toggle("Use system font", isOn: $settings.useSystemFont)
-
-            Toggle(isOn: $settings.pureBlack) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("Pure black (OLED)", systemImage: "circle.fill")
-                    Text("Forces #000000 backgrounds — saves battery on OLED screens")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            NavigationLink("Canvas, Accent & Type") {
+                AppearanceStudioView()
             }
         }
     }
@@ -336,79 +237,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Swatch button
-
-    private func swatchButton(hex: String) -> some View {
-        let isSelected = settings.accentColor == hex
-        return Button {
-            settings.accentColor = hex
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: hex))
-                    .frame(width: 32, height: 32)
-                if isSelected {
-                    Circle()
-                        .strokeBorder(.white, lineWidth: 2.5)
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Custom color picker sheet
-
-    private var customColorPickerSheet: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                ColorPicker(
-                    "Choose accent color",
-                    selection: Binding(
-                        get: { Color(hex: settings.accentColor) },
-                        set: { settings.accentColor = $0.hexString }
-                    ),
-                    supportsOpacity: false
-                )
-                .padding()
-
-                Circle()
-                    .fill(Color(hex: settings.accentColor))
-                    .frame(width: 80, height: 80)
-                    .shadow(radius: 8)
-
-                Text(settings.accentColor.uppercased())
-                    .font(.system(.title3, design: .monospaced))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-            }
-            .navigationTitle("Custom color")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showCustomColorPicker = false }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-
-    // MARK: - Apply alternate icon
-
-    private func applyAlternateIcon(_ name: String?) {
-        Task { @MainActor in
-            do {
-                try await UIApplication.shared.setAlternateIconName(name)
-                settings.alternateIconName = name
-            } catch {
-                // Icon not registered in Info.plist CFBundleAlternateIcons — silently ignore.
-            }
-        }
-    }
 }
 
 // MARK: - MangaReaderSettingsView
