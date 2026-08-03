@@ -159,6 +159,12 @@ struct MangaCoverCell: View {
                         .padding(4)
                 }
             }
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
+                        .fill(Color.accentColor.opacity(0.16))
+                }
+            }
             .overlay(alignment: .bottom) {
                 if !isSelecting {
                     VStack(spacing: 0) {

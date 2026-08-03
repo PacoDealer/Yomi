@@ -399,32 +399,37 @@ struct LibraryView: View {
             Spacer()
             Button { Task { await markSelectedRead() } } label: {
                 VStack(spacing: 3) {
-                    Image(systemName: "checkmark.circle").font(.title3)
-                    Text("Mark Read").font(.caption2)
+                    Image(systemName: "checkmark").font(.title3)
+                    Text("Mark read").font(YomiTokens.Font.grotesk(11, weight: .medium))
                 }
             }
             .disabled(noneSelected)
             Spacer()
             Button { Task { await downloadSelected() } } label: {
                 VStack(spacing: 3) {
-                    Image(systemName: "arrow.down.circle").font(.title3)
-                    Text("Download").font(.caption2)
+                    Image(systemName: "arrow.down").font(.title3)
+                    Text("Download").font(YomiTokens.Font.grotesk(11, weight: .medium))
                 }
             }
             .disabled(selectedIds.isEmpty)
             Spacer()
-            Button(role: .destructive) { Task { await removeSelected() } } label: {
+            Button { Task { await removeSelected() } } label: {
                 VStack(spacing: 3) {
                     Image(systemName: "trash").font(.title3)
-                    Text("Remove").font(.caption2)
+                    Text("Remove").font(YomiTokens.Font.grotesk(11, weight: .medium))
                 }
             }
+            .tint(Color.accentColor)
             .disabled(noneSelected)
-            .tint(.red)
             Spacer()
         }
-        .padding(.vertical, 12)
-        .background(.bar)
+        .frame(height: 60)
+        .background {
+            RoundedRectangle(cornerRadius: 26)
+                .glassEffect()
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 14)
     }
 
     private func removeSelected() async {
@@ -714,6 +719,12 @@ private struct NovelLibraryCoverCell: View {
                             }
                             .frame(height: 3)
                         }
+                    }
+                }
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
+                            .fill(Color.accentColor.opacity(0.16))
                     }
                 }
 
