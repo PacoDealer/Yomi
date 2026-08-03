@@ -23,8 +23,16 @@ Yomi/
 ├── Core/
 │   ├── AppRouter.swift              # @Observable singleton for programmatic tab navigation; openBrowseExtensions flag for Library → Browse Extensions deep link
 │   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
+│   ├── CoverImage.swift            # KFImage wrapper (Kingfisher) with 2:3 ratio + fade transition
+│   ├── DesignTokens.swift          # YomiTokens: Canvas presets (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Layout, Motion
+│   ├── Notation.swift              # Catalog-notation formatters: chapter(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), etc. — all output in Space Mono
 │   ├── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 │   └── WidgetDataWriter.swift      # Writes WidgetReadingItem[5] to App Group UserDefaults (suiteName: "group.pacodealer.Yomi"); calls WidgetCenter.shared.reloadAllTimelines()
+├── Fonts/                           # Bundled font files (auto-included by PBXFileSystemSynchronizedRootGroup)
+│   ├── SpaceGrotesk-Variable.ttf   # Variable font — covers wght 300–700; family name "Space Grotesk"
+│   ├── SpaceMono-Regular.ttf       # PostScript: SpaceMono-Regular
+│   ├── SpaceMono-Bold.ttf          # PostScript: SpaceMono-Bold
+│   └── YomiFonts.plist             # UIAppFonts array — merged into generated Info.plist via INFOPLIST_ADDITIONAL_FILE
 ├── Features/
 │   ├── Library/
 │   │   ├── LibraryView.swift        # Saved manga grid/list (AppSettings.libraryDisplayMode toggle) + category chips + ContinueReadingRow + multi-select
