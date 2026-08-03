@@ -19,13 +19,28 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
-- `Yomi/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
-- `Yomi/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
-- `Yomi/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
+- `Yomi/design/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
+- `Yomi/design/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
+- `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
+- `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S79 — 2026-07-16, no code)
+## Design track (S82 — 2026-08-03, implementation starting)
 
-Design redesign kicked off. Full research + a justified design system were produced (see `Yomi/DESIGN_HANDOFF.md` → `DESIGN_SYSTEM.md` → `DESIGN_RESEARCH.md`). Concept locked: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed decisions: default accent **Vermilion `#E5473A`**, default canvas **Ink (warm `#14110F`)**, ink/screentone texture, **serif** novel reader body, **Space Grotesk + Space Mono** standard (user-swappable). Visuals get produced in **Claude Design** (reads this repo → hands a bundle to Claude Code). App-icon direction now defined (unblocks the App Store icon). Next: v0.3 screen specs + Appearance Studio + icon production. No Swift changed this session.
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** Library → Library-selection → Detail → Manga Reader overlay → Novel Reader overlay → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12.
+
+## Current state (post S82 — 2026-08-03)
+
+**S82 (2026-08-03):** Pre-implementation housekeeping — no Swift changed. (1) Full 16-screen handoff confirmed. (2) Design assets consolidated: `DESIGN_*.md` + `Fonts/` moved from `Yomi/` root → `Yomi/design/`; `INFOPLIST_ADDITIONAL_FILE` updated in project.pbxproj to `$(SRCROOT)/Yomi/design/Fonts/YomiFonts.plist`. (3) App icon PNGs landed in `Yomi/design/design_handoff_yomi/assets/`. (4) Implementation plan locked.
+
+**S81 (2026-08-03):** Appearance Studio + canvas system.
+1. `AppearanceStudioView.swift` — full studio with live preview card; Canvas swatches (Ink/Midnight/Paper/Sepia/Follow device), Accent presets + custom ColorPicker + WCAG contrast badge, Type controls, Library controls, App icon tiles, Reset button
+2. `AppSettings.canvas: String` — primary appearance axis (`"Ink"` | `"Midnight"` | `"Paper"` | `"Sepia"` | `""` = follow device); `colorScheme` computed var checks canvas first, falls back to legacy `theme`
+3. `SettingsView` → Appearance navigates to `AppearanceStudioView`
+
+**S80 (2026-08-03):** Design system foundation — no UI visible yet.
+1. `DesignTokens.swift` — `YomiTokens`: Canvas presets, Accent (Vermilion default + presets array), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Layout, Motion
+2. `Notation.swift` — catalog-notation formatters: `chapter()`, `progress()`, `readingTime()`, `status()`, `novelIndex()`, etc. — all output in Space Mono
+3. Fonts bundled: `SpaceGrotesk-Variable.ttf`, `SpaceMono-Regular.ttf`, `SpaceMono-Bold.ttf` in `Yomi/design/Fonts/`
 
 ## Current state (post S78 — 2026-06-04)
 
@@ -131,16 +146,17 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 - All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
 - Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
 - Image caching: ✅ Kingfisher — all cover images cached to disk; no more re-fetch on cold start
+- Design system: ✅ DesignTokens.swift ✅ Notation.swift ✅ AppearanceStudioView.swift ✅ canvas property in AppSettings
 - Build environment: Xcode 26.5 installed; **iOS 26.5 simulator runtime not yet downloaded** — download from Xcode → Settings → Platforms to enable simulator builds
 
-**App Store status:** Apple Developer account created. Blocked on icon design only for submission.
+**App Store status:** Apple Developer account created. Icon designed (S79/S82); pending Icon Composer assembly + upload. 15 screens still need redesign implementation before screenshots can be taken.
 
 ## Known issues / carry-forward
 
 | # | Issue | Notes |
 |---|-------|-------|
 | 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
-| 2 | ~~App icon missing~~ | ✅ Designed S79 — "Y." monogram (Space Grotesk Y + Vermilion `#E5473A` dot), **Ink** default + **Paper** alternate. Flattened 1024 + Icon Composer layers in `Yomi/design/icons/`; vector `Yomi/design/Y-outlined.svg`. TODO: assemble in Icon Composer + upload. |
+| 2 | ~~App icon missing~~ | ✅ Designed S79/S82 — "Y." monogram (Space Grotesk Y + Vermilion dot), **Ink** default + **Paper** alternate. PNGs in `Yomi/design/design_handoff_yomi/assets/`; layers in `Yomi/design/icons/layers/`. TODO: drag into `AppIcon.appiconset` in Xcode + `CFBundleAlternateIcons` entry. |
 | 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
 | 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
@@ -258,11 +274,13 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 
 ## Key file paths
 ```
-Yomi/AppSettings.swift                         # @Observable singleton, UserDefaults, 35+ props (incl. libraryColumns, keepScreenOn, isIncognito, showUnreadBadge, lineSpacing, libraryDisplayMode)
+Yomi/AppSettings.swift                         # @Observable singleton, UserDefaults, 40+ props (incl. canvas, accentColor, libraryColumns, keepScreenOn, isIncognito, showUnreadBadge, lineSpacing, libraryDisplayMode)
 Yomi/ContentView.swift                         # Root TabView with AppRouter binding
 Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBUG seed, .tint + .preferredColorScheme on ContentView
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
+Yomi/Core/DesignTokens.swift                   # YomiTokens: Canvas (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Motion
+Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), etc.
 Yomi/Core/NotificationManager.swift
 Yomi/Database/DatabaseManager.swift            # Migrations v1–v19_source_indexes; next must be v20_
 Yomi/Database/Queries/MangaQueries.swift
@@ -283,11 +301,14 @@ Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum,
 Yomi/Features/Reader/ChapterReaderView.swift   # Auto-mark read, incognito guard, lastPageRead save/resume
 Yomi/Features/Reader/TextReaderView.swift      # Novel reader; overlay opacity animation; dynamic colorScheme (sepia/dark/light)
 Yomi/Features/More/PluginsView.swift
-Yomi/Features/More/SettingsView.swift          # Plugin Repos section, Suwayomi section, Advanced → NavigationLink
+Yomi/Features/More/SettingsView.swift          # Plugin Repos section, Suwayomi section, Advanced → NavigationLink; Appearance → AppearanceStudioView
+Yomi/Features/More/AppearanceStudioView.swift  # Canvas × Accent × Type studio; live preview card; WCAG contrast badge; app icon tiles; Reset defaults
 Yomi/Features/More/AdvancedSettingsView.swift  # Cache, Network (read-only), Database (log export), Build info
 Yomi/Features/More/InsightsView.swift          # ScrollView + LazyVGrid StatCards redesign
 Yomi/Features/Onboarding/OnboardingView.swift
 Yomi/Resources/                                # JS plugins (test-source.js only; production on Firebase)
+Yomi/design/design_handoff_yomi/YOMI Screens.dc.html  # PRIMARY DESIGN REFERENCE — 16 screens, HTML+CSS, all tokens/themes inline
+Yomi/design/Fonts/                             # SpaceGrotesk-Variable.ttf, SpaceMono-Regular.ttf, SpaceMono-Bold.ttf, YomiFonts.plist
 scripts/build-plugins.mjs                      # esbuild bundler for TS plugins
 ```
 
@@ -308,7 +329,8 @@ cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting
 Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
-- App icon — ✅ designed S79 ("Y." monogram, Ink + Paper); assets in `Yomi/design/icons/`. TODO: Icon Composer + upload.
+- App icon — ✅ designed S79/S82 ("Y." monogram, Ink + Paper); PNGs in `Yomi/design/design_handoff_yomi/assets/`; layers in `Yomi/design/icons/layers/`. TODO: drag into `AppIcon.appiconset` in Xcode, add `CFBundleAlternateIcons` entry, upload to App Store Connect.
+- Screenshots — blocked until design implementation complete (15 screens remain)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

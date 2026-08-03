@@ -28,11 +28,22 @@ Yomi/
 │   ├── Notation.swift              # Catalog-notation formatters: chapter(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), etc. — all output in Space Mono
 │   ├── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 │   └── WidgetDataWriter.swift      # Writes WidgetReadingItem[5] to App Group UserDefaults (suiteName: "group.pacodealer.Yomi"); calls WidgetCenter.shared.reloadAllTimelines()
-├── Fonts/                           # Bundled font files (auto-included by PBXFileSystemSynchronizedRootGroup)
-│   ├── SpaceGrotesk-Variable.ttf   # Variable font — covers wght 300–700; family name "Space Grotesk"
-│   ├── SpaceMono-Regular.ttf       # PostScript: SpaceMono-Regular
-│   ├── SpaceMono-Bold.ttf          # PostScript: SpaceMono-Bold
-│   └── YomiFonts.plist             # UIAppFonts array — merged into generated Info.plist via INFOPLIST_ADDITIONAL_FILE
+├── design/                          # All design assets (consolidated S82)
+│   ├── design_handoff_yomi/
+│   │   ├── YOMI Screens.dc.html    # Full 16-screen design spec (HTML + inline CSS, dc.html format)
+│   │   └── assets/
+│   │       ├── AppIcon-Ink.png     # App icon — default Ink variant (1024×1024)
+│   │       └── AppIcon-Paper.png   # App icon — Paper alternate variant (1024×1024)
+│   ├── icons/
+│   │   └── layers/                 # Icon Composer source layers (adaptive icon, for Xcode assembly)
+│   ├── Fonts/                       # Bundled font files (auto-included by PBXFileSystemSynchronizedRootGroup)
+│   │   ├── SpaceGrotesk-Variable.ttf   # Variable font — covers wght 300–700; family name "Space Grotesk"
+│   │   ├── SpaceMono-Regular.ttf       # PostScript: SpaceMono-Regular
+│   │   ├── SpaceMono-Bold.ttf          # PostScript: SpaceMono-Bold
+│   │   └── YomiFonts.plist             # UIAppFonts array — merged into generated Info.plist via INFOPLIST_ADDITIONAL_FILE
+│   ├── DESIGN_HANDOFF.md           # Design track handoff + roadmap to launch
+│   ├── DESIGN_SYSTEM.md            # Justified design system (concept, color/theming, type, components, screens)
+│   └── DESIGN_RESEARCH.md          # Design/UX/competitive research
 ├── Features/
 │   ├── Library/
 │   │   ├── LibraryView.swift        # Saved manga grid/list (AppSettings.libraryDisplayMode toggle) + category chips + ContinueReadingRow + multi-select
