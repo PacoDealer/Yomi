@@ -82,7 +82,7 @@ struct MangaCoverCell: View {
         }
         .overlay {
             if isSelected {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
                     .stroke(Color.accentColor, lineWidth: 2.5)
             }
         }
@@ -124,7 +124,7 @@ struct MangaCoverCell: View {
                         .aspectRatio(2 / 3, contentMode: .fill)
                 }
             }
-            .cornerRadius(8)
+            .cornerRadius(YomiTokens.Radius.cover)
             .clipped()
             .overlay(alignment: .topLeading) {
                 if !manga.inLibrary && dbInLibrary && !isSelecting {
@@ -138,12 +138,11 @@ struct MangaCoverCell: View {
             }
             .overlay(alignment: .topTrailing) {
                 if unreadCount > 0 && !isSelecting && AppSettings.shared.showUnreadBadge {
-                    Text("\(unreadCount)")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
+                    Text("\(min(unreadCount, 999))")
+                        .font(YomiTokens.Font.mono(11, bold: true))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
                         .background(Color.accentColor)
                         .clipShape(Capsule())
                         .padding(6)
@@ -165,14 +164,14 @@ struct MangaCoverCell: View {
                     VStack(spacing: 0) {
                         if let name = lastReadChapterName, readProgress > 0 {
                             Text(name)
-                                .font(.system(size: 9, weight: .medium))
+                                .font(YomiTokens.Font.mono(11))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
-                                .padding(.horizontal, 5)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.black.opacity(0.65))
+                                .background(.black.opacity(0.60))
                         }
                         if readProgress > 0 && readProgress < 1 {
                             GeometryReader { geo in
@@ -188,13 +187,13 @@ struct MangaCoverCell: View {
             }
 
             Text(manga.title)
-                .font(.caption)
+                .font(YomiTokens.Font.grotesk(13))
                 .lineLimit(2)
                 .foregroundStyle(.primary)
 
             if let name = sourceName {
                 Text(name)
-                    .font(.caption2)
+                    .font(YomiTokens.Font.mono(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
