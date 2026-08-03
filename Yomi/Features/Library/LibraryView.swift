@@ -67,11 +67,16 @@ struct LibraryView: View {
                             if !viewModel.displayedManga.isEmpty {
                                 // Show "Manga" header only when novels are also present
                                 if !viewModel.displayedNovels.isEmpty {
-                                    Text("Manga")
-                                        .font(.headline)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, 8)
+                                    HStack(alignment: .lastTextBaseline) {
+                                        Text("Manga")
+                                            .font(YomiTokens.Font.grotesk(22, weight: .medium))
+                                        Spacer()
+                                        Text("\(viewModel.displayedManga.count)")
+                                            .font(YomiTokens.Font.mono(12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 8)
                                 }
                                 if settings.libraryDisplayMode == "list" {
                                     LazyVStack(spacing: 0) {
@@ -147,10 +152,16 @@ struct LibraryView: View {
                             }
                             if !viewModel.displayedNovels.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Novels")
-                                        .font(.headline)
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, viewModel.displayedManga.isEmpty ? 8 : 16)
+                                    HStack(alignment: .lastTextBaseline) {
+                                        Text("Novels")
+                                            .font(YomiTokens.Font.grotesk(22, weight: .medium))
+                                        Spacer()
+                                        Text("\(viewModel.displayedNovels.count)")
+                                            .font(YomiTokens.Font.mono(12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, viewModel.displayedManga.isEmpty ? 8 : 16)
                                     if settings.libraryDisplayMode == "list" {
                                         LazyVStack(spacing: 0) {
                                             ForEach(viewModel.displayedNovels) { novel in
@@ -657,32 +668,42 @@ private struct NovelLibraryCoverCell: View {
                         CoverImage(url: novel.coverURL)
                     }
                 }
-                .cornerRadius(8)
+                .cornerRadius(YomiTokens.Radius.cover)
                 .clipped()
                 .overlay(alignment: .topTrailing) {
-                    if settings.showUnreadBadge && unreadCount > 0 {
-                        Text("\(min(unreadCount, 999))")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
+                    VStack(spacing: 4) {
+                        // "NOVEL" badge — always shown for novels
+                        Text("NOVEL")
+                            .font(YomiTokens.Font.mono(10, bold: true))
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor, in: Capsule())
-                            .padding(4)
+                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
+                            .padding(.top, 6)
+                            .padding(.trailing, 6)
+                        if settings.showUnreadBadge && unreadCount > 0 {
+                            Text("\(min(unreadCount, 999))")
+                                .font(YomiTokens.Font.mono(11, bold: true))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor, in: Capsule())
+                                .padding(.trailing, 6)
+                        }
                     }
                 }
                 .overlay(alignment: .bottom) {
                     VStack(spacing: 0) {
                         if let name = lastReadChapterName, readProgress > 0 {
                             Text(name)
-                                .font(.system(size: 9, weight: .medium))
+                                .font(YomiTokens.Font.mono(11))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
-                                .padding(.horizontal, 5)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.black.opacity(0.65))
+                                .background(.black.opacity(0.60))
                         }
                         if readProgress > 0 && readProgress < 1 {
                             GeometryReader { geo in
@@ -697,13 +718,13 @@ private struct NovelLibraryCoverCell: View {
                 }
 
                 Text(novel.title)
-                    .font(.caption)
+                    .font(YomiTokens.Font.grotesk(13))
                     .lineLimit(2)
                     .foregroundStyle(.primary)
 
                 if let name = sourceName {
                     Text(name)
-                        .font(.caption2)
+                        .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -780,7 +801,7 @@ private struct NovelLibraryCoverCell: View {
         }
         .overlay {
             if isSelected {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
                     .stroke(Color.accentColor, lineWidth: 2.5)
             }
         }
