@@ -59,6 +59,9 @@ struct MangaDetailView: View {
     // AniList score
     @State private var aniListScore: Int? = nil
 
+    @Environment(\.yomiCanvas) private var canvas
+    @Environment(\.dismiss) private var dismiss
+
     init(manga: Manga) {
         _manga = State(initialValue: manga)
     }
@@ -94,68 +97,107 @@ struct MangaDetailView: View {
         return "Resume"
     }
 
+    /// Full-bleed blurred cover backdrop with dark scrim, per DESIGN_SYSTEM §14.
+    private var backdrop: some View {
+        ZStack {
+            Group {
+                if let customPath = manga.resolvedCustomCoverPath,
+                   let uiImage = UIImage(contentsOfFile: customPath) {
+                    Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    KFImage(manga.coverURL)
+                        .placeholder { canvas.surface1 }
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                }
+            }
+            .blur(radius: 30)
+            .overlay(canvas.bg.opacity(0.3))
+
+            LinearGradient(
+                colors: [canvas.bg.opacity(0.15), canvas.bg.opacity(0.55), canvas.bg],
+                startPoint: .top, endPoint: .bottom
+            )
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
         List {
-            // MARK: Header
+            // MARK: Header — DESIGN_SYSTEM §14: full-bleed blurred backdrop + overlapping thumb
             Section {
                 VStack(alignment: .leading, spacing: 14) {
-                    // Cover + meta
-                    HStack(alignment: .top, spacing: 14) {
-                        Group {
-                            if let customPath = manga.resolvedCustomCoverPath,
-                               let uiImage = UIImage(contentsOfFile: customPath) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .aspectRatio(2 / 3, contentMode: .fill)
-                            } else {
-                                CoverImage(url: manga.coverURL)
+                    ZStack(alignment: .bottomLeading) {
+                        backdrop
+                            .frame(height: 230)
+                            .clipped()
+
+                        HStack(alignment: .bottom, spacing: 14) {
+                            Group {
+                                if let customPath = manga.resolvedCustomCoverPath,
+                                   let uiImage = UIImage(contentsOfFile: customPath) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .aspectRatio(2 / 3, contentMode: .fill)
+                                } else {
+                                    CoverImage(url: manga.coverURL)
+                                }
                             }
-                        }
-                        .frame(width: 110)
-                        .cornerRadius(YomiTokens.Radius.cover)
-                        .clipped()
-                        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
+                            .frame(width: 110, height: 162)
+                            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
+                            .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 6)
 
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(manga.title)
-                                .font(YomiTokens.Font.grotesk(22, weight: .bold))
-                                .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(manga.title)
+                                    .font(YomiTokens.Font.grotesk(22, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(3)
+                                    .fixedSize(horizontal: false, vertical: true)
 
-                            if let author = manga.author, !author.isEmpty {
-                                Label(author, systemImage: "person")
-                                    .font(YomiTokens.Font.grotesk(14))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-
-                            if let sourceName = ExtensionManager.shared.installed
-                                .first(where: { $0.id == manga.sourceId })?.name {
-                                Label(sourceName.uppercased(), systemImage: "puzzlepiece.extension")
-                                    .font(YomiTokens.Font.mono(11))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-
-                            HStack(spacing: 8) {
-                                StatusBadge(status: manga.status)
-
-                                if let score = aniListScore {
-                                    Label("\(score)%", systemImage: "star.fill")
-                                        .font(YomiTokens.Font.mono(11, bold: true))
-                                        .foregroundStyle(.orange)
+                                if let author = manga.author, !author.isEmpty {
+                                    Text(author)
+                                        .font(YomiTokens.Font.grotesk(14))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .lineLimit(1)
                                 }
 
-                                if manga.inLibrary {
-                                    ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
-                                        Task { await updateReadingStatus(newStatus) }
+                                if let sourceName = ExtensionManager.shared.installed
+                                    .first(where: { $0.id == manga.sourceId })?.name {
+                                    Text(sourceName.uppercased())
+                                        .font(YomiTokens.Font.mono(11))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .lineLimit(1)
+                                }
+
+                                HStack(spacing: 8) {
+                                    Text(Notation.status(manga.status.rawValue))
+                                        .font(YomiTokens.Font.mono(10))
+                                        .tracking(0.4)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 4))
+
+                                    if let score = aniListScore {
+                                        Text("\(score)%")
+                                            .font(YomiTokens.Font.mono(11, bold: true))
+                                            .foregroundStyle(Color.accentColor)
                                     }
                                 }
                             }
+                            .padding(.bottom, 4)
                         }
+                        .padding(.horizontal, 16)
+                        .offset(y: 12)
+                    }
+                    .padding(.bottom, 12)
 
-                        Spacer(minLength: 0)
+                    if manga.inLibrary {
+                        ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
+                            Task { await updateReadingStatus(newStatus) }
+                        }
+                        .padding(.horizontal, 16)
                     }
 
                     // Genre chips
@@ -165,11 +207,13 @@ struct MangaDetailView: View {
                                 ForEach(manga.genres, id: \.self) { genre in
                                     Text(genre)
                                         .font(YomiTokens.Font.grotesk(12))
+                                        .foregroundStyle(canvas.textPrimary)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
-                                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                                        .background(canvas.surface2, in: Capsule())
                                 }
                             }
+                            .padding(.horizontal, 16)
                         }
                     }
 
@@ -186,8 +230,9 @@ struct MangaDetailView: View {
                                 let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
                                 Text("\(readCount) OF \(chapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
                                     .font(YomiTokens.Font.mono(11))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(canvas.textSecondary)
                             }
+                            .padding(.horizontal, 16)
                         }
                     }
 
@@ -211,9 +256,13 @@ struct MangaDetailView: View {
                             .background(Color.accentColor, in: Capsule())
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.vertical, 6)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
 
             // MARK: Synopsis
@@ -401,8 +450,9 @@ struct MangaDetailView: View {
         .refreshable { await loadChapters() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
-            : manga.title)
+            : "")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(isSelectingChapters ? .visible : .hidden, for: .navigationBar)
         .toolbar {
             if isSelectingChapters {
                 // Selection mode toolbar
@@ -441,67 +491,11 @@ struct MangaDetailView: View {
                         }
                     }
                 }
-            } else {
-                // Normal toolbar
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            showCategorySheet = true
-                        } label: {
-                            Label("Edit categories", systemImage: "tag")
-                        }
-                        .disabled(!manga.inLibrary)
-
-                        Button {
-                            showCoverPicker = true
-                        } label: {
-                            Label("Change cover", systemImage: "photo")
-                        }
-
-                        Button {
-                            withAnimation(.spring(duration: 0.2)) {
-                                isSelectingChapters = true
-                                selectedChapterIds = []
-                            }
-                        } label: {
-                            Label("Select chapters", systemImage: "checkmark.circle")
-                        }
-                        .disabled(chapters.isEmpty)
-
-                        Divider()
-
-                        if !chapters.isEmpty {
-                            Button {
-                                Task { await markAllChapters(read: true) }
-                            } label: {
-                                Label("Mark all as read", systemImage: "checkmark.circle.fill")
-                            }
-                            Button {
-                                Task { await markAllChapters(read: false) }
-                            } label: {
-                                Label("Mark all as unread", systemImage: "circle")
-                            }
-                            Divider()
-                        }
-
-                        Button(role: .destructive) {
-                            Task { await toggleLibrary() }
-                        } label: {
-                            Label(manga.inLibrary ? "Remove from library" : "Add to library",
-                                  systemImage: manga.inLibrary ? "heart.slash" : "heart")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await toggleLibrary() }
-                    } label: {
-                        Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
-                            .foregroundStyle(manga.inLibrary ? .red : .primary)
-                    }
-                }
+            }
+        }
+        .overlay(alignment: .top) {
+            if !isSelectingChapters {
+                glassNavBar
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -595,6 +589,81 @@ struct MangaDetailView: View {
             }
             .presentationDetents([.medium, .large])
         }
+    }
+
+    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
+
+    private var glassNavBar: some View {
+        HStack(spacing: 10) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .glassChip()
+
+            Spacer()
+
+            Button {
+                Task { await toggleLibrary() }
+            } label: {
+                Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
+                    .foregroundStyle(manga.inLibrary ? Color.accentColor : .primary)
+            }
+            .glassChip()
+
+            Menu {
+                Button {
+                    showCategorySheet = true
+                } label: {
+                    Label("Edit categories", systemImage: "tag")
+                }
+                .disabled(!manga.inLibrary)
+
+                Button {
+                    showCoverPicker = true
+                } label: {
+                    Label("Change cover", systemImage: "photo")
+                }
+
+                Button {
+                    withAnimation(.spring(duration: 0.2)) {
+                        isSelectingChapters = true
+                        selectedChapterIds = []
+                    }
+                } label: {
+                    Label("Select chapters", systemImage: "checkmark.circle")
+                }
+                .disabled(chapters.isEmpty)
+
+                Divider()
+
+                if !chapters.isEmpty {
+                    Button {
+                        Task { await markAllChapters(read: true) }
+                    } label: {
+                        Label("Mark all as read", systemImage: "checkmark.circle.fill")
+                    }
+                    Button {
+                        Task { await markAllChapters(read: false) }
+                    } label: {
+                        Label("Mark all as unread", systemImage: "circle")
+                    }
+                    Divider()
+                }
+
+                Button(role: .destructive) {
+                    Task { await toggleLibrary() }
+                } label: {
+                    Label(manga.inLibrary ? "Remove from library" : "Add to library",
+                          systemImage: manga.inLibrary ? "heart.slash" : "heart")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .glassChip()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 
     // MARK: - Chapter Section Header
@@ -1295,34 +1364,6 @@ struct ReadingStatusMenu: View {
             .foregroundStyle(readingStatus == .none ? Color.secondary : Color.accentColor)
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - StatusBadge
-
-private struct StatusBadge: View {
-    let status: MangaStatus
-
-    var body: some View {
-        Text(Notation.status(status.rawValue))
-            .font(YomiTokens.Font.mono(10, bold: true))
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15))
-            .foregroundStyle(color)
-            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.badge))
-    }
-
-    private var color: Color {
-        switch status {
-        case .ongoing:   .green
-        case .completed: .blue
-        case .hiatus:    .orange
-        case .cancelled: .red
-        case .unknown:   .gray
-        }
     }
 }
 

@@ -122,6 +122,33 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S85
+
+**Design tokens existing ≠ design tokens applied.** `YomiTokens.Canvas` (Ink/Midnight/Paper/Sepia)
+was fully built in S80-S81 with correct bg/surface/text colors, but nothing outside
+`AppearanceStudioView`'s own preview card ever read it — `ContentView`/`YomiApp` only drove
+`.preferredColorScheme` (system light/dark) + accent tint. The app looked like "plain system dark
+mode" for 4 sessions (S82-S85) because the token *system* existed but was never wired to the actual
+chrome. Lesson: when a design-fidelity gap looks like "wrong colors everywhere," check whether the
+token is defined vs. whether it's actually consumed at the root — grep for the enum/struct name
+across the whole app, not just the screen you're looking at.
+
+**SwiftUI environment values are the right tool for cross-cutting theme state.** Fixed the above by
+adding one `\.yomiCanvas` `EnvironmentKey` (`Core/CanvasEnvironment.swift`), set once in
+`ContentView` from `AppSettings.canvasColors`, read via `@Environment(\.yomiCanvas)` in any child —
+no need to thread a parameter through every view's init or re-read `AppSettings.shared` everywhere.
+
+**`mobile-mcp` element coordinates are the bounding box's top-left corner, not its center.**
+`mobile_list_elements_on_screen` returns `{x, y, width, height}` with `(x, y)` at the top-left.
+Tapping that raw `(x, y)` works fine for large text buttons but misses small circular hit targets
+(e.g. 44×44 glass chips) since the corner falls outside a circle inscribed in that square. Always
+tap `(x + width/2, y + height/2)`.
+
+**A screenshot that looks unchanged after a tap doesn't always mean the tap failed.** Native SwiftUI
+`Menu` popovers animate in over ~0.2s; a screenshot taken immediately after the tap can race the
+animation and look like nothing happened. Re-fetch elements or screenshot again before concluding a
+control is broken.
+
 ## Research methodology — lessons learned (post S42)
 
 ### The Suwayomi blind spot: "impossible" is never the final answer

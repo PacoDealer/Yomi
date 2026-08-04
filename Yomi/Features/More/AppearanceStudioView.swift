@@ -12,9 +12,7 @@ struct AppearanceStudioView: View {
 
     // MARK: - Derived
 
-    private var canvas: YomiTokens.CanvasColors {
-        settings.canvas.isEmpty ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(settings.canvas)
-    }
+    private var canvas: YomiTokens.CanvasColors { settings.canvasColors }
     private var accent: Color { Color(hex: settings.accentColor) }
 
     private let accentSwatches = YomiTokens.Accent.presets.map(\.hex)

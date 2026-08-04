@@ -5,12 +5,14 @@ import Kingfisher
 
 struct MangaCoverCell: View {
     let manga: Manga
+    var catalogIndex: Int? = nil
     var isSelecting: Bool = false
     var isSelected: Bool = false
     var onLongPress: (() -> Void)? = nil
     var onSelect: (() -> Void)? = nil
     var onReadingStatusChange: ((ReadingStatus) -> Void)? = nil
     var onRemoveFromLibrary: (() -> Void)? = nil
+    @Environment(\.yomiCanvas) private var canvas
     @State private var unreadCount: Int = 0
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
@@ -127,6 +129,14 @@ struct MangaCoverCell: View {
             .cornerRadius(YomiTokens.Radius.cover)
             .clipped()
             .overlay(alignment: .topLeading) {
+                if let catalogIndex, !isSelecting {
+                    Text(Notation.catalogIndex(catalogIndex))
+                        .font(YomiTokens.Font.mono(15, bold: true))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(8)
+                }
+            }
+            .overlay(alignment: .topLeading) {
                 if !manga.inLibrary && dbInLibrary && !isSelecting {
                     Image(systemName: "bookmark.fill")
                         .font(.caption2)
@@ -193,14 +203,14 @@ struct MangaCoverCell: View {
             }
 
             Text(manga.title)
-                .font(YomiTokens.Font.grotesk(13))
+                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
                 .lineLimit(2)
-                .foregroundStyle(.primary)
+                .foregroundStyle(canvas.textPrimary)
 
             if let name = sourceName {
                 Text(name)
-                    .font(YomiTokens.Font.mono(11))
-                    .foregroundStyle(.secondary)
+                    .font(YomiTokens.Font.grotesk(12))
+                    .foregroundStyle(canvas.textSecondary)
                     .lineLimit(1)
             }
         }
@@ -248,6 +258,7 @@ private struct SkeletonView: View {
 struct MangaListRow: View {
     let manga: Manga
     let unreadCount: Int
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 12) {
@@ -257,7 +268,7 @@ struct MangaListRow: View {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
                     KFImage(manga.coverURL)
-                        .placeholder { Color.secondary.opacity(0.15) }
+                        .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
                         .scaledToFill()
@@ -268,22 +279,23 @@ struct MangaListRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(manga.title)
-                    .font(.body)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
                     .lineLimit(2)
                 Text(manga.author ?? manga.sourceId)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                    .foregroundStyle(canvas.textSecondary)
                     .lineLimit(1)
                 if unreadCount > 0 {
                     Text("\(unreadCount) unread")
-                        .font(.caption2)
-                        .foregroundStyle(.tint)
+                        .font(YomiTokens.Font.mono(YomiTokens.TypeScale.footnote))
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(canvas.textSecondary.opacity(0.6))
         }
         .padding(.vertical, 8)
     }

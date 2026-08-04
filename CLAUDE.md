@@ -24,38 +24,35 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
 - `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S82-S84 — in progress, Blocks 1-5 of 12 implemented, 5 fidelity gaps found S84, pending fixes + user review)
+## Design track (S82-S85 — Blocks 1-5 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **checkpoint after block 5 reached 2026-08-04, blocks 1-5 built and compiling clean, but not yet fully walked through by the user in the simulator.** Next session should start there before moving to Block 6 (Browse).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **all reached and screenshot-verified live against the mockup as of S85; Blocks 1-5 have no known fidelity debt.** Next session: Block 6 (Browse).
 
-## Current state (post S84 — 2026-08-04 · Project audit + doc/repo cleanup)
+## Current state (post S85 — 2026-08-04 · Phase 0 — all 6 design-fidelity gaps closed)
 
-**S84 did NOT fix Blocks 1-5's design fidelity** — it found and documented 6 concrete gaps (Library
-Continue hero missing, cover-cell catalog-index badge missing, wrong fonts on source/tab labels,
-**list-mode `MangaListRow` has zero design-system treatment — confirmed via simulator screenshot,
-and it's the user's actual saved display mode**, Detail header structurally wrong vs. spec, reader
-top bar had a dead "Discuss" chip instead of the spec'd icon set) and fixed the Discuss chip + a
-batch of repo/doc organization issues (doc duplication, wrong file-path references, dead folder,
-stale assets). **New skill: `.claude/skills/yomi-sim/SKILL.md`** — how to build/install/launch/
-screenshot the app on the pinned simulator and read/write `AppSettings` without tapping; prefer
-`mobile-mcp`/`XcodeBuildMCP` when loaded (verify via ToolSearch at session start — they were
-missing from S84's session tool index despite showing "Connected" in `claude mcp list`). **Full
-detail in `Yomi/ROADMAP.md`'s S84
-entry.** The 5 fidelity gaps are NOT yet fixed — that's next session's Phase 0, before Block 6.
+S84 found 6 fidelity gaps in Blocks 1-5 (Library Continue hero missing, cover-cell catalog-index
+badge missing, wrong fonts on source/tab labels, list-mode `MangaListRow` zero design-system
+treatment, Detail header structurally wrong, reader top bar not icon-chip-only). **S85 fixed all
+six**, plus a deeper root cause found first: `YomiTokens.Canvas` (Ink/Midnight/Paper/Sepia) was
+only ever read inside `AppearanceStudioView`'s own preview — never applied as the real app
+background, so every screen rendered as plain system dark mode regardless of canvas choice. Fixed
+via `AppSettings.canvasColors` + a `\.yomiCanvas` environment key set once in `ContentView`. Built
+the missing Continue hero (`ContinueHeroCard` in `ContinueReadingRow.swift`) with a genuine
+ambient-tint-from-cover background (`UIImage.averageColor()`, new `Core/UIImage+AverageColor.swift`).
+Rebuilt `MangaDetailView`/`NovelDetailView` headers to the §14 full-bleed blurred-backdrop +
+overlapping-thumb + floating-glass-nav structure (new shared `Core/GlassChip.swift` modifier);
+deleted the now-orphaned colored `StatusBadge`/`NovelStatusBadge` structs. Moved the manga reader's
+oversized mode-switch Picker out of the top bar into a "Reader Settings" sheet behind a `gearshape`
+chip, matching the spec's 44pt icon-chip pattern; left the novel reader top bar untouched (already
+correct — its typography controls are intentionally always-visible in the bottom card, not gated).
+All 6 fixes screenshot-verified live via `mobile-mcp` against the mockup, not just code-read.
+**Full detail in `Yomi/ROADMAP.md`'s S85 entry.**
 
-## Current state (post S83 — 2026-08-04 · Design implementation Blocks 3-5, PENDING USER REVIEW)
+**Process note:** `mobile-mcp` element coordinates are the bounding box's top-left corner, not its
+center — tap `(x + width/2, y + height/2)` for small circular targets like the 44×44 glass chips,
+or taps silently miss.
 
-**Flag for next session: the work below is implemented and compiles, but the user has only spot-checked pieces of it (not a full pass) and explicitly asked to revisit/revise it fresh next session — do not treat these blocks as finalized or move on to Block 6 without that review.**
-
-**S83 (2026-08-04) — Block 3 (Detail):** `MangaDetailView.swift` + `NovelDetailView.swift` both token-ified following the Block 1-2 pattern (incremental, not a layout rebuild): cover radius → `YomiTokens.Radius.cover`; title/author/source fonts → Grotesk/Mono; `StatusBadge`/`NovelStatusBadge` reworked to `Notation.status()` text + `RoundedRectangle(Radius.badge)` (was a plain capitalized Capsule); resume button rebuilt as an accent-filled Capsule (was `.borderedProminent`); reading-progress caption rebuilt with `Notation.progress()` + `Notation.readingTime()` and an accent-colored percent via `Text` interpolation (`Text("\(pctText)")`, not deprecated `Text + Text`); chapter rows get a leading 6pt accent dot for unread state (new — matches the design's 2×2 read/downloaded dot pattern) plus Mono date/page subtitles.
-
-**S83 (2026-08-04) — Block 4 (Manga Reader overlay), reactive fix after user spot-check:** `ReaderOverlayView` in `ChapterReaderView.swift` rebuilt from a single edge-to-edge `Rectangle().glassEffect()` bar into individual floating `Circle().glassEffect()` chips (originally back/list/discuss — the discuss chip was removed in S84, see above) + a floating `RoundedRectangle(cornerRadius: 22).glassEffect()` bottom card, matching the actual mockup (which was never a full-width bar). Bottom card now shows `Notation.pagePosition()` ("CH. XXX · N/Total") + skip-chapter icons on row 1, and a page `Slider` on row 2 — **the slider is now interactive in every reader mode including vertical scroll**, wired via a new bidirectional binding: `WebtoonReaderView` gained `.onChange(of: currentPage)` calling `proxy.scrollTo(new, anchor: .top)` (guarded by `new != visibleId` to avoid feedback loops), so dragging the slider actually seeks the webtoon scroll position — previously that binding was one-way (scroll → currentPage only), so the bar existed but couldn't be used to navigate.
-
-**S83 (2026-08-04) — Block 5 (Novel Reader overlay), done in full to match the block-5 checkpoint:** `TextReaderOverlayView` in `TextReaderView.swift` gets the same floating-chip top bar as Block 4, and its bottom sheet is now a floating `RoundedRectangle(cornerRadius: 24).glassEffect()` card (was edge-to-edge) matching spec. **New:** a live `CH. XXX · %` progress footer with a thin accent progress bar, added as a new `progress: Double` parameter threaded from `TextReaderView`'s existing (already-tracked, previously UI-unsurfaced) `lastKnownScrollPercent` state — updates continuously as the user scrolls, no interaction needed.
-
-**Known follow-up, not yet done:** Blocks 1-2 (Library, Library-selection) shipped 2026-08-03 under the S82 commits (`bded9e6`, `48705b1`) but were never written up in ROADMAP/METODOLOGIA at the time — this session's doc update backfills that gap alongside Blocks 3-5.
-
-Full session-by-session history (S1-S82) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+Full session-by-session history (S1-S84) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 
@@ -186,6 +183,9 @@ Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBU
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/DesignTokens.swift                   # YomiTokens: Canvas (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Motion
+Yomi/Core/CanvasEnvironment.swift               # \.yomiCanvas environment key — set once in ContentView from AppSettings.canvasColors, read via @Environment everywhere
+Yomi/Core/GlassChip.swift                       # .glassChip() — shared 44×44 floating Liquid Glass circle modifier for chrome buttons
+Yomi/Core/UIImage+AverageColor.swift            # UIImage.averageColor() via CIAreaAverage — backs Continue hero's ambient-tint-from-cover background
 Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), etc.
 Yomi/Core/NotificationManager.swift
 Yomi/Database/DatabaseManager.swift            # Migrations v1–v19_source_indexes; next must be v20_
