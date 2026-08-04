@@ -5,6 +5,7 @@ struct LibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var extensionManager = ExtensionManager.shared
     @State private var settings = AppSettings.shared
+    @Environment(\.yomiCanvas) private var canvas
     @State private var isSelecting = false
     @State private var selectedIds: Set<String> = []
     @State private var selectedNovelIds: Set<String> = []
@@ -70,10 +71,11 @@ struct LibraryView: View {
                                     HStack(alignment: .lastTextBaseline) {
                                         Text("Manga")
                                             .font(YomiTokens.Font.grotesk(22, weight: .medium))
+                                            .foregroundStyle(canvas.textPrimary)
                                         Spacer()
                                         Text("\(viewModel.displayedManga.count)")
                                             .font(YomiTokens.Font.mono(12))
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(canvas.textSecondary)
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.top, 8)
@@ -114,9 +116,10 @@ struct LibraryView: View {
                                     .padding(.horizontal, 16)
                                 } else {
                                     LazyVGrid(columns: columns, spacing: 12) {
-                                        ForEach(viewModel.displayedManga) { manga in
+                                        ForEach(Array(viewModel.displayedManga.enumerated()), id: \.element.id) { index, manga in
                                             MangaCoverCell(
                                                 manga: manga,
+                                                catalogIndex: index + 1,
                                                 isSelecting: isSelecting,
                                                 isSelected: selectedIds.contains(manga.id),
                                                 onLongPress: {
@@ -155,10 +158,11 @@ struct LibraryView: View {
                                     HStack(alignment: .lastTextBaseline) {
                                         Text("Novels")
                                             .font(YomiTokens.Font.grotesk(22, weight: .medium))
+                                            .foregroundStyle(canvas.textPrimary)
                                         Spacer()
                                         Text("\(viewModel.displayedNovels.count)")
                                             .font(YomiTokens.Font.mono(12))
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(canvas.textSecondary)
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.top, viewModel.displayedManga.isEmpty ? 8 : 16)
@@ -201,11 +205,12 @@ struct LibraryView: View {
                                         .padding(.horizontal, 16)
                                     } else {
                                         LazyVGrid(columns: columns, spacing: 12) {
-                                            ForEach(viewModel.displayedNovels) { novel in
+                                            ForEach(Array(viewModel.displayedNovels.enumerated()), id: \.element.id) { index, novel in
                                                 NovelLibraryCoverCell(
                                                     novel: novel,
                                                     unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
                                                     onTap: { selectedNovel = novel; showNovelDetail = true },
+                                                    catalogIndex: index + 1,
                                                     isSelecting: isSelecting,
                                                     isSelected: selectedNovelIds.contains(novel.id),
                                                     onLongPress: {
@@ -573,14 +578,14 @@ private struct LibraryTab: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
                 Text(label)
-                    .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: isSelected ? .medium : .regular))
+                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .fixedSize()
@@ -599,6 +604,7 @@ private struct LibraryTab: View {
 private struct NovelLibraryListRow: View {
     let novel: Novel
     let unreadCount: Int
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 12) {
@@ -608,7 +614,7 @@ private struct NovelLibraryListRow: View {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
                     KFImage(novel.coverURL)
-                        .placeholder { Color.secondary.opacity(0.15) }
+                        .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
                         .scaledToFill()
@@ -619,22 +625,23 @@ private struct NovelLibraryListRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(novel.title)
-                    .font(.body)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
                     .lineLimit(2)
                 Text(novel.author ?? novel.sourceId)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                    .foregroundStyle(canvas.textSecondary)
                     .lineLimit(1)
                 if unreadCount > 0 {
                     Text("\(unreadCount) unread")
-                        .font(.caption2)
-                        .foregroundStyle(.tint)
+                        .font(YomiTokens.Font.mono(YomiTokens.TypeScale.footnote))
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(canvas.textSecondary.opacity(0.6))
         }
         .padding(.vertical, 8)
     }
@@ -646,6 +653,7 @@ private struct NovelLibraryCoverCell: View {
     let novel: Novel
     let unreadCount: Int
     let onTap: () -> Void
+    var catalogIndex: Int? = nil
     var isSelecting: Bool = false
     var isSelected: Bool = false
     var onLongPress: (() -> Void)? = nil
@@ -653,6 +661,7 @@ private struct NovelLibraryCoverCell: View {
     var onReadingStatusChange: ((ReadingStatus) -> Void)? = nil
     var onRemoveFromLibrary: (() -> Void)? = nil
 
+    @Environment(\.yomiCanvas) private var canvas
     @State private var sourceName: String? = nil
     @State private var settings = AppSettings.shared
     @State private var readProgress: Double = 0
@@ -675,6 +684,14 @@ private struct NovelLibraryCoverCell: View {
                 }
                 .cornerRadius(YomiTokens.Radius.cover)
                 .clipped()
+                .overlay(alignment: .topLeading) {
+                    if let catalogIndex, !isSelecting {
+                        Text(Notation.catalogIndex(catalogIndex))
+                            .font(YomiTokens.Font.mono(15, bold: true))
+                            .foregroundStyle(Color.accentColor)
+                            .padding(8)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     VStack(spacing: 4) {
                         // "NOVEL" badge — always shown for novels
@@ -729,14 +746,14 @@ private struct NovelLibraryCoverCell: View {
                 }
 
                 Text(novel.title)
-                    .font(YomiTokens.Font.grotesk(13))
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
                     .lineLimit(2)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(canvas.textPrimary)
 
                 if let name = sourceName {
                     Text(name)
-                        .font(YomiTokens.Font.mono(11))
-                        .foregroundStyle(.secondary)
+                        .font(YomiTokens.Font.grotesk(12))
+                        .foregroundStyle(canvas.textSecondary)
                         .lineLimit(1)
                 }
             }

@@ -635,6 +635,7 @@ struct ReaderOverlayView: View {
     var onJumpToChapter: ((Int) -> Void)? = nil
 
     @State private var showChapterSheet = false
+    @State private var showSettingsSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -643,10 +644,8 @@ struct ReaderOverlayView: View {
                 Button(action: onDismiss) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
                 }
-                .background { Circle().glassEffect() }
+                .glassChip()
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(manga.title)
@@ -666,19 +665,17 @@ struct ReaderOverlayView: View {
                     } label: {
                         Image(systemName: "list.bullet")
                             .font(.system(size: 17))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
                     }
-                    .background { Circle().glassEffect() }
+                    .glassChip()
                 }
 
-                Picker("Mode", selection: $readerMode) {
-                    Image(systemName: "book.pages").tag(ReaderMode.horizontalRTL)
-                    Image(systemName: "book.pages.fill").tag(ReaderMode.horizontalLTR)
-                    Image(systemName: "scroll").tag(ReaderMode.verticalScroll)
+                Button {
+                    showSettingsSheet = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 17))
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 108)
+                .glassChip()
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
@@ -735,6 +732,29 @@ struct ReaderOverlayView: View {
                     }
                 }
                 .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showSettingsSheet) {
+                NavigationStack {
+                    Form {
+                        Section("Reading mode") {
+                            Picker("Mode", selection: $readerMode) {
+                                Label("Right to left", systemImage: "book.pages").tag(ReaderMode.horizontalRTL)
+                                Label("Left to right", systemImage: "book.pages.fill").tag(ReaderMode.horizontalLTR)
+                                Label("Vertical scroll", systemImage: "scroll").tag(ReaderMode.verticalScroll)
+                            }
+                            .pickerStyle(.inline)
+                            .labelsHidden()
+                        }
+                    }
+                    .navigationTitle("Reader Settings")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showSettingsSheet = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
             }
 
             Spacer()

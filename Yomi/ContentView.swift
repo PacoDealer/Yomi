@@ -52,6 +52,8 @@ struct ContentView: View {
             settings.pureBlack ? .visible : .automatic,
             for: .tabBar
         )
+        .environment(\.yomiCanvas, settings.canvasColors)
+        .background(settings.canvasColors.bg.ignoresSafeArea())
     }
 }
 
