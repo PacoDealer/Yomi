@@ -21,6 +21,69 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S86 — 2026-08-04 · Block 6 — Browse)
+
+**S86 (2026-08-04): Block 6 — Browse, redesigned to N.06 (Browse) + N.16 (Browse — search).**
+Before rebuilding, found that Browse's old "Extensions" sub-tab duplicated `More → Plugins`
+(`PluginsView`) — same catalog install logic, minus repo management/install-from-URL/update-all.
+The 16-screen spec only shows 2 segments on Browse (Sources / Global search), which matches: Browse
+now only *consumes* installed sources; all install/repo/update management stays solely in
+`PluginsView`. Removed the duplicate tab and ~250 lines of parallel catalog logic; `CatalogGroupRow`
+(still used by `PluginsView`) moved there since its only remaining caller lives in that file. Entry
+points that used to jump to Browse's Extensions tab (`AppRouter.openBrowseExtensions`, set from
+`LibraryView`'s "Get plugins" empty state) now route to `More → Plugins` via the existing
+`openMorePlugins` flag instead — same capability, no duplicate code path, and `openBrowseExtensions`
+was deleted as dead state.
+
+Rebuilt Sources tab: search pill + Sources/Global-search segmented control (N.06), installed-source
+rows with a new `SourceIconBadge` (real icon via KFImage, falls back to a deterministic name-hashed
+gradient + initials — not `String.hashValue`, which is randomized per process launch and would
+reshuffle colors every relaunch), subtitle `"EN · MANGA"`/`"EN · NOVELS"` in Mono, and a `Popular on
+<first source>` horizontal carousel reusing `MangaCoverCell`/`NovelCoverCell`. Suwayomi and OPDS
+sections restyled to match but kept as their own multi-row sections (unlike the mockup's single
+"Suwayomi" row) since collapsing them would hide real sub-sources, not just a visual simplification.
+Global search (N.16) changed from `.searchable` + vertical per-source grids to a pushed `SearchScreen`
+with horizontal per-source carousels, matching the mockup's card-rail layout; auto-focuses the
+keyboard on push via `.searchable(isPresented:)`.
+
+**Two real bugs found and fixed via live simulator testing, not just code-read:**
+1. **Tap dead-zone on installed-source rows.** `NavigationLink { … } label: { SourceRow() }
+   .buttonStyle(.plain).contextMenu { … }` only responded to taps directly on content (the chevron
+   icon), not the row's `Spacer()`-filled middle — `.contextMenu` narrows the tap area SwiftUI would
+   otherwise infer for a plain-style `NavigationLink`. Fixed with an explicit
+   `.contentShape(Rectangle())` before `.overlay` on every tappable row (installed sources, Suwayomi,
+   OPDS).
+2. **Popular carousel silently failed to appear** despite loading real data (confirmed via a
+   temporary debug label: `loaded=true mangas=10`). Root cause: `.task(id:)` was attached to a
+   `Group { if cond { … } }` — when `cond` flips false→true from async state, the transition was
+   sometimes dropped, leaving the Group empty with no error and no retry. Fixed by moving `.task` onto
+   a persistent `VStack` whose *children* are conditional, instead of the conditional being the
+   `Group`'s only child — keeps the modifier's target view identity stable across the state change.
+   Worth remembering for any future `.task`-driven conditional section.
+
+All verified live via `mobile-mcp` against the mockup: Sources list, Popular carousel, Global search
+(typed "solo", got real per-source result rails), row navigation into `SourceBrowseView`. Zero build
+warnings/errors.
+
+**User live-review (same day, S86 continued): 4 issues flagged from real device screenshots, not
+yet fixed — see `CLAUDE.md` Known Issues table rows 7-10 for full detail. Summary:**
+1. Cover cells in the Browse grid render at inconsistent sizes (MangaDex Popular list) —
+   `MangaCoverCell` has no explicit frame, relies only on `.aspectRatio`; not yet root-caused live.
+2. Manga sources never show a Popular/Latest toggle (novel sources always do) — **confirmed correct
+   behavior, not a bug**: `mangadex.js`/`asurascans.js` never implement `getLatestManga`, while every
+   LNReader-format novel plugin gets it for free via a shared `popularNovels(showLatestNovels:)`
+   contract.
+3. AquaManga's Cloudflare auto-bypass times out (30s, no `cf_clearance` cookie) — unconfirmed whether
+   the site needs an interactive challenge (unsolvable by the headless off-screen `WKWebView`) or is
+   just down. Needs a live manual-bypass (shield icon) test.
+4. Keiyoushi still isn't offered as an installable repo — **by design, not a gap**: it's Kotlin/APK,
+   architecturally incompatible with JSC (documented since S18). Access exists today only via the
+   Suwayomi self-hosted bridge (Settings → Suwayomi Server); Browse only shows a Suwayomi section
+   once that URL is configured.
+
+**Next session: investigate #1 and #3 above (both unconfirmed root causes), then continue to Block 7
+— History.**
+
 ## Current state (post S85 — 2026-08-04 · Phase 0 fidelity fixes — all 6 gaps closed)
 
 **S85 (2026-08-04): fixed all 6 fidelity gaps S84 found, plus one deeper root cause.** Before
