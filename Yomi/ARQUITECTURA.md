@@ -554,6 +554,7 @@ YomiApp / MALView.onOpenURL
 - `appDatabase.read` has async overload: from `@MainActor` context requires `try await appDatabase.read { ... }`
 - `ExtensionManager` is `@Observable final class` — automatically conforms to `Sendable`. `nonisolated(unsafe)` on `static let shared` is unnecessary and generates a warning. To access `bridge(for:)` from `Task.detached`, capture a local `bridgeFn` closure in the `@MainActor` context before entering the Task.
 - `AppRouter` uses module-level `nonisolated(unsafe) var appRouter = AppRouter()` — same pattern as `appDatabase`. Access via `appRouter.selectedTab` from any context.
+- `WebtoonReaderView` (S83, 2026-08-04): `currentPage` is bidirectionally bound to scroll position — `.scrollPosition(id:anchor:.top)` drives `currentPage` on scroll, and a guarded `.onChange(of: currentPage) { proxy.scrollTo(new, anchor: .top) }` (guard: `new != visibleId`) drives scroll from `currentPage`, letting the reader overlay's page slider seek. The guard prevents the two directions from feeding back into each other.
 
 ## Workflow
 
