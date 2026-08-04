@@ -41,8 +41,8 @@ struct LibraryView: View {
                                 description: Text("Plugins connect Yomi to manga and novel sources. Install one to start reading.")
                             )
                             Button("Get plugins") {
-                                appRouter.openBrowseExtensions = true
-                                appRouter.selectedTab = AppRouter.tabBrowse
+                                appRouter.openMorePlugins = true
+                                appRouter.selectedTab = AppRouter.tabMore
                             }
                             .buttonStyle(.borderedProminent)
                         }

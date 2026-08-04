@@ -24,35 +24,38 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
 - `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S82-S85 — Blocks 1-5 of 12 implemented, Phase 0 fidelity gaps closed S85)
+## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **all reached and screenshot-verified live against the mockup as of S85; Blocks 1-5 have no known fidelity debt.** Next session: Block 6 (Browse).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86.** Next session: Block 7 (History).
 
-## Current state (post S85 — 2026-08-04 · Phase 0 — all 6 design-fidelity gaps closed)
+## Current state (post S86 — 2026-08-04 · Block 6 — Browse)
 
-S84 found 6 fidelity gaps in Blocks 1-5 (Library Continue hero missing, cover-cell catalog-index
-badge missing, wrong fonts on source/tab labels, list-mode `MangaListRow` zero design-system
-treatment, Detail header structurally wrong, reader top bar not icon-chip-only). **S85 fixed all
-six**, plus a deeper root cause found first: `YomiTokens.Canvas` (Ink/Midnight/Paper/Sepia) was
-only ever read inside `AppearanceStudioView`'s own preview — never applied as the real app
-background, so every screen rendered as plain system dark mode regardless of canvas choice. Fixed
-via `AppSettings.canvasColors` + a `\.yomiCanvas` environment key set once in `ContentView`. Built
-the missing Continue hero (`ContinueHeroCard` in `ContinueReadingRow.swift`) with a genuine
-ambient-tint-from-cover background (`UIImage.averageColor()`, new `Core/UIImage+AverageColor.swift`).
-Rebuilt `MangaDetailView`/`NovelDetailView` headers to the §14 full-bleed blurred-backdrop +
-overlapping-thumb + floating-glass-nav structure (new shared `Core/GlassChip.swift` modifier);
-deleted the now-orphaned colored `StatusBadge`/`NovelStatusBadge` structs. Moved the manga reader's
-oversized mode-switch Picker out of the top bar into a "Reader Settings" sheet behind a `gearshape`
-chip, matching the spec's 44pt icon-chip pattern; left the novel reader top bar untouched (already
-correct — its typography controls are intentionally always-visible in the bottom card, not gated).
-All 6 fixes screenshot-verified live via `mobile-mcp` against the mockup, not just code-read.
-**Full detail in `Yomi/ROADMAP.md`'s S85 entry.**
+Browse rebuilt to N.06 (Browse) + N.16 (Browse — search). Found the old "Extensions" sub-tab
+duplicated `More → Plugins` (`PluginsView`) — removed it; Browse now only *consumes* installed
+sources (search pill + Sources/Global-search segmented control), matching the 2-segment spec, while
+all install/repo/update management stays solely in `PluginsView` (`CatalogGroupRow` moved there,
+its only remaining caller). Installed-source rows use a new `SourceIconBadge` (real icon, falling
+back to a deterministic name-hashed gradient + initials). A `Popular on <first source>` horizontal
+carousel was added, reusing `MangaCoverCell`/`NovelCoverCell`. Global search became a pushed
+`SearchScreen` with horizontal per-source carousels (was vertical grids under `.searchable`).
+
+**Two real bugs found via live simulator testing (not just code-read), both fixed:**
+1. `NavigationLink` + `.contextMenu` on a row narrows the tappable area to content only (e.g. the
+   trailing chevron) — the `Spacer()`-filled middle silently ate taps. Fix: explicit
+   `.contentShape(Rectangle())` on every tappable row.
+2. `.task(id:)` attached to `Group { if cond { … } }` sometimes never renders the `true` branch when
+   `cond` flips from async state, even though the state is correct (confirmed via a debug label).
+   Fix: attach `.task` to a persistent container (`VStack`) whose *children* are conditional, not a
+   `Group` whose only child is the conditional.
+
+**Full detail in `Yomi/ROADMAP.md`'s S86 entry** (S85's Phase 0 fidelity-gap fix detail is preserved
+there too, one entry below).
 
 **Process note:** `mobile-mcp` element coordinates are the bounding box's top-left corner, not its
 center — tap `(x + width/2, y + height/2)` for small circular targets like the 44×44 glass chips,
 or taps silently miss.
 
-Full session-by-session history (S1-S84) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+Full session-by-session history (S1-S85) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 
@@ -64,6 +67,10 @@ Full session-by-session history (S1-S84) lives in `Yomi/ROADMAP.md` (recent) and
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
 | 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
 | 6 | ReadComicOnline + Mangapill broken | Downloaded from dead GitHub repo. User should uninstall from Extensions tab. |
+| 7 | Inconsistent cover-cell sizes in grid | User-flagged S86 review, MangaDex Popular grid. `MangaCoverCell.swift` cellContent has no explicit `.frame(height:)` — relies solely on `.aspectRatio(2/3, contentMode:.fill)` inside a `LazyVGrid(.adaptive(minimum:100,maximum:160))`. Ratio should be deterministic per column width in theory; not yet root-caused live. Suspect: Kingfisher placeholder (`.aspectRatio(2/3, contentMode:.fit)`) vs loaded-image (`.fill`) sizing mismatch during/after async load. Needs live simulator repro + Xcode view debugger, not just code read. |
+| 8 | Manga sources never show Popular/Latest tabs | Not a bug — confirmed by design. `JSBridge.supportsLatest` (Format A) requires the plugin to define `getLatestManga`; `mangadex.js`/`asurascans.js` never implemented it. Novel (LNReader) sources get `supportsLatest = true` unconditionally in `SourceBrowseView.loadContent()` because LNReader's shared plugin contract reuses one `popularNovels()` method with a `showLatestNovels` flag for every plugin — it's structural, not optional. If Latest is wanted for manga, it must be added per-plugin in the `.js` source (`getLatestManga(page)` function). |
+| 9 | AquaManga Cloudflare bypass fails | User-flagged S86 review. Auto-bypass (`CFBypassManager.autoBypass`, `CFBypassView.swift`) loads the source URL in an off-screen `WKWebView`, polls up to 30s for a `cf_clearance` cookie, then copies cookies into `HTTPCookieStorage.shared` for `URLSession` (used by `SOURCE.fetch`) to pick up. For AquaManga this times out → "No titles found" / Cloudflare-protected banner. Unconfirmed whether the site requires an *interactive* Turnstile challenge (a real tap — auto-bypass can never solve this) vs. the domain being down/changed. Next step: try the manual shield-icon bypass (`CFBypassView`) live and see if a human tap succeeds where auto-bypass didn't. |
+| 10 | Keiyoushi repo — not missing, architectural | User asked S86 review. Keiyoushi extensions are Kotlin (Android APK bytecode) — cannot run in JavaScriptCore, confirmed and documented since S18 (see `RESEARCH.md`/`METODOLOGIA.md`/`ARQUITECTURA.md`). Yomi will never offer it as a one-tap JS repo (unlike LNReader, which is JS-native). The only path to Keiyoushi's 1000+ sources is the existing Suwayomi bridge (self-hosted server, shipped S41, `SettingsView` → "Suwayomi Server") — Browse's Suwayomi section only appears once a server URL is configured there. If the user hasn't set one up, that's why Browse shows no Suwayomi/Keiyoushi content. |
 
 ## MCP tools — use these every session
 
