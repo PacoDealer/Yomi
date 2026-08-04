@@ -55,13 +55,41 @@ that zero shipped plugins (Firebase or bundled) implement it, so the button was 
 also doesn't match the mockup's back/list/settings top bar. `JSBridge.getDiscussionURL()` and
 `DiscussWebSheet` kept in place, dormant, for a future plugin. Build verified clean
 (`xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build` → **BUILD
-SUCCEEDED**). No commit yet — pending user go-ahead.
+SUCCEEDED**). Committed + pushed as `4ca6f56`.
 
-**Next session — Phase 0, before touching Block 6 (Browse):** fix the 5 fidelity gaps found above
-(Library Continue hero, catalog-index badge, source/tab-label fonts, Detail header structure, reader
-top-bar icon set) using a rebuild-to-mockup approach rather than token-swap-on-old-layout. Add a
-mandatory screenshot-vs-mockup comparison step per block going forward — the compile-only checkpoints
-used for Blocks 1-5 caught compile errors but not structural fidelity gaps.
+**S84 cont. — live simulator verification (screenshots, not just code reading):** installed +
+launched on the pinned simulator (`34C346C3-F274-4DE0-A7B2-E9D2DE0CCA97`, per `.xcodebuildmcp/config.yaml`
+— has the user's real saved settings, not a fresh install). Confirmed via screenshot: **(a) List
+mode — the user's actual saved `libraryDisplayMode` — has ZERO design-system treatment.** Plain
+system dark mode, no Ink canvas, no Grotesk, system blue instead of the user's own accent, "Continue
+Reading" is the untouched old horizontal thumbnail row. This is new — the earlier code audit only
+read `MangaCoverCell.swift` (grid mode); it never checked `MangaListRow` (list mode's equivalent,
+same file). Since list mode is what the user actually uses day to day, this is likely the single
+biggest reason S82-S83's work reads as "doesn't match the screens" — their real view was never
+touched. **(b) Grid mode**: confirmed the Continue hero is genuinely missing (identical old row in
+both modes) and cover cells do carry *some* tokens (accent-colored unread badge, thin progress
+hairline) but no catalog-index number — matches the code audit exactly.
+**New Phase 0 item added: token-ify `MangaListRow` (list mode) to the same standard as the grid
+cell**, in addition to the 5 gaps already found.
+
+**Tooling note:** `mobile-mcp` and `XcodeBuildMCP` are correctly installed and show "✔ Connected" in
+`claude mcp list`, but were stale/missing from this session's tool index (likely added/connected
+after this session started) — attempting to drive the simulator via blind AppleScript
+(`osascript ... System Events ... click at`) mis-clicked into an unrelated desktop app twice and was
+abandoned. **Decision: restart the session** so mobile-mcp loads properly, rather than continue with
+unreliable coordinate-guessing. New project skill `.claude/skills/yomi-sim/SKILL.md` created,
+documenting the pinned UDID, the reliable build/install/launch/screenshot pattern, and — importantly
+— the settings-file read/write gotchas discovered this session (`defaults read` reports "domain does
+not exist" even when real data exists on a fresh boot; direct plist file edits silently don't take
+effect, must go through `defaults write`).
+
+**Next session — Phase 0, before touching Block 6 (Browse):** verify `mobile-mcp`/`XcodeBuildMCP`
+tools are now loaded (ToolSearch or check available tools directly). Then fix the 6 fidelity gaps
+found (Library Continue hero, catalog-index badge, source/tab-label fonts, **list-mode `MangaListRow`
+tokens**, Detail header structure, reader top-bar icon set) using a rebuild-to-mockup approach rather
+than token-swap-on-old-layout. Add a mandatory screenshot-vs-mockup comparison step per block going
+forward, using `mobile-mcp` for navigation — the compile-only checkpoints used for Blocks 1-5 caught
+compile errors but not structural fidelity gaps, and list mode was never even looked at.
 
 ## Current state (post S83 — 2026-08-04 · Design implementation Blocks 3-5, PENDING USER REVIEW)
 

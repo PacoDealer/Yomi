@@ -30,11 +30,17 @@ All 16 screens designed and confirmed. Concept: **"reading instrument / living a
 
 ## Current state (post S84 — 2026-08-04 · Project audit + doc/repo cleanup)
 
-**S84 did NOT touch Blocks 1-5's design fidelity** — it found and documented 5 concrete gaps (Library
+**S84 did NOT fix Blocks 1-5's design fidelity** — it found and documented 6 concrete gaps (Library
 Continue hero missing, cover-cell catalog-index badge missing, wrong fonts on source/tab labels,
-Detail header structurally wrong vs. spec, reader top bar had a dead "Discuss" chip instead of the
-spec'd icon set) and fixed the Discuss chip + a batch of repo/doc organization issues (doc duplication,
-wrong file-path references, dead folder, stale assets). **Full detail in `Yomi/ROADMAP.md`'s S84
+**list-mode `MangaListRow` has zero design-system treatment — confirmed via simulator screenshot,
+and it's the user's actual saved display mode**, Detail header structurally wrong vs. spec, reader
+top bar had a dead "Discuss" chip instead of the spec'd icon set) and fixed the Discuss chip + a
+batch of repo/doc organization issues (doc duplication, wrong file-path references, dead folder,
+stale assets). **New skill: `.claude/skills/yomi-sim/SKILL.md`** — how to build/install/launch/
+screenshot the app on the pinned simulator and read/write `AppSettings` without tapping; prefer
+`mobile-mcp`/`XcodeBuildMCP` when loaded (verify via ToolSearch at session start — they were
+missing from S84's session tool index despite showing "Connected" in `claude mcp list`). **Full
+detail in `Yomi/ROADMAP.md`'s S84
 entry.** The 5 fidelity gaps are NOT yet fixed — that's next session's Phase 0, before Block 6.
 
 ## Current state (post S83 — 2026-08-04 · Design implementation Blocks 3-5, PENDING USER REVIEW)
