@@ -21,6 +21,59 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S85 — 2026-08-04 · Phase 0 fidelity fixes — all 6 gaps closed)
+
+**S85 (2026-08-04): fixed all 6 fidelity gaps S84 found, plus one deeper root cause.** Before
+touching the listed gaps, found that `YomiTokens.Canvas` (Ink/Midnight/Paper/Sepia bg/surface/text
+colors) was only ever read inside `AppearanceStudioView`'s own preview card — never applied as the
+real app chrome background. `ContentView`/`YomiApp` only set `.preferredColorScheme` (system
+light/dark) + accent tint, so every screen rendered as plain system dark mode regardless of canvas
+choice. This is the actual root cause of most of S84's "doesn't match the screens" findings, not
+just missing fonts. Fixed by adding `AppSettings.canvasColors` (resolved palette, single source of
+truth) + a `\.yomiCanvas` environment key (`Core/CanvasEnvironment.swift`) set once in
+`ContentView` from `settings.canvasColors` and applied as the real root background; child views
+read it via `@Environment(\.yomiCanvas)` instead of `.primary`/`.secondary`.
+
+Then fixed, in order:
+1. **List-mode `MangaListRow`/`NovelLibraryListRow`** (user's actual daily-driver view, was zero
+   design-system treatment) — Grotesk/Mono fonts, canvas text colors, accent-colored unread count.
+2. **Cover-cell catalog-index badge** — added (`Notation.catalogIndex`, Mono 700 15px accent,
+   top-left) to both `MangaCoverCell` and `NovelLibraryCoverCell`, fed by a 1-based index from
+   `LibraryView`'s `ForEach(Array(...enumerated()))`. Fixed source-label font (was Mono, spec says
+   Grotesk) and category-tab-bar font (was system, now Grotesk) on the same pass.
+3. **Continue hero** (`ContinueReadingRow.swift`) — built the missing §9.2 full-width hero card
+   (`ContinueHeroCard`): cover thumb, `CONTINUE READING` label, Grotesk title, `Notation.chapterProgress`
+   notation, accent Resume pill, progress hairline. Background is a genuine ambient tint **sampled
+   from the cover** via a new `UIImage.averageColor()` (CIAreaAverage) in
+   `Core/UIImage+AverageColor.swift`, not a fake gradient. The remaining recently-read items became
+   an "Up next" shelf below it (§A.3.b), reusing the existing `ContinueReadingCell`/`ContinueReadingNovelCell`.
+4. **Detail header rebuild** (`MangaDetailView.swift` + `NovelDetailView.swift`) — replaced the
+   plain `List`/`Section` header with the §14 full-bleed blurred-cover backdrop (`.blur(radius: 30)`
+   + dark scrim gradient) + overlapping 110×162 cover thumb + floating glass nav (`glassChip()`,
+   new shared modifier in `Core/GlassChip.swift`: back/heart/overflow, 44×44 circles) replacing the
+   system nav bar (`.toolbar(isSelectingChapters ? .visible : .hidden, for: .navigationBar)` —
+   selection mode keeps the native bar, normal mode doesn't). Deleted the now-orphaned
+   `StatusBadge`/`NovelStatusBadge` structs (colored-by-status pills, not spec'd — replaced inline
+   with the flat Mono/surface chip both mockup and `Notation.status()` already implied).
+5. **Reader top-bar icon set** (`ChapterReaderView.swift`) — the manga reader's top bar had a
+   108pt-wide segmented Picker (RTL/LTR/vertical mode) instead of the spec'd 44pt icon chips. Moved
+   the mode picker into a new "Reader Settings" sheet behind a `gearshape` chip, matching spec's
+   "list, settings" pair exactly. **Novel reader top bar needed no change** — it already had only
+   back/list chips with no non-conforming elements; its typography controls are intentionally
+   always-visible in the bottom card (not gated behind a settings icon), which is a deliberate
+   difference from the manga reader, not a gap.
+
+All 6 fixes screenshot-verified live in the simulator (via `mobile-mcp`, pinned UDID) against the
+mockup, not just code-read — per S84's own finding that compile-only checkpoints missed structural
+gaps. One process note for future sessions: `mobile-mcp` element coordinates are the **top-left**
+of the bounding box, not the center — tapping the reported `(x,y)` directly can miss small circular
+hit targets (44×44 chips); tap `(x + width/2, y + height/2)` instead.
+
+**Next session: Block 6 — Browse**, per the original 12-block implementation order (Library →
+Library-selection → Detail → Manga Reader overlay → Novel Reader overlay → **Browse** → History →
+Updates → Downloads → Insights → More+Settings → Onboarding+empty states). Phase 0 is fully closed;
+no known fidelity debt remains in Blocks 1-5.
+
 ## Current state (post S84 — 2026-08-04 · Project audit + doc/repo cleanup, no design-fidelity fixes yet)
 
 **S84 (2026-08-04):** Full project audit at user request, prompted by design-fidelity drift in the

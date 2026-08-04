@@ -65,6 +65,12 @@ import Observation
         didSet { defaults.set(accentColor, forKey: "accentColor") }
     }
 
+    /// Resolved canvas palette (bg/surfaces/text) for the current `canvas` preset.
+    /// Single source of truth — read this instead of re-deriving `YomiTokens.Canvas.named(...)`.
+    var canvasColors: YomiTokens.CanvasColors {
+        canvas.isEmpty ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(canvas)
+    }
+
     var useSystemFont: Bool {
         didSet { defaults.set(useSystemFont, forKey: "useSystemFont") }
     }
