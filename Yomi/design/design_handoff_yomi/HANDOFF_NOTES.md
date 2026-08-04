@@ -104,7 +104,7 @@ All screens render inside an iPhone frame at **402 × 874** (logical). Status ba
 the frame. Content scrolls; chrome floats.
 
 1. **Library** — home. Flat Ink bg. Category tabs across the top; the active tab ("All")
-   carries a **3pt Vermilion underline**. Three vertical sections, each a horizontal or grid
+   carries a **2pt Vermilion underline**. Three vertical sections, each a horizontal or grid
    run of covers with a **mono grey catalog index** per item:
    - **Up next** — titles already started; each shows a **progress bar anchored left**
      (= % read) and unread badges.
@@ -143,7 +143,7 @@ the frame. Content scrolls; chrome floats.
 16. **Browse · Search** — Browse with the search field active.
 
 ## Interactions & behavior
-- **Tabs** (Library categories): tapping moves the 3pt Vermilion underline; content swaps.
+- **Tabs** (Library categories): tapping moves the 2pt Vermilion underline; content swaps.
 - **Resume / Continue**: primary navigation into the last-read chapter of the hero title.
 - **Progress bars**: left-anchored, width = % read, Vermilion fill on neutral track. Present
   on every "started" title.
