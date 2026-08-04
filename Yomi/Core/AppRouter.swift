@@ -23,9 +23,6 @@ final class AppRouter {
 
     var selectedTab: Int = 0
 
-    /// When true, BrowseView will switch its sub-tab to Extensions and reset this flag.
-    var openBrowseExtensions: Bool = false
-
     /// When true, MoreView will push PluginsView and reset this flag.
     var openMorePlugins: Bool = false
 

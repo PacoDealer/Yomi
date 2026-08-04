@@ -2,251 +2,267 @@ import SwiftUI
 import Kingfisher
 
 // MARK: - BrowseView
+//
+// Design spec: YOMI Screens.dc.html N.06 (Browse) + N.16 (Browse — search).
+// Extension/repo management (install, add repo, update, delete) lives entirely in
+// More → Plugins (PluginsView) — Browse only consumes already-installed sources.
 
 struct BrowseView: View {
     @State private var extensionManager = ExtensionManager.shared
-    @State private var catalogService   = PluginCatalogService.shared
     @State private var settings         = AppSettings.shared
-    @State private var selectedTab: BrowseTab = .sources
-    @State private var installingID: String? = nil
+    @Environment(\.yomiCanvas) private var canvas
     @State private var suwayomiSources: [SuwayomiSource] = []
     @State private var suwayomiLoading  = false
     @State private var opdsRootFeed: OPDSFeed? = nil
     @State private var opdsLoading = false
-    @State private var extensionsSearch = ""
-    @State private var langPickerGroup: PluginCatalogGroup? = nil
-    @State private var selectedRepos: Set<String> = []
-    @State private var selectedCatalogLanguage: String? = nil
-
-    enum BrowseTab: String, CaseIterable {
-        case sources    = "Sources"
-        case extensions = "Extensions"
-        case search     = "Search"
-    }
+    @State private var showSearch = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("Tab", selection: $selectedTab) {
-                    ForEach(BrowseTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
-                switch selectedTab {
-                case .sources:    sourcesTab
-                case .extensions: extensionsTab
-                    .searchable(text: $extensionsSearch, prompt: "Search extensions")
-                case .search:     GlobalSearchView()
-                }
-            }
-            .navigationTitle("Browse")
-            .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: appRouter.openBrowseExtensions) { _, open in
-                if open {
-                    selectedTab = .extensions
-                    appRouter.openBrowseExtensions = false
-                }
-            }
-        }
-        // Language picker for multi-lang sources
-        .confirmationDialog(
-            langPickerGroup.map { "Install \($0.name)" } ?? "",
-            isPresented: Binding(get: { langPickerGroup != nil }, set: { if !$0 { langPickerGroup = nil } }),
-            titleVisibility: .visible
-        ) {
-            if let group = langPickerGroup {
-                ForEach(group.entries) { entry in
-                    let installed = catalogService.isInstalled(entry)
-                    Button(installed ? "\(entry.language.uppercased()) — Installed" : entry.language.uppercased()) {
-                        if !installed { Task { await installEntry(entry) } }
-                    }
-                    .disabled(installed)
-                }
-                Button("Cancel", role: .cancel) {}
-            }
+            sourcesTab
+                .navigationTitle("Browse")
+                .navigationDestination(isPresented: $showSearch) { SearchScreen() }
         }
     }
 
-    // MARK: Language normalization (shared by Extensions tab)
-
-    static func displayLanguage(_ raw: String) -> String {
-        switch raw.lowercased().trimmingCharacters(in: .whitespaces) {
-        case "en", "english":                return "English"
-        case "fr", "french":                 return "French"
-        case "es", "spanish":                return "Spanish"
-        case "pt", "pt-br", "portuguese":    return "Portuguese"
-        case "zh", "zh-hans", "zh-hant", "chinese": return "Chinese"
-        case "ko", "korean":                 return "Korean"
-        case "ja", "japanese":               return "Japanese"
-        case "it", "italian":                return "Italian"
-        case "de", "german":                 return "German"
-        case "ru", "russian":                return "Russian"
-        case "id", "indonesian":             return "Indonesian"
-        case "tr", "turkish":                return "Turkish"
-        case "ar", "arabic":                 return "Arabic"
-        case "pl", "polish":                 return "Polish"
-        case "vi", "vietnamese":             return "Vietnamese"
-        case "th", "thai":                   return "Thai"
-        case "all", "multi":                 return "Multi"
-        default: return raw.isEmpty ? "" : raw
-        }
-    }
-
-    private var availableLanguages: [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-        for entry in catalogService.entries {
-            let lang = BrowseView.displayLanguage(entry.language)
-            guard !lang.isEmpty, seen.insert(lang).inserted else { continue }
-            result.append(lang)
-        }
-        return result.sorted()
-    }
-
-    // MARK: Sources tab
+    // MARK: Sources
 
     @ViewBuilder
     private var sourcesTab: some View {
         let hasSuwayomi = SuwayomiService.shared.isEnabled
         let hasOPDS     = OPDSService.shared.isEnabled
         if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS {
-            ContentUnavailableView(
-                "No sources installed",
-                systemImage: "puzzlepiece.extension",
-                description: Text("Go to the Extensions tab to discover and install sources.")
-            )
-            .onTapGesture { selectedTab = .extensions }
+            emptyState
         } else {
-            List {
-                if !extensionManager.installed.isEmpty {
-                    Section {
-                        ForEach(extensionManager.installed) { ext in
-                            NavigationLink {
-                                SourceBrowseView(ext: ext)
-                            } label: {
-                                ExtensionRow(ext: ext)
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    extensionManager.remove(ext)
-                                } label: {
-                                    Label("Uninstall", systemImage: "trash")
-                                }
-                            }
-                        }
-                    } header: {
-                        HStack {
-                            Text("Installed (\(extensionManager.installed.count))")
-                            Spacer()
-                            Button("Get more") { selectedTab = .extensions }
-                                .font(.caption)
-                        }
+            ScrollView {
+                VStack(spacing: 0) {
+                    searchPillAndSegmented
+                    installedSection
+                    if hasSuwayomi { suwayomiSection }
+                    if hasOPDS { opdsSection }
+                    if let firstExt = extensionManager.installed.first {
+                        PopularSourceCarousel(ext: firstExt)
                     }
-                }
-
-                if hasSuwayomi {
-                    Section {
-                        if suwayomiLoading {
-                            ProgressView().frame(maxWidth: .infinity)
-                        } else if suwayomiSources.isEmpty {
-                            Button("Load sources") {
-                                Task { await loadSuwayomiSources() }
-                            }
-                        } else {
-                            ForEach(suwayomiSources) { src in
-                                NavigationLink {
-                                    SuwayomiBrowseView(source: src)
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        KFImage(URL(string: "\(SuwayomiService.shared.baseURL)\(src.iconUrl)"))
-                                            .placeholder { Image(systemName: "network").foregroundStyle(.secondary) }
-                                            .fade(duration: 0.2)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 32, height: 32)
-                                            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(src.name).font(.body)
-                                            Text(src.lang.uppercased())
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } header: {
-                        Text("Suwayomi Server")
-                    } footer: {
-                        Text(SuwayomiService.shared.baseURL)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                if hasOPDS {
-                    Section {
-                        if opdsLoading {
-                            ProgressView().frame(maxWidth: .infinity)
-                        } else if let feed = opdsRootFeed {
-                            ForEach(feed.entries) { entry in
-                                if let navHref = entry.navigationHref {
-                                    NavigationLink {
-                                        OPDSBrowseView(title: entry.title, feedHref: navHref)
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            if let coverURL = OPDSService.shared.coverURL(for: entry) {
-                                                KFImage(coverURL)
-                                                    .placeholder { Image(systemName: "folder").foregroundStyle(.secondary) }
-                                                    .fade(duration: 0.2)
-                                                    .resizable()
-                                                    .scaledToFill()
-                                                    .frame(width: 32, height: 32)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                            } else {
-                                                Image(systemName: "folder")
-                                                    .frame(width: 32, height: 32)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            Text(entry.title).font(.body)
-                                        }
-                                    }
-                                } else {
-                                    NavigationLink {
-                                        OPDSBrowseView(title: entry.title, feedHref: OPDSService.shared.baseURL)
-                                    } label: {
-                                        Text(entry.title)
-                                    }
-                                }
-                            }
-                        } else {
-                            Button("Load library") {
-                                Task { await loadOPDSRoot() }
-                            }
-                        }
-                    } header: {
-                        Text("OPDS Library")
-                    } footer: {
-                        Text(OPDSService.shared.baseURL)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
+                    Color.clear.frame(height: 24)
                 }
             }
             .task {
-                if hasSuwayomi && suwayomiSources.isEmpty {
-                    await loadSuwayomiSources()
-                }
-                if hasOPDS && opdsRootFeed == nil {
-                    await loadOPDSRoot()
-                }
+                if hasSuwayomi && suwayomiSources.isEmpty { await loadSuwayomiSources() }
+                if hasOPDS && opdsRootFeed == nil { await loadOPDSRoot() }
             }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            ContentUnavailableView(
+                "No sources installed",
+                systemImage: "puzzlepiece.extension",
+                description: Text("Go to More → Plugins to discover and install sources.")
+            )
+            Button("Open Plugins") {
+                appRouter.openMorePlugins = true
+                appRouter.selectedTab = AppRouter.tabMore
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    // MARK: Search pill + segmented control (N.06)
+
+    private var searchPillAndSegmented: some View {
+        VStack(spacing: 14) {
+            Button { showSearch = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15))
+                    Text("Search all sources")
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                    Spacer()
+                }
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 12)
+                .frame(height: 38)
+                .background(canvas.surface2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 6) {
+                segmentButton(title: "Sources", isSelected: true) {}
+                segmentButton(title: "Global search", isSelected: false) { showSearch = true }
+            }
+            .padding(3)
+            .background(canvas.surface2, in: Capsule())
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    private func segmentButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .foregroundStyle(isSelected ? .white : canvas.textSecondary)
+                .background(isSelected ? Color.accentColor : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Installed section
+
+    @ViewBuilder
+    private var installedSection: some View {
+        if !extensionManager.installed.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("INSTALLED · \(extensionManager.installed.count)")
+                    .font(YomiTokens.Font.mono(11))
+                    .tracking(0.6)
+                    .foregroundStyle(canvas.textSecondary)
+                    .padding(.horizontal, 16)
+
+                VStack(spacing: 0) {
+                    ForEach(extensionManager.installed) { ext in
+                        NavigationLink {
+                            SourceBrowseView(ext: ext)
+                        } label: {
+                            SourceRow(ext: ext)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                extensionManager.remove(ext)
+                            } label: {
+                                Label("Uninstall", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 22)
+        }
+    }
+
+    // MARK: Suwayomi section
+
+    @ViewBuilder
+    private var suwayomiSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SUWAYOMI SERVER")
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 16)
+
+            if suwayomiLoading {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
+            } else if suwayomiSources.isEmpty {
+                Button("Load sources") { Task { await loadSuwayomiSources() } }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(suwayomiSources) { src in
+                        NavigationLink {
+                            SuwayomiBrowseView(source: src)
+                        } label: {
+                            HStack(spacing: 12) {
+                                KFImage(URL(string: "\(SuwayomiService.shared.baseURL)\(src.iconUrl)"))
+                                    .placeholder { Image(systemName: "network").foregroundStyle(canvas.textSecondary) }
+                                    .fade(duration: 0.2)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 36, height: 36)
+                                    .clipShape(RoundedRectangle(cornerRadius: 9))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(src.name)
+                                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                                        .foregroundStyle(canvas.textPrimary)
+                                    Text(src.lang.uppercased())
+                                        .font(YomiTokens.Font.mono(11))
+                                        .foregroundStyle(canvas.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                            }
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
+                            .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(.top, 22)
+    }
+
+    // MARK: OPDS section
+
+    @ViewBuilder
+    private var opdsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("OPDS LIBRARY")
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 16)
+
+            if opdsLoading {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
+            } else if let feed = opdsRootFeed {
+                VStack(spacing: 0) {
+                    ForEach(feed.entries) { entry in
+                        NavigationLink {
+                            OPDSBrowseView(title: entry.title, feedHref: entry.navigationHref ?? OPDSService.shared.baseURL)
+                        } label: {
+                            opdsRow(entry: entry)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            } else {
+                Button("Load library") { Task { await loadOPDSRoot() } }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            }
+        }
+        .padding(.top, 22)
+    }
+
+    private func opdsRow(entry: OPDSEntry) -> some View {
+        HStack(spacing: 12) {
+            if let coverURL = OPDSService.shared.coverURL(for: entry) {
+                KFImage(coverURL)
+                    .placeholder { Image(systemName: "folder").foregroundStyle(canvas.textSecondary) }
+                    .fade(duration: 0.2)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+            } else {
+                Image(systemName: "folder")
+                    .frame(width: 36, height: 36)
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            Text(entry.title)
+                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                .foregroundStyle(canvas.textPrimary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+        }
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
     }
 
     private func loadSuwayomiSources() async {
@@ -274,256 +290,198 @@ struct BrowseView: View {
             await MainActor.run { opdsLoading = false }
         }
     }
-
-    // MARK: Extensions tab
-
-    @ViewBuilder
-    private var extensionsTab: some View {
-        Group {
-            if catalogService.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let error = catalogService.errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Failed to load: \(error)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Retry") {
-                        Task { await catalogService.fetchCatalog() }
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if filteredGroups.isEmpty && !catalogService.entries.isEmpty {
-                ContentUnavailableView.search(text: extensionsSearch)
-            } else if filteredGroups.isEmpty {
-                VStack(spacing: 20) {
-                    Image(systemName: "puzzlepiece.extension")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.secondary)
-                    VStack(spacing: 8) {
-                        Text("No extensions available")
-                            .font(.title3).fontWeight(.semibold)
-                        Text("Add a repository in More → Plugins to discover sources.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 0) {
-                    if availableRepos.count > 1 {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                RepoFilterChip(label: "All", isSelected: selectedRepos.isEmpty) {
-                                    selectedRepos = []
-                                }
-                                ForEach(availableRepos, id: \.self) { repo in
-                                    RepoFilterChip(label: repo, isSelected: selectedRepos.contains(repo)) {
-                                        if selectedRepos.contains(repo) {
-                                            selectedRepos.remove(repo)
-                                        } else {
-                                            selectedRepos.insert(repo)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                        }
-                        Divider()
-                    }
-                    if availableLanguages.count > 1 {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                RepoFilterChip(label: "All languages", isSelected: selectedCatalogLanguage == nil) {
-                                    selectedCatalogLanguage = nil
-                                }
-                                ForEach(availableLanguages, id: \.self) { lang in
-                                    RepoFilterChip(label: lang, isSelected: selectedCatalogLanguage == lang) {
-                                        selectedCatalogLanguage = selectedCatalogLanguage == lang ? nil : lang
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                        }
-                        Divider()
-                    }
-                    List(filteredGroups) { group in
-                        CatalogGroupRow(
-                            group:        group,
-                            isInstalled:  catalogService.isGroupInstalled(group),
-                            installingID: installingID
-                        ) {
-                            if group.isMultiLang {
-                                langPickerGroup = group
-                            } else {
-                                Task { await installEntry(group.primaryEntry) }
-                            }
-                        }
-                    }
-                    .refreshable { await catalogService.fetchCatalog(force: true) }
-                }
-            }
-        }
-        .task { await catalogService.fetchCatalog() }
-    }
-
-    private var availableRepos: [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-        for entry in catalogService.entries {
-            let label = PluginCatalogService.repoLabel(from: entry.repoURL)
-            guard !label.isEmpty, seen.insert(label).inserted else { continue }
-            result.append(label)
-        }
-        return result.sorted()
-    }
-
-    private var filteredGroups: [PluginCatalogGroup] {
-        var groups = settings.showNSFW
-            ? catalogService.groupedEntries
-            : catalogService.groupedEntries.filter { !$0.primaryEntry.isNSFW }
-        if !selectedRepos.isEmpty {
-            groups = groups.filter { selectedRepos.contains(PluginCatalogService.repoLabel(from: $0.primaryEntry.repoURL)) }
-        }
-        if let lang = selectedCatalogLanguage {
-            groups = groups.filter {
-                BrowseView.displayLanguage($0.primaryEntry.language) == lang
-                    || $0.entries.contains { BrowseView.displayLanguage($0.language) == lang }
-            }
-        }
-        if !extensionsSearch.isEmpty {
-            groups = groups.filter { $0.name.localizedStandardContains(extensionsSearch) }
-        }
-        return groups
-    }
-
-    private func installEntry(_ entry: PluginCatalogEntry) async {
-        guard let fileURL = URL(string: entry.fileURL) else { return }
-        installingID = entry.id
-        let ext = Extension(
-            id:            entry.id,
-            name:          entry.name,
-            version:       entry.version,
-            language:      entry.language,
-            iconURL:       entry.iconURL.flatMap { URL(string: $0) },
-            sourceListURL: fileURL,
-            isInstalled:   true,
-            isNSFW:        entry.isNSFW,
-            sourceIds:     []
-        )
-        await extensionManager.install(ext)
-        installingID = nil
-    }
 }
 
-// MARK: - RepoFilterChip
+// MARK: - SourceIconBadge
+//
+// Gradient-initials icon chip (N.06 installed-source rows). Falls back to a stable,
+// name-derived gradient + initials when the source has no icon or it fails to load.
 
-struct RepoFilterChip: View {
-    let label: String
-    let isSelected: Bool
-    let onTap: () -> Void
+private struct SourceIconBadge: View {
+    let name: String
+    let iconURL: URL?
+    var size: CGFloat = 36
+
+    private static let gradients: [[Color]] = [
+        [Color(hex: "#7A1C14"), Color(hex: "#C23A2B")],
+        [Color(hex: "#1C4A63"), Color(hex: "#2F7EA0")],
+        [Color(hex: "#324E7A"), Color(hex: "#5878B0")],
+        [Color(hex: "#4A3D22"), Color(hex: "#7D6A3A")],
+        [Color(hex: "#265036"), Color(hex: "#3F8058")],
+        [Color(hex: "#5F2749"), Color(hex: "#A6427E")],
+    ]
+
+    private var initials: String {
+        let letters = name.split(separator: " ").prefix(2).compactMap { $0.first }
+        return String(letters).uppercased()
+    }
+
+    private var gradient: [Color] {
+        let sum = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return SourceIconBadge.gradients[sum % SourceIconBadge.gradients.count]
+    }
 
     var body: some View {
-        Button(action: onTap) {
-            Text(label)
-                .font(.subheadline).fontWeight(.medium)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .clipShape(Capsule())
+        ZStack {
+            LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+            if let iconURL {
+                KFImage(iconURL)
+                    .placeholder { initialsText }
+                    .fade(duration: 0.2)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                initialsText
+            }
         }
-        .buttonStyle(.plain)
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.25))
+    }
+
+    private var initialsText: some View {
+        Text(initials)
+            .font(YomiTokens.Font.mono(13, bold: true))
+            .foregroundStyle(.white)
     }
 }
 
-// MARK: - CatalogGroupRow
+// MARK: - SourceRow
 
-struct CatalogGroupRow: View {
-    let group:        PluginCatalogGroup
-    let isInstalled:  Bool
-    let installingID: String?
-    let onInstall:    () -> Void
+private struct SourceRow: View {
+    let ext: Extension
+    @State private var isNovelPlugin: Bool? = nil
+    @Environment(\.yomiCanvas) private var canvas
 
-    private var isInstalling: Bool {
-        group.entries.contains { $0.id == installingID }
-    }
-    private var repoLabel: String {
-        PluginCatalogService.repoLabel(from: group.primaryEntry.repoURL)
+    private var subtitle: String {
+        var parts = [ext.language.uppercased()]
+        if let isNovel = isNovelPlugin {
+            parts.append(isNovel ? "NOVELS" : "MANGA")
+        }
+        return parts.joined(separator: " · ")
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            KFImage(group.primaryEntry.iconURL.flatMap { URL(string: $0) })
-                .placeholder {
-                    Image(systemName: "puzzlepiece.extension")
-                        .resizable().aspectRatio(1, contentMode: .fit)
-                        .padding(8)
-                        .foregroundStyle(.secondary)
-                        .background(Color.secondary.opacity(0.12))
-                }
-                .fade(duration: 0.2)
-                .resizable()
-                .aspectRatio(1, contentMode: .fit)
-                .frame(width: 40, height: 40)
-                .cornerRadius(8)
+            SourceIconBadge(name: ext.name, iconURL: ext.iconURL)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(group.name).font(.headline)
-                HStack(spacing: 5) {
-                    if group.isMultiLang {
-                        Text("\(group.entries.count) langs")
-                            .font(.caption2).fontWeight(.semibold)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.15))
-                            .foregroundStyle(.orange)
-                            .clipShape(Capsule())
-                    } else {
-                        LanguageBadge(language: group.primaryEntry.language)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ext.name)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                HStack(spacing: 6) {
+                    Text(subtitle)
+                        .font(YomiTokens.Font.mono(11))
+                        .foregroundStyle(canvas.textSecondary)
+                    if ext.isNSFW {
+                        Text("18+")
+                            .font(YomiTokens.Font.mono(10, bold: true))
+                            .foregroundStyle(.red)
                     }
-                    if group.primaryEntry.isNovel {
-                        Text("Novel")
-                            .font(.caption2).fontWeight(.semibold)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.15))
-                            .foregroundStyle(Color.purple)
-                            .clipShape(Capsule())
-                    }
-                    if group.primaryEntry.isNSFW { NSFWBadge() }
-                    if !repoLabel.isEmpty {
-                        Text(repoLabel)
-                            .font(.caption2).fontWeight(.medium)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.12))
-                            .foregroundStyle(.secondary)
-                            .clipShape(Capsule())
-                    }
-                    Text("v\(group.primaryEntry.version)")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
-
             Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+        }
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
+        .task(id: ext.id) {
+            let id = ext.id
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs.appendingPathComponent("Extensions/\(id).js")
+            isNovelPlugin = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
+        }
+    }
+}
 
-            if isInstalled {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            } else if isInstalling {
-                ProgressView().scaleEffect(0.8)
-            } else {
-                Button(group.isMultiLang ? "Get" : "Install", action: onInstall)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+// MARK: - PopularSourceCarousel
+
+private struct PopularSourceCarousel: View {
+    let ext: Extension
+    @Environment(\.yomiCanvas) private var canvas
+    @State private var mangas: [Manga] = []
+    @State private var novels: [Novel] = []
+    @State private var isNovel = false
+    @State private var bridge: JSBridge? = nil
+    @State private var loaded = false
+
+    private var hasContent: Bool {
+        loaded && (isNovel ? !novels.isEmpty : !mangas.isEmpty)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if hasContent {
+                HStack(alignment: .lastTextBaseline) {
+                    Text("Popular on \(ext.name)")
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.title2, weight: .medium))
+                        .foregroundStyle(canvas.textPrimary)
+                    Spacer()
+                    NavigationLink {
+                        SourceBrowseView(ext: ext)
+                    } label: {
+                        Text("See all")
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        if isNovel, let b = bridge {
+                            ForEach(novels) { novel in
+                                NovelCoverCell(novel: novel, bridge: b)
+                                    .frame(width: 104)
+                            }
+                        } else {
+                            ForEach(mangas) { manga in
+                                MangaCoverCell(manga: manga)
+                                    .frame(width: 104)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.top, hasContent ? 22 : 0)
+        .task(id: ext.id) { await load() }
+    }
+
+    private func load() async {
+        loaded = false
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let url = docs.appendingPathComponent("Extensions/\(ext.id).js")
+        guard let b = JSBridge(scriptURL: url) else { loaded = true; return }
+        bridge = b
+        let sourceId = ext.id
+        if b.isLNReaderPlugin {
+            isNovel = true
+            let items = await Task.detached(priority: .userInitiated) { b.popularNovels(page: 1) }.value
+            novels = items.prefix(10).map { item in
+                Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
+                      title: item.name, coverURL: URL(string: item.cover ?? ""),
+                      summary: nil, author: nil, status: "unknown", genres: [],
+                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+                      readingSeconds: 0, readingStatus: .none, notes: nil)
+            }
+        } else {
+            isNovel = false
+            let results = await Task.detached(priority: .userInitiated) { b.getMangaList(page: 1, sourceId: sourceId) }.value
+            mangas = Array(results.prefix(10))
+        }
+        loaded = true
+    }
+}
+
+// MARK: - SearchScreen
+
+private struct SearchScreen: View {
+    var body: some View {
+        GlobalSearchView()
     }
 }
 
@@ -532,9 +490,11 @@ struct CatalogGroupRow: View {
 private struct GlobalSearchView: View {
     @State private var extensionManager = ExtensionManager.shared
     @State private var searchQuery = ""
+    @State private var isSearchPresented = true
     @State private var sections: [SearchSection] = []
     @State private var pendingCount = 0
     @State private var debounceTask: Task<Void, Never>? = nil
+    @Environment(\.yomiCanvas) private var canvas
 
     struct SearchSection: Identifiable {
         let id: String
@@ -544,8 +504,6 @@ private struct GlobalSearchView: View {
         let novels: [NovelItem]
         let bridge: JSBridge
     }
-
-    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
 
     var body: some View {
         Group {
@@ -559,8 +517,8 @@ private struct GlobalSearchView: View {
                 VStack(spacing: 12) {
                     ProgressView()
                     Text("Searching \(pendingCount) source\(pendingCount == 1 ? "" : "s")…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(YomiTokens.Font.mono(12))
+                        .foregroundStyle(canvas.textSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !sections.isEmpty {
@@ -581,7 +539,8 @@ private struct GlobalSearchView: View {
                 )
             }
         }
-        .searchable(text: $searchQuery, prompt: "Search titles")
+        .navigationTitle("Search")
+        .searchable(text: $searchQuery, isPresented: $isSearchPresented, prompt: "Search titles")
         .onChange(of: searchQuery) { _, newValue in
             scheduleSearch(query: newValue)
         }
@@ -591,7 +550,7 @@ private struct GlobalSearchView: View {
 
     private var resultsList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 22, pinnedViews: [.sectionHeaders]) {
                 ForEach(sections) { section in
                     sectionView(section)
                 }
@@ -599,8 +558,8 @@ private struct GlobalSearchView: View {
                     HStack {
                         ProgressView()
                         Text("Searching \(pendingCount) more…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(canvas.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -612,35 +571,43 @@ private struct GlobalSearchView: View {
 
     @ViewBuilder
     private func sectionView(_ section: SearchSection) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(section.sourceName)
-                .font(.headline)
-                .padding(.horizontal, 16)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .lastTextBaseline) {
+                Text(section.sourceName)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.headline, weight: .medium))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer()
+                Text("\(section.isNovel ? section.novels.count : section.mangas.count)")
+                    .font(YomiTokens.Font.mono(11))
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            .padding(.horizontal, 16)
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                if section.isNovel {
-                    ForEach(section.novels, id: \.path) { item in
-                        let novel = Novel(
-                            id: "\(section.id)_\(item.path)",
-                            path: item.path,
-                            sourceId: section.id,
-                            title: item.name,
-                            coverURL: URL(string: item.cover ?? ""),
-                            summary: nil, author: nil,
-                            status: "unknown", genres: [],
-                            inLibrary: false, lastReadAt: nil,
-                            lastUpdatedAt: nil, readingSeconds: 0,
-                            readingStatus: .none, notes: nil
-                        )
-                        NovelCoverCell(novel: novel, bridge: section.bridge)
-                    }
-                } else {
-                    ForEach(section.mangas) { manga in
-                        MangaCoverCell(manga: manga)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    if section.isNovel {
+                        ForEach(section.novels, id: \.path) { item in
+                            let novel = Novel(
+                                id: "\(section.id)_\(item.path)", path: item.path, sourceId: section.id,
+                                title: item.name, coverURL: URL(string: item.cover ?? ""),
+                                summary: nil, author: nil,
+                                status: "unknown", genres: [],
+                                inLibrary: false, lastReadAt: nil,
+                                lastUpdatedAt: nil, readingSeconds: 0,
+                                readingStatus: .none, notes: nil
+                            )
+                            NovelCoverCell(novel: novel, bridge: section.bridge)
+                                .frame(width: 108)
+                        }
+                    } else {
+                        ForEach(section.mangas) { manga in
+                            MangaCoverCell(manga: manga)
+                                .frame(width: 108)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 12)
         }
     }
 
@@ -698,77 +665,6 @@ private struct GlobalSearchView: View {
                     }
                 }
             }
-        }
-    }
-}
-
-// MARK: - ExtensionRow
-
-private struct ExtensionRow: View {
-    let ext: Extension
-    @State private var isNovelPlugin: Bool? = nil
-
-    var body: some View {
-        HStack(spacing: 12) {
-            KFImage(ext.iconURL)
-                .placeholder {
-                    Image(systemName: "puzzlepiece.extension")
-                        .resizable()
-                        .aspectRatio(1, contentMode: .fit)
-                        .padding(8)
-                        .foregroundStyle(.secondary)
-                        .background(Color.secondary.opacity(0.15))
-                }
-                .fade(duration: 0.2)
-                .resizable()
-                .aspectRatio(1, contentMode: .fit)
-                .frame(width: 44, height: 44)
-                .cornerRadius(8)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(ext.name)
-                    .font(.headline)
-                HStack(spacing: 6) {
-                    Text(ext.language.uppercased())
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.15))
-                        .foregroundStyle(.tint)
-                        .clipShape(Capsule())
-                    if let isNovel = isNovelPlugin {
-                        Text(isNovel ? "Novel" : "Manga")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background((isNovel ? Color.purple : Color.blue).opacity(0.15))
-                            .foregroundStyle(isNovel ? Color.purple : Color.blue)
-                            .clipShape(Capsule())
-                    }
-                    if ext.isNSFW {
-                        Text("18+")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.red.opacity(0.15))
-                            .foregroundStyle(.red)
-                            .clipShape(Capsule())
-                    }
-                    Text("v\(ext.version)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .task(id: ext.id) {
-            let id = ext.id
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let url = docs.appendingPathComponent("Extensions/\(id).js")
-            isNovelPlugin = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
         }
     }
 }
@@ -1088,6 +984,7 @@ private struct NovelCoverCell: View {
     let novel: Novel
     let bridge: JSBridge
     @State private var dbInLibrary: Bool = false
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         NavigationLink {
@@ -1095,7 +992,7 @@ private struct NovelCoverCell: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 CoverImage(url: novel.coverURL)
-                    .cornerRadius(8)
+                    .cornerRadius(YomiTokens.Radius.cover)
                     .clipped()
                 .overlay(alignment: .topLeading) {
                     if !novel.inLibrary && dbInLibrary {
@@ -1109,9 +1006,9 @@ private struct NovelCoverCell: View {
                 }
 
                 Text(novel.title)
-                    .font(.caption)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
                     .lineLimit(2)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(canvas.textPrimary)
             }
         }
         .buttonStyle(.plain)

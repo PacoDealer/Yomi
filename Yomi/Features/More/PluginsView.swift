@@ -504,6 +504,88 @@ private struct InstalledExtensionRow: View {
     }
 }
 
+// MARK: - CatalogGroupRow
+
+struct CatalogGroupRow: View {
+    let group:        PluginCatalogGroup
+    let isInstalled:  Bool
+    let installingID: String?
+    let onInstall:    () -> Void
+
+    private var isInstalling: Bool {
+        group.entries.contains { $0.id == installingID }
+    }
+    private var repoLabel: String {
+        PluginCatalogService.repoLabel(from: group.primaryEntry.repoURL)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            KFImage(group.primaryEntry.iconURL.flatMap { URL(string: $0) })
+                .placeholder {
+                    Image(systemName: "puzzlepiece.extension")
+                        .resizable().aspectRatio(1, contentMode: .fit)
+                        .padding(8)
+                        .foregroundStyle(.secondary)
+                        .background(Color.secondary.opacity(0.12))
+                }
+                .fade(duration: 0.2)
+                .resizable()
+                .aspectRatio(1, contentMode: .fit)
+                .frame(width: 40, height: 40)
+                .cornerRadius(8)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(group.name).font(.headline)
+                HStack(spacing: 5) {
+                    if group.isMultiLang {
+                        Text("\(group.entries.count) langs")
+                            .font(.caption2).fontWeight(.semibold)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundStyle(.orange)
+                            .clipShape(Capsule())
+                    } else {
+                        LanguageBadge(language: group.primaryEntry.language)
+                    }
+                    if group.primaryEntry.isNovel {
+                        Text("Novel")
+                            .font(.caption2).fontWeight(.semibold)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.purple.opacity(0.15))
+                            .foregroundStyle(Color.purple)
+                            .clipShape(Capsule())
+                    }
+                    if group.primaryEntry.isNSFW { NSFWBadge() }
+                    if !repoLabel.isEmpty {
+                        Text(repoLabel)
+                            .font(.caption2).fontWeight(.medium)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.12))
+                            .foregroundStyle(.secondary)
+                            .clipShape(Capsule())
+                    }
+                    Text("v\(group.primaryEntry.version)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if isInstalled {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            } else if isInstalling {
+                ProgressView().scaleEffect(0.8)
+            } else {
+                Button(group.isMultiLang ? "Get" : "Install", action: onInstall)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
 // MARK: - InstallFromURLSheet
 
 private struct InstallFromURLSheet: View {
