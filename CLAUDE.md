@@ -24,9 +24,18 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
 - `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S82-S83 — in progress, Blocks 1-5 of 12 implemented, pending user review)
+## Design track (S82-S84 — in progress, Blocks 1-5 of 12 implemented, 5 fidelity gaps found S84, pending fixes + user review)
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **checkpoint after block 5 reached 2026-08-04, blocks 1-5 built and compiling clean, but not yet fully walked through by the user in the simulator.** Next session should start there before moving to Block 6 (Browse).
+
+## Current state (post S84 — 2026-08-04 · Project audit + doc/repo cleanup)
+
+**S84 did NOT touch Blocks 1-5's design fidelity** — it found and documented 5 concrete gaps (Library
+Continue hero missing, cover-cell catalog-index badge missing, wrong fonts on source/tab labels,
+Detail header structurally wrong vs. spec, reader top bar had a dead "Discuss" chip instead of the
+spec'd icon set) and fixed the Discuss chip + a batch of repo/doc organization issues (doc duplication,
+wrong file-path references, dead folder, stale assets). **Full detail in `Yomi/ROADMAP.md`'s S84
+entry.** The 5 fidelity gaps are NOT yet fixed — that's next session's Phase 0, before Block 6.
 
 ## Current state (post S83 — 2026-08-04 · Design implementation Blocks 3-5, PENDING USER REVIEW)
 
@@ -34,135 +43,14 @@ All 16 screens designed and confirmed. Concept: **"reading instrument / living a
 
 **S83 (2026-08-04) — Block 3 (Detail):** `MangaDetailView.swift` + `NovelDetailView.swift` both token-ified following the Block 1-2 pattern (incremental, not a layout rebuild): cover radius → `YomiTokens.Radius.cover`; title/author/source fonts → Grotesk/Mono; `StatusBadge`/`NovelStatusBadge` reworked to `Notation.status()` text + `RoundedRectangle(Radius.badge)` (was a plain capitalized Capsule); resume button rebuilt as an accent-filled Capsule (was `.borderedProminent`); reading-progress caption rebuilt with `Notation.progress()` + `Notation.readingTime()` and an accent-colored percent via `Text` interpolation (`Text("\(pctText)")`, not deprecated `Text + Text`); chapter rows get a leading 6pt accent dot for unread state (new — matches the design's 2×2 read/downloaded dot pattern) plus Mono date/page subtitles.
 
-**S83 (2026-08-04) — Block 4 (Manga Reader overlay), reactive fix after user spot-check:** `ReaderOverlayView` in `ChapterReaderView.swift` rebuilt from a single edge-to-edge `Rectangle().glassEffect()` bar into individual floating `Circle().glassEffect()` chips (back/list/discuss) + a floating `RoundedRectangle(cornerRadius: 22).glassEffect()` bottom card, matching the actual mockup (which was never a full-width bar). Bottom card now shows `Notation.pagePosition()` ("CH. XXX · N/Total") + skip-chapter icons on row 1, and a page `Slider` on row 2 — **the slider is now interactive in every reader mode including vertical scroll**, wired via a new bidirectional binding: `WebtoonReaderView` gained `.onChange(of: currentPage)` calling `proxy.scrollTo(new, anchor: .top)` (guarded by `new != visibleId` to avoid feedback loops), so dragging the slider actually seeks the webtoon scroll position — previously that binding was one-way (scroll → currentPage only), so the bar existed but couldn't be used to navigate.
+**S83 (2026-08-04) — Block 4 (Manga Reader overlay), reactive fix after user spot-check:** `ReaderOverlayView` in `ChapterReaderView.swift` rebuilt from a single edge-to-edge `Rectangle().glassEffect()` bar into individual floating `Circle().glassEffect()` chips (originally back/list/discuss — the discuss chip was removed in S84, see above) + a floating `RoundedRectangle(cornerRadius: 22).glassEffect()` bottom card, matching the actual mockup (which was never a full-width bar). Bottom card now shows `Notation.pagePosition()` ("CH. XXX · N/Total") + skip-chapter icons on row 1, and a page `Slider` on row 2 — **the slider is now interactive in every reader mode including vertical scroll**, wired via a new bidirectional binding: `WebtoonReaderView` gained `.onChange(of: currentPage)` calling `proxy.scrollTo(new, anchor: .top)` (guarded by `new != visibleId` to avoid feedback loops), so dragging the slider actually seeks the webtoon scroll position — previously that binding was one-way (scroll → currentPage only), so the bar existed but couldn't be used to navigate.
 
 **S83 (2026-08-04) — Block 5 (Novel Reader overlay), done in full to match the block-5 checkpoint:** `TextReaderOverlayView` in `TextReaderView.swift` gets the same floating-chip top bar as Block 4, and its bottom sheet is now a floating `RoundedRectangle(cornerRadius: 24).glassEffect()` card (was edge-to-edge) matching spec. **New:** a live `CH. XXX · %` progress footer with a thin accent progress bar, added as a new `progress: Double` parameter threaded from `TextReaderView`'s existing (already-tracked, previously UI-unsurfaced) `lastKnownScrollPercent` state — updates continuously as the user scrolls, no interaction needed.
 
 **Known follow-up, not yet done:** Blocks 1-2 (Library, Library-selection) shipped 2026-08-03 under the S82 commits (`bded9e6`, `48705b1`) but were never written up in ROADMAP/METODOLOGIA at the time — this session's doc update backfills that gap alongside Blocks 3-5.
 
-## Current state (post S82 — 2026-08-03)
-
-**S82 (2026-08-03):** Pre-implementation housekeeping — no Swift changed. (1) Full 16-screen handoff confirmed. (2) Design assets consolidated: `DESIGN_*.md` + `Fonts/` moved from `Yomi/` root → `Yomi/design/`; `INFOPLIST_ADDITIONAL_FILE` updated in project.pbxproj to `$(SRCROOT)/Yomi/design/Fonts/YomiFonts.plist`. (3) App icon PNGs landed in `Yomi/design/design_handoff_yomi/assets/`. (4) Implementation plan locked.
-
-**S81 (2026-08-03):** Appearance Studio + canvas system.
-1. `AppearanceStudioView.swift` — full studio with live preview card; Canvas swatches (Ink/Midnight/Paper/Sepia/Follow device), Accent presets + custom ColorPicker + WCAG contrast badge, Type controls, Library controls, App icon tiles, Reset button
-2. `AppSettings.canvas: String` — primary appearance axis (`"Ink"` | `"Midnight"` | `"Paper"` | `"Sepia"` | `""` = follow device); `colorScheme` computed var checks canvas first, falls back to legacy `theme`
-3. `SettingsView` → Appearance navigates to `AppearanceStudioView`
-
-**S80 (2026-08-03):** Design system foundation — no UI visible yet.
-1. `DesignTokens.swift` — `YomiTokens`: Canvas presets, Accent (Vermilion default + presets array), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Layout, Motion
-2. `Notation.swift` — catalog-notation formatters: `chapter()`, `progress()`, `readingTime()`, `status()`, `novelIndex()`, etc. — all output in Space Mono
-3. Fonts bundled: `SpaceGrotesk-Variable.ttf`, `SpaceMono-Regular.ttf`, `SpaceMono-Bold.ttf` in `Yomi/design/Fonts/`
-
-## Current state (post S78 — 2026-06-04)
-
-**S66 shipped:**
-1. Text justification toggle in novel reader: `novelJustifyText: Bool` in `AppSettings`; `text-align: justify/start` in CSS body of `styledHTML`; circular `"text.justify"` icon button in Row 2 of `TextReaderOverlayView` between the Aa toggle and the margin picker; persisted via `onChange → AppSettings.shared.novelJustifyText`.
-2. Home screen quick actions: `AppDelegate` (UIApplicationDelegate) added to `YomiApp.swift` via `@UIApplicationDelegateAdaptor`; registers "Continue Reading" (`book.fill`) and "Browse" (`safari.fill`) shortcut items in `didFinishLaunchingWithOptions`; `performActionFor shortcutItem` routes to `appRouter.selectedTab` on `DispatchQueue.main`. `launchOptions[.shortcutItem]` omitted — deprecated iOS 26; `performActionFor` covers both cold and foregrounded launch.
-
-**S65 shipped:**
-1. Last-read chapter label on library covers: both `MangaCoverCell` and `NovelLibraryCoverCell` show the most recently read chapter name as a `black.opacity(0.65)` semi-transparent label stacked above the progress bar inside `.overlay(alignment: .bottom)`. Only shown when `readProgress > 0`. Manga uses chapter with latest `readAt`; novel prefers in-progress (`lastScrollPercent > 0.01 && !isRead`) over fully-read.
-2. Reading activity calendar in InsightsView: 13-week rolling heatmap in new `ReadingCalendarView` private struct, placed between stat cards and Breakdown. Month labels use `ZStack + .offset(x:)` to avoid width-clipping. Intensity: `accentColor.opacity(min(0.35 + Double(count-1)*0.18, 1.0))`. Calendar data built in `loadStats()` Task.detached, returned as 10th tuple element, assigned via `MainActor.run`.
-
-## Current state (post S64 — 2026-05-09)
-
-S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniList badges, settings UX (7 sections), novel metadata sync, HistoryView search, S57 incognito audit + GlobalSearch thread fix, S58 novel parity (custom cover, chapter multi-select, format badges), S59 incognito fix + catalog novel badge.
-
-**S60 shipped:**
-1. Novel mid-chapter scroll position save/restore: `v17_novel_scroll` migration (`lastScrollPercent REAL` on `novel_chapter`); JS 400ms debounced scroll reporter via `WKScriptMessage`; `WKNavigationDelegate.didFinish` restores position on chapter load; flush on dismiss and chapter nav; incognito guarded
-2. Auto-scroll to resume chapter in `NovelDetailView`: `ScrollViewReader` + `proxy.scrollTo("ch_<id>")` fires 300ms after chapters load, targeting first unread/in-progress chapter
-3. In-progress chapter progress bar: thin `accentColor` bar in `NovelChapterRow` for chapters with `lastScrollPercent > 2%` and `!isRead`
-4. `NovelDetailView` refreshes chapter states (isRead + lastScrollPercent) 500ms after reader closes — mirrors `MangaDetailView` pattern
-5. `BackupManager` novels now encode/decode `customCoverPath` and `lastScrollPercent` (parity with manga)
-6. Pull-to-refresh on both `NovelDetailView` and `MangaDetailView` (force re-fetch from plugin)
-
-**S61 shipped:**
-1. Chapter finished banner in `TextReaderView`: spring-animated bottom banner appears when `onReadComplete` fires (JS 90% scroll trigger); shows "Chapter finished" + "Next →" button (calls `navigateToChapter(currentChapterIndex + 1)`) or "All caught up!" on last chapter; auto-dismisses after 5s; cleared on any chapter navigation; DB write remains incognito-guarded but banner always shows
-
-**S62 shipped:**
-1. Novel continue-reading cell opens reader directly: `ContinueReadingNovelCell.openReader()` fetches chapters from DB (no network), resolves bridge from `ExtensionManager`, uses same resume logic as `NovelDetailView` (in-progress → first unread → last); `lastChapterName` now shows in-progress chapters (`lastScrollPercent > 0`)
-2. Library sort order + status filter persist across launches: `LibraryViewModel.sortOrder`/`statusFilter` backed by `UserDefaults` via stored-property `didSet`/default-value closures
-3. `resumeChapter`/`hasStartedReading` in `NovelDetailView` now check `lastScrollPercent > 0.01` — chapters opened before reaching 90% were previously invisible to resume detection
-4. Chapter list sheet in novel reader: list button in `TextReaderOverlayView` top bar opens sheet with all chapters, read/progress status, accent color for current; tap jumps; auto-scrolls to current chapter after 100ms delay
-5. Chapter list sheet in manga reader: same pattern in `ReaderOverlayView` for `ChapterReaderView`
-6. Mark previous chapters as read: trailing swipe action "Mark previous" on `ChapterRow` (manga) and `NovelChapterRow`; finds chapter position in ascending source array, bulk-marks all lower-index chapters via `ChapterQueries.setRead` / `NovelQueries.markRead(chapterId:)`, updates local `@State` with a `Set`
-7. Chapter search in detail views: inline search field (shown only when `chapters.count > 30`) in both `MangaDetailView` and `NovelDetailView`; `ContentUnavailableView` empty-search state; search applied after scanlator/status filter
-8. Reading progress bar in detail headers: `ProgressView(value:total:)` above the resume button in both `MangaDetailView` and `NovelDetailView`; shows read-count/total-chapters + caption
-9. `ContinueReadingRow` refresh fix: replaced `.task { }` (fires once per view lifetime) with `.onAppear { Task { await loadItems() } }` — row now re-queries DB every time the library tab is shown
-10. `ContinueReadingCell` DB fallback: if bridge returns empty chapters (network failure / Cloudflare block), falls back to DB-saved chapters — mirrors `MangaDetailView.loadChapters()` S55 fix
-11. Plugin update detection by ID: `PluginCatalogService.isInstalled` + `availableUpdate(for:)` now match by `ext.id` first, falling back to `ext.name` — prevents false "no update" when catalog uses the same ID with a different name string
-12. Relative time bar in Insights "By Title": each row wrapped in `ZStack(alignment:.leading)` with `GeometryReader` background `Rectangle().fill(Color.accentColor.opacity(0.12))` scaled to `stat.seconds / maxSeconds`; visually compares reading time across titles at a glance
-
-**S64 shipped:**
-1. Reading time in detail view headers: `MangaDetailView` and `NovelDetailView` progress bar caption now appends "· Xh Ym" (computed from `chapters.reduce(0) { $0 + $1.readingSeconds }`) when total > 0; new `formatReadingTime(_ seconds: Int) -> String` private helper in both views
-2. `InsightsView` manga/novel breakdown: "Breakdown" section between stat cards and "By Title" shows manga vs novel chapter counts and reading time separately; 4 new state vars (`mangaChaptersRead`, `novelChaptersRead`, `mangaSeconds`, `novelSeconds`) threaded through `loadStats()` return tuple (now 9 elements); `breakdownRow(@ViewBuilder)` helper renders each row
-3. `InsightsView` novel badge in "By Title": `isNovel: Bool` added to stats tuple; novel entries show small accentColor "N" badge before title — matches ContinueReadingRow badge pattern; tuple type updated throughout `loadStats()`
-4. `HistoryView` `.onAppear` refresh: `.task { await loadHistory() }` → `.onAppear { Task { await loadHistory() } }` — history now re-queries DB every time the History tab becomes visible (same pattern as S62 ContinueReadingRow fix)
-5. `LibraryView` `.onAppear` refresh: `.task { await viewModel.loadLibrary() }` → `.onAppear { Task { await viewModel.loadLibrary() } }` — library reloads on every navigation return (e.g. after marking chapters read in detail view)
-6. Library sort by reading time: `SortOrder.readingTime = "Reading Time"` added to `LibraryViewModel`; systemImage `"timer"`; sorts `displayedManga` and `displayedNovels` by `readingSeconds` descending; auto-appears in sort menu via `SortOrder.allCases`
-7. `HistoryView` novel chapter subtitle shows in-progress chapter: replaces `readAt != nil` filter with `(inProgress ?? lastFullyRead)?.name` — shows where user actually stopped (lastScrollPercent > 0.01) rather than last finished chapter
-
-**S63 shipped:**
-1. Line spacing control in novel reader overlay: Tight/Normal/Airy segmented capsule picker added to `TextReaderOverlayView` between font/margin row and theme swatches; `@Binding var lineSpacing: Double`; onChange persists to `AppSettings.shared.lineSpacing`
-2. Chapter finished banner in manga reader: `ChapterReaderView` gets identical spring-animated bottom banner to `TextReaderView` (S61); triggers when `currentPage == pages.count - 1`; "Next →" calls `navigateToChapter(currentChapterIndex + 1)`; `showFinishedBanner = false` reset in `navigateToChapter`
-3. Backup v3 — categories: `encodeCategory` added; `categories` key in export payload; `importBackup` restores category rows via `INSERT OR IGNORE` before assignment pairs — fresh-device restore no longer leaves `manga_category`/`novel_category` rows pointing to missing category IDs. Bumped backup `version` to 3
-4. Backup fix — manga `readingStatus`: `encodeManga` was missing `readingStatus`; `decodeManga` now decodes it with `ReadingStatus(rawValue:) ?? .none`
-5. Backup fix — chapter `lastPageRead`: `encodeChapter` was omitting `lastPageRead > 0`; now encoded so resume position survives backup/restore
-6. Backup fix — manga category assignments: `exportBackup` fetches `manga_category` rows and includes `"mangaCategories"` key; `importBackup` restores them in the same DB write block as `novel_category`
-7. Novel refresh smart-skip parity: `checkNovelUpdates` now applies `skipUpdateNotStarted`, `skipUpdateCompleted`, `skipUpdateWithUnread`, and `excludedCategoryIds` — previously novels were always refreshed regardless of these settings
-8. Library context menu (grid + list, manga + novel): long-press on any cover cell or list row shows Reading Status submenu (Plan to read / Reading / On hold / Completed / Dropped) and destructive "Remove from Library"; DB write on status change; `loadLibrary()` called on remove
-9. `MangaListRow` custom cover fix: list-mode manga rows were ignoring `customCoverPath` and always using `AsyncImage(url:)`; now mirrors `NovelLibraryListRow` pattern
-10. `ContinueReadingNovelCell` resume fix: `openReader()` used `readAt != nil` to detect in-progress chapters; now uses `lastScrollPercent > 0.01` to match `NovelDetailView` S62 fix — chapters read below 90% are now correctly resumed
-
-**S75 shipped (2026-05-17):**
-1. Plugin duplicate install via URL — `installFromURL()` in `PluginsView.swift` only checked `$0.id == id`, allowing re-install of an already-installed plugin under a different ID (e.g. catalog hash vs manual URL). Now also checks name (case-insensitive) so "FreeWebNovel" cannot be installed twice regardless of which path was used first.
-
-**S74 shipped (2026-05-16):**
-1. `ContinueReadingRow` never loaded items — body used `Group { EmptyView() }.onAppear` which never fires (Group with EmptyView has no layout presence). Fixed by replacing with `VStack(spacing: 0)` which is always in the hierarchy.
-2. Status badge text wrapping — `StatusBadge` (manga), `NovelStatusBadge`, and `ReadingStatusMenu` label all lacked `lineLimit(1)` + `fixedSize(horizontal: true, vertical: false)`, causing text like "Ongoing" and "Not set" to wrap character-by-character in narrow HStack containers. Fixed in `MangaDetailView.swift` and `NovelDetailView.swift`.
-
-**S73 shipped (2026-05-16):**
-1. Notification deep linking — tapping a chapter-update notification navigates to the manga/novel detail. `AppDelegate` conforms to `UNUserNotificationCenterDelegate`; reads `mediaId`/`mediaType` from `userInfo`, sets `appRouter.pendingOpenMangaId` or `pendingOpenNovelId`. `LibraryView` observes both properties via `.onChange`, fetches from DB in `Task.detached`, presents `MangaDetailView` or `NovelDetailView`. `scheduleChapterNotification` now accepts `mediaId: String?` and `mediaType: String`.
-2. Live-testing fixes: (a) Chapter number formatting in `MangaDetailView.ChapterRow` — whole-number chapter indices now show "Chapter 1" (not "Chapter 1.0") using `truncatingRemainder(dividingBy: 1) == 0` check; fractional chapters (e.g. 1.5) still show one decimal. (b) "Restore scroll position" artifact in novel reader — `ReaderWebView.makeUIView` now uses `config.websiteDataStore = .nonPersistent()` so iOS can't match scroll state across chapter loads; `didFinish` also runs a JS `TreeWalker` to remove any "Restore scroll position" DOM element injected by source websites before chapter content renders.
-
-**S67 shipped (2026-05-15):**
-1. Kingfisher 8.9.0 via SPM — `CoverImage.swift` wrapper; all 21 `AsyncImage` cover usages migrated across 11 files
-2. `v18_indexes` migration — 3 DB indexes on `chapter` and `novel_chapter` tables
-3. `markChapterRead()` double-fire fix — `didMarkCurrentChapterRead` guard in `ChapterReaderView`
-4. Spanish comments cleaned in `DatabaseManager.swift` and `ChapterQueries.swift`
-
-**S68 shipped (2026-05-15):**
-1. `LibraryViewModel.displayedManga`/`displayedNovels` converted from computed to stored properties — sort/filter runs only when data changes
-2. iOS 26 Liquid Glass on reader overlays — `ReaderOverlayView` + `TextReaderOverlayView` use `Rectangle().glassEffect().ignoresSafeArea()` replacing gradient bars
-
-**S72 shipped (2026-05-16):**
-1. App Store review prompt — `AppSettings.chaptersReadCount` + `recordChapterRead()` (milestones 10/50/200); both readers use `@Environment(\.requestReview)` + `shouldRequestReview` flag pattern; incognito-safe
-2. Spanish comment cleanup — `MangaQueries.swift` and `NovelQueries.swift` fully translated to English
-
-**S71 shipped (2026-05-16):**
-1. Reading reminders — `NotificationManager.scheduleReadingReminder/cancelReadingReminder/checkAuthorizationStatus`; `AppSettings.readingReminderEnabled` + `readingReminderDays`; `YomiApp` wires into `scenePhase`; toggle + picker in `UpdatesSettingsView`
-
-**S70 shipped (2026-05-16):**
-1. Auto iCloud backup — `AppSettings.iCloudAutoBackup: Bool` (default true); `YomiApp.scenePhase == .background` triggers `BackupManager.shared.uploadToICloud()`; toggle in BackupView iCloud section
-2. Kingfisher cache clear fix — `AdvancedSettingsView` "Clear image cache" now calls `ImageCache.default.clearCache()` (Kingfisher disk+memory) in addition to `URLCache.shared`
-
-**S69 shipped (2026-05-16):**
-1. iCloud Drive backup sync — `BackupManager`: `buildBackupData()` extracted and shared by local export + iCloud upload; `uploadToICloud()` / `downloadFromICloud()` / `checkICloudBackup()` with `Task.detached` file I/O; `ICloudSyncStatus` enum; `lastICloudUploadDate` in UserDefaults
-2. `BackupView`: iCloud section at top — "Back up to iCloud", last backup timestamp, "Restore from iCloud" (confirmationDialog); status refreshed on appear
-3. `Yomi.entitlements`: `com.apple.developer.ubiquity-container-identifiers: ["iCloud.pacodealer.Yomi"]`
-4. **Xcode step**: Target → Signing & Capabilities → + iCloud → check "iCloud Documents" to activate the capability
-
-**Current DB/code state:**
-- DB at v19_source_indexes (20 migrations total, next must be v20_)
-- Backup at v3 (adds `categories` array; v2 backups still import cleanly — `categories ?? []` fallback)
-- All `*Queries` nonisolated ✅, all bridge calls Task.detached ✅, no MainActor DB reads ✅
-- Novel parity gaps: ✅ custom cover ✅ chapter multi-select ✅ scroll position — all done
-- Image caching: ✅ Kingfisher — all cover images cached to disk; no more re-fetch on cold start
-- Design system: ✅ DesignTokens.swift ✅ Notation.swift ✅ AppearanceStudioView.swift ✅ canvas property in AppSettings
-- Build environment: Xcode 26.5 installed; **iOS 26.5 simulator runtime not yet downloaded** — download from Xcode → Settings → Platforms to enable simulator builds
-
-**App Store status:** Apple Developer account created. Icon designed (S79/S82); pending Icon Composer assembly + upload. Design implementation Blocks 1-5 of 12 done (pending user review, see S83 above) — Browse, History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states (Blocks 6-12) still need redesign implementation before screenshots can be taken.
-
+Full session-by-session history (S1-S82) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+(archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 
 | # | Issue | Notes |

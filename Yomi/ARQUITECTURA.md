@@ -668,13 +668,17 @@ instruments them. `colorScheme` remains computed and is now reactive because `th
 is tracked. Dark mode and accent color apply instantly at runtime. See METODOLOGIA.md Technical
 learnings S23 for the full pattern explanation.
 
-## Comments / Discussion architecture (planned S23)
+## Comments / Discussion architecture (built S24, chip removed from UI S84 — dormant)
 
 ### Approach: "Discuss" button → WKWebView bottom sheet
 Native UGC comments require moderation infrastructure, privacy policy update, and Apple age gating.
 The correct approach: plugin declares an optional `getDiscussionURL(chapterPath)` function.
-When present, a "Discuss" button appears in `ReaderOverlayView`.
-Tapping it opens a `.sheet` presenting a `WKWebView` pointing to the chapter's comment page.
+When present, a "Discuss" button would appear in `ReaderOverlayView`; tapping it opens a `.sheet`
+presenting a `WKWebView` pointing to the chapter's comment page. **Status (S84):** zero of Yomi's 15
+production plugins implement `getDiscussionURL`, so the chip was never reachable in practice and also
+didn't match the design-system mockup's reader chrome (back/list/settings, no discuss icon) — the chip
+was removed from `ReaderOverlayView`'s top bar. `JSBridge.getDiscussionURL()` and `DiscussWebSheet`
+remain in the codebase, dormant, ready to resurface if a plugin ever implements the hook.
 
 **Plugin format extension (optional):**
 ```javascript

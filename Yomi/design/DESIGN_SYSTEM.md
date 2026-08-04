@@ -263,7 +263,7 @@ Same components (cover cells, notation, hero, list rows). Full layout in **v0.3*
 4. **Novel reader body = serif by default, sans as an option.** ✅ (per the readability research)
 5. **Grotesk + Mono = the standard, user-swappable** via the Appearance Studio. ✅
 
-_— v0.2 delivered. The three hero screens (Library, Manga Reader, Novel Reader) are **APPROVED & versioned** at `Yomi/design/YOMI Screens.dc.html` (2026‑07‑18), produced in Claude Design and QA'd against this system (Ink `#14110F` ✅, Vermilion scarce ✅, Grotesk+Mono ✅, notation ✅). v0.3 below._
+_— v0.2 delivered. The three hero screens (Library, Manga Reader, Novel Reader) are **APPROVED & versioned** at `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` (2026‑07‑18), produced in Claude Design and QA'd against this system (Ink `#14110F` ✅, Vermilion scarce ✅, Grotesk+Mono ✅, notation ✅). v0.3 below._
 
 ---
 

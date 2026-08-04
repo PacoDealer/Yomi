@@ -672,16 +672,6 @@ struct ReaderOverlayView: View {
                     .background { Circle().glassEffect() }
                 }
 
-                if discussURL != nil {
-                    Button(action: onDiscuss) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 17))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                    }
-                    .background { Circle().glassEffect() }
-                }
-
                 Picker("Mode", selection: $readerMode) {
                     Image(systemName: "book.pages").tag(ReaderMode.horizontalRTL)
                     Image(systemName: "book.pages.fill").tag(ReaderMode.horizontalLTR)

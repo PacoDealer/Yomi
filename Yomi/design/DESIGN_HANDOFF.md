@@ -125,7 +125,7 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 ---
 
 ## Update — 2026-07-18 (S79 cont.)
-- **All 10 screens produced in Claude Design and approved:** Library, Manga Reader, Novel Reader (heroes) + v0.3: Appearance Studio, Detail, Browse, Settings, Onboarding, Empty state, More hub. Export versioned at `Yomi/design/YOMI Screens.dc.html`.
+- **All 10 screens produced in Claude Design and approved:** Library, Manga Reader, Novel Reader (heroes) + v0.3: Appearance Studio, Detail, Browse, Settings, Onboarding, Empty state, More hub. Export versioned at `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html`.
 - **v0.3 spec written** in `DESIGN_SYSTEM.md` (§12–18: Appearance Studio, Browse, Detail, Settings/More, secondary screens, icon direction, motion).
 - **App icon direction CHOSEN: Option A — "Y." monogram** (Space Grotesk `Y` + Vermilion `#E5473A` dot, on warm Ink ground + screentone). Rejected: crescent+dot (read as a security camera). To be *developed* next session.
 - **Project folder moved to `~/Desktop/Projects/Yomi`** (git intact; path refs in CLAUDE.md/METODOLOGIA fixed to Desktop).
@@ -143,7 +143,7 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 
 ## Update — 2026-07-18 (S79 cont. · session close)
 - **App icon FINALIZED.** Option A "Y." monogram: centered Space Grotesk `Y` + scarce Vermilion `#E5473A` dot on warm ground + subtle screentone. **Two themes only: Ink (`#14110F`) = default, Paper (`#F3ECDD`) = light alternate** (mirror the app canvas themes). Colored-ground/dot variants explored and dropped. Dot kept (wordmark tie + sole accent).
-- **Assets in `Yomi/design/icons/`:** `AppIcon-Ink-1024.png`, `AppIcon-Paper-1024.png`, vector source `Y-outlined.svg`, and `layers/` (Ink-bg/mark/white + Paper-bg/mark/white) for Icon Composer. The 10 approved screen designs are in `Yomi/design/YOMI Screens.dc.html`.
+- **Assets in `Yomi/design/icons/`:** `AppIcon-Ink-1024.png`, `AppIcon-Paper-1024.png`, vector source `Y-outlined.svg`, and `layers/` (Ink-bg/mark/white + Paper-bg/mark/white) for Icon Composer. The 10 approved screen designs are in `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html`.
 
 ### NEXT SESSION — start here (updated)
 1. **Assemble the icon in Icon Composer** (Xcode 26): new doc → `layers/Ink-bg.png` as background, `layers/Ink-mark.png` as foreground, mark `Ink-white.png` as the pure-white/Tinted layer; repeat with the Paper layers as an alternate icon. QUICK PATH: drop `AppIcon-Ink-1024.png` straight into the asset catalog to ship now.
