@@ -563,6 +563,14 @@ struct WebtoonReaderView: View {
             .onChange(of: visibleId) { _, id in
                 if let id { currentPage = id }
             }
+            .onChange(of: currentPage) { _, new in
+                // Two-way sync with the overlay's progress slider — scrolling
+                // updates currentPage above, this reflects slider drags back
+                // into the scroll position. Guarded so it's a no-op when the
+                // change originated from the scroll itself.
+                guard new != visibleId else { return }
+                withAnimation { proxy.scrollTo(new, anchor: .top) }
+            }
         }
         .ignoresSafeArea()
         .onTapGesture {
@@ -630,26 +638,26 @@ struct ReaderOverlayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar — Liquid Glass
-            HStack(spacing: 12) {
+            // Top bar — individual floating Liquid Glass chips
+            HStack(spacing: 10) {
                 Button(action: onDismiss) {
                     Image(systemName: "chevron.left")
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .contentShape(Circle())
                 }
+                .background { Circle().glassEffect() }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(manga.title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(YomiTokens.Font.grotesk(15, weight: .medium))
                         .lineLimit(1)
                     Text(chapter.name)
-                        .font(.caption)
+                        .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+                .shadow(color: .black.opacity(0.5), radius: 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !chapters.isEmpty {
@@ -657,17 +665,21 @@ struct ReaderOverlayView: View {
                         showChapterSheet = true
                     } label: {
                         Image(systemName: "list.bullet")
-                            .font(.title3)
+                            .font(.system(size: 17))
                             .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                            .contentShape(Circle())
                     }
+                    .background { Circle().glassEffect() }
                 }
 
                 if discussURL != nil {
                     Button(action: onDiscuss) {
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.title3)
+                            .font(.system(size: 17))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                     }
+                    .background { Circle().glassEffect() }
                 }
 
                 Picker("Mode", selection: $readerMode) {
@@ -678,13 +690,8 @@ struct ReaderOverlayView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 108)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .background {
-                Rectangle()
-                    .glassEffect()
-                    .ignoresSafeArea(edges: .top)
-            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
             .sheet(isPresented: $showChapterSheet) {
                 let target = currentChapterIndex
                 NavigationStack {
@@ -742,59 +749,64 @@ struct ReaderOverlayView: View {
 
             Spacer()
 
-            // Bottom bar — Liquid Glass
-            HStack(spacing: 8) {
-                Button {
-                    onPrevChapter()
-                } label: {
-                    Image(systemName: "chevron.left.2")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
-                        .frame(width: 44, height: 44)
+            // Bottom bar — floating Liquid Glass card
+            VStack(spacing: 14) {
+                HStack {
+                    if let num = chapter.chapterNumber {
+                        Text(Notation.pagePosition(chapter: num, page: currentPage + 1, total: totalPages))
+                    } else {
+                        Text("\(currentPage + 1)/\(totalPages)")
+                    }
+                    Spacer()
+                    HStack(spacing: 18) {
+                        Button(action: onPrevChapter) {
+                            Image(systemName: "backward.end.fill")
+                                .font(.system(size: 17))
+                                .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
+                        }
+                        .disabled(!hasPrevChapter)
+
+                        Button(action: onNextChapter) {
+                            Image(systemName: "forward.end.fill")
+                                .font(.system(size: 17))
+                                .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
+                        }
+                        .disabled(!hasNextChapter)
+                    }
                 }
-                .disabled(!hasPrevChapter)
+                .font(YomiTokens.Font.mono(12))
+                .foregroundStyle(.secondary)
 
                 if showPageNumber && totalPages > 1 {
-                    VStack(spacing: 4) {
-                        Text("\(currentPage + 1) / \(totalPages)")
-                            .font(.caption)
+                    HStack(spacing: 10) {
+                        Text("\(currentPage + 1)")
+                            .font(YomiTokens.Font.mono(12))
                             .foregroundStyle(.secondary)
-                            .monospacedDigit()
 
-                        if readerMode != .verticalScroll {
-                            Slider(
-                                value: Binding(
-                                    get: { Double(currentPage) },
-                                    set: { currentPage = Int($0.rounded()) }
-                                ),
-                                in: 0...Double(totalPages - 1),
-                                step: 1
-                            )
-                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(currentPage) },
+                                set: { currentPage = Int($0.rounded()) }
+                            ),
+                            in: 0...Double(totalPages - 1),
+                            step: 1
+                        )
+                        .tint(Color.accentColor)
+
+                        Text("\(totalPages)")
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(.secondary)
                     }
-                } else {
-                    Spacer()
                 }
-
-                Button {
-                    onNextChapter()
-                } label: {
-                    Image(systemName: "chevron.right.2")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
-                        .frame(width: 44, height: 44)
-                }
-                .disabled(!hasNextChapter)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.vertical, 14)
             .background {
-                Rectangle()
+                RoundedRectangle(cornerRadius: 22)
                     .glassEffect()
-                    .ignoresSafeArea(edges: .bottom)
             }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 14)
         }
         .opacity(showOverlay ? 1 : 0)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)

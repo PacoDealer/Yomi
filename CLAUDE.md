@@ -24,9 +24,21 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
 - `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S82 — 2026-08-03, implementation starting)
+## Design track (S82-S83 — in progress, Blocks 1-5 of 12 implemented, pending user review)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** Library → Library-selection → Detail → Manga Reader overlay → Novel Reader overlay → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12.
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → Browse → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **checkpoint after block 5 reached 2026-08-04, blocks 1-5 built and compiling clean, but not yet fully walked through by the user in the simulator.** Next session should start there before moving to Block 6 (Browse).
+
+## Current state (post S83 — 2026-08-04 · Design implementation Blocks 3-5, PENDING USER REVIEW)
+
+**Flag for next session: the work below is implemented and compiles, but the user has only spot-checked pieces of it (not a full pass) and explicitly asked to revisit/revise it fresh next session — do not treat these blocks as finalized or move on to Block 6 without that review.**
+
+**S83 (2026-08-04) — Block 3 (Detail):** `MangaDetailView.swift` + `NovelDetailView.swift` both token-ified following the Block 1-2 pattern (incremental, not a layout rebuild): cover radius → `YomiTokens.Radius.cover`; title/author/source fonts → Grotesk/Mono; `StatusBadge`/`NovelStatusBadge` reworked to `Notation.status()` text + `RoundedRectangle(Radius.badge)` (was a plain capitalized Capsule); resume button rebuilt as an accent-filled Capsule (was `.borderedProminent`); reading-progress caption rebuilt with `Notation.progress()` + `Notation.readingTime()` and an accent-colored percent via `Text` interpolation (`Text("\(pctText)")`, not deprecated `Text + Text`); chapter rows get a leading 6pt accent dot for unread state (new — matches the design's 2×2 read/downloaded dot pattern) plus Mono date/page subtitles.
+
+**S83 (2026-08-04) — Block 4 (Manga Reader overlay), reactive fix after user spot-check:** `ReaderOverlayView` in `ChapterReaderView.swift` rebuilt from a single edge-to-edge `Rectangle().glassEffect()` bar into individual floating `Circle().glassEffect()` chips (back/list/discuss) + a floating `RoundedRectangle(cornerRadius: 22).glassEffect()` bottom card, matching the actual mockup (which was never a full-width bar). Bottom card now shows `Notation.pagePosition()` ("CH. XXX · N/Total") + skip-chapter icons on row 1, and a page `Slider` on row 2 — **the slider is now interactive in every reader mode including vertical scroll**, wired via a new bidirectional binding: `WebtoonReaderView` gained `.onChange(of: currentPage)` calling `proxy.scrollTo(new, anchor: .top)` (guarded by `new != visibleId` to avoid feedback loops), so dragging the slider actually seeks the webtoon scroll position — previously that binding was one-way (scroll → currentPage only), so the bar existed but couldn't be used to navigate.
+
+**S83 (2026-08-04) — Block 5 (Novel Reader overlay), done in full to match the block-5 checkpoint:** `TextReaderOverlayView` in `TextReaderView.swift` gets the same floating-chip top bar as Block 4, and its bottom sheet is now a floating `RoundedRectangle(cornerRadius: 24).glassEffect()` card (was edge-to-edge) matching spec. **New:** a live `CH. XXX · %` progress footer with a thin accent progress bar, added as a new `progress: Double` parameter threaded from `TextReaderView`'s existing (already-tracked, previously UI-unsurfaced) `lastKnownScrollPercent` state — updates continuously as the user scrolls, no interaction needed.
+
+**Known follow-up, not yet done:** Blocks 1-2 (Library, Library-selection) shipped 2026-08-03 under the S82 commits (`bded9e6`, `48705b1`) but were never written up in ROADMAP/METODOLOGIA at the time — this session's doc update backfills that gap alongside Blocks 3-5.
 
 ## Current state (post S82 — 2026-08-03)
 
@@ -149,7 +161,7 @@ S44–S59: all 4 JS plugin formats live, Suwayomi+OPDS, Cloudflare bypass, AniLi
 - Design system: ✅ DesignTokens.swift ✅ Notation.swift ✅ AppearanceStudioView.swift ✅ canvas property in AppSettings
 - Build environment: Xcode 26.5 installed; **iOS 26.5 simulator runtime not yet downloaded** — download from Xcode → Settings → Platforms to enable simulator builds
 
-**App Store status:** Apple Developer account created. Icon designed (S79/S82); pending Icon Composer assembly + upload. 15 screens still need redesign implementation before screenshots can be taken.
+**App Store status:** Apple Developer account created. Icon designed (S79/S82); pending Icon Composer assembly + upload. Design implementation Blocks 1-5 of 12 done (pending user review, see S83 above) — Browse, History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states (Blocks 6-12) still need redesign implementation before screenshots can be taken.
 
 ## Known issues / carry-forward
 
@@ -330,7 +342,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82 ("Y." monogram, Ink + Paper); PNGs in `Yomi/design/design_handoff_yomi/assets/`; layers in `Yomi/design/icons/layers/`. TODO: drag into `AppIcon.appiconset` in Xcode, add `CFBundleAlternateIcons` entry, upload to App Store Connect.
-- Screenshots — blocked until design implementation complete (15 screens remain)
+- Screenshots — blocked until design implementation complete (Blocks 6-12 remain: Browse, History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)
