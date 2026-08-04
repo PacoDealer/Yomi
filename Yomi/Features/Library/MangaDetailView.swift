@@ -114,27 +114,26 @@ struct MangaDetailView: View {
                             }
                         }
                         .frame(width: 110)
-                        .cornerRadius(10)
+                        .cornerRadius(YomiTokens.Radius.cover)
                         .clipped()
                         .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
 
                         VStack(alignment: .leading, spacing: 7) {
                             Text(manga.title)
-                                .font(.title3)
-                                .fontWeight(.bold)
+                                .font(YomiTokens.Font.grotesk(22, weight: .bold))
                                 .fixedSize(horizontal: false, vertical: true)
 
                             if let author = manga.author, !author.isEmpty {
                                 Label(author, systemImage: "person")
-                                    .font(.subheadline)
+                                    .font(YomiTokens.Font.grotesk(14))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
 
                             if let sourceName = ExtensionManager.shared.installed
                                 .first(where: { $0.id == manga.sourceId })?.name {
-                                Label(sourceName, systemImage: "puzzlepiece.extension")
-                                    .font(.caption)
+                                Label(sourceName.uppercased(), systemImage: "puzzlepiece.extension")
+                                    .font(YomiTokens.Font.mono(11))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
@@ -144,8 +143,7 @@ struct MangaDetailView: View {
 
                                 if let score = aniListScore {
                                     Label("\(score)%", systemImage: "star.fill")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
+                                        .font(YomiTokens.Font.mono(11, bold: true))
                                         .foregroundStyle(.orange)
                                 }
 
@@ -166,7 +164,7 @@ struct MangaDetailView: View {
                             HStack(spacing: 6) {
                                 ForEach(manga.genres, id: \.self) { genre in
                                     Text(genre)
-                                        .font(.caption)
+                                        .font(YomiTokens.Font.grotesk(12))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
                                         .background(Color.secondary.opacity(0.15), in: Capsule())
@@ -183,12 +181,11 @@ struct MangaDetailView: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 ProgressView(value: Double(readCount), total: Double(chapters.count))
                                     .tint(.accentColor)
-                                let pct = Int(Double(readCount) / Double(chapters.count) * 100)
-                                let caption = totalSecs > 0
-                                    ? "\(readCount) of \(chapters.count) chapters · \(pct)% · \(formatReadingTime(totalSecs))"
-                                    : "\(readCount) of \(chapters.count) chapters · \(pct)%"
-                                Text(caption)
-                                    .font(.caption2)
+                                let fraction = Double(readCount) / Double(chapters.count)
+                                let time = Notation.readingTime(seconds: totalSecs)
+                                let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
+                                Text("\(readCount) OF \(chapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
+                                    .font(YomiTokens.Font.mono(11))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -202,13 +199,18 @@ struct MangaDetailView: View {
                                 chapterForNav = ch
                             }
                         } label: {
-                            Label(resumeButtonTitle,
-                                  systemImage: hasStartedReading ? "play.fill" : "book.fill")
-                                .frame(maxWidth: .infinity)
-                                .fontWeight(.semibold)
+                            HStack(spacing: 9) {
+                                Image(systemName: hasStartedReading ? "play.fill" : "book.fill")
+                                    .font(.system(size: 13))
+                                Text(resumeButtonTitle)
+                                    .font(YomiTokens.Font.grotesk(15, weight: .medium))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 46)
+                            .background(Color.accentColor, in: Capsule())
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.vertical, 6)
@@ -600,18 +602,22 @@ struct MangaDetailView: View {
     private var chapterSectionHeader: some View {
         HStack {
             Text("Chapters")
+                .font(YomiTokens.Font.grotesk(15, weight: .semibold))
             if !chapters.isEmpty {
                 let readCount = chapters.filter { $0.isRead }.count
                 if readCount > 0 {
                     Text("\(readCount) / \(chapters.count)")
+                        .font(YomiTokens.Font.mono(12))
                         .foregroundStyle(.secondary)
                 } else {
                     Text("(\(chapters.count))")
+                        .font(YomiTokens.Font.mono(12))
                         .foregroundStyle(.secondary)
                 }
             }
             if let size = storageSizeLabel {
                 Text("· \(size)")
+                    .font(YomiTokens.Font.mono(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -1141,17 +1147,21 @@ private struct ChapterRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Selection circle
+            // Selection circle / unread dot
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .font(.title3)
+            } else {
+                Circle()
+                    .fill(chapter.isRead ? Color.clear : Color.accentColor)
+                    .frame(width: 6, height: 6)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(chapter.name)
-                        .font(.subheadline)
+                        .font(YomiTokens.Font.grotesk(15))
                         .foregroundStyle(chapter.isRead ? .secondary : .primary)
                     if chapter.isDownloaded {
                         Image(systemName: "arrow.down.circle.fill")
@@ -1170,19 +1180,19 @@ private struct ChapterRow: View {
                 HStack(spacing: 4) {
                     if let readAt = chapter.readAt {
                         Text(readAt, style: .relative)
-                            .font(.caption)
+                            .font(YomiTokens.Font.mono(11))
                             .foregroundStyle(.secondary)
                     } else if let number = chapter.chapterNumber {
                         let formatted = number.truncatingRemainder(dividingBy: 1) == 0
                             ? "Chapter \(Int(number))"
                             : String(format: "Chapter %.1f", number)
                         Text(formatted)
-                            .font(.caption)
+                            .font(YomiTokens.Font.mono(11))
                             .foregroundStyle(.secondary)
                     }
                     if chapter.lastPageRead > 0 && !chapter.isRead {
                         Text("· Page \(chapter.lastPageRead + 1)")
-                            .font(.caption)
+                            .font(YomiTokens.Font.mono(11))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1272,7 +1282,7 @@ struct ReadingStatusMenu: View {
                 Image(systemName: readingStatus.systemImage)
                     .font(.caption)
                 Text(readingStatus.label)
-                    .font(.caption)
+                    .font(YomiTokens.Font.mono(11))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
@@ -1294,16 +1304,15 @@ private struct StatusBadge: View {
     let status: MangaStatus
 
     var body: some View {
-        Text(status.rawValue.capitalized)
-            .font(.caption2)
-            .fontWeight(.semibold)
+        Text(Notation.status(status.rawValue))
+            .font(YomiTokens.Font.mono(10, bold: true))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(color.opacity(0.15))
             .foregroundStyle(color)
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.badge))
     }
 
     private var color: Color {

@@ -268,28 +268,28 @@ struct NovelDetailView: View {
                         }
                     }
                     .frame(width: 110)
-                    .cornerRadius(10)
+                    .cornerRadius(YomiTokens.Radius.cover)
                     .clipped()
                     .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
 
                     VStack(alignment: .leading, spacing: 7) {
                         Text(novel.title)
-                            .font(.title3).fontWeight(.bold)
+                            .font(YomiTokens.Font.grotesk(22, weight: .bold))
                             .fixedSize(horizontal: false, vertical: true)
                         if let author = novel.author {
                             Label(author, systemImage: "person")
-                                .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                                .font(YomiTokens.Font.grotesk(14)).foregroundStyle(.secondary).lineLimit(2)
                         }
                         if let sourceName = ExtensionManager.shared.installed
                             .first(where: { $0.id == novel.sourceId })?.name {
-                            Label(sourceName, systemImage: "puzzlepiece.extension")
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Label(sourceName.uppercased(), systemImage: "puzzlepiece.extension")
+                                .font(YomiTokens.Font.mono(11)).foregroundStyle(.secondary).lineLimit(1)
                         }
                         HStack(spacing: 8) {
                             NovelStatusBadge(status: novel.status)
                             if let score = aniListScore {
                                 Label("\(score)%", systemImage: "star.fill")
-                                    .font(.caption).fontWeight(.semibold).foregroundStyle(.orange)
+                                    .font(YomiTokens.Font.mono(11, bold: true)).foregroundStyle(.orange)
                             }
                             if isInLibrary {
                                 ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
@@ -304,7 +304,7 @@ struct NovelDetailView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(novel.genres, id: \.self) { genre in
-                                Text(genre).font(.caption)
+                                Text(genre).font(YomiTokens.Font.grotesk(12))
                                     .padding(.horizontal, 10).padding(.vertical, 4)
                                     .background(Color.secondary.opacity(0.15), in: Capsule())
                             }
@@ -319,12 +319,11 @@ struct NovelDetailView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             ProgressView(value: Double(readCount), total: Double(chapters.count))
                                 .tint(.accentColor)
-                            let pct = Int(Double(readCount) / Double(chapters.count) * 100)
-                            let caption = totalSecs > 0
-                                ? "\(readCount) of \(chapters.count) chapters · \(pct)% · \(formatReadingTime(totalSecs))"
-                                : "\(readCount) of \(chapters.count) chapters · \(pct)%"
-                            Text(caption)
-                                .font(.caption2)
+                            let fraction = Double(readCount) / Double(chapters.count)
+                            let time = Notation.readingTime(seconds: totalSecs)
+                            let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
+                            Text("\(readCount) OF \(chapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
+                                .font(YomiTokens.Font.mono(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -338,10 +337,18 @@ struct NovelDetailView: View {
                             touchLastReadAt()
                         }
                     } label: {
-                        Label(resumeButtonTitle, systemImage: hasStartedReading ? "play.fill" : "book.fill")
-                            .frame(maxWidth: .infinity).fontWeight(.semibold)
+                        HStack(spacing: 9) {
+                            Image(systemName: hasStartedReading ? "play.fill" : "book.fill")
+                                .font(.system(size: 13))
+                            Text(resumeButtonTitle)
+                                .font(YomiTokens.Font.grotesk(15, weight: .medium))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Color.accentColor, in: Capsule())
                     }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.vertical, 6)
@@ -412,12 +419,17 @@ struct NovelDetailView: View {
         } header: {
             HStack {
                 Text("Chapters")
+                    .font(YomiTokens.Font.grotesk(15, weight: .semibold))
                 if !chapters.isEmpty {
                     let readCount = chapters.filter { $0.isRead }.count
                     if readCount > 0 {
-                        Text("\(readCount) / \(chapters.count)").foregroundStyle(.secondary)
+                        Text("\(readCount) / \(chapters.count)")
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(.secondary)
                     } else {
-                        Text("(\(chapters.count))").foregroundStyle(.secondary)
+                        Text("(\(chapters.count))")
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
@@ -458,12 +470,16 @@ struct NovelDetailView: View {
                 touchLastReadAt()
             }
         } label: {
-            HStack {
+            HStack(spacing: 10) {
                 if isSelectingChapters {
                     let isSelected = selectedChapterIds.contains(chapter.id)
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                         .font(.title3)
+                } else {
+                    Circle()
+                        .fill(chapter.isRead ? Color.clear : Color.accentColor)
+                        .frame(width: 6, height: 6)
                 }
                 NovelChapterRow(chapter: chapter)
             }
@@ -767,11 +783,11 @@ private struct NovelChapterRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(chapter.name)
-                .font(.subheadline)
+                .font(YomiTokens.Font.grotesk(15))
                 .foregroundStyle(chapter.isRead ? .secondary : .primary)
             if let release = chapter.releaseTime {
                 Text(release)
-                    .font(.caption)
+                    .font(YomiTokens.Font.mono(11))
                     .foregroundStyle(.secondary)
             }
             if let pct = chapter.lastScrollPercent, pct > 0.02, !chapter.isRead {
@@ -784,6 +800,7 @@ private struct NovelChapterRow: View {
                 .padding(.top, 2)
             }
         }
+        .opacity(chapter.isRead ? 0.45 : 1.0)
         .padding(.vertical, 2)
     }
 }
@@ -794,16 +811,15 @@ private struct NovelStatusBadge: View {
     let status: String
 
     var body: some View {
-        Text(status.capitalized)
-            .font(.caption2)
-            .fontWeight(.semibold)
+        Text(Notation.status(status))
+            .font(YomiTokens.Font.mono(10, bold: true))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(color.opacity(0.15))
             .foregroundStyle(color)
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.badge))
     }
 
     private var color: Color {

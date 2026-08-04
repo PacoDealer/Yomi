@@ -204,6 +204,7 @@ struct TextReaderView: View {
                 chapter:              activeChapter,
                 currentChapterIndex:  currentChapterIndex,
                 chapters:             chapters,
+                progress:             lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0,
                 fontSize:             $fontSize,
                 lineSpacing:          $lineSpacing,
                 novelTheme:           $novelTheme,
@@ -562,6 +563,7 @@ struct TextReaderOverlayView: View {
     let chapter:              NovelChapter
     let currentChapterIndex:  Int
     let chapters:             [NovelChapter]
+    let progress:             Double
     @Binding var fontSize:    Double
     @Binding var lineSpacing: Double
     @Binding var novelTheme:  NovelTheme
@@ -589,41 +591,40 @@ struct TextReaderOverlayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Top bar — Liquid Glass ────────────────────────────────────
-            HStack(spacing: 12) {
+            // ── Top bar — individual floating Liquid Glass chips ───────────
+            HStack(spacing: 10) {
                 Button(action: onDismiss) {
                     Image(systemName: "chevron.left")
-                        .font(.title3).fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .contentShape(Circle())
                 }
+                .background { Circle().glassEffect() }
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(novel.title)
-                        .font(.subheadline).fontWeight(.semibold)
+                        .font(YomiTokens.Font.grotesk(15, weight: .medium))
                         .lineLimit(1)
                     Text(chapter.name)
-                        .font(.caption)
+                        .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+
                 if !chapters.isEmpty {
                     Button {
                         showChapterSheet = true
                     } label: {
                         Image(systemName: "list.bullet")
-                            .font(.title3)
+                            .font(.system(size: 17))
                             .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                            .contentShape(Circle())
                     }
+                    .background { Circle().glassEffect() }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .background {
-                Rectangle()
-                    .glassEffect()
-                    .ignoresSafeArea(edges: .top)
-            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
             .sheet(isPresented: $showChapterSheet) {
                 let target = currentChapterIndex
                 NavigationStack {
@@ -822,13 +823,39 @@ struct TextReaderOverlayView: View {
                     .disabled(!hasNextChapter)
                 }
                 .padding(.horizontal, 8)
+
+                // Row 5: Chapter progress footer
+                if let num = chapter.chapterNumber {
+                    VStack(alignment: .leading, spacing: 7) {
+                        let pctText = Text(Notation.progress(progress)).foregroundStyle(Color.accentColor)
+                        Text("\(Notation.chapter(num)) · \(pctText)")
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(.secondary)
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.primary.opacity(0.1))
+                                Capsule().fill(Color.accentColor)
+                                    .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
+                            }
+                        }
+                        .frame(height: 3)
+                    }
+                    .padding(.top, 11)
+                    .padding(.horizontal, 20)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                            .padding(.horizontal, 20)
+                    }
+                }
             }
-            .padding(.top, 16)
+            .padding(.vertical, 14)
             .background {
-                Rectangle()
+                RoundedRectangle(cornerRadius: 24)
                     .glassEffect()
-                    .ignoresSafeArea(edges: .bottom)
             }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 14)
         }
         .opacity(showOverlay ? 1 : 0)
         .allowsHitTesting(showOverlay)
