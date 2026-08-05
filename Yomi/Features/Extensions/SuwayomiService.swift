@@ -101,7 +101,7 @@ final class SuwayomiService {
     }
 
     func fetchChapters(mangaId: Int) async throws -> [SuwayomiChapterItem] {
-        try await fetch("/api/v1/manga/\(mangaId)/chapter/list?onlineFetch=true")
+        try await fetch("/api/v1/manga/\(mangaId)/chapters?onlineFetch=true")
     }
 
     func fetchChapterPageCount(mangaId: Int, chapterIndex: Int) async throws -> Int {
