@@ -120,14 +120,14 @@ struct MangaCoverCell: View {
                         .aspectRatio(2 / 3, contentMode: .fill)
                 } else {
                     KFImage(manga.coverURL)
-                        .placeholder { SkeletonView(showIcon: false).aspectRatio(2 / 3, contentMode: .fit) }
+                        .placeholder { SkeletonView(showIcon: false) }
                         .fade(duration: 0.2)
                         .resizable()
                         .aspectRatio(2 / 3, contentMode: .fill)
                 }
             }
+            .coverAspectSized()
             .cornerRadius(YomiTokens.Radius.cover)
-            .clipped()
             .overlay(alignment: .topLeading) {
                 if let catalogIndex, !isSelecting {
                     Text(Notation.catalogIndex(catalogIndex))

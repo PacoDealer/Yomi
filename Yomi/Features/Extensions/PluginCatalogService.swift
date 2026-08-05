@@ -131,7 +131,11 @@ private struct MangayomiEntry: Decodable {
                 group.addTask {
                     let repoURL = url.absoluteString
                     do {
-                        let (data, _) = try await URLSession.shared.data(from: url)
+                        // force means "check for updates now" — a locally cached response
+                        // (the CDN sends max-age=3600) would defeat that, so bypass URLCache.
+                        var request = URLRequest(url: url)
+                        if force { request.cachePolicy = .reloadIgnoringLocalCacheData }
+                        let (data, _) = try await URLSession.shared.data(for: request)
                         let parsed = Self.parseEntries(from: data)
                         return parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e }
                     } catch {

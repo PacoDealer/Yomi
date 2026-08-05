@@ -1,26 +1,31 @@
-// Verified live 2026-05-19. Domain migrated: aquareader.net → aquareader.org.
-// Madara WordPress theme. Chapter lists are AJAX-loaded via admin-ajax.php on this site.
+// Verified live 2026-08-04. Domain migrated: aquareader.net → aquareader.org.
+// Site was rebuilt on a custom theme (no longer Madara WordPress) — archive/detail pages use
+// new "aqua-*" markup. Only the search results page and the chapter reader page kept the old
+// Madara-style markup, so those two selector sets are unchanged.
+// NOTE: this domain sits behind Cloudflare, but SOURCE.fetch's plain UA/headers pass through
+// fine (verified: 200 OK, full HTML, no "Just a moment" interstitial) — no CF bypass needed here.
 
 const BASE_URL = "https://aquareader.org";
 
 // ── getMangaList ──────────────────────────────────────────────────────────────
 // Popular list: /manga/?page=N&order=popular
-// Card container: div.page-item-detail
-// Title + path: div.post-title.font-title h3.h5 > a  (text + href)
-// Cover: div.item-thumb img.img-responsive[src]  (absolute URL, 350px variant)
-// Chapter list on card: NOT used — fetched in getChapterList
+// Card: article.aqua-archive-card
+// Title + path: h3.aqua-archive-card__title > a  (text + href)
+// Cover: img.aqua-archive-card__cover[src]
+// Status: span.manga-status  (e.g. "Ongoing", "Completed")
 function getMangaList(page) {
   var url = BASE_URL + "/manga/?page=" + page + "&order=popular";
   var html = SOURCE.fetch(url);
   var $ = cheerio.load(html);
   var results = [];
 
-  $("div.page-item-detail").each(function(i, el) {
-    var $titleLink = el.find("div.post-title h3 a, div.post-title.font-title h3 a").first();
+  $("article.aqua-archive-card").each(function(i, el) {
+    var $titleLink = el.find("h3.aqua-archive-card__title a").first();
     var title = $titleLink.text().trim();
-    var href = $titleLink.attr("href") || "";
-    var path = href.replace(BASE_URL, "").replace("https://aquareader.net", "");
-    var cover = el.find("div.item-thumb img").attr("src") || "";
+    var href = $titleLink.attr("href") || el.find("a.aqua-archive-card__cover-link").attr("href") || "";
+    var path = href.replace(BASE_URL, "");
+    var cover = el.find("img.aqua-archive-card__cover").attr("src") || "";
+    var status = el.find("span.manga-status").text().trim().toLowerCase();
     if (title && path) {
       results.push({
         id: path,
@@ -30,7 +35,7 @@ function getMangaList(page) {
         summary: "",
         author: "",
         artist: "",
-        status: "Ongoing",
+        status: status || "unknown",
         genres: []
       });
     }
@@ -41,52 +46,25 @@ function getMangaList(page) {
 
 // ── getChapterList ────────────────────────────────────────────────────────────
 // Detail page: /manga/{slug}/
-// Madara-based sites load chapters via AJAX on this domain — static HTML has no li.wp-manga-chapter.
-// Strategy:
-//   1. Fetch detail page, try static li.wp-manga-chapter parse (works on some Madara installs).
-//   2. If empty, extract post ID from #manga-chapters-holder[data-id] and POST to admin-ajax.php.
-//   3. Parse the AJAX response HTML the same way.
+// Chapter list is server-rendered directly on the detail page (no AJAX needed here).
+// Item: a.aqua-ch-item[href] > span.aqua-ch-item__name (chapter name text)
 function getChapterList(mangaPath) {
   var url = BASE_URL + mangaPath;
   var html = SOURCE.fetch(url);
   var $ = cheerio.load(html);
   var chapters = [];
 
-  function parseChapterNodes(root) {
-    root("li.wp-manga-chapter").each(function(i, el) {
-      var $a = root(el).find("a").first();
-      var name = $a.text().trim();
-      var href = $a.attr("href") || "";
-      var path = href.replace(BASE_URL, "").replace("https://aquareader.net", "");
-      var numMatch = name.match(/[\d]+\.?[\d]*/);
-      var chapterNumber = numMatch ? parseFloat(numMatch[0]) : (i + 1);
-      if (name && path) {
-        chapters.push({ id: path, path: path, name: name, chapterNumber: chapterNumber });
-      }
-    });
-  }
-
-  parseChapterNodes($);
-
-  if (chapters.length === 0) {
-    // AJAX fallback — standard Madara pattern
-    var postId = $("#manga-chapters-holder").attr("data-id") ||
-                 $("[id='manga-chapters-holder']").attr("data-id") || "";
-    if (!postId) {
-      // Try extracting from inline JS or meta
-      var idMatch = html.match(/manga_id['":\s]+(\d+)/);
-      postId = idMatch ? idMatch[1] : "";
+  $("a.aqua-ch-item").each(function(i, el) {
+    var $el = $(el);
+    var name = $el.find("span.aqua-ch-item__name").first().text().trim();
+    var href = $el.attr("href") || "";
+    var path = href.replace(BASE_URL, "");
+    var numMatch = name.match(/[\d]+\.?[\d]*/);
+    var chapterNumber = numMatch ? parseFloat(numMatch[0]) : (i + 1);
+    if (name && path) {
+      chapters.push({ id: path, path: path, name: name, chapterNumber: chapterNumber });
     }
-    if (postId) {
-      var ajaxHTML = SOURCE.fetch(BASE_URL + "/wp-admin/admin-ajax.php", {
-        method: "POST",
-        body: "action=manga_get_chapters&manga=" + postId,
-        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }
-      });
-      var $$ = cheerio.load(ajaxHTML);
-      parseChapterNodes($$);
-    }
-  }
+  });
 
   // Site lists newest-first; reverse for ascending order
   chapters.reverse();
@@ -114,19 +92,21 @@ function getPageList(chapterPath) {
 
 // ── searchManga ───────────────────────────────────────────────────────────────
 // Search: GET /?s={query}&post_type=wp-manga
-// Results: same page-item-detail structure (search results page)
+// Results page kept the old Madara markup — unaffected by the archive/detail redesign.
 // Cover: img.img-responsive[src]
+// NOTE: results live in div.row.c-tabs-item__content — one per result. The single outer
+// div.c-tabs-item wraps ALL results, so matching on it directly only ever finds the first.
 function searchManga(query, page) {
   var url = BASE_URL + "/?s=" + encodeURIComponent(query) + "&post_type=wp-manga&paged=" + page;
   var html = SOURCE.fetch(url);
   var $ = cheerio.load(html);
   var results = [];
 
-  $("div.page-item-detail, div.c-tabs-item").each(function(i, el) {
+  $("div.row.c-tabs-item__content").each(function(i, el) {
     var $titleLink = el.find("div.post-title a, .post-title a").first();
     var title = $titleLink.text().trim();
     var href = $titleLink.attr("href") || "";
-    var path = href.replace(BASE_URL, "").replace("https://aquareader.net", "");
+    var path = href.replace(BASE_URL, "");
     var cover = el.find("img.img-responsive").attr("src") || "";
     if (title && path) {
       results.push({
@@ -137,7 +117,7 @@ function searchManga(query, page) {
         summary: "",
         author: "",
         artist: "",
-        status: "Ongoing",
+        status: "unknown",
         genres: []
       });
     }
