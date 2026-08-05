@@ -64,7 +64,7 @@ struct Manga: Identifiable, Codable {
 
     /// Returns the absolute filesystem path for the custom cover, handling both
     /// legacy absolute paths (stored before S78 fix) and new relative paths.
-    var resolvedCustomCoverPath: String? {
+    nonisolated var resolvedCustomCoverPath: String? {
         guard let stored = customCoverPath else { return nil }
         if stored.hasPrefix("/") { return stored }
         return FileManager.default
