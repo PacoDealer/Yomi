@@ -7,7 +7,7 @@ import Foundation
 // Human-authored text (titles, author, synopsis) stays in Space Grotesk.
 // See DESIGN_SYSTEM §6.
 
-enum Notation {
+nonisolated enum Notation {
 
     // MARK: - Chapter
 
@@ -24,6 +24,11 @@ enum Notation {
     /// "VOL. 03 / CH. 027"
     static func volumeChapter(volume: Int, chapter: Double) -> String {
         "VOL. \(String(format: "%02d", volume)) / \(Notation.chapter(chapter))"
+    }
+
+    /// "CH. 042 · read to 68%" — in-progress chapter, for History rows.
+    static func chapterReadTo(chapter: Double, fraction: Double) -> String {
+        "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
     }
 
     // MARK: - Progress
@@ -100,5 +105,27 @@ enum Notation {
     /// "CH. 027 · 64%"
     static func novelFooter(chapter: Double, fraction: Double) -> String {
         "\(Notation.chapter(chapter)) · \(Notation.progress(fraction))"
+    }
+
+    // MARK: - History timestamp (adaptive)
+
+    /// "14:20" today, "MON" within the last week, "JUL 28" otherwise — for History rows.
+    static func historyTimestamp(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            let f = DateFormatter(); f.dateFormat = "HH:mm"
+            return f.string(from: date)
+        }
+        let days = cal.dateComponents(
+            [.day],
+            from: cal.startOfDay(for: date),
+            to: cal.startOfDay(for: Date())
+        ).day ?? 0
+        if days < 7 {
+            let f = DateFormatter(); f.dateFormat = "EEE"
+            return f.string(from: date).uppercased()
+        }
+        let f = DateFormatter(); f.dateFormat = "MMM d"
+        return f.string(from: date).uppercased()
     }
 }

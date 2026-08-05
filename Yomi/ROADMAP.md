@@ -21,6 +21,54 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S91 — 2026-08-05 · Block 7 — History)
+
+**S91: implemented Block 7 (History) of the 12-block design track against N.11 in
+`YOMI Screens.dc.html`, the block explicitly deferred across S87-S90's bugfix/infra sessions.
+Blocks 1-7 of 12 are now done; Block 8 (Updates) is next.**
+
+`HistoryView.swift` rewritten from a native `List`/`.insetGrouped` layout to `ScrollView` +
+`LazyVStack` with custom section headers and rows — the same structural move Library and Browse
+already made in earlier blocks, needed here for full control over the N.11 row spec (44×62pt cover,
+single-line truncating title, Space Mono catalog-notation subtitle, right-aligned adaptive
+timestamp + a MANGA/NOVEL kind pill) that a boxed `insetGrouped` List can't produce. Kept the
+existing native `.navigationTitle` + `.searchable()` combo rather than building the mock's custom
+26px header/search-pill from scratch — this matches the precedent already screenshot-verified in
+Blocks 1-6 (Library, Browse both do the same thing), not a fidelity gap.
+
+**Behavior changes from the fidelity pass:**
+1. **Row subtitle now shows real catalog notation** ("CH. 042 · read to 68%" while a chapter is
+   in-progress, "CH. 042" once it's finished) instead of the raw chapter title string. New
+   `Notation.chapterReadTo(chapter:fraction:)` and reused `Notation.chapter()`. For manga, "touched"
+   chapter selection mirrors `ContinueHeroCard.loadMeta()`'s existing pattern exactly (`isRead ||
+   progress > 0`, sorted by `readAt`); for novels it mirrors the prior `HistoryView` in-progress vs.
+   last-fully-read logic that already existed. Source name (e.g. "MangaDex") was dropped from the
+   row per spec — detail is one tap away in Manga/NovelDetailView, and the kind pill now carries
+   that visual slot instead.
+2. **New `Notation.historyTimestamp(_:)`**: adaptive right-aligned time — "14:20" (today), "MON"
+   (within 7 days), "JUL 28" (older) — matching N.11's three-tier time format. Independent of the
+   existing 5-bucket section grouping (Today/Yesterday/This week/This month/Earlier), which was kept
+   as-is since it's strictly more useful than the mock's 3-bucket illustrative example.
+3. **Per-row delete moved from swipe/`EditButton` to long-press `.contextMenu`** ("Remove from
+   History"), matching the `.contextMenu` convention `LibraryView` already uses for its list rows —
+   `ScrollView`/`LazyVStack` doesn't support native `.swipeActions` (a `List`-only modifier), and the
+   design has no visible edit-mode affordance. The "Clear all" toolbar action is now a plain
+   Space Mono "Clear" text button (secondary/`tx2` color, per spec) instead of a trash icon; the
+   `EditButton` is gone entirely.
+
+**One real Swift 6 finding, not specific to this screen**: `Notation`'s static formatters are
+implicitly MainActor-isolated under this project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
+setting — calling `Notation.chapter()`/`chapterReadTo()` from inside `loadHistory()`'s
+`Task.detached` block (needed to keep chapter-fetch DB work off MainActor) produced two Swift 6
+concurrency errors. Fixed by marking the whole `enum Notation` `nonisolated` — it's pure, stateless
+string formatting with no MainActor-only dependencies, so this is safe and now lets any future
+screen call it from a background context too, not just this one.
+
+Verified live end-to-end via `build_run_sim` + mobile-mcp against the real on-device library/history
+data (not placeholder data): grouping, adaptive timestamps, catalog-notation subtitles, in-place
+search filtering, manga→`MangaDetailView` and novel→`NovelDetailView` navigation, and long-press
+"Remove from History" all confirmed working. Zero build warnings after the `nonisolated` fix.
+
 ## Current state (post S90 — 2026-08-05 · Suwayomi hosting architecture session, NOT a design block)
 
 **S90: user's stated goal — "all Yomi users should be able to use Keiyoushi manga sources without
