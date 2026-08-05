@@ -26,34 +26,34 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92; Block 9 (Downloads) live-verified S93.** Next session: Block 10 (Insights).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → ~~Insights~~ → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92; Block 9 (Downloads) live-verified S93; Block 10 (Insights) live-verified S94.** Next session: Block 11 (More+Settings).
 
-## Current state (post S93 — 2026-08-05 · Block 9 — Downloads)
+## Current state (post S94 — 2026-08-05 · Block 10 — Insights)
 
-S93 implemented Block 9 (Downloads) of the 12-block design track against N.13 in
-`YOMI Screens.dc.html`. Blocks 1-9 of 12 complete; Block 10 (Insights) is next. Unlike History/Updates
-(native `.navigationTitle`), N.13 uses the same floating-glass-chrome-over-content treatment as Detail
-(Blocks 3-5), so `DownloadsView.swift` was rebuilt with `.toolbar(.hidden, for: .navigationBar)` +
-`.overlay(alignment: .top) { glassNavBar }` reusing `MangaDetailView`'s exact glass-nav pattern
-(back/trash `.glassChip()` buttons) rather than the native-title-bar convention. The "DOWNLOADED"
-section was **consolidated from one row per chapter to one row per manga** (same per-title
-consolidation call as Updates/S92) showing "N chapters · size", pushing into `MangaDetailView` (which
-already has full per-chapter download management, so no new view was needed). "DOWNLOADING" keeps its
-existing per-chapter-job behavior, re-skinned to the 44×62pt cover + progress-bar row style. New:
-`DownloadManager.directorySize(mangaId:)` (nonisolated recursive `FileManager` byte count — no size
-was previously tracked) and `queueMangas: [Manga]` (replaces `queueMangaTitles: [String]` so queued
-rows can show real cover art). Real Swift 6 finding: `DownloadManager.shared` itself (the static
-property, not just its methods) is MainActor-isolated — calling `directorySize` from `Task.detached`
-required capturing `let manager = DownloadManager.shared` on MainActor first, same pattern as
-`ExtensionManager.shared.bridge(for:)`. Two judgment calls: the mock's queue-row "pause" icon has no
-real pause/resume in `DownloadManager` (only cancel), so it renders as `xmark.circle` rather than a
-glyph implying capability that doesn't exist; the header trash button is a new `deleteEverything()`
-gated behind a `.confirmationDialog`, matching History's "Clear all" convention. Verified live via
-`build_run_sim` + mobile-mcp against real downloads (Asura Scans): downloaded 4 real chapters,
-confirmed the per-manga row and byte-size footer compute correctly from real on-disk files, row→Detail
-navigation, long-press "Delete all downloads", and header trash → confirm → empty state. The
-progress-bar row was code-reviewed but not caught live (downloads complete in well under a second).
-Zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S93 entry.
+S94 implemented Block 10 (Insights) of the 12-block design track against N.14 in
+`YOMI Screens.dc.html`. Blocks 1-10 of 12 complete; Block 11 (More+Settings) is next.
+`InsightsView.swift` was already a real GRDB-backed stats screen (streak/chapters/time/titles-started,
+per-title time tracking, a hand-rolled contribution calendar) from an earlier pass, never restyled to
+the design system — rebuilt against N.14's floating-glass-chrome-over-content treatment (same family
+as Detail/Downloads): `.toolbar(.hidden, for: .navigationBar)` + `.overlay(alignment: .top) {
+glassNavBar }`, single back `.glassChip()` (no trailing action, matching N.14's mock). The 4 stat
+cards were restyled to the mock exactly (big Grotesk number + Space Mono label, no icon, no unit
+line). The old 13-week GitHub-style calendar (day labels, per-column month labels) was replaced with
+a simpler `ActivityHeatmap` matching N.14: a `surface1` card with a real 18-week/7-day opacity grid
+(quartile-bucketed against the window's own max count, matching the legend's 4 swatches exactly) plus
+an edge-month + LESS→MORE legend row. The old "Breakdown" (manga/novel split) and "By Title" sections
+were replaced by N.14's single "MOST READ" list — same per-title time-spent data, restyled to real
+34×48pt cover art + `Notation.readingTimeShort()` + a relative accent-capsule bar; Breakdown had no
+mock equivalent and was dropped (same judgment as Browse/S86 dropping its non-spec Extensions tab).
+Real Swift 6 finding, project-wide relevance: `Manga.resolvedCustomCoverPath` and
+`Novel.resolvedCustomCoverPath` — simple stateless computed properties — are MainActor-isolated
+purely from `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` applying to structs too, the same class of bug
+S91 found in `Notation`; neither had been called from `Task.detached` before this session's "Most
+Read" cover lookup. Fixed by marking both `nonisolated`. Verified live via `build_run_sim` +
+mobile-mcp against real on-device reading history: all 4 stat cards, the heatmap's "APR"→"AUG" edge
+labels (today is 2026-08-05, 18 weeks back lands in April) and correct per-day opacity, and all 5
+Most Read rows (real covers, times, proportional bars) confirmed; back button dismisses correctly.
+Zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S94 entry.
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.

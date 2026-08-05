@@ -21,7 +21,56 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S93 — 2026-08-05 · Block 9 — Downloads)
+## Current state (post S94 — 2026-08-05 · Block 10 — Insights)
+
+**S94: implemented Block 10 (Insights) of the 12-block design track against N.14 in
+`YOMI Screens.dc.html`. Blocks 1-10 of 12 are now done; Block 11 (More+Settings) is next.**
+
+`InsightsView.swift` (already a real, GRDB-backed stats screen from an earlier non-design-track pass —
+streak/chapters/time/titles-started stat logic, per-title time tracking, a hand-rolled GitHub-style
+contribution calendar — none of it ever restyled to the design system) was rebuilt against N.14's
+floating-glass-chrome-over-content treatment, same family as Detail/Downloads (Blocks 3-5, 9):
+`.toolbar(.hidden, for: .navigationBar)` + `.overlay(alignment: .top) { glassNavBar }`, single back
+`.glassChip()` (no trailing action — N.14's mock has none). The 4 stat cards were restyled to match
+the mock exactly (large Grotesk number + Space Mono label, no icon, no unit line — the previous
+`StatCard` had all three); the mock's placeholder count of 4 lined up with the 4 stats already
+computed (day streak, chapters read, time read, titles started), so no new stat was invented or
+dropped. The old "Reading Activity" calendar (13 weeks, day-of-week row labels, per-column month
+labels — a heavier GitHub-contribution-graph clone) was replaced with a new, simpler
+`ActivityHeatmap` matching N.14's actual mock: a single `surface1` card holding a 7-row × 18-column
+opacity grid (label reads "ACTIVITY · LAST 18 WEEKS" — real 18-week window, not the mock's
+`hint-placeholder-count="70"` which is inconsistent with its own label) plus a legend row (oldest
+month · LESS→MORE swatches · newest month) instead of per-column month labels. Opacity is
+quartile-bucketed against that window's own max daily count (0.14/0.45/0.8/1.0, matching the legend
+swatches exactly) rather than a continuous gradient, so the legend is literally true of the cells.
+
+The old "Breakdown" (manga vs. novel time split) and "By Title" sections were replaced by N.14's
+single "MOST READ" section — same underlying per-title time-spent computation as the old "By Title"
+list, but restyled to the mock's exact row spec: real 34×48pt cover art (previously the mock's own
+mini colored-gradient-letter-mark placeholder, not applicable here since real cover URLs already
+exist), title + `Notation.readingTimeShort()` value on one line, a 5pt accent capsule bar below sized
+relative to the top title's time. Breakdown (manga/novel split) had no equivalent in the mock and was
+dropped rather than kept as an extra, non-spec section — consistent with how Block 6 (Browse, S86)
+dropped its own duplicate "Extensions" sub-tab.
+
+Real Swift 6 finding, project-wide relevance: `Manga.resolvedCustomCoverPath` and
+`Novel.resolvedCustomCoverPath` (both simple, stateless path-string computed properties — no actor
+affinity of their own) are MainActor-isolated purely because `SWIFT_DEFAULT_ACTOR_ISOLATION =
+MainActor` applies to structs/enums, not just classes — the exact same class of bug S91 found and
+fixed in `Notation`. Neither had ever been called from a `Task.detached` context before this session
+(the "Most Read" cover-lookup is the first caller to do so); both are now `nonisolated` at the
+property level. Any future struct with a MainActor-inferred pure computed property should get the
+same fix the moment it needs to run off-MainActor, rather than restructuring the call site.
+
+Verified live via `build_run_sim` + mobile-mcp against real on-device reading history (not seeded
+placeholders): all 4 stat cards computed correctly (2-day streak, 8 chapters, 6m, 7 titles), the
+heatmap's edge-month legend read "APR" → "AUG" (today is 2026-08-05, 18 weeks back lands in April) and
+lit up real activity days at the correct opacity tier, and all 5 "Most Read" rows rendered real cover
+art, correct `Notation.readingTimeShort()` values, and correctly-proportioned bars (down to
+"Chainsaw Man" at the bottom, smallest bar). Back button confirmed dismissing correctly. Zero build
+warnings.
+
+---
 
 **S93: implemented Block 9 (Downloads) of the 12-block design track against N.13 in
 `YOMI Screens.dc.html`. Blocks 1-9 of 12 are now done; Block 10 (Insights) is next.**

@@ -77,7 +77,7 @@ Yomi/
 │   │   ├── SettingsView.swift       # General / Reader manga / Reader novel / Appearance (→AppearanceStudioView NavigationLink) / About / Plugin Repos / Suwayomi / OPDS / Advanced
 │   ├── AppearanceStudioView.swift # Canvas × Accent × Type studio with live preview card; Canvas swatches (Ink/Midnight/Paper/Sepia); Accent presets + custom ColorPicker + WCAG contrast badge; Type controls (UI font, reading font, fontSize, lineSpacing, margins); Library (columns, unread badge); App icon; Reset defaults
 │   │   ├── AdvancedSettingsView.swift # Cache (image/plugin/WebView), Network (read-only), Database (log export), Build info
-│   │   ├── InsightsView.swift       # Stat cards (streak, chapters read, time read, titles started) + manga/novel breakdown section + per-title time list with relative bars and "N" novel badges
+│   │   ├── InsightsView.swift       # Floating glass back button over canvas.bg (S94 — N.14 spec). 4 borderless stat cards (streak/chapters/time/titles, no icons), 18-week activity heatmap card (real calendarMap data, quartile-bucketed opacity, MAR–JUL-style edge month legend), "Most Read" real-cover list with per-title relative time bars — old native breakdown/by-title List sections replaced
 │   │   ├── BackupManager.swift      # Export/import JSON (manga+chapters+novels+categories); buildBackupData() shared by local export + iCloud upload; uploadToICloud/downloadFromICloud/checkICloudBackup via Task.detached FileManager; ICloudSyncStatus enum; lastICloudUploadDate in UserDefaults
 │   │   ├── BackupView.swift         # UI: iCloud section (top), ShareLink export, fileImporter import, Tachiyomi import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
