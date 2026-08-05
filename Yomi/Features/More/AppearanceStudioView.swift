@@ -18,9 +18,8 @@ struct AppearanceStudioView: View {
     private let accentSwatches = YomiTokens.Accent.presets.map(\.hex)
 
     private let alternateIcons: [(label: String, key: String?)] = [
-        ("Default", nil),
-        ("Dark",    "AppIconDark"),
-        ("Minimal", "AppIconMinimal"),
+        ("Ink",   nil),
+        ("Paper", "AppIcon-Paper"),
     ]
 
     // MARK: - Body

@@ -122,6 +122,46 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S87
+
+**`URLCache` silently defeats "force refresh" unless you say so explicitly.** Both
+`PluginCatalogService.fetchCatalog(force: true)` and `ExtensionManager.install()` called
+`URLSession.shared.data(from:)` with the default cache policy. Firebase Hosting sends
+`Cache-Control: max-age=3600`, so redeploying a `.js` plugin or `index.json` had **zero effect**
+on already-running app sessions for up to an hour — "Update" buttons and even full
+uninstall+reinstall cycles kept silently re-serving old cached content, no error, no signal
+anything was wrong. Lesson: any fetch whose entire *purpose* is "get the current version" (an
+explicit refresh, an install/reinstall) must use `.reloadIgnoringLocalCacheData`, not just rely on
+a `force` flag name to imply it bypasses caching — the flag only bypassed the app's own in-memory
+TTL guard, not `URLCache`. This cost most of a debugging session before being traced to caching
+rather than the actual JS logic (which was correct from the first rewrite).
+
+**A misleading generic error message can send you down the wrong root cause for hours.**
+AquaManga's "No titles found — the site may be down or Cloudflare-protected" message was accurate
+in *neither* direction: the site was up, not Cloudflare-blocking the actual requests, and the real
+problem (stale CSS selectors after a site redesign) wasn't in the message's hypothesis space at
+all. When a generic/hedged error message is the only lead, verify each hypothesis it names
+independently and explicitly (here: temporary `print()` debug logging directly in the exact
+`URLSession.dataTask` completion handler proved the fetch itself succeeded with real content,
+which ruled out Cloudflare in about two minutes) rather than assuming the message's own framing is
+correct and building the investigation around it.
+
+**Custom parser code needs testing outside the app to debug efficiently.** `JSBridge.swift`'s
+`cheerio` is a hand-rolled ~350-line HTML parser + CSS selector engine (not the real cheerio
+library), evaluated inside `JSContext`. When results came back empty, the fastest way to prove the
+selector logic itself was correct (vs. suspecting the parser) was extracting the exact shim source
+into a standalone file and running it under Node.js against a real HTML fragment captured live via
+a Chrome MCP session — far faster than iterating by rebuilding the iOS app and reading through
+`print()` output each time. Keep this in mind for any future `cheerio`/selector debugging: reach
+for Node standalone repro before assuming a live-app rebuild cycle is required.
+
+**`mobile-mcp`'s `mobile_swipe_on_screen` `distance` parameter is unreliable for fine scrolling.**
+Observed identical large scroll jumps for `distance: 1` and `distance: 800` — the gesture appears
+to always fling with similar velocity regardless of the requested distance, in this session's
+simulator. This made reaching a specific short section between two known screens (e.g. one row in
+a long Settings list) impractical via repeated small swipes. Workaround used: navigate more
+directly instead (search fields, fewer intermediate screens) rather than fighting the gesture.
+
 ## Technical learnings — S85
 
 **Design tokens existing ≠ design tokens applied.** `YomiTokens.Canvas` (Ink/Midnight/Paper/Sepia)

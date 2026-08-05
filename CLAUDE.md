@@ -28,48 +28,42 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86.** Next session: Block 7 (History).
 
-## Current state (post S86 — 2026-08-04 · Block 6 — Browse)
+## Current state (post S87 — 2026-08-04 · Known-issues fix session, NOT a design block)
 
-Browse rebuilt to N.06 (Browse) + N.16 (Browse — search). Found the old "Extensions" sub-tab
-duplicated `More → Plugins` (`PluginsView`) — removed it; Browse now only *consumes* installed
-sources (search pill + Sources/Global-search segmented control), matching the 2-segment spec, while
-all install/repo/update management stays solely in `PluginsView` (`CatalogGroupRow` moved there,
-its only remaining caller). Installed-source rows use a new `SourceIconBadge` (real icon, falling
-back to a deterministic name-hashed gradient + initials). A `Popular on <first source>` horizontal
-carousel was added, reusing `MangaCoverCell`/`NovelCoverCell`. Global search became a pushed
-`SearchScreen` with horizontal per-source carousels (was vertical grids under `.searchable`).
+S87 was a bugfix pass through `CLAUDE.md`'s Known Issues table (rows 1/3/7/8/9), **not** Block 7
+(History) — that's still next. Design implementation still stands at Blocks 1-6 done (see line 29).
 
-**Two real bugs found via live simulator testing (not just code-read), both fixed:**
-1. `NavigationLink` + `.contextMenu` on a row narrows the tappable area to content only (e.g. the
-   trailing chevron) — the `Spacer()`-filled middle silently ate taps. Fix: explicit
-   `.contentShape(Rectangle())` on every tappable row.
-2. `.task(id:)` attached to `Group { if cond { … } }` sometimes never renders the `true` branch when
-   `cond` flips from async state, even though the state is correct (confirmed via a debug label).
-   Fix: attach `.task` to a persistent container (`VStack`) whose *children* are conditional, not a
-   `Group` whose only child is the conditional.
+**Fixed and verified live:** app icon Xcode wiring (#3, see Known Issues table), the cover-cell
+grid-sizing bug (#7), and AquaManga's "Cloudflare bypass" — which turned out to be a site redesign
+(stale CSS selectors), not a Cloudflare problem at all — plus two real `URLCache`-staleness bugs
+found while testing that fix (`PluginCatalogService`/`ExtensionManager` were silently re-serving
+old cached plugin code after redeploys). **Full detail — including two things found but left
+unfixed for next session (AquaManga cover images, a runaway-pagination bug) — is in the Known
+Issues table's row 9, and in `Yomi/ROADMAP.md`'s S87 entry.**
 
-**Full detail in `Yomi/ROADMAP.md`'s S86 entry** (S85's Phase 0 fidelity-gap fix detail is preserved
-there too, one entry below).
+**Process note (mobile-mcp gestures):** `mobile-mcp` element coordinates are the bounding box's
+top-left corner, not its center — tap `(x + width/2, y + height/2)` for small circular targets like
+the 44×44 glass chips, or taps silently miss. **New this session:** the `mobile_swipe_on_screen`
+tool's `distance` parameter does **not** reliably control scroll distance in this environment —
+observed swipes of 1px and 800px produce the *same* large scroll jump, meaning fine-grained
+scrolling (e.g. to reach a specific settings row) is not currently reliable. Prefer navigating to
+the target screen more directly (deep link, search, or a shorter list) over scrolling to it.
 
-**Process note:** `mobile-mcp` element coordinates are the bounding box's top-left corner, not its
-center — tap `(x + width/2, y + height/2)` for small circular targets like the 44×44 glass chips,
-or taps silently miss.
-
-Full session-by-session history (S1-S85) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+Full session-by-session history (S1-S86) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 
 | # | Issue | Notes |
 |---|-------|-------|
-| 1 | Chapters from Browse (partial) | Defensive fixes in S37. Root cause unconfirmed — needs live device test. |
-| 2 | ~~App icon missing~~ | ✅ Designed S79/S82 — "Y." monogram (Space Grotesk Y + Vermilion dot), **Ink** default + **Paper** alternate. PNGs in `Yomi/design/design_handoff_yomi/assets/`; layers in `Yomi/design/icons/layers/`. TODO: drag into `AppIcon.appiconset` in Xcode + `CFBundleAlternateIcons` entry. |
-| 3 | Alternate icons need Xcode step | Drop PNGs into appiconsets + add `CFBundleAlternateIcons` in Xcode Target → Info. |
+| 1 | Chapters from Browse (partial) | Still open for sources other than AquaManga — not re-tested this session (S87 got absorbed by #9's rabbit hole). AquaManga's own chapter list is now confirmed correct (see #9). Needs live device test across the other installed sources (Asura Scans, MangaDex, NovelFire, FreeWebNovel, NovelBin) to see if any still truncate. |
+| 2 | ~~App icon missing~~ | ✅ Done S87 — wired into Xcode (see #3). |
+| 3 | ~~Alternate icons need Xcode step~~ | ✅ Done S87 — `AppIcon.appiconset` now ships `AppIcon-Ink-1024.png`; new `AppIcon-Paper.appiconset` added; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES` set in both configs (Xcode 26's automatic alternate-icon Info.plist generation — verified `CFBundleAlternateIcons.AppIcon-Paper` in the compiled Info.plist). Deleted the two stale empty `AppIconDark`/`AppIconMinimal` appiconsets and fixed `AppearanceStudioView.swift`'s icon picker to use the real `AppIcon-Paper` key instead of leftover placeholder names. |
 | 4 | App Store content missing | Age rating 18+, description, screenshots pending in App Store Connect. |
 | 5 | ~~Firebase deploy pending~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live. |
 | 6 | ReadComicOnline + Mangapill broken | Downloaded from dead GitHub repo. User should uninstall from Extensions tab. |
-| 7 | Inconsistent cover-cell sizes in grid | User-flagged S86 review, MangaDex Popular grid. `MangaCoverCell.swift` cellContent has no explicit `.frame(height:)` — relies solely on `.aspectRatio(2/3, contentMode:.fill)` inside a `LazyVGrid(.adaptive(minimum:100,maximum:160))`. Ratio should be deterministic per column width in theory; not yet root-caused live. Suspect: Kingfisher placeholder (`.aspectRatio(2/3, contentMode:.fit)`) vs loaded-image (`.fill`) sizing mismatch during/after async load. Needs live simulator repro + Xcode view debugger, not just code read. |
-| 8 | Manga sources never show Popular/Latest tabs | Not a bug — confirmed by design. `JSBridge.supportsLatest` (Format A) requires the plugin to define `getLatestManga`; `mangadex.js`/`asurascans.js` never implemented it. Novel (LNReader) sources get `supportsLatest = true` unconditionally in `SourceBrowseView.loadContent()` because LNReader's shared plugin contract reuses one `popularNovels()` method with a `showLatestNovels` flag for every plugin — it's structural, not optional. If Latest is wanted for manga, it must be added per-plugin in the `.js` source (`getLatestManga(page)` function). |
-| 9 | AquaManga Cloudflare bypass fails | User-flagged S86 review. Auto-bypass (`CFBypassManager.autoBypass`, `CFBypassView.swift`) loads the source URL in an off-screen `WKWebView`, polls up to 30s for a `cf_clearance` cookie, then copies cookies into `HTTPCookieStorage.shared` for `URLSession` (used by `SOURCE.fetch`) to pick up. For AquaManga this times out → "No titles found" / Cloudflare-protected banner. Unconfirmed whether the site requires an *interactive* Turnstile challenge (a real tap — auto-bypass can never solve this) vs. the domain being down/changed. Next step: try the manual shield-icon bypass (`CFBypassView`) live and see if a human tap succeeds where auto-bypass didn't. |
+| 7 | ~~Inconsistent cover-cell sizes in grid~~ | ✅ Root-caused + fixed S87. `.aspectRatio(_, contentMode: .fill)` alone falls back to the content's own intrinsic size whenever the parent proposes unbounded height (grid cell with only column width fixed, or `.frame(width:)` with no height) — cell height ended up varying per image. Fixed with a new `coverAspectSized()` modifier (`Core/CoverImage.swift`): a `Color.clear.aspectRatio(2/3, contentMode: .fit)` sizer drives a deterministic width-based height, with the real image as an `.overlay` + `.clipped()`. Applied to the shared `CoverImage` component (fixes `NovelLibraryCoverCell`, `NovelCoverCell`, `OPDSBrowseView` for free) plus the inline duplicates in `MangaCoverCell.swift`, `LibraryView.swift`'s `NovelLibraryCoverCell` custom-cover branch, `ContinueReadingRow.swift` (both manga/novel cells), and `HistoryView.swift`. Verified live: MangaDex Popular grid cells are now uniform. |
+| 8 | Manga sources never show Popular/Latest tabs | User pushed back S87 on the "not a bug" verdict — wants both sections available, asked whether Suwayomi-bridged sources fix this since Suwayomi proxies Keiyoushi/Tachiyomi extensions which do support Latest. **Not investigated yet** — need to check live with a configured Suwayomi server next session. Prior verdict stands for direct JS plugins: `JSBridge.supportsLatest` requires `getLatestManga`, which `mangadex.js`/`asurascans.js` never implemented. |
+| 9 | ~~AquaManga "Cloudflare bypass fails"~~ | ✅ Root-caused S87 — **misdiagnosed originally, not a Cloudflare problem at all.** Confirmed live (Chrome + in-app debug logging): SOURCE.fetch's plain UA/headers get a clean `200` with full HTML every time, no CF challenge — the domain migrated `aquareader.net` → `aquareader.org` and was **rebuilt on a custom theme** (no longer Madara WordPress), so `aquamanga.js`'s old selectors (`div.page-item-detail`, `li.wp-manga-chapter`, etc.) matched nothing. Rewrote `getMangaList`/`getChapterList`/`searchManga` against the live DOM (`article.aqua-archive-card`, `a.aqua-ch-item`, fixed a `searchManga` container bug that only ever matched the first of N results). `getPageList` needed no change — the reader page kept the old markup. Deployed to Firebase (`v1.1.0`). **While chasing why the fix "didn't take" during testing, found and fixed two real caching bugs**, both `URLCache` serving stale CDN responses despite `Cache-Control: max-age=3600` no longer matching the redeployed content: `PluginCatalogService.fetchCatalog(force: true)` and `ExtensionManager.install()` now both set `.reloadIgnoringLocalCacheData` — without this, "Update" and even a fresh reinstall could silently keep running old plugin code indefinitely. **Two things found but left unfixed, for next session:** (a) AquaManga's cover images still render as gray placeholders — the image host (`wp-content/uploads`) is Cloudflare-protected and Kingfisher's requests don't carry `cf_clearance`/matching UA; added a global Kingfisher `requestModifier` in `YomiApp.swift` setting `CFBypassConstants.userAgent`, but did **not** get to verify it actually fixes the covers (see (b)). (b) **Runaway pagination**: `SourceBrowseView.loadMore()` fetched **100+ pages in seconds** for AquaManga — `hasMoreContent` only goes false on an *empty* result, but AquaManga's archive apparently never returns empty past the real last page (~63 pages for 1,495 series), so it never terminates. Very likely also the actual reason covers never load (Kingfisher/URLSession flooded by concurrent `SOURCE.fetch` calls). Needs a page-level dedup or max-page safety cap in `BrowseView.swift`'s `loadMore()`. |
 | 10 | Keiyoushi repo — not missing, architectural | User asked S86 review. Keiyoushi extensions are Kotlin (Android APK bytecode) — cannot run in JavaScriptCore, confirmed and documented since S18 (see `RESEARCH.md`/`METODOLOGIA.md`/`ARQUITECTURA.md`). Yomi will never offer it as a one-tap JS repo (unlike LNReader, which is JS-native). The only path to Keiyoushi's 1000+ sources is the existing Suwayomi bridge (self-hosted server, shipped S41, `SettingsView` → "Suwayomi Server") — Browse's Suwayomi section only appears once a server URL is configured there. If the user hasn't set one up, that's why Browse shows no Suwayomi/Keiyoushi content. |
 
 ## MCP tools — use these every session
@@ -242,8 +236,8 @@ cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting
 Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
-- App icon — ✅ designed S79/S82 ("Y." monogram, Ink + Paper); PNGs in `Yomi/design/design_handoff_yomi/assets/`; layers in `Yomi/design/icons/layers/`. TODO: drag into `AppIcon.appiconset` in Xcode, add `CFBundleAlternateIcons` entry, upload to App Store Connect.
-- Screenshots — blocked until design implementation complete (Blocks 6-12 remain: Browse, History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
+- App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
+- Screenshots — blocked until design implementation complete (Blocks 7-12 remain: History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

@@ -105,7 +105,12 @@ final class ExtensionManager {
         defer { isLoading = false }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: ext.sourceListURL)
+            // Install/reinstall means "get the current plugin" — a locally cached response
+            // (the CDN sends max-age=3600) would silently re-serve stale plugin code, so
+            // bypass URLCache the same way PluginCatalogService's force refresh does.
+            var request = URLRequest(url: ext.sourceListURL)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            let (data, _) = try await URLSession.shared.data(for: request)
 
             let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
             try data.write(to: localURL)

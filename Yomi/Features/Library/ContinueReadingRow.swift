@@ -387,6 +387,7 @@ private struct ContinueReadingCell: View {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
+                                .coverAspectSized()
                         } else {
                             CoverImage(url: manga.coverURL)
                         }
@@ -538,6 +539,7 @@ private struct ContinueReadingNovelCell: View {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
+                                .coverAspectSized()
                         } else {
                             CoverImage(url: novel.coverURL)
                         }

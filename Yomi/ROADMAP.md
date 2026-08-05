@@ -21,7 +21,95 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S86 — 2026-08-04 · Block 6 — Browse)
+## Current state (post S87 — 2026-08-04 · Known-issues fix session)
+
+**S87 (2026-08-04): Bugfix pass through the Known Issues table (CLAUDE.md rows 1/3/7/8/9) —
+not a design block; Block 7 (History) is still next.**
+
+1. **App icon Xcode wiring (#3) — done.** `AppIcon.appiconset` now ships `AppIcon-Ink-1024.png`;
+   added `AppIcon-Paper.appiconset`; set `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES`
+   in both Debug/Release configs (Xcode 26's automatic alternate-icon Info.plist generation —
+   confirmed `CFBundleAlternateIcons.AppIcon-Paper` in the compiled Info.plist, no manual plist
+   editing needed). Deleted the two stale empty `AppIconDark`/`AppIconMinimal` appiconsets and
+   fixed `AppearanceStudioView.swift`'s icon picker (`alternateIcons` array) which still referenced
+   those old placeholder names instead of `AppIcon-Paper`.
+
+2. **Cover-cell grid sizing bug (#7) — root-caused and fixed.** `.aspectRatio(_, contentMode: .fill)`
+   alone falls back to the content's own intrinsic size whenever the parent proposes an unbounded
+   height — a `LazyVGrid` cell with only the column width fixed, or a `.frame(width:)` with no
+   height — so cell height varied per image instead of a uniform grid (confirmed: the placeholder,
+   which used `.fit`, was already consistent; only the loaded `.fill` image varied). Fixed with a
+   new `coverAspectSized()` modifier in `Core/CoverImage.swift`: a `Color.clear.aspectRatio(2/3,
+   contentMode: .fit)` sizer drives a deterministic width-based height, with the real image
+   `.overlay`'d on top and `.clipped()`. Applied to the shared `CoverImage` component (fixes
+   `NovelLibraryCoverCell`, `NovelCoverCell` in Browse, and `OPDSBrowseView` for free, since they
+   all route through it) plus the duplicated inline logic in `MangaCoverCell.swift`,
+   `LibraryView.swift`'s `NovelLibraryCoverCell` custom-cover branch, both cells in
+   `ContinueReadingRow.swift`, and `HistoryView.swift`. Verified live: MangaDex's Popular grid in
+   Browse now renders every cell at a uniform height.
+
+3. **AquaManga "Cloudflare bypass fails" (#9) — root-caused; turned out to not be a Cloudflare
+   problem at all.** User asked to try the manual shield-icon bypass live. Doing that surfaced that
+   `aquareader.org` loads fine with no CF challenge for a real browser *or* for `SOURCE.fetch`
+   (confirmed via temporary debug logging in `JSBridge.swift`: consistent `200 OK`, full HTML, no
+   "Just a moment" interstitial). The actual problem: the site was rebuilt on a custom theme
+   (no longer Madara WordPress) sometime after the plugin's last "verified live" date of
+   2026-05-19 — `aquamanga.js`'s old selectors (`div.page-item-detail`, `li.wp-manga-chapter`,
+   etc.) matched nothing in the new markup. Rewrote `getMangaList`/`getChapterList`/`searchManga`
+   against the live DOM (verified selector-by-selector via a Chrome MCP session and a standalone
+   Node harness built from the exact hand-rolled cheerio shim in `JSBridge.swift`, since the
+   embedded parser is a custom implementation, not real cheerio): cards are now
+   `article.aqua-archive-card`, chapters `a.aqua-ch-item` on the detail page (no AJAX fallback
+   needed — it's server-rendered), and fixed a real bug in `searchManga`'s old selector
+   (`div.c-tabs-item` only ever matched the single outer wrapper around all N results, not each
+   result — changed to `div.row.c-tabs-item__content`, one per result). `getPageList` needed no
+   change — the chapter reader page kept the old Madara markup. Deployed to Firebase as `v1.1.0`.
+
+   **While chasing why the fix "didn't take" during testing, found and fixed two real caching
+   bugs**, both `URLCache` silently serving stale CDN responses because the redeployed content at
+   the same URL still matched `Cache-Control: max-age=3600` from an earlier fetch:
+   `PluginCatalogService.fetchCatalog(force: true)` and `ExtensionManager.install()` now both set
+   `.reloadIgnoringLocalCacheData` on the request. Without this, tapping "Update" on a plugin — or
+   even a full uninstall+reinstall — could silently keep running old plugin code indefinitely if
+   fetched within the CDN's cache window. This is a real fix for all users, not just AquaManga.
+
+   **Two things found but left unfixed — pick up here next session:**
+   - AquaManga's cover images still render as gray placeholders in the grid even though
+     `coverURL` extraction is confirmed correct (verified via debug logging: real `.webp` URLs
+     under `wp-content/uploads`). The image host is also Cloudflare-protected, and Kingfisher's
+     requests don't carry the same UA the CF bypass flow solved the challenge for
+     (`cf_clearance` is UA-bound, per the existing `CFBypassConstants` comment). Added a global
+     Kingfisher `requestModifier` in `YomiApp.swift`'s `init()` setting
+     `CFBypassConstants.userAgent` on every image request — **not yet verified whether this alone
+     fixes it**, because of the next item:
+   - **Runaway pagination**: `SourceBrowseView.loadMore()` (`BrowseView.swift`) fetched **100+
+     pages in a matter of seconds** for AquaManga's Popular grid. `hasMoreContent` only flips
+     false when a page returns an *empty* array, but AquaManga's archive (~1,495 series ÷ 24/page
+     ≈ 63 real pages) apparently never returns empty past the last real page — likely serves
+     duplicate/wrapped content for out-of-range page numbers, a common WordPress pagination
+     fallback. This is very likely the actual reason covers never load too (100+ pages × 24
+     concurrent `SOURCE.fetch`/Kingfisher requests plausibly exhausts the connection pool or
+     trips Cloudflare rate-limiting). Needs a page-level dedup (compare new page's first result id
+     against what's already accumulated) or a hard max-page safety cap in `loadMore()`.
+
+4. **Manga sources Popular/Latest (#8) — not investigated.** User pushed back on the S86 "not a
+   bug" verdict, asking whether Suwayomi-bridged sources (which proxy Keiyoushi/Tachiyomi
+   extensions) already support a Latest feed, which would mean Popular/Latest *should* be
+   achievable for manga through that path even though direct JS plugins
+   (`mangadex.js`/`asurascans.js`) don't implement `getLatestManga`. Ran out of session time before
+   getting to this — needs a live test with a configured Suwayomi server.
+
+5. **Chapters from Browse, partial (#1) — not re-tested.** Original vague S37 issue; this session's
+   time went entirely into #9 instead. AquaManga's own chapter list is now confirmed correct (see
+   above) but the other installed sources (Asura Scans, MangaDex, NovelFire, FreeWebNovel,
+   NovelBin) weren't re-checked.
+
+**Also learned:** the `mobile-mcp` `mobile_swipe_on_screen` tool's `distance` parameter does not
+reliably control scroll distance in the simulator used this session — a 1px swipe and an 800px
+swipe produced the *same* large scroll jump. Fine-grained scrolling (e.g. to reach one specific row
+in a long Settings list) was not achievable; had to navigate more directly instead (search, or a
+shorter screen). Worth trying a different approach (e.g. explicit start/end coordinates, or a
+slower multi-step gesture) next time this matters.
 
 **S86 (2026-08-04): Block 6 — Browse, redesigned to N.06 (Browse) + N.16 (Browse — search).**
 Before rebuilding, found that Browse's old "Extensions" sub-tab duplicated `More → Plugins`
