@@ -360,7 +360,7 @@ private struct NovelReaderSettingsView: View {
 
 // MARK: - UpdatesSettingsView
 
-private struct UpdatesSettingsView: View {
+struct UpdatesSettingsView: View {
     @State private var settings = AppSettings.shared
 
     var body: some View {

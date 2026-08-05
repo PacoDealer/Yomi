@@ -21,7 +21,42 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S91 — 2026-08-05 · Block 7 — History)
+## Current state (post S92 — 2026-08-05 · Block 8 — Updates)
+
+**S92: implemented Block 8 (Updates) of the 12-block design track against N.12 in
+`YOMI Screens.dc.html`. Blocks 1-8 of 12 are now done; Block 9 (Downloads) is next.**
+
+`UpdatesView.swift` moved from a native `List`/`.insetGrouped` layout (one `Section` per manga/novel,
+one row per new chapter) to `ScrollView` + `LazyVStack` grouped by date bucket (Today/Yesterday/This
+week/This month/Earlier), matching N.12 and the same structural move Library/Browse/History already
+made. **This is a real behavior change, not just a visual one**: the mock's `it.title`/`it.note`/
+`it.count` row shape is one summary row per title (not per chapter), so the old per-chapter row list
+was consolidated into a single row per manga/novel showing a chapter-range note (new
+`Notation.chapterRange(low:high:)`, e.g. "CH. 002–008") and a count pill. Two behaviors that were on
+the old per-chapter rows had no direct equivalent in the mock and needed a judgment call:
+1. **Per-chapter tap-to-read** — replaced by a trailing circular "start reading" icon button
+   (`arrow.down.circle`, matches the mock's circular glyph) that jumps straight into the reader at
+   the *oldest* unread new chapter, reusing the existing `loadMangaReader`/`loadNovelReader` methods
+   unchanged. Picking a specific chapter (not just the oldest) is still possible — tapping the row
+   body now navigates to the title's Detail view (History's existing convention), where the full
+   chapter list remains browsable exactly as before.
+2. **"Mark all read" header button** — moved to a long-press `.contextMenu` per row (`ScrollView`/
+   `LazyVStack` has no native section headers to hang a button off, and no `.swipeActions` — same
+   constraint History hit in Block 7), reusing `UpdatesViewModel.markAllMangaChaptersRead`/
+   `markAllNovelChaptersRead` unchanged.
+3. **The mock's second header icon** (a filter/lines glyph, next to refresh) had no stated behavior.
+   Interpreted as a shortcut into the existing update-filter settings — `SettingsView.swift`'s
+   `UpdatesSettingsView` (the "Update rules" toggles: notifications, skip-if-unread/not-started/
+   completed, excluded categories) was previously only reachable via Settings → Downloads and was
+   `private`; un-privatized it and added a direct `NavigationLink` from Updates' toolbar.
+
+Also extracted `Notation.dateGroupLabel(for:)` + `Notation.dateGroupOrder` (Today/Yesterday/This
+week/This month/Earlier bucketing) out of `HistoryView.swift`'s private `dateGroupLabel` — now shared
+between History and Updates rather than duplicated, since both screens need identical date-bucket
+grouping. Verified live via `build_run_sim` + mobile-mcp against real on-device data (not
+placeholders): row tap → Detail navigation, start-reading icon → opens reader at the correct oldest
+unread chapter (CH. 002 of a 002–008 range), long-press → "Mark all read" empties the row and shows
+the correct empty state, and the filter icon → "Update Rules" settings screen. Zero build warnings.
 
 **S91: implemented Block 7 (History) of the 12-block design track against N.11 in
 `YOMI Screens.dc.html`, the block explicitly deferred across S87-S90's bugfix/infra sessions.
