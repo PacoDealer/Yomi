@@ -54,17 +54,15 @@ struct BrowseView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            ContentUnavailableView(
-                "No sources installed",
-                systemImage: "puzzlepiece.extension",
-                description: Text("Go to More → Plugins to discover and install sources.")
-            )
-            Button("Open Plugins") {
-                appRouter.openMorePlugins = true
-                appRouter.selectedTab = AppRouter.tabMore
-            }
-            .buttonStyle(.borderedProminent)
+        YomiEmptyState(
+            systemImage: "puzzlepiece.extension",
+            title: "No sources installed",
+            message: "Go to More → Plugins to discover and install sources.",
+            actionLabel: "Open Plugins",
+            actionIcon: "puzzlepiece.extension"
+        ) {
+            appRouter.openMorePlugins = true
+            appRouter.selectedTab = AppRouter.tabMore
         }
     }
 
@@ -508,10 +506,10 @@ private struct GlobalSearchView: View {
     var body: some View {
         Group {
             if extensionManager.installed.isEmpty {
-                ContentUnavailableView(
-                    "No sources installed",
+                YomiEmptyState(
                     systemImage: "puzzlepiece.extension",
-                    description: Text("Install a source from More → Plugins before searching.")
+                    title: "No sources installed",
+                    message: "Install a source from More → Plugins before searching."
                 )
             } else if pendingCount > 0 && sections.isEmpty {
                 VStack(spacing: 12) {
@@ -526,16 +524,16 @@ private struct GlobalSearchView: View {
             } else if searchQuery.count >= 2 {
                 ContentUnavailableView.search(text: searchQuery)
             } else if searchQuery.isEmpty {
-                ContentUnavailableView(
-                    "Search all sources",
+                YomiEmptyState(
                     systemImage: "magnifyingglass",
-                    description: Text("Results stream in from all your installed sources.")
+                    title: "Search all sources",
+                    message: "Results stream in from all your installed sources."
                 )
             } else {
-                ContentUnavailableView(
-                    "Keep typing",
+                YomiEmptyState(
                     systemImage: "magnifyingglass",
-                    description: Text("Type at least 2 characters to search.")
+                    title: "Keep typing",
+                    message: "Type at least 2 characters to search."
                 )
             }
         }
@@ -726,20 +724,20 @@ struct SourceBrowseView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = errorMessage {
-                ContentUnavailableView(
-                    "Failed to load",
+                YomiEmptyState(
                     systemImage: "exclamationmark.triangle",
-                    description: Text(error)
+                    title: "Failed to load",
+                    message: error
                 )
             } else if isContentEmpty && searchText.isEmpty {
-                VStack(spacing: 16) {
-                    ContentUnavailableView(
-                        "No titles found",
-                        systemImage: "books.vertical",
-                        description: Text("This source returned no results. The site may be down or Cloudflare-protected.")
-                    )
-                    Button("Try again") { Task { await loadWithBypass() } }
-                        .buttonStyle(.bordered)
+                YomiEmptyState(
+                    systemImage: "books.vertical",
+                    title: "No titles found",
+                    message: "This source returned no results. The site may be down or Cloudflare-protected.",
+                    actionLabel: "Try again",
+                    actionIcon: "arrow.clockwise"
+                ) {
+                    Task { await loadWithBypass() }
                 }
             } else if isContentEmpty {
                 ContentUnavailableView.search(text: searchText)

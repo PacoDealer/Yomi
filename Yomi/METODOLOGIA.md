@@ -122,6 +122,74 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S95
+
+**`.frame(height:)` doesn't clip — a fixed height copied from a sibling view can silently overflow
+past a shared `.clipShape()`, and since `clipShape` also clips hit-testing, the overflow is neither
+visible nor tappable.** `ContinueHeroCard`'s text `VStack` had `.frame(height: 104, alignment: .top)`
+matching the adjacent 74×104pt cover thumb — correct for a 1-line title, but with a 2-line title the
+VStack's actual content (title + subtitle + Spacer + Resume pill) needed more than 104pt. `.frame()`
+alone doesn't crop children that exceed the proposed size; it just reports that size to the parent for
+layout purposes, so the Resume pill kept rendering past the 104pt boundary — until the *outer*
+`.clipShape(RoundedRectangle)` (applied to the whole card, `.background()`+`.clipShape()` per
+DESIGN_SYSTEM's card convention) sliced it off. Since `clipShape` restricts hit-testing to its shape
+too, the clipped portion of the button was a real dead zone — a user tapping where the button visibly
+(barely) still showed could tap nothing at all. Lesson: never copy a sibling's fixed height onto a
+text container with variable-length content; let it size naturally and use `alignment: .top` on the
+containing stack instead.
+
+**A bare `Color.clear.frame(width:)` with no height is greedy in the unconstrained dimension, and
+`.overlay(alignment:)` proposes the *base view's full size* to its overlay content.** Used as a
+symmetric spacer opposite a back-chip (to center a nav-bar title), `Color.clear.frame(width: 44)`
+expanded to fill the entire height the `ScrollView` overlay proposed — the whole visible viewport —
+stretching the containing `HStack` (and anything backgrounded on it) to full-screen size, and pushing
+the "true" top-aligned content down to wherever it happened to land relative to the alignment guides.
+Every other glass-nav-bar in the app that needed this same trick (`MangaDetailView`, etc.) already
+used real buttons with their own fixed `.glassChip()` 44×44 size instead of a bare spacer — this was
+the first place a *purely decorative* symmetric spacer was needed, and the missing explicit
+`height: 44` is what broke it. Always give both dimensions when using `Color`/`Rectangle` purely as
+an invisible layout spacer; never rely on "it's just 44 wide, height doesn't matter."
+
+**`fullScreenCover` (and `sheet`) present a *separate* view hierarchy that does not inherit
+`.tint()` from the presenting view.** `YomiApp.swift` sets `.tint(Color(hex: settings.accentColor))`
+on `ContentView()`, then chains `.fullScreenCover` off the same view — but the cover's *content*
+closure builds a new, disconnected view tree for presentation purposes, so `Color.accentColor`
+inside `OnboardingView` resolved to the system default (blue) instead of the app's real accent. Any
+full-screen/sheet content that relies on `Color.accentColor` (or other environment-derived styling
+normally set higher up) needs that modifier applied again, explicitly, inside the presented view
+itself — don't assume presentation modifiers carry environment values down for free.
+
+**Chaining two separate `.fullScreenCover` modifiers on the same view is unreliable — only one
+presentation slot survives.** `YomiApp.swift` had `.fullScreenCover(isPresented: $showOnboarding) {
+OnboardingView() }` immediately followed by `.fullScreenCover(isPresented: $isLocked) { AppLockView
+{...} }`, both applied to `ContentView()`. Since `appLockEnabled` defaults to off, `isLocked` starts
+`false`, and `showOnboarding` should present on any first launch — but it silently never did,
+regardless of `hasSeenOnboarding`. Root-caused only by merging both into a *single*
+`.fullScreenCover` with a computed `Binding` (`isPresented: isLocked || showOnboarding`) and an
+if/else inside the content closure to pick which view to show. General rule for this project: never
+chain multiple `.sheet`/`.fullScreenCover` modifiers on the same view — always merge into one with
+either an enum-driven `item:` binding or an if/else content switch.
+
+**`UIImage(named:)` does not reliably load an `.appiconset` entry, even by the appiconset's own
+name.** `UIImage(named: "AppIcon")` returned `nil` for `Yomi/Assets.xcassets/AppIcon.appiconset`
+(silently falling back to a `book.fill` SF Symbol placeholder, no crash, no warning — easy to miss
+without an explicit live look). Appiconsets are compiled differently from regular imagesets and
+aren't guaranteed to be `UIImage(named:)`-addressable. Fix: added a plain
+`OnboardingIcon.imageset` containing a duplicate copy of `AppIcon-Ink-1024.png` specifically for
+in-app display — the small duplication is worth the reliability. If any other screen ever needs to
+show the app's own icon in-app (not just as the Home Screen icon), reuse this asset rather than
+trying `UIImage(named: "AppIcon")` again.
+
+**Simulator UserDefaults can persist stale/wrong values indefinitely across rebuilds, reinstalls,
+and even `simctl uninstall` on a long-lived dev simulator — always suspect this before a code bug.**
+Two separate instances this session: (1) `AppSettings.accentColor` showed a leftover blue from
+old manual Appearance Studio testing, fixed by the user tapping the correct swatch live; (2) a
+mysterious pure-debug `#00FF00` accentColor value survived a full `simctl uninstall`+reinstall cycle
+(root cause not found — not in any `.swift` source, Xcode scheme, or MCP session config). Both were
+data artifacts on this specific simulator, not application bugs. See [[project_yomi]] Known Issues
+#15/#16 and the standing memory `feedback_yomi_qa_state` for the general rule this confirms twice
+over: verify live state before concluding the design system itself is broken.
+
 ## Technical learnings — S94
 
 **The `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` / pure-computed-property bug (S91's `Notation`

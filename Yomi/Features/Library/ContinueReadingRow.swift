@@ -183,7 +183,6 @@ private struct ContinueHeroCard: View {
                         .padding(.top, 2)
                     }
                 }
-                .frame(height: 104, alignment: .top)
             }
             .padding(14)
             .background(heroBackground)
