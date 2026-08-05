@@ -21,7 +21,48 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S92 — 2026-08-05 · Block 8 — Updates)
+## Current state (post S93 — 2026-08-05 · Block 9 — Downloads)
+
+**S93: implemented Block 9 (Downloads) of the 12-block design track against N.13 in
+`YOMI Screens.dc.html`. Blocks 1-9 of 12 are now done; Block 10 (Insights) is next.**
+
+`DownloadsView.swift` rebuilt against N.13, which — unlike History/Updates (Blocks 7-8, native
+`.navigationTitle`) — uses the same floating-glass-chrome-over-content treatment as Detail
+(Blocks 3-5): `.toolbar(.hidden, for: .navigationBar)` + `.overlay(alignment: .top) { glassNavBar }`
+with `.glassChip()` back/trash buttons, reusing `MangaDetailView`'s exact `glassNavBar` pattern
+rather than the native-title-bar convention, since N.13's mock is a scrolling content sheet under
+floating chrome, not a flat title-bar screen. Content is two sections: "DOWNLOADING · N" (unchanged
+behavior, one row per active/queued chapter job with a thin accent progress bar, re-skinned to the
+44×62pt cover + Space Mono note row style) and "DOWNLOADED" — **consolidated from one row per
+downloaded chapter to one row per manga** (same per-title consolidation call as Updates in S92),
+showing "N chapters · size" and pushing into `MangaDetailView` (which already has full per-chapter
+download management — multi-select, swipe/context-menu delete — so no new per-manga chapter-list
+view was needed). Footer shows total "X MB USED · N CHAPTERS".
+
+Two small backing-model additions: `DownloadManager.directorySize(mangaId:)` (new `nonisolated`
+method — recursive `FileManager` byte count per manga's downloads folder, since no size was
+previously tracked in the DB) and `DownloadManager.queueMangas: [Manga]` (replaces the old
+`queueMangaTitles: [String]` — the view needs real `Manga` objects for cover art per queued row, not
+just title strings). Real Swift 6 finding: `DownloadManager.shared` (the static property itself, not
+just its methods) is MainActor-isolated under this project's actor-isolation default — calling
+`directorySize` from `Task.detached` required capturing `let manager = DownloadManager.shared` on
+MainActor *before* entering the detached task, same pattern already documented for
+`ExtensionManager.shared.bridge(for:)`.
+
+Deviations from the header row icon spec, both judgment calls (no established affordance existed for
+either): the mock's queue-row "pause" icon (two vertical bars) has no real pause/resume capability in
+`DownloadManager` (only cancel), so it was rendered as `xmark.circle` (cancel) instead of a pause
+glyph that would misrepresent what the button does. The header's floating trash button maps to a new
+`deleteEverything()` global action gated behind a `.confirmationDialog`, matching History's S91
+"Clear all" convention, and only appears once there's something to delete.
+
+Verified live via `build_run_sim` + mobile-mcp against real downloads (Asura Scans chapters, not
+placeholders): downloaded 4 real chapters, confirmed the per-manga "4 chapters · 60 MB" row and "60
+MB USED · 4 CHAPTERS" footer computed correctly from real on-disk file sizes, row→Detail navigation,
+long-press → per-manga "Delete all downloads", and the header trash → confirmation → delete-all →
+correct empty state. The active/queued progress-bar row was code-reviewed but not caught live —
+Asura Scans chapters download in well under a second, faster than the screen could be reached.
+Zero build warnings.
 
 **S92: implemented Block 8 (Updates) of the 12-block design track against N.12 in
 `YOMI Screens.dc.html`. Blocks 1-8 of 12 are now done; Block 9 (Downloads) is next.**

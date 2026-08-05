@@ -19,8 +19,8 @@ import SwiftUI
     var progress: [String: Double] = [:]
     var isRunning: Bool = false
 
-    /// Manga titles for queued items, in queue order
-    var queueMangaTitles: [String] = []
+    /// Manga for queued items, in queue order
+    var queueMangas: [Manga] = []
 
     /// Increments each time a download finishes — views observe this to refresh chapter state
     var completedDownloadCount: Int = 0
@@ -52,7 +52,7 @@ import SwiftUI
         else { return }
         items.append(QueueItem(chapter: chapter, manga: manga, bridge: bridge))
         queue = items.map(\.chapter)
-        queueMangaTitles = items.map { $0.manga.title }
+        queueMangas = items.map { $0.manga }
         processQueue()
     }
 
@@ -70,7 +70,7 @@ import SwiftUI
         } else {
             items.removeAll { $0.chapter.id == chapterId }
             queue = items.map(\.chapter)
-            queueMangaTitles = items.map { $0.manga.title }
+            queueMangas = items.map { $0.manga }
             progress.removeValue(forKey: chapterId)
         }
     }
@@ -87,6 +87,24 @@ import SwiftUI
 
     func isDownloaded(chapterId: String) -> Bool {
         (try? ChapterQueries.fetchOne(id: chapterId))?.isDownloaded ?? false
+    }
+
+    /// Recursive byte size of a manga's downloads folder. Pure FileManager I/O — safe to call
+    /// from Task.detached (Downloads screen computes this per manga off MainActor).
+    nonisolated func directorySize(mangaId: String) -> Int64 {
+        let dir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Downloads/\(mangaId)", isDirectory: true)
+        guard let enumerator = FileManager.default.enumerator(
+            at: dir, includingPropertiesForKeys: [.fileSizeKey]
+        ) else { return 0 }
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                total += Int64(size)
+            }
+        }
+        return total
     }
 
     func localURLs(for chapter: Chapter) -> [URL]? {
@@ -111,7 +129,7 @@ import SwiftUI
         guard !isRunning, !items.isEmpty else { return }
         let item = items.removeFirst()
         queue = items.map(\.chapter)
-        queueMangaTitles = items.map { $0.manga.title }
+        queueMangas = items.map { $0.manga }
         isRunning = true
         activeChapter = item.chapter
         activeManga = item.manga
