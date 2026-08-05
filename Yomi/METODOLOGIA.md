@@ -122,6 +122,27 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S91
+
+**`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` makes plain enums/structs MainActor-isolated by
+default too, not just classes/views.** `Notation` (a pure, stateless string-formatting `enum`, no
+stored state) had never been called from inside a `Task.detached` block before — the first time
+`HistoryView.loadHistory()` did it (formatting a chapter subtitle inside the detached DB-fetch
+closure), the build produced two real Swift 6 errors: "main actor-isolated static method ... cannot
+be called from outside of the actor." Fixed by marking the whole enum `nonisolated enum Notation`
+rather than restructuring the call site — correct here because Notation has zero MainActor
+dependencies, and it means any future background-context caller gets this for free too. General
+rule for this project: any pure/stateless utility type meant to be callable from `Task.detached`
+(formatters, pure calculators, parsers) should be declared `nonisolated` at the type level up front,
+not discovered one build error at a time.
+
+**`ScrollView` + `LazyVStack` (the pattern Library/Browse already use over native `List`) has no
+`.swipeActions` equivalent** — that modifier only exists on `List` rows. When a design block needs
+full custom row styling (as History's N.11 spec did: fixed-size cover, catalog-notation subtitle,
+adaptive timestamp, kind pill — none of which fit cleanly in a `List` row without fighting
+`.insetGrouped` chrome), the per-row delete affordance has to move to `.contextMenu` (long-press)
+instead, matching the convention `LibraryView` already established for its own list-mode rows.
+
 ## Technical learnings — S89
 
 **`INFOPLIST_ADDITIONAL_FILE` does not reliably merge into a `GENERATE_INFOPLIST_FILE = YES`

@@ -38,13 +38,16 @@ private struct HistoryGroup: Identifiable {
 }
 
 // MARK: - HistoryView
+//
+// Design spec: YOMI Screens.dc.html N.11 (History).
 
 struct HistoryView: View {
 
     // MARK: - State
 
+    @Environment(\.yomiCanvas) private var canvas
     @State private var items: [HistoryItem] = []
-    @State private var lastChapterNames: [String: String] = [:]
+    @State private var chapterSubtitles: [String: String] = [:]
     @State private var isLoading = false
     @State private var selectedNovel: Novel? = nil
     @State private var showNovelDetail = false
@@ -104,34 +107,29 @@ struct HistoryView: View {
                 } else if groupedHistory.isEmpty {
                     ContentUnavailableView.search(text: searchQuery)
                 } else {
-                    List {
-                        ForEach(groupedHistory) { group in
-                            Section(group.label) {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(groupedHistory) { group in
+                                sectionHeader(group.label)
                                 ForEach(group.items) { item in
                                     itemRow(item)
-                                }
-                                .onDelete { offsets in
-                                    deleteFromGroup(label: group.label, offsets: offsets)
+                                    Divider().padding(.leading, 72)
                                 }
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
                     }
-                    .listStyle(.insetGrouped)
                     .refreshable { await loadHistory() }
                 }
             }
             .navigationTitle("History")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     if !items.isEmpty {
-                        Button(role: .destructive) {
-                            confirmClearAll = true
-                        } label: {
-                            Image(systemName: "trash")
-                        }
+                        Button("Clear") { confirmClearAll = true }
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(canvas.textSecondary)
                     }
                 }
             }
@@ -151,6 +149,18 @@ struct HistoryView: View {
         }
     }
 
+    // MARK: - Section header
+
+    private func sectionHeader(_ label: String) -> some View {
+        Text(label.uppercased())
+            .font(YomiTokens.Font.mono(11))
+            .tracking(0.6)
+            .foregroundStyle(canvas.textSecondary)
+            .padding(.top, 18)
+            .padding(.bottom, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: - Row builder
 
     @ViewBuilder
@@ -165,11 +175,14 @@ struct HistoryView: View {
                     coverURL: manga.coverURL,
                     customCoverPath: manga.resolvedCustomCoverPath,
                     lastReadAt: manga.lastReadAt,
-                    sourceName: ExtensionManager.shared.installed
-                        .first { $0.id == manga.sourceId }?.name ?? manga.sourceId,
-                    subtitle: lastChapterNames[manga.id],
+                    subtitle: chapterSubtitles[manga.id],
                     isNovel: false
                 )
+            }
+            .contextMenu {
+                Button(role: .destructive) { deleteItem(item) } label: {
+                    Label("Remove from History", systemImage: "trash")
+                }
             }
         case .novel(let novel):
             Button {
@@ -180,28 +193,27 @@ struct HistoryView: View {
                     coverURL: novel.coverURL,
                     customCoverPath: novel.resolvedCustomCoverPath,
                     lastReadAt: novel.lastReadAt,
-                    sourceName: ExtensionManager.shared.installed
-                        .first { $0.id == novel.sourceId }?.name ?? novel.sourceId,
-                    subtitle: lastChapterNames[novel.id],
+                    subtitle: chapterSubtitles[novel.id],
                     isNovel: true
                 )
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                Button(role: .destructive) { deleteItem(item) } label: {
+                    Label("Remove from History", systemImage: "trash")
+                }
+            }
         }
     }
 
     // MARK: - Delete
 
-    private func deleteFromGroup(label: String, offsets: IndexSet) {
-        guard let groupItems = groupedHistory.first(where: { $0.label == label })?.items else { return }
-        let toRemove = offsets.map { groupItems[$0] }
-        items.removeAll { item in toRemove.contains(where: { $0.id == item.id }) }
+    private func deleteItem(_ item: HistoryItem) {
+        items.removeAll { $0.id == item.id }
         Task.detached {
-            for item in toRemove {
-                switch item {
-                case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
-                case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
-                }
+            switch item {
+            case .manga(let m): try? MangaQueries.clearLastRead(mangaId: m.id)
+            case .novel(let n): try? NovelQueries.clearLastRead(novelId: n.id)
             }
         }
     }
@@ -225,28 +237,34 @@ struct HistoryView: View {
 
     private func loadHistory() async {
         isLoading = true
-        let (result, lastChaps) = await Task.detached {
+        let (result, subtitles) = await Task.detached {
             let mangas = (try? MangaQueries.fetchHistory()) ?? []
             let novels = (try? NovelQueries.fetchHistory()) ?? []
 
             var map: [String: String] = [:]
             for manga in mangas {
-                if let chapters = try? ChapterQueries.fetchAll(mangaId: manga.id),
-                   let lastRead = chapters.filter({ $0.readAt != nil })
-                       .sorted(by: { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) })
-                       .first {
-                    map[manga.id] = lastRead.name
-                }
+                guard let chapters = try? ChapterQueries.fetchAll(mangaId: manga.id) else { continue }
+                let touched = chapters
+                    .filter { $0.isRead || $0.progress > 0 }
+                    .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
+                    .first
+                guard let touched, let number = touched.chapterNumber else { continue }
+                map[manga.id] = touched.isRead
+                    ? Notation.chapter(number)
+                    : Notation.chapterReadTo(chapter: number, fraction: touched.progress)
             }
             for novel in novels {
-                if let chapters = try? NovelQueries.fetchChapters(novelId: novel.id) {
-                    // Prefer the in-progress chapter (partially read), then fall back to last fully-read
-                    let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
-                    let lastFullyRead = chapters
-                        .filter { $0.readAt != nil }
-                        .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
-                        .first
-                    map[novel.id] = (inProgress ?? lastFullyRead)?.name
+                guard let chapters = try? NovelQueries.fetchChapters(novelId: novel.id) else { continue }
+                // Prefer the in-progress chapter (partially read), then fall back to last fully-read
+                let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
+                let lastFullyRead = chapters
+                    .filter { $0.readAt != nil }
+                    .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
+                    .first
+                if let inProgress, let number = inProgress.chapterNumber {
+                    map[novel.id] = Notation.chapterReadTo(chapter: number, fraction: inProgress.lastScrollPercent ?? 0)
+                } else if let lastFullyRead, let number = lastFullyRead.chapterNumber {
+                    map[novel.id] = Notation.chapter(number)
                 }
             }
 
@@ -260,7 +278,7 @@ struct HistoryView: View {
             items = result.sorted {
                 ($0.lastReadAt ?? .distantPast) > ($1.lastReadAt ?? .distantPast)
             }
-            lastChapterNames = lastChaps
+            chapterSubtitles = subtitles
             isLoading = false
         }
     }
@@ -274,9 +292,10 @@ private struct HistoryRow: View {
     let coverURL: URL?
     let customCoverPath: String?
     let lastReadAt: Date?
-    let sourceName: String
     let subtitle: String?
     let isNovel: Bool
+
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 12) {
@@ -290,50 +309,44 @@ private struct HistoryRow: View {
                     CoverImage(url: coverURL)
                 }
             }
-            .frame(width: 48)
-            .cornerRadius(6)
+            .frame(width: 44)
+            .cornerRadius(YomiTokens.Radius.thumb)
             .clipped()
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(2)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(YomiTokens.Font.mono(12))
+                        .foregroundStyle(canvas.textSecondary)
                         .lineLimit(1)
-                }
-
-                HStack(spacing: 4) {
-                    if let d = lastReadAt {
-                        Text(d, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        Text("·")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    Text(sourceName)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                    if isNovel {
-                        Text("·")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        Text("Novel")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                 }
             }
 
             Spacer()
+
+            VStack(alignment: .trailing, spacing: 6) {
+                if let lastReadAt {
+                    Text(Notation.historyTimestamp(lastReadAt))
+                        .font(YomiTokens.Font.mono(11))
+                        .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                }
+                Text(isNovel ? "NOVEL" : "MANGA")
+                    .font(YomiTokens.Font.mono(9, bold: true))
+                    .tracking(0.4)
+                    .foregroundStyle(canvas.textSecondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(canvas.surface2, in: RoundedRectangle(cornerRadius: YomiTokens.Radius.badge))
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
     }
 }
 

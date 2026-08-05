@@ -25,7 +25,7 @@ Yomi/
 │   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
 │   ├── CoverImage.swift            # KFImage wrapper (Kingfisher) with 2:3 ratio + fade transition
 │   ├── DesignTokens.swift          # YomiTokens: Canvas presets (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Layout, Motion
-│   ├── Notation.swift              # Catalog-notation formatters: chapter(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), etc. — all output in Space Mono
+│   ├── Notation.swift              # Catalog-notation formatters: chapter(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), historyTimestamp(), etc. — all output in Space Mono. `nonisolated enum` (S91) — callable from Task.detached
 │   ├── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 │   └── WidgetDataWriter.swift      # Writes WidgetReadingItem[5] to App Group UserDefaults (suiteName: "group.pacodealer.Yomi"); calls WidgetCenter.shared.reloadAllTimelines()
 ├── design/                          # All design assets (consolidated S82)
@@ -70,7 +70,7 @@ Yomi/
 │   │   └── TextReaderView.swift     # HTML reader for novels (WKWebView, font size, dark/light/sepia)
 │   │                                # Overlay: .opacity/.allowsHitTesting/.animation — smooth fade animation (S29). colorScheme: sepia→.light, dark→.dark, else .light (S29).
 │   ├── History/
-│   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC), swipe-to-delete local
+│   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC). ScrollView+LazyVStack (not List, S91 — N.11 spec), long-press .contextMenu to delete a row
 │   ├── More/
 │   │   ├── MoreView.swift           # Root More tab (Library / App / Sources / Reading / Tracking / Data / Info)
 │   │   ├── PluginsView.swift        # Installed plugins + Browse catalog (PluginCatalogService, Install button per entry) + NSFW filter

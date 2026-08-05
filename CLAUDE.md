@@ -26,26 +26,29 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86.** Next session: Block 7 (History).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91.** Next session: Block 8 (Updates).
 
-## Current state (post S90 — 2026-08-05 · Suwayomi hosting architecture session, NOT a design block)
+## Current state (post S91 — 2026-08-05 · Block 7 — History)
 
-S90 designed (but has not yet deployed) a shared, hosted Suwayomi-Server so all Yomi users get
-1,368+ Keiyoushi manga sources with zero self-hosting — at the user's explicit request, since
-Keiyoushi's community maintenance beats hand-fixing Yomi's own scrapers every time a site changes
-(exactly what S87/S88 were). **No app code changed net this session** — `AppSettings.suwayomiURL`
-still defaults to empty, exactly as before; the shared server's address will live only in
-`README.md`'s Keiyoushi row (manual copy-paste, same pattern as the LNReader repo URL), never as an
-app default or in-app shortcut — an earlier attempt to bake it in as a default was caught and
-reverted for App Store compliance reasons. Deploy infra (Oracle Cloud Always Free VM +
-Cloudflare Tunnel with zero open inbound ports + scoped Basic Auth via Caddy + VM hardening) is
-fully documented and ready at `~/Desktop/Projects/Yomi/SuwayomiServer-Deploy/DEPLOY.md`, outside
-this git repo — domain purchase and actual deployment are still ahead, deliberately deprioritized
-versus Block 7 (History), which is what's actually blocking App Store screenshots. Full reasoning,
-including a real legal-exposure consideration (centralized hosting vs. per-user self-hosting) that
-went into this design, is in `Yomi/ROADMAP.md`'s S90 entry.
+S91 implemented Block 7 (History) of the 12-block design track against N.11 in
+`YOMI Screens.dc.html` — deferred across S87-S90's bugfix/infra sessions, now done. Blocks 1-7 of 12
+complete; Block 8 (Updates) is next. `HistoryView.swift` moved from a native `List`/`.insetGrouped`
+layout to `ScrollView` + `LazyVStack` (matching the structural move Library/Browse already made) for
+full control over the spec's row design: 44×62pt cover, single-line title, Space Mono catalog
+notation subtitle ("CH. 042 · read to 68%" while in-progress, plain "CH. 042" once finished, via new
+`Notation.chapterReadTo()`), right-aligned adaptive timestamp (new `Notation.historyTimestamp()`:
+"14:20" today / "MON" this week / "JUL 28" older), and a MANGA/NOVEL kind pill. Per-row delete moved
+from swipe/`EditButton` to long-press `.contextMenu` ("Remove from History"), matching Library's
+existing convention — `ScrollView`/`LazyVStack` doesn't support native `.swipeActions`. Kept native
+`.navigationTitle` + `.searchable()` rather than building the mock's custom header/search-pill from
+scratch, matching the precedent already screenshot-verified in Blocks 1-6. One general-purpose fix
+along the way: `Notation`'s static formatters are implicitly MainActor-isolated under this project's
+default actor isolation setting, which broke calling them from `Task.detached` DB work — fixed by
+marking `enum Notation` `nonisolated` (it's pure formatting, safe project-wide). Verified live via
+`build_run_sim` + mobile-mcp against real on-device data: grouping, search, both navigation paths,
+and delete all confirmed working, zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S91 entry.
 
-Full session-by-session history (S1-S89) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 
@@ -186,7 +189,7 @@ Yomi/Core/DesignTokens.swift                   # YomiTokens: Canvas (Ink/Midnigh
 Yomi/Core/CanvasEnvironment.swift               # \.yomiCanvas environment key — set once in ContentView from AppSettings.canvasColors, read via @Environment everywhere
 Yomi/Core/GlassChip.swift                       # .glassChip() — shared 44×44 floating Liquid Glass circle modifier for chrome buttons
 Yomi/Core/UIImage+AverageColor.swift            # UIImage.averageColor() via CIAreaAverage — backs Continue hero's ambient-tint-from-cover background
-Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), etc.
+Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), historyTimestamp(), etc. `nonisolated enum` (S91) — safe to call from Task.detached.
 Yomi/Core/NotificationManager.swift
 Yomi/Database/DatabaseManager.swift            # Migrations v1–v19_source_indexes; next must be v20_
 Yomi/Database/Queries/MangaQueries.swift
@@ -236,7 +239,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
-- Screenshots — blocked until design implementation complete (Blocks 7-12 remain: History, Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
+- Screenshots — blocked until design implementation complete (Blocks 8-12 remain: Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)
