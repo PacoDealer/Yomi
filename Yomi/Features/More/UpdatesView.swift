@@ -370,10 +370,10 @@ struct UpdatesView: View {
     var body: some View {
         Group {
             if !hasContent && !vm.isRefreshing {
-                ContentUnavailableView(
-                    "No updates yet",
+                YomiEmptyState(
                     systemImage: "bell.badge",
-                    description: Text("Add titles to your library and refresh to check for new chapters.")
+                    title: "No updates yet",
+                    message: "Add titles to your library and refresh to check for new chapters."
                 )
             } else {
                 ScrollView {

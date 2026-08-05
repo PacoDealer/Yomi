@@ -31,136 +31,268 @@ struct SettingsView: View {
     @State private var settings = AppSettings.shared
     @State private var newRepoURL: String = ""
     @State private var showAddRepo = false
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.yomiCanvas) private var canvas
+
+    private var oledBinding: Binding<Bool> {
+        Binding(
+            get: { settings.canvas == "Midnight" },
+            set: { settings.canvas = $0 ? "Midnight" : "Ink" }
+        )
+    }
 
     var body: some View {
-        List {
-            generalSection
-            readingSection
-            librarySection
-            appearanceSection
-            sourcesSection
-            advancedSection
-            aboutSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                generalCard
+                appearanceCard
+                libraryCard
+                readingCard
+                sourcesCard
+                advancedCard
+                aboutCard
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 60)
+            .padding(.bottom, 24)
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
+        .background(canvas.bg.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) { glassNavBar }
+        .sheet(isPresented: $showAddRepo) { addRepoSheet }
+    }
+
+    // MARK: - Glass nav bar
+
+    private var glassNavBar: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .glassChip()
+            Spacer()
+            Text("Settings")
+                .font(YomiTokens.Font.grotesk(16, weight: .medium))
+                .foregroundStyle(canvas.textPrimary)
+            Spacer()
+            Color.clear.frame(width: 44, height: 44)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Card + row helpers
+
+    @ViewBuilder
+    private func card<Content: View>(_ header: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(header)
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 4)
+            VStack(spacing: 0) { content() }
+                .background(canvas.surface1)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private func rowDivider() -> some View {
+        Divider().padding(.leading, 14).overlay(canvas.hairline)
+    }
+
+    private func toggleRow(_ label: String, isOn: Binding<Bool>, subtitle: String? = nil) -> some View {
+        HStack(alignment: subtitle == nil ? .center : .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(canvas.textSecondary)
+                }
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: isOn).labelsHidden()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private func navRow<Destination: View>(_ label: String, trailing: String? = nil, @ViewBuilder destination: () -> Destination) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack {
+                Text(label)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer(minLength: 8)
+                if let trailing {
+                    Text(trailing)
+                        .font(YomiTokens.Font.mono(11))
+                        .foregroundStyle(canvas.textSecondary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(canvas.textSecondary.opacity(0.5))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func stepperPill(value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        HStack(spacing: 2) {
+            Button {
+                if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
+            } label: {
+                Text("−").font(.system(size: 18)).frame(width: 34, height: 30)
+            }
+            Text("\(value.wrappedValue)")
+                .font(YomiTokens.Font.mono(14))
+                .frame(width: 32)
+            Button {
+                if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
+            } label: {
+                Text("+").font(.system(size: 18)).frame(width: 34, height: 30)
+            }
+        }
+        .foregroundStyle(canvas.textPrimary)
+        .background(canvas.surface2, in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - General
 
-    private var generalSection: some View {
-        Section("General") {
-            Toggle("Show NSFW content", isOn: $settings.showNSFW)
-            Toggle(isOn: $settings.appLockEnabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("App Lock", systemImage: "lock.fill")
-                    Text("Require Face ID / Touch ID when opening Yomi")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Toggle(isOn: $settings.isIncognito) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("Incognito mode", systemImage: "theatermasks")
-                    Text("Reading progress and history won't be saved")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+    private var generalCard: some View {
+        card("GENERAL") {
+            toggleRow("Show NSFW content", isOn: $settings.showNSFW)
+            rowDivider()
+            toggleRow("App Lock", isOn: $settings.appLockEnabled, subtitle: "Require Face ID / Touch ID when opening Yomi")
+            rowDivider()
+            toggleRow("Incognito mode", isOn: $settings.isIncognito, subtitle: "Reading progress and history won't be saved")
         }
     }
 
     // MARK: - Reading
 
-    private var readingSection: some View {
-        Section("Reading") {
-            NavigationLink("Manga & Webtoon") {
-                MangaReaderSettingsView()
-            }
-            NavigationLink("Novels") {
-                NovelReaderSettingsView()
-            }
+    private var readingCard: some View {
+        card("READING") {
+            navRow("Manga & Webtoon") { MangaReaderSettingsView() }
+            rowDivider()
+            navRow("Novels") { NovelReaderSettingsView() }
         }
     }
 
     // MARK: - Library
 
-    private var librarySection: some View {
-        Section("Library") {
-            Stepper(
-                "Items per row: \(settings.libraryColumns)",
-                value: $settings.libraryColumns,
-                in: 2...6
-            )
-            Toggle("Show unread count badge", isOn: $settings.showUnreadBadge)
-            Toggle(isOn: $settings.deleteDownloadAfterReading) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Delete after reading")
-                    Text("Removes downloaded files when you finish a chapter")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+    private var libraryCard: some View {
+        card("LIBRARY") {
+            HStack {
+                Text("Items per row")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer()
+                stepperPill(value: $settings.libraryColumns, range: 2...6)
             }
-            Stepper(
-                "Concurrent downloads: \(settings.concurrentDownloads)",
-                value: $settings.concurrentDownloads,
-                in: 1...5
-            )
-            NavigationLink("Update rules") {
-                UpdatesSettingsView()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            rowDivider()
+            toggleRow("Show unread count badge", isOn: $settings.showUnreadBadge)
+            rowDivider()
+            toggleRow("Delete after reading", isOn: $settings.deleteDownloadAfterReading, subtitle: "Removes downloaded files when you finish a chapter")
+            rowDivider()
+            HStack {
+                Text("Concurrent downloads")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer()
+                stepperPill(value: $settings.concurrentDownloads, range: 1...5)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            rowDivider()
+            navRow("Update rules") { UpdatesSettingsView() }
         }
     }
 
     // MARK: - Appearance
 
-    private var appearanceSection: some View {
-        Section("Appearance") {
-            NavigationLink("Canvas, Accent & Type") {
-                AppearanceStudioView()
-            }
+    private var appearanceCard: some View {
+        card("APPEARANCE") {
+            navRow("Appearance Studio", trailing: "Canvas · Accent · Type") { AppearanceStudioView() }
+            rowDivider()
+            toggleRow("Pure black (OLED)", isOn: oledBinding)
         }
     }
 
     // MARK: - Sources & Servers
 
-    private var sourcesSection: some View {
-        Section {
-            ForEach(settings.pluginCatalogURLs, id: \.self) { url in
-                Text(url)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .onDelete { offsets in
-                settings.pluginCatalogURLs.remove(atOffsets: offsets)
-                PluginCatalogService.shared.invalidateCache()
-            }
+    private var sourcesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SOURCES & SERVERS")
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 4)
 
-            Button {
-                newRepoURL = ""
-                showAddRepo = true
-            } label: {
-                Label("Add repository", systemImage: "plus")
-            }
-            .sheet(isPresented: $showAddRepo) {
-                addRepoSheet
-            }
+            VStack(spacing: 0) {
+                ForEach(Array(settings.pluginCatalogURLs.enumerated()), id: \.element) { index, url in
+                    Text(url)
+                        .font(YomiTokens.Font.mono(12))
+                        .foregroundStyle(canvas.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                settings.pluginCatalogURLs.remove(at: index)
+                                PluginCatalogService.shared.invalidateCache()
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
+                    rowDivider()
+                }
 
-            NavigationLink("Suwayomi Server") {
-                SuwayomiSettingsView()
-            }
+                Button {
+                    newRepoURL = ""
+                    showAddRepo = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Add repository")
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                        Spacer()
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
-            NavigationLink("OPDS Server (Kavita / Komga)") {
-                OPDSSettingsView()
+                rowDivider()
+                navRow("Suwayomi Server") { SuwayomiSettingsView() }
+                rowDivider()
+                navRow("OPDS Server (Kavita / Komga)") { OPDSSettingsView() }
             }
-        } header: {
-            Text("Sources & Servers")
-        } footer: {
+            .background(canvas.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
             Text("Catalogs are merged. Duplicate plugin IDs: first catalog wins.")
                 .font(.caption)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 4)
         }
     }
 
@@ -211,29 +343,45 @@ struct SettingsView: View {
 
     // MARK: - Advanced
 
-    private var advancedSection: some View {
-        Section("Advanced") {
-            NavigationLink("Advanced settings") {
-                AdvancedSettingsView()
-            }
+    private var advancedCard: some View {
+        card("ADVANCED") {
+            navRow("Advanced settings") { AdvancedSettingsView() }
         }
     }
 
     // MARK: - About
+    //
+    // Compact quick-reference (Version + GitHub only, matching N.07's mock exactly) — the
+    // full detail (Build, Report a bug, Privacy Policy, Licenses) lives in More → About.
 
-    private var aboutSection: some View {
-        Section("About") {
-            LabeledContent(
-                "Version",
-                value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-            )
-            LabeledContent(
-                "Build",
-                value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-            )
-            Link("GitHub", destination: URL(string: "https://github.com/PacoDealer/Yomi")!)
-            Link("Report a bug", destination: URL(string: "https://github.com/PacoDealer/Yomi/issues")!)
-            Link("Privacy Policy", destination: URL(string: "https://yomi-plugins.web.app/privacy")!)
+    private var aboutCard: some View {
+        card("ABOUT") {
+            HStack {
+                Text("Version")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer()
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                    .font(YomiTokens.Font.mono(13))
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            rowDivider()
+            Button {
+                openURL(URL(string: "https://github.com/PacoDealer/Yomi")!)
+            } label: {
+                HStack {
+                    Text("GitHub")
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                        .foregroundStyle(Color.accentColor)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

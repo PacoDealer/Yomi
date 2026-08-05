@@ -21,6 +21,105 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S95 — 2026-08-05 · Blocks 11-12 — design track complete)
+
+**S95: implemented Blocks 11 (More+Settings, N.07/N.10) and 12 (Onboarding+empty states, N.08/N.09)
+— all 12 blocks of the design track are now done.** Session started from user feedback that the
+simulator "looked nothing like" the mocks; the investigation and fixes below came out of that audit,
+not just the two remaining blocks.
+
+**Audit findings before starting new blocks:**
+1. Accent color appeared blue instead of Vermilion in Appearance Studio — **not a code bug**: stale
+   `UserDefaults` from earlier manual testing on this long-lived dev simulator (confirmed
+   `AppSettings.swift`'s code default was always correct `#E5473A`). Martin fixed it live by tapping
+   the red swatch. Saved as a standing QA lesson (memory `feedback_yomi_qa_state`): rule out stale
+   simulator state before treating an accent/canvas mismatch as a code bug.
+2. Known Issue #13 (custom fonts maybe never rendered, open since S89) — **resolved, was never
+   actually broken.** Verified live via a temporary debug print: `UIFont.familyNames`/
+   `fontNames(forFamilyName:)` confirm Space Grotesk and Space Mono both register correctly and
+   `UIFont(name: "Space Grotesk", size:)` resolves a real font. Removed from Known Issues.
+3. **Real bug found + fixed: `ContinueHeroCard`'s Resume button was clipped.** The text `VStack`
+   next to the 74×104pt cover thumb had `.frame(height: 104, alignment: .top)` — copied from the
+   cover's height assuming a single-line title. With a 2-line title (common), content overflowed
+   past 104pt, and since the whole card is `.clipShape(RoundedRectangle)`'d (which also clips
+   hit-testing, not just drawing), the overflow portion of the Resume button was neither visible nor
+   tappable — exactly matching the user's two complaints (visually cropped button, taps landing on
+   the wrong thing). Fix: removed the incorrect fixed height; the HStack now sizes naturally.
+
+**Block 11 (More + Settings) — N.07/N.10:**
+`MoreView.swift` rebuilt from a native `List`/`Section` to the card system (mono section headers,
+`s1`-background cards, 29×29 icon chips, chevrons) — the existing section grouping (App/Library/
+Sources/Reading/Tracking/Data/About) already matched N.10 exactly, so this was a pure restyle, no
+information-architecture changes. `SettingsView.swift` similarly rebuilt against N.07: toggle rows,
+a custom pill stepper (matching the mock's −/count/+ control) for "Items per row"/"Concurrent
+downloads", and the "Sources & Servers"/"Advanced" sections (real features with no mock equivalent)
+restyled to match rather than removed. About was split in two, matching the mock's own split:
+Settings' own About card is now the compact Version+GitHub mock shows; the previously-duplicated
+Build/Report-a-bug/Privacy-Policy content now lives solely in a new dedicated `AboutView` (More →
+About), avoiding the duplication that existed before. Real Swift 6/SwiftUI bug found + fixed:
+`Color.clear.frame(width: 44)` (used as a symmetric spacer to center the glass nav bar's title,
+opposite the back chip) has no height constraint, so `Color` — which is greedy in any unconstrained
+dimension — expanded to fill the *entire* height `.overlay(alignment: .top)` proposes (the whole
+ScrollView's height), stretching the nav bar's HStack and its `.background()` to cover the full
+screen, pushing the actual back-chip/title content down to wherever it happened to land relative to
+scrolled content. Every other file in the app that needed this symmetric-spacer trick used
+`.frame(width: 44, height: 44)` already (an explicit height); this one omission is what broke it.
+Fixed in both `SettingsView.swift` and the new `AboutView`. Verified live via `build_run_sim` +
+mobile-mcp: both screens' glass nav bars now render correctly pinned to the top, all rows/toggles/
+steppers function, back buttons dismiss correctly. Zero build warnings.
+
+**Block 12 (Onboarding + empty states) — N.08/N.09:**
+New `Core/YomiEmptyState.swift` — a reusable empty-state component (boxed icon, title, message,
+optional accent-pill action) generalizing N.09's bespoke Library glyph into a reusable boxed-SF-Symbol
+treatment, since N.09 explicitly speced only the Library case but the "empty states" block name is
+plural. Replaced all 12 non-search `ContentUnavailableView` call sites across `LibraryView`,
+`CategoryView`, `DownloadsView`, `UpdatesView`, `BrowseView` (×4), `OPDSBrowseView` (×2), and
+`HistoryView` — `ContentUnavailableView.search(text:)` call sites were left native (system-provided,
+no mock equivalent, and users already recognize that pattern). `OnboardingView.swift` rebuilt
+against N.08: one shared `OnboardingPage` template (150×150 icon box, wordmark/title, description,
+page dots, full-width accent CTA, optional mono caption) reused across all 3 pages with per-page
+content, since the mock only speced page 1's visual language, not unique page 2/3 content. Two more
+real bugs found + fixed while live-verifying: (1) `UIImage(named: "AppIcon")` does not reliably load
+an `.appiconset` entry — added a plain `OnboardingIcon.imageset` (a duplicate copy of
+`AppIcon-Ink-1024.png`) since appiconsets aren't meant to be loaded that way; (2) every
+`Color.accentColor` use in `OnboardingView` rendered as system blue instead of Vermilion, because
+`fullScreenCover` presents a **separate view hierarchy that does not inherit `.tint()`** from the
+presenting view — `YomiApp.swift` sets `.tint()` on `ContentView()`, not on the cover's content.
+Fixed by adding an explicit `.tint(Color(hex: AppSettings.shared.accentColor))` directly on
+`OnboardingView`. While chasing why onboarding wouldn't even appear during testing, found and fixed
+a third, unrelated pre-existing bug: `YomiApp.swift` chained **two separate `.fullScreenCover`
+modifiers on the same view** (`showOnboarding` and `isLocked`) — SwiftUI only reliably tracks one
+presentation slot per view identity this way, so the first (`showOnboarding`) was silently never
+presented, meaning **no user has seen onboarding since this pattern was introduced**, regardless of
+`hasSeenOnboarding`. Merged into a single `.fullScreenCover` with a computed `Binding` and
+if/else content (lock screen takes priority over onboarding). Verified live end-to-end via a full
+`simctl uninstall` + reinstall (to force a genuine first-launch, since the normal dev simulator has
+`hasSeenOnboarding=true` from months of testing): all 3 onboarding pages, the "Open Plugins"
+completion action, and the real Ink app icon all render and function correctly.
+
+**New findings, not fixed this session (for next session's planned full audit):**
+- `LibraryView`'s root background is not wired to `\.yomiCanvas` — after the `simctl uninstall` test
+  above, Library rendered with a plain white/system-light background instead of the Ink canvas
+  (visible immediately since canvas resets to `""`/follow-device on a fresh install, and Library,
+  unlike every view touched since S85, has no `.background(canvas.bg)` on its root). Block 1 was
+  implemented S82, before the canvas-wiring convention was established/audited (S85's Phase 0 pass
+  covered the reading surfaces, not necessarily every root list background). Needs the same
+  `.background(canvas.bg.ignoresSafeArea())` treatment Blocks 3+ already use.
+- A stale `#00FF00` (pure debug green) `accentColor` value was found surviving a full
+  `simctl uninstall`, on this specific long-lived dev simulator — root cause not identified (not in
+  any `.swift` source, scheme file, or MCP session config checked). Manually reset via
+  `defaults write ... accentColor "#E5473A"`. Worth a clean-simulator sanity check next session if
+  accent color ever looks wrong again after a fresh install.
+- **This session's `simctl uninstall` testing wiped the dev simulator's accumulated library/download/
+  history test data** (built up over 90+ sessions) — the app container is gone, not recoverable.
+  Not a regression (test data only), but the next session starts from a genuinely empty library.
+
+**Next session (per Martin's explicit request): a complete, systematic app audit** — every button,
+scroll, swipe, and setting; Browse, History, Updates; manga/novel Detail; both readers; ideally
+starting from the now-empty simulator to also evaluate the true first-time-user experience
+(Onboarding → install a plugin → Browse → add to Library → read) end to end, not just individual
+screens in isolation.
+
 ## Current state (post S94 — 2026-08-05 · Block 10 — Insights)
 
 **S94: implemented Block 10 (Insights) of the 12-block design track against N.14 in

@@ -17,10 +17,10 @@ struct CategoryView: View {
     var body: some View {
         Group {
             if categories.isEmpty {
-                ContentUnavailableView(
-                    "No categories yet",
+                YomiEmptyState(
                     systemImage: "folder",
-                    description: Text("Tap + to create your first category.")
+                    title: "No categories yet",
+                    message: "Tap + to create your first category."
                 )
             } else {
                 List {

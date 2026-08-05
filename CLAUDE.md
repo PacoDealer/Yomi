@@ -26,34 +26,31 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → ~~Insights~~ → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92; Block 9 (Downloads) live-verified S93; Block 10 (Insights) live-verified S94.** Next session: Block 11 (More+Settings).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → ~~Insights~~ → ~~More+Settings~~ → ~~Onboarding+empty states~~. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **Next session: a complete, systematic app audit (every button/scroll/setting, Browse/History/Updates, Detail, both readers) per Martin's explicit request — not another design block.**
 
-## Current state (post S94 — 2026-08-05 · Block 10 — Insights)
+## Current state (post S95 — 2026-08-05 · design track complete, Blocks 11-12)
 
-S94 implemented Block 10 (Insights) of the 12-block design track against N.14 in
-`YOMI Screens.dc.html`. Blocks 1-10 of 12 complete; Block 11 (More+Settings) is next.
-`InsightsView.swift` was already a real GRDB-backed stats screen (streak/chapters/time/titles-started,
-per-title time tracking, a hand-rolled contribution calendar) from an earlier pass, never restyled to
-the design system — rebuilt against N.14's floating-glass-chrome-over-content treatment (same family
-as Detail/Downloads): `.toolbar(.hidden, for: .navigationBar)` + `.overlay(alignment: .top) {
-glassNavBar }`, single back `.glassChip()` (no trailing action, matching N.14's mock). The 4 stat
-cards were restyled to the mock exactly (big Grotesk number + Space Mono label, no icon, no unit
-line). The old 13-week GitHub-style calendar (day labels, per-column month labels) was replaced with
-a simpler `ActivityHeatmap` matching N.14: a `surface1` card with a real 18-week/7-day opacity grid
-(quartile-bucketed against the window's own max count, matching the legend's 4 swatches exactly) plus
-an edge-month + LESS→MORE legend row. The old "Breakdown" (manga/novel split) and "By Title" sections
-were replaced by N.14's single "MOST READ" list — same per-title time-spent data, restyled to real
-34×48pt cover art + `Notation.readingTimeShort()` + a relative accent-capsule bar; Breakdown had no
-mock equivalent and was dropped (same judgment as Browse/S86 dropping its non-spec Extensions tab).
-Real Swift 6 finding, project-wide relevance: `Manga.resolvedCustomCoverPath` and
-`Novel.resolvedCustomCoverPath` — simple stateless computed properties — are MainActor-isolated
-purely from `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` applying to structs too, the same class of bug
-S91 found in `Notation`; neither had been called from `Task.detached` before this session's "Most
-Read" cover lookup. Fixed by marking both `nonisolated`. Verified live via `build_run_sim` +
-mobile-mcp against real on-device reading history: all 4 stat cards, the heatmap's "APR"→"AUG" edge
-labels (today is 2026-08-05, 18 weeks back lands in April) and correct per-day opacity, and all 5
-Most Read rows (real covers, times, proportional bars) confirmed; back button dismisses correctly.
-Zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S94 entry.
+S95 closed out the 12-block design track: Block 11 (More+Settings, N.07/N.10) and Block 12
+(Onboarding+empty states, N.08/N.09). Triggered by user feedback that the simulator didn't match
+the mocks — the resulting audit found and fixed 4 real bugs, none of them accent-color-related (that
+turned out to be stale simulator UserDefaults, see Known Issues). Real bugs fixed: (1)
+`ContinueHeroCard`'s Resume button was clipped by a copy-pasted fixed height that didn't account for
+2-line titles — also explained the user's "taps land on the wrong thing" report, since
+`.clipShape()` clips hit-testing too. (2) A bare `Color.clear.frame(width: 44)` (no height) used to
+symmetrically center a glass-nav-bar title expanded to fill the whole screen, breaking Settings' and
+About's nav bars — fixed by adding the height every other such spacer in the app already had. (3)
+`UIImage(named: "AppIcon")` doesn't reliably load an `.appiconset` — added a plain `.imageset` copy
+for Onboarding's real app-icon display. (4) `fullScreenCover` presents a separate view hierarchy that
+doesn't inherit `.tint()`, so Onboarding's accent-colored elements rendered system blue — fixed with
+an explicit `.tint()` on `OnboardingView`. Also found, while debugging why Onboarding wouldn't even
+appear: `YomiApp.swift` chained two separate `.fullScreenCover` modifiers on one view, so the first
+(`showOnboarding`) was silently never presented — **no user has ever seen onboarding** regardless of
+the `hasSeenOnboarding` flag. Merged into one cover. New reusable `Core/YomiEmptyState.swift` replaces
+12 native `ContentUnavailableView` call sites app-wide with the N.09 boxed-icon design. Full detail
+including 3 new for-next-session findings (Library's un-wired canvas background, a stale debug
+`#00FF00` accentColor that survived `simctl uninstall`, and this session's test data being wiped by
+that same uninstall) in `Yomi/ROADMAP.md`'s S95 entry.
+
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
@@ -73,7 +70,10 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 10 | ~~Keiyoushi repo — not missing, architectural~~ | ✅ Architecture verdict still correct (Kotlin/APK, cannot run in JSC, confirmed since S18) — but S89 found the bridge itself had **two real bugs** that meant it never actually worked even with a server configured: no ATS exception (all Suwayomi/OPDS traffic over plain HTTP was silently blocked) and `SuwayomiService.fetchChapters()` hit a 404ing REST path. Both fixed and live-verified S89 against a real Suwayomi-Server with the real Keiyoushi repo and a real installed extension (Asura Scans) — Popular/detail/chapters/page-image all confirmed working end-to-end. Tachimanga researched and confirmed to use the *exact same* self-hosted-server-bridge architecture, not an embedded/bundled Keiyoushi — Yomi's S41 design was already correct, it just had bugs. See `ROADMAP.md`'s S89 entry for full detail including how to stand up a persistent server. |
 | 11 | FreeWebNovel blocked by Cloudflare (new, S88) | freewebnovel.com now Cloudflare-challenges **all** non-browser requests — confirmed via cold `curl` (no cookies): both the plain HTML novel page and the site's own AJAX chapter-list endpoint return a "Just a moment…" JS-challenge page, not real content. `freewebnovel.js`'s `parseNovel` was rewritten this session to use the correct AJAX pagination (fixing a worse bug where the old scrape picked up unrelated "related novels" links, not chapters) and is deployed as v1.1.0, but **cannot succeed** until CF-bypass is wired into the novel detail/chapter path — `CFBypassManager`/`CFBypassView` currently only exist in `BrowseView.swift`'s manga `SourceBrowseView`, not in `MangaDetailView.loadChapters()` (which novels also go through). Needs the same bypass flow extended to novel sources, or the source may need to be dropped if a bypass proves impractical for Format B. |
 | 12 | Duplicate extension rows (new, found+fixed S88) | `ExtensionManager.install()` always inserted under the *catalog's* id without removing an existing install of the same plugin under a *different*, older id — Yomi went through a sha256-hash-id → stable-catalog-id migration at some point and nothing ever cleaned up the old rows. Result: Plugins/Browse showed some sources (NovelFire, FreeWebNovel, NovelBin) **twice**, one stale/unupdatable alongside one fresh, confirmed directly in `yomi.db`. Fixed: `install()` now deletes any other installed extension with the same name before writing the new row. **The user's real device likely has this same duplication for any plugin installed before the id-scheme migration** — worth a quick glance at the Plugins screen next session; if duplicates are there, tapping "Update" on the affected source once (with this fix shipped) will self-heal it. |
-| 13 | Custom fonts (Space Grotesk/Space Mono) may never have rendered (new, found S89, unverified) | While fixing the ATS bug, found `INFOPLIST_ADDITIONAL_FILE` (the mechanism used since S80 to merge `UIAppFonts` into the generated Info.plist) silently merges nothing — confirmed via `plutil -p` on a clean-built app, `UIAppFonts` was absent from the compiled Info.plist. Fixed as a side effect of the ATS fix (switched to an explicit `Yomi/Info.plist`, confirmed `UIAppFonts` now present). **Not yet confirmed whether this was actually broken live** (i.e. whether the app has been silently falling back to the system font this whole time) — needs a screenshot compare against pre-S89 screenshots, or just a live look, next session. |
+| 13 | ~~Custom fonts may never have rendered~~ | ✅ Resolved S95 — confirmed not actually broken. Verified live via a temporary debug print: `UIFont.familyNames`/`fontNames(forFamilyName:)` show both Space Grotesk and Space Mono registered correctly, and `UIFont(name: "Space Grotesk", size:)` resolves a real font instance. The S89 `Info.plist` fix was sufficient; no further action needed. |
+| 14 | Onboarding was never actually presented to any user (found+fixed S95) | `YomiApp.swift` chained two separate `.fullScreenCover` modifiers on the same `ContentView()` (`showOnboarding` and `isLocked`) — SwiftUI only reliably tracks one presentation slot per view identity this way, so the first (`showOnboarding`) silently never fired, regardless of `hasSeenOnboarding`. Fixed by merging into a single `.fullScreenCover` with a computed `Binding` and if/else content (lock screen takes priority). Verified live via a full `simctl uninstall`+reinstall (forcing a genuine first launch) — all 3 pages now show correctly. |
+| 15 | `LibraryView` root background not wired to `\.yomiCanvas` (found S95, not fixed) | After a `simctl uninstall` test (canvas resets to `""`/follow-device), Library rendered with a plain white/system-light background instead of the Ink canvas — unlike every view touched since S85, it has no `.background(canvas.bg.ignoresSafeArea())` on its root. Block 1 predates the canvas-wiring convention. Needs the same treatment Blocks 3+ already use. |
+| 16 | Stale debug `#00FF00` accentColor survived `simctl uninstall` (found S95, worked around not root-caused) | On this specific long-lived dev simulator, `AppSettings.accentColor` read back as pure debug green after a full app uninstall+reinstall — not found in any `.swift` source, Xcode scheme, or MCP session config checked. Manually reset via `defaults write ... accentColor "#E5473A"`. If accent ever looks wrong again after a fresh install, check this before assuming a code bug (see also row 15's Appearance Studio blue, which *was* just stale state, not this). |
 
 ## MCP tools — use these every session
 
@@ -246,7 +246,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
-- Screenshots — blocked until design implementation complete (Blocks 10-12 remain: Insights, More+Settings, Onboarding+empty states)
+- Screenshots — design implementation is now complete (all 12 blocks, S95). Blocked instead on the next session's full app audit (functional QA pass) before shipping App Store screenshots.
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

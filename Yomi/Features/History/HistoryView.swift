@@ -82,10 +82,10 @@ struct HistoryView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if items.isEmpty {
-                    ContentUnavailableView(
-                        "No history",
+                    YomiEmptyState(
                         systemImage: "clock",
-                        description: Text("Titles you've read will appear here.")
+                        title: "No history",
+                        message: "Titles you've read will appear here."
                     )
                 } else if groupedHistory.isEmpty {
                     ContentUnavailableView.search(text: searchQuery)
