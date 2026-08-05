@@ -70,10 +70,10 @@ struct DownloadsView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !hasContent {
-                ContentUnavailableView(
-                    "No downloads",
+                YomiEmptyState(
                     systemImage: "arrow.down.circle",
-                    description: Text("Download chapters from a title's chapter list to read them offline.")
+                    title: "No downloads",
+                    message: "Download chapters from a title's chapter list to read them offline."
                 )
             } else {
                 ScrollView {

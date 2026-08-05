@@ -22,10 +22,10 @@ struct OPDSBrowseView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = errorMessage {
-                ContentUnavailableView(
-                    "Failed to load",
+                YomiEmptyState(
                     systemImage: "exclamationmark.triangle",
-                    description: Text(error)
+                    title: "Failed to load",
+                    message: error
                 )
             } else if let feed {
                 feedView(feed)
@@ -44,7 +44,7 @@ struct OPDSBrowseView: View {
     @ViewBuilder
     private func feedView(_ feed: OPDSFeed) -> some View {
         if feed.entries.isEmpty {
-            ContentUnavailableView("No items", systemImage: "tray")
+            YomiEmptyState(systemImage: "tray", title: "No items", message: "This feed has nothing to show yet.")
         } else if feed.entries.allSatisfy({ $0.isNavigation }) {
             // All navigation → show as list (can drill deeper)
             navigationList(entries: feed.entries)

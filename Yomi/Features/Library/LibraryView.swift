@@ -34,29 +34,25 @@ struct LibraryView: View {
                 let hasAnyContent = !viewModel.displayedManga.isEmpty || !viewModel.displayedNovels.isEmpty
                 if !hasAnyContent && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
                     if extensionManager.installed.isEmpty {
-                        VStack(spacing: 16) {
-                            ContentUnavailableView(
-                                "No plugins installed",
-                                systemImage: "puzzlepiece.extension",
-                                description: Text("Plugins connect Yomi to manga and novel sources. Install one to start reading.")
-                            )
-                            Button("Get plugins") {
-                                appRouter.openMorePlugins = true
-                                appRouter.selectedTab = AppRouter.tabMore
-                            }
-                            .buttonStyle(.borderedProminent)
+                        YomiEmptyState(
+                            systemImage: "puzzlepiece.extension",
+                            title: "No plugins installed",
+                            message: "Plugins connect Yomi to manga and novel sources. Install one to start reading.",
+                            actionLabel: "Get plugins",
+                            actionIcon: "puzzlepiece.extension"
+                        ) {
+                            appRouter.openMorePlugins = true
+                            appRouter.selectedTab = AppRouter.tabMore
                         }
                     } else {
-                        VStack(spacing: 16) {
-                            ContentUnavailableView(
-                                "Your library is empty",
-                                systemImage: "books.vertical",
-                                description: Text("Browse sources and add titles to see them here.")
-                            )
-                            Button("Browse sources") {
-                                appRouter.selectedTab = AppRouter.tabBrowse
-                            }
-                            .buttonStyle(.borderedProminent)
+                        YomiEmptyState(
+                            systemImage: "magnifyingglass",
+                            title: "Your library is empty",
+                            message: "Titles you add from Browse will live here as a catalog — with covers, progress and notation.",
+                            actionLabel: "Browse sources",
+                            actionIcon: "magnifyingglass"
+                        ) {
+                            appRouter.selectedTab = AppRouter.tabBrowse
                         }
                     }
                 } else if !hasAnyContent {

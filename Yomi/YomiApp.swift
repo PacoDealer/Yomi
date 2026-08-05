@@ -104,12 +104,22 @@ struct YomiApp: App {
             ContentView()
                 .preferredColorScheme(settings.colorScheme)
                 .tint(Color(hex: settings.accentColor))
-                .fullScreenCover(isPresented: $showOnboarding) {
-                    OnboardingView()
-                }
-                .fullScreenCover(isPresented: $isLocked) {
-                    AppLockView {
-                        isLocked = false
+                .fullScreenCover(isPresented: Binding(
+                    get: { isLocked || showOnboarding },
+                    set: { isPresented in
+                        if !isPresented {
+                            isLocked = false
+                            showOnboarding = false
+                        }
+                    }
+                )) {
+                    // Chaining two separate .fullScreenCover modifiers on the same view is
+                    // unreliable in SwiftUI (only one presentation slot per view identity) —
+                    // merged into one cover with priority: lock screen first, then onboarding.
+                    if isLocked {
+                        AppLockView { isLocked = false }
+                    } else {
+                        OnboardingView()
                     }
                 }
         }
