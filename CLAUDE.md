@@ -28,50 +28,24 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → History → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86.** Next session: Block 7 (History).
 
-## Current state (post S89 — 2026-08-05 · Keiyoushi/Suwayomi root-cause + fix session, NOT a design block)
+## Current state (post S90 — 2026-08-05 · Suwayomi hosting architecture session, NOT a design block)
 
-S89 fixed two real bugs that fully explain why the Suwayomi/Keiyoushi bridge (architecture shipped
-S41) never actually worked: (1) no ATS exception anywhere — `Yomi/Info.plist` now has
-`NSAppTransportSecurity`/`NSAllowsArbitraryLoads`, and along the way the app switched off
-`GENERATE_INFOPLIST_FILE` to an explicit `Info.plist` because the old `INFOPLIST_ADDITIONAL_FILE`
-merge mechanism silently did nothing — **this also means custom fonts (Space Grotesk/Space Mono)
-were likely never actually registered since S80**, worth a live visual check next session; (2)
-`SuwayomiService.fetchChapters()` called a 404ing REST path
-(`/chapter/list?onlineFetch=true` → fixed to `/chapters?onlineFetch=true`) — every Suwayomi manga
-would have shown "No chapters found," unconditionally. Both fixes live-verified end-to-end tonight
-against a real local Suwayomi-Server with the real Keiyoushi repo and a real installed extension
-(Asura Scans) — Popular → manga detail → chapter list → page image, all working in the running
-simulator. Full detail in `Yomi/ROADMAP.md`'s S89 entry.
+S90 designed (but has not yet deployed) a shared, hosted Suwayomi-Server so all Yomi users get
+1,368+ Keiyoushi manga sources with zero self-hosting — at the user's explicit request, since
+Keiyoushi's community maintenance beats hand-fixing Yomi's own scrapers every time a site changes
+(exactly what S87/S88 were). **No app code changed net this session** — `AppSettings.suwayomiURL`
+still defaults to empty, exactly as before; the shared server's address will live only in
+`README.md`'s Keiyoushi row (manual copy-paste, same pattern as the LNReader repo URL), never as an
+app default or in-app shortcut — an earlier attempt to bake it in as a default was caught and
+reverted for App Store compliance reasons. Deploy infra (Oracle Cloud Always Free VM +
+Cloudflare Tunnel with zero open inbound ports + scoped Basic Auth via Caddy + VM hardening) is
+fully documented and ready at `~/Desktop/Projects/Yomi/SuwayomiServer-Deploy/DEPLOY.md`, outside
+this git repo — domain purchase and actual deployment are still ahead, deliberately deprioritized
+versus Block 7 (History), which is what's actually blocking App Store screenshots. Full reasoning,
+including a real legal-exposure consideration (centralized hosting vs. per-user self-hosting) that
+went into this design, is in `Yomi/ROADMAP.md`'s S90 entry.
 
-## Current state (post S88 — 2026-08-05 · Known-issues fix session, NOT a design block)
-
-S88 investigated Known Issues #1 (chapters from Browse, partial) and #8 (Suwayomi manga
-Popular/Latest), **not** Block 7 (History) — that's still next. Design implementation still stands
-at Blocks 1-6 done (see line 29).
-
-**Fixed and verified live:** `novelfire.js` chapter-list truncation (100 chapters max → all
-3,139+), `novelbin.js` rewritten entirely against the new NovelArrow JSON API (old domain
-`novelbin.me` is dead — confirmed `DNS_PROBE_FINISHED_NXDOMAIN`), and a real duplicate-extension-
-row bug in `ExtensionManager.install()` (an old sha256-hash id and the current `com.yomi.*` id
-could coexist forever for the same plugin — **likely present on the real device too**, worth a
-Plugins-screen glance). Suwayomi Latest support was added (`SuwayomiService.fetchLatest` +
-`SuwayomiBrowseView` feed picker) and compiles clean but is **not live-verified** (no Suwayomi
-server configured in the test simulator). `freewebnovel.js`'s chapter scrape was also rewritten
-(the old code had a worse bug — it was picking up unrelated "related novels" links, not actual
-chapters) but the fix **cannot work yet**: freewebnovel.com now Cloudflare-challenges all
-non-browser requests (confirmed via cold `curl`, no cookies) and the novel-detail/chapter-loading
-path has no CF-bypass integration at all (`CFBypassManager`/`CFBypassView` only exist in
-`BrowseView.swift`'s manga flow). **Full detail is in `Yomi/ROADMAP.md`'s S88 entry.**
-
-**Process note (mobile-mcp gestures):** `mobile-mcp` element coordinates are the bounding box's
-top-left corner, not its center — tap `(x + width/2, y + height/2)` for small circular targets like
-the 44×44 glass chips, or taps silently miss. **New this session:** the `mobile_swipe_on_screen`
-tool's `distance` parameter does **not** reliably control scroll distance in this environment —
-observed swipes of 1px and 800px produce the *same* large scroll jump, meaning fine-grained
-scrolling (e.g. to reach a specific settings row) is not currently reliable. Prefer navigating to
-the target screen more directly (deep link, search, or a shorter list) over scrolling to it.
-
-Full session-by-session history (S1-S86) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
+Full session-by-session history (S1-S89) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
 ## Known issues / carry-forward
 

@@ -20,7 +20,7 @@ Three choices depending on what you want to read:
 |---|---|---|---|
 | **Content** | Curated manga + novels | 500+ light novel sources | 1000+ manga sources |
 | **Languages** | EN | 18+ languages | All |
-| **Setup** | URL pre-configured | Add URL below | Requires Suwayomi |
+| **Setup** | URL pre-configured | Add URL below | Add address below |
 
 ### Yomi Catalog — URL pre-configured
 Hand-picked, high-quality sources for manga and novels. The catalog URL is added by default — just open Browse → Extensions and install.
@@ -32,8 +32,14 @@ https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist
 Copy this URL → Browse → Extensions → **+** → **Add Repository** → paste → **Add**
 
 ### Keiyoushi (1000+ manga)
-Keiyoushi requires a [Suwayomi Server](https://github.com/Suwayomi/Suwayomi-Server) running on your local network.
-Once your server is running, enter its address in Yomi → **Settings → Sources & Servers → Suwayomi Server**.
+Keiyoushi extensions run through a [Suwayomi Server](https://github.com/Suwayomi/Suwayomi-Server) — Yomi runs a shared one so you don't have to host your own:
+```
+https://TODO-fill-in-after-deploying.example
+```
+<!-- TODO: replace with the real Cloudflare Tunnel public hostname from SuwayomiServer-Deploy/DEPLOY.md Step 1/7 before publishing this README. -->
+Copy this address → Yomi → **Settings → Sources & Servers → Suwayomi Server** → paste → **Test Connection**
+
+Prefer full control (or the shared server is down)? [Self-host your own](https://github.com/Suwayomi/Suwayomi-Server#getting-started) and paste its address instead — same field.
 
 ---
 
