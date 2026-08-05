@@ -31,6 +31,14 @@ nonisolated enum Notation {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
     }
 
+    /// "CH. 042" for a single chapter, "CH. 042–044" for a span — used for Updates feed rows.
+    static func chapterRange(low: Double, high: Double) -> String {
+        guard low != high else { return Notation.chapter(low) }
+        let highIsWhole = high.truncatingRemainder(dividingBy: 1) == 0
+        let highStr = highIsWhole ? String(format: "%03d", Int(high)) : String(format: "%05.1f", high)
+        return "\(Notation.chapter(low))–\(highStr)"
+    }
+
     // MARK: - Progress
 
     /// "68%" — accent is applied at the call site, not here.
@@ -127,5 +135,24 @@ nonisolated enum Notation {
         }
         let f = DateFormatter(); f.dateFormat = "MMM d"
         return f.string(from: date).uppercased()
+    }
+
+    // MARK: - Date group label (History / Updates section headers)
+
+    static let dateGroupOrder = ["Today", "Yesterday", "This week", "This month", "Earlier"]
+
+    /// "Today" / "Yesterday" / "This week" / "This month" / "Earlier" bucket label.
+    static func dateGroupLabel(for date: Date?, calendar: Calendar = .current, now: Date = Date()) -> String {
+        guard let date else { return "Earlier" }
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: date),
+            to: calendar.startOfDay(for: now)
+        ).day ?? 0
+        if days < 7  { return "This week" }
+        if days < 30 { return "This month" }
+        return "Earlier"
     }
 }

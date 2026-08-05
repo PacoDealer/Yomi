@@ -268,9 +268,80 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 }
 
+// MARK: - UpdateFeedItem
+//
+// One row per title (manga or novel) with new chapters — consolidates the
+// old per-chapter row list into a single summary row, matching N.12.
+
+private struct UpdateFeedItem: Identifiable {
+    enum Kind {
+        case manga(Manga, [Chapter])   // chapters sorted by chapterNumber descending
+        case novel(Novel, [NovelChapter])
+    }
+
+    let kind: Kind
+
+    var id: String {
+        switch kind {
+        case .manga(let m, _): return "manga-\(m.id)"
+        case .novel(let n, _): return "novel-\(n.id)"
+        }
+    }
+
+    var title: String {
+        switch kind {
+        case .manga(let m, _): return m.title
+        case .novel(let n, _): return n.title
+        }
+    }
+
+    var lastUpdatedAt: Date? {
+        switch kind {
+        case .manga(let m, _): return m.lastUpdatedAt
+        case .novel(let n, _): return n.lastUpdatedAt
+        }
+    }
+
+    var count: Int {
+        switch kind {
+        case .manga(_, let chapters): return chapters.count
+        case .novel(_, let chapters): return chapters.count
+        }
+    }
+
+    /// "CH. 042" or "CH. 042–044" — chapters arrive sorted descending, so
+    /// `last` is the oldest new chapter and `first` the newest.
+    var note: String {
+        switch kind {
+        case .manga(_, let chapters):
+            guard let low = chapters.last?.chapterNumber, let high = chapters.first?.chapterNumber else {
+                return "\(count) new"
+            }
+            return Notation.chapterRange(low: low, high: high)
+        case .novel(_, let chapters):
+            guard let low = chapters.last?.chapterNumber, let high = chapters.first?.chapterNumber else {
+                return "\(count) new"
+            }
+            return Notation.chapterRange(low: low, high: high)
+        }
+    }
+
+    var isNovel: Bool {
+        if case .novel = kind { return true }
+        return false
+    }
+}
+
+private struct UpdateFeedGroup: Identifiable {
+    let label: String
+    var items: [UpdateFeedItem]
+    var id: String { label }
+}
+
 // MARK: - UpdatesView
 
 struct UpdatesView: View {
+    @Environment(\.yomiCanvas) private var canvas
     @State private var vm = UpdatesViewModel.shared
 
     @State private var mangaReaderDest: MangaReaderDest? = nil
@@ -279,8 +350,25 @@ struct UpdatesView: View {
 
     private var hasContent: Bool { !vm.groups.isEmpty || !vm.novelGroups.isEmpty }
 
+    private var groupedFeed: [UpdateFeedGroup] {
+        var buckets: [String: [UpdateFeedItem]] = [:]
+        for g in vm.groups {
+            let item = UpdateFeedItem(kind: .manga(g.manga, g.chapters))
+            buckets[Notation.dateGroupLabel(for: g.manga.lastUpdatedAt), default: []].append(item)
+        }
+        for g in vm.novelGroups {
+            let item = UpdateFeedItem(kind: .novel(g.novel, g.chapters))
+            buckets[Notation.dateGroupLabel(for: g.novel.lastUpdatedAt), default: []].append(item)
+        }
+        return Notation.dateGroupOrder.compactMap { key in
+            guard let arr = buckets[key], !arr.isEmpty else { return nil }
+            let sorted = arr.sorted { ($0.lastUpdatedAt ?? .distantPast) > ($1.lastUpdatedAt ?? .distantPast) }
+            return UpdateFeedGroup(label: key, items: sorted)
+        }
+    }
+
     var body: some View {
-        List {
+        Group {
             if !hasContent && !vm.isRefreshing {
                 ContentUnavailableView(
                     "No updates yet",
@@ -288,64 +376,23 @@ struct UpdatesView: View {
                     description: Text("Add titles to your library and refresh to check for new chapters.")
                 )
             } else {
-                ForEach(vm.groups, id: \.manga.id) { group in
-                    Section {
-                        ForEach(group.chapters) { chapter in
-                            Button {
-                                guard !isLoadingReader else { return }
-                                Task { await loadMangaReader(manga: group.manga, chapter: chapter) }
-                            } label: {
-                                UpdateChapterRow(chapter: chapter)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(groupedFeed) { group in
+                            sectionHeader(group.label)
+                            ForEach(group.items) { item in
+                                itemRow(item)
+                                Divider().padding(.leading, 72)
                             }
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    vm.markMangaChapterRead(chapterId: chapter.id, mangaId: group.manga.id)
-                                } label: {
-                                    Label("Mark read", systemImage: "checkmark.circle.fill")
-                                }
-                                .tint(.green)
-                            }
-                        }
-                    } header: {
-                        MangaUpdateHeader(manga: group.manga, count: group.chapters.count) {
-                            vm.markAllMangaChaptersRead(mangaId: group.manga.id)
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
-
-                ForEach(vm.novelGroups, id: \.novel.id) { group in
-                    Section {
-                        ForEach(group.chapters) { chapter in
-                            Button {
-                                guard !isLoadingReader else { return }
-                                Task { await loadNovelReader(novel: group.novel, chapter: chapter) }
-                            } label: {
-                                UpdateNovelChapterRow(chapter: chapter)
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    vm.markNovelChapterRead(chapterId: chapter.id, novelId: group.novel.id)
-                                } label: {
-                                    Label("Mark read", systemImage: "checkmark.circle.fill")
-                                }
-                                .tint(.green)
-                            }
-                        }
-                    } header: {
-                        NovelUpdateHeader(novel: group.novel, count: group.chapters.count) {
-                            vm.markAllNovelChaptersRead(novelId: group.novel.id)
-                        }
-                    }
-                }
+                .refreshable { await vm.refresh() }
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Updates")
-        .refreshable { await vm.refresh() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if vm.isRefreshing || isLoadingReader {
@@ -358,6 +405,13 @@ struct UpdatesView: View {
                     }
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    UpdatesSettingsView()
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                }
+            }
         }
         .task { await vm.loadFromDB() }
         .navigationDestination(item: $mangaReaderDest) { dest in
@@ -367,6 +421,60 @@ struct UpdatesView: View {
         .navigationDestination(item: $novelReaderDest) { dest in
             TextReaderView(novel: dest.novel, bridge: dest.bridge,
                            chapters: dest.chapters, startIndex: dest.chapterIndex)
+        }
+    }
+
+    // MARK: - Section header
+
+    private func sectionHeader(_ label: String) -> some View {
+        Text(label.uppercased())
+            .font(YomiTokens.Font.mono(11))
+            .tracking(0.6)
+            .foregroundStyle(canvas.textSecondary)
+            .padding(.top, 18)
+            .padding(.bottom, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Row
+
+    @ViewBuilder
+    private func itemRow(_ item: UpdateFeedItem) -> some View {
+        switch item.kind {
+        case .manga(let manga, let chapters):
+            UpdateRow(
+                title: item.title, coverURL: manga.coverURL, customCoverPath: manga.resolvedCustomCoverPath,
+                note: item.note, count: item.count, isLoadingReader: isLoadingReader,
+                destination: { MangaDetailView(manga: manga) },
+                onStartReading: {
+                    guard !isLoadingReader, let target = chapters.last else { return }
+                    Task { await loadMangaReader(manga: manga, chapter: target) }
+                }
+            )
+            .contextMenu {
+                Button {
+                    vm.markAllMangaChaptersRead(mangaId: manga.id)
+                } label: {
+                    Label("Mark all read", systemImage: "checkmark.circle.fill")
+                }
+            }
+        case .novel(let novel, let chapters):
+            UpdateRow(
+                title: item.title, coverURL: novel.coverURL, customCoverPath: novel.resolvedCustomCoverPath,
+                note: item.note, count: item.count, isLoadingReader: isLoadingReader,
+                destination: { NovelDetailView(novel: novel) },
+                onStartReading: {
+                    guard !isLoadingReader, let target = chapters.last else { return }
+                    Task { await loadNovelReader(novel: novel, chapter: target) }
+                }
+            )
+            .contextMenu {
+                Button {
+                    vm.markAllNovelChaptersRead(novelId: novel.id)
+                } label: {
+                    Label("Mark all read", systemImage: "checkmark.circle.fill")
+                }
+            }
         }
     }
 
@@ -416,181 +524,76 @@ struct UpdatesView: View {
     }
 }
 
-// MARK: - MangaUpdateHeader
+// MARK: - UpdateRow
 
-private struct MangaUpdateHeader: View {
-    let manga: Manga
+private struct UpdateRow<Destination: View>: View {
+    let title: String
+    let coverURL: URL?
+    let customCoverPath: String?
+    let note: String
     let count: Int
-    let onMarkAllRead: () -> Void
+    let isLoadingReader: Bool
+    @ViewBuilder let destination: () -> Destination
+    let onStartReading: () -> Void
+
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        HStack(spacing: 8) {
-            Group {
-                if let path = manga.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                    Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
-                } else {
-                    CoverImage(url: manga.coverURL)
-                }
-            }
-            .frame(width: 20, height: 30)
-            .cornerRadius(3)
-            .clipped()
-
+        HStack(spacing: 12) {
             NavigationLink {
-                MangaDetailView(manga: manga)
+                destination()
             } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(manga.title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    HStack(spacing: 4) {
-                        Text("\(count) new chapter\(count == 1 ? "" : "s")")
-                            .font(.caption2)
-                            .foregroundStyle(.tint)
-                        if let updated = manga.lastUpdatedAt {
-                            Text("·")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            Text(updated, style: .relative)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                HStack(spacing: 12) {
+                    Group {
+                        if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(2 / 3, contentMode: .fill)
+                                .coverAspectSized()
+                        } else {
+                            CoverImage(url: coverURL)
                         }
+                    }
+                    .frame(width: 44)
+                    .cornerRadius(YomiTokens.Radius.thumb)
+                    .clipped()
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(title)
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                            .foregroundStyle(canvas.textPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text(note)
+                            .font(YomiTokens.Font.mono(12))
+                            .foregroundStyle(canvas.textSecondary)
+                            .lineLimit(1)
                     }
                 }
             }
             .buttonStyle(.plain)
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Button(action: onMarkAllRead) {
-                Image(systemName: "checkmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .textCase(nil)
-        .padding(.vertical, 2)
-    }
-}
+            VStack(alignment: .trailing, spacing: 7) {
+                Text("\(count)")
+                    .font(YomiTokens.Font.mono(11, bold: true))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor, in: Capsule())
 
-// MARK: - NovelUpdateHeader
-
-private struct NovelUpdateHeader: View {
-    let novel: Novel
-    let count: Int
-    let onMarkAllRead: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Group {
-                if let path = novel.resolvedCustomCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                    Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill)
-                } else {
-                    CoverImage(url: novel.coverURL)
+                Button(action: onStartReading) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 19))
+                        .foregroundStyle(canvas.textSecondary)
                 }
-            }
-            .frame(width: 20, height: 30)
-            .cornerRadius(3)
-            .clipped()
-
-            NavigationLink {
-                NovelDetailView(novel: novel)
-            } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(novel.title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    HStack(spacing: 4) {
-                        Text("\(count) new chapter\(count == 1 ? "" : "s")")
-                            .font(.caption2)
-                            .foregroundStyle(.tint)
-                        Text("·")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        Text("Novel")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        if let updated = novel.lastUpdatedAt {
-                            Text("·")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            Text(updated, style: .relative)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            Button(action: onMarkAllRead) {
-                Image(systemName: "checkmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .textCase(nil)
-        .padding(.vertical, 2)
-    }
-}
-
-// MARK: - UpdateChapterRow
-
-private struct UpdateChapterRow: View {
-    let chapter: Chapter
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(chapter.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .lineLimit(1)
-                .foregroundStyle(.primary)
-
-            if let num = chapter.chapterNumber {
-                let numStr = num.truncatingRemainder(dividingBy: 1) == 0
-                    ? "Chapter \(Int(num))"
-                    : String(format: "Chapter %.1f", num)
-                Text(numStr)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+                .disabled(isLoadingReader)
             }
         }
-        .padding(.vertical, 2)
-    }
-}
-
-// MARK: - UpdateNovelChapterRow
-
-private struct UpdateNovelChapterRow: View {
-    let chapter: NovelChapter
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(chapter.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .lineLimit(1)
-                .foregroundStyle(.primary)
-
-            if let num = chapter.chapterNumber {
-                let numStr = num.truncatingRemainder(dividingBy: 1) == 0
-                    ? "Chapter \(Int(num))"
-                    : String(format: "Chapter %.1f", num)
-                Text(numStr)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
     }
 }
 
