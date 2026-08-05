@@ -33,9 +33,25 @@ final class ExtensionManager {
 
     // MARK: - Load
 
-    /// Loads installed extensions from the database
+    /// Loads installed extensions from the database, pruning any row whose backing .js
+    /// file is missing on disk. Orphaned rows accumulate across ID-scheme migrations
+    /// (e.g. an old sha256-based id superseded by a catalog id like "com.yomi.novelfire")
+    /// since nothing else ever deletes the stale row — left alone they duplicate every
+    /// name-matched entry in Plugins/Browse and can shadow the real, working row wherever
+    /// lookups use `.first(where: { $0.id == sourceId })`.
     private func loadInstalled() {
-        installed = (try? ExtensionQueries.fetchInstalled()) ?? []
+        let all = (try? ExtensionQueries.fetchInstalled()) ?? []
+        let dir = extensionsDirectory
+        var valid: [Extension] = []
+        for ext in all {
+            let localURL = dir.appendingPathComponent("\(ext.id).js")
+            if FileManager.default.fileExists(atPath: localURL.path) {
+                valid.append(ext)
+            } else {
+                try? ExtensionQueries.delete(id: ext.id)
+            }
+        }
+        installed = valid
     }
 
     // MARK: - Seed Bundled Plugins
@@ -111,6 +127,16 @@ final class ExtensionManager {
             var request = URLRequest(url: ext.sourceListURL)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, _) = try await URLSession.shared.data(for: request)
+
+            // An existing install under a different id (e.g. from an old sha256-hash ID
+            // scheme, now superseded by a stable catalog id like "com.yomi.novelfire") would
+            // otherwise coexist with this new row forever — both name-match the same catalog
+            // entry, so Plugins/Browse show the same source twice. Retire the old one.
+            for stale in installed where stale.name.lowercased() == ext.name.lowercased() && stale.id != ext.id {
+                try? FileManager.default.removeItem(
+                    at: extensionsDirectory.appendingPathComponent("\(stale.id).js"))
+                try? ExtensionQueries.delete(id: stale.id)
+            }
 
             let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
             try data.write(to: localURL)

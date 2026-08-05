@@ -4,6 +4,12 @@ import SwiftUI
 
 struct SuwayomiBrowseView: View {
     let source: SuwayomiSource
+
+    enum FeedTab: String, CaseIterable {
+        case popular = "Popular"
+        case latest  = "Latest"
+    }
+
     @State private var mangas: [Manga] = []
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
@@ -13,6 +19,7 @@ struct SuwayomiBrowseView: View {
     @State private var isSearching = false
     @State private var selectedManga: Manga? = nil
     @State private var showMangaDetail = false
+    @State private var selectedFeed: FeedTab = .popular
 
     private let service = SuwayomiService.shared
     private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
@@ -61,6 +68,22 @@ struct SuwayomiBrowseView: View {
         }
         .navigationTitle(source.name)
         .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if source.supportsLatest {
+                Picker("Feed", selection: $selectedFeed) {
+                    ForEach(FeedTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+        }
+        .onChange(of: selectedFeed) { _, _ in
+            Task { await reset(); await loadMore() }
+        }
         .searchable(text: $searchQuery, prompt: "Search \(source.name)")
         .onSubmit(of: .search) { Task { await runSearch() } }
         .onChange(of: searchQuery) { _, new in
@@ -81,9 +104,14 @@ struct SuwayomiBrowseView: View {
         isLoading = true
         errorMessage = nil
         do {
-            let page = isSearching
-                ? try await service.fetchSearch(sourceId: source.id, query: searchQuery, page: currentPage)
-                : try await service.fetchPopular(sourceId: source.id, page: currentPage)
+            let page: SuwayomiMangaPage
+            if isSearching {
+                page = try await service.fetchSearch(sourceId: source.id, query: searchQuery, page: currentPage)
+            } else if source.supportsLatest && selectedFeed == .latest {
+                page = try await service.fetchLatest(sourceId: source.id, page: currentPage)
+            } else {
+                page = try await service.fetchPopular(sourceId: source.id, page: currentPage)
+            }
             let newMangas = page.mangaList.map { service.toManga(item: $0, sourceId: source.id) }
             await MainActor.run {
                 mangas.append(contentsOf: newMangas)

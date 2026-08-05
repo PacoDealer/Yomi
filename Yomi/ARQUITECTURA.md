@@ -91,8 +91,8 @@ Yomi/
 │       ├── JSBridge.swift           # JavaScriptCore bridge — Formats A/B/C/D; shims; require(); searchManga; POST support; Cloudflare detection
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() #if DEBUG only — wraps test-source.js install for Simulator; guarded in init()
 │       ├── PluginCatalogService.swift  # @Observable singleton; fetches all pluginCatalogURLs in parallel (withThrowingTaskGroup); deduplicates by id; invalidateCache(); multi-format parser (Yomi/LNReader/Mangayomi)
-│       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
-│       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable)
+│       ├── SuwayomiService.swift    # REST client for Suwayomi server: fetchSources, fetchPopular, fetchLatest (S88), fetchSearch, fetchMangaDetail, fetchChapters, pageURLs, toManga. ID: "suwayomi_{sourceId}_{mangaId}"
+│       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable). FeedTab picker (S88) shown when source.supportsLatest, mirrors BrowseView's SourceBrowseView pattern.
 │       ├── OPDSService.swift        # OPDS Atom XML SAX parser (XMLParserDelegate). OPDSFeed/OPDSEntry models. Nav vs acquisition detection via link rel/type. Basic Auth. absoluteURL() resolution.
 │       └── CFBypassView.swift       # Manual CF bypass sheet + CFBypassManager enum (auto-bypass: hidden 1×1pt WKWebView, polls httpCookieStore every 0.5s, copies cf_clearance to HTTPCookieStorage.shared, 10s timeout); opened by shield toolbar button in SourceBrowseView
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 40 properties. Covers reader mode/font/theme, canvas (primary appearance axis: Ink/Midnight/Paper/Sepia/""), OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color (#E5473A Vermilion default), alternate icon, libraryDisplayMode, suwayomiURL, opdsURL/opdsUsername/opdsPassword. `canvasColors: YomiTokens.CanvasColors` (added S85) is the single source of truth for the resolved palette — don't re-derive `YomiTokens.Canvas.named(...)` at call sites.
@@ -453,7 +453,13 @@ public/
 ```
 Note: comick.js removed (Cloudflare 403 from non-browser clients). lightnovelworld.js removed (site permanently closed Jan 2026).
 
-Plugin IDs in index.json are `SHA256(fileURL).prefix(32)` — consistent with the ID scheme used by `ExtensionManager` for network-installed plugins.
+Plugin IDs in index.json are stable readable strings (`"com.yomi.novelbin"`, etc.) — this
+superseded an older `SHA256(filename).prefix(32)` scheme (still used by `ExtensionManager.
+seedBundledPlugins()`'s `#if DEBUG` local-bundle path). `PluginCatalogService.availableUpdate(for:)`
+matches installed extensions to catalog entries by id first, falling back to name, specifically to
+bridge this gap. `ExtensionManager.install()` (S88) additionally deletes any other installed
+extension with the same name before writing the new id's row, so an id-scheme migration converges
+onto one row per plugin instead of leaving the old id's row installed forever alongside the new one.
 
 ## Data flows
 

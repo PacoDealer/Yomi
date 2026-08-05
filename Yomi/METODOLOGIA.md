@@ -122,6 +122,48 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S88
+
+**The custom `cheerio` shim doesn't support `cheerio.load(html).text()` — chain off a selection,
+not the load result directly.** Writing `cheerio.load(html || "").text()` to strip HTML tags to
+plain text threw `TypeError: cheerio.load(...).text is not a function` at runtime (only caught via
+the app's live JS-error log, not at write time — this shim has no compile-time type checking).
+Every other plugin in the codebase that needs this (`asurascans.js`'s `stripHtml`) uses a plain
+regex instead: `(html || "").replace(/<[^>]*>/g, "").trim()`. Reach for that pattern for any
+"strip HTML to plain text" need — don't assume real-cheerio API surface is available (see S87's
+note: it's a hand-rolled ~350-line parser, not the actual cheerio library).
+
+**A cold, cookie-free request is the only real test of whether a site is Cloudflare-blocking
+`SOURCE.fetch`.** Verified freewebnovel.com's chapter API worked via the Chrome MCP tab's
+`fetch(url, {credentials: 'omit'})` — but that still ran over the same browser/IP that had already
+built up Cloudflare trust from earlier navigation in the same session, so the "no cookies" test
+was not actually cold. A follow-up plain `curl` from the shell (fresh process, no session, no
+cookies) revealed the *same* endpoint returns a Cloudflare "Just a moment…" challenge page —
+completely different result. Since `JSBridge`'s `SOURCE.fetch` is exactly this kind of cold,
+cookie-less, non-browser request, `curl` from a fresh shell is the correct proxy for what the app
+will actually experience — a same-tab `fetch()` with `credentials: 'omit'` is not, because
+IP/TLS-fingerprint-based Cloudflare trust persists across requests on the same connection/session
+regardless of the `credentials` option.
+
+**Extension ID migrations need an explicit "retire the old row" step, not just "insert the new
+one."** `PluginCatalogService.availableUpdate(for:)` already falls back to matching installed
+extensions to catalog entries **by name** when the id doesn't match — a reasonable compatibility
+shim for exactly this situation — but `ExtensionManager.install()` had no matching cleanup: it
+always wrote the new id's row without checking whether an older-id row for the same plugin already
+existed. The two mechanisms need to agree: if update-detection tolerates an id mismatch via name,
+install must also *resolve* that mismatch, or every id-scheme migration silently doubles affected
+rows forever. General lesson for any "id" that's meant to be a stable identity for the same real
+underlying thing: a name/identity-based fallback lookup is only safe if the write path also
+converges those rows back onto the canonical id, not just the read path.
+
+**When verifying a live device/simulator bug via direct DB inspection, confirm you're looking at
+the *current* app container.** `find`-ing for `yomi.db` under a device's `Containers/Data/
+Application/` returned a stale container from an earlier build (a leftover `Extensions/*.js` file
+set that no longer matched what the running app actually had) before the real, currently-mounted
+container was found by sorting on file mtime. A wrong container silently produces a
+plausible-looking but wrong answer (in this case, briefly concluding a fix hadn't taken effect when
+it actually had) — always cross-check container mtime, not just presence of the expected file.
+
 ## Technical learnings — S87
 
 **`URLCache` silently defeats "force refresh" unless you say so explicitly.** Both

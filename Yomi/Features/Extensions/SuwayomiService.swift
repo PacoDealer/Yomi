@@ -87,6 +87,10 @@ final class SuwayomiService {
         try await fetch("/api/v1/source/\(sourceId)/popular/\(page)")
     }
 
+    func fetchLatest(sourceId: String, page: Int) async throws -> SuwayomiMangaPage {
+        try await fetch("/api/v1/source/\(sourceId)/latest/\(page)")
+    }
+
     func fetchSearch(sourceId: String, query: String, page: Int) async throws -> SuwayomiMangaPage {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return try await fetch("/api/v1/source/\(sourceId)/search/\(page)?searchTerm=\(encoded)")

@@ -21,7 +21,84 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S87 — 2026-08-04 · Known-issues fix session)
+## Current state (post S88 — 2026-08-05 · Known-issues fix session)
+
+**S88 (2026-08-05): Investigated Known Issues #1 (chapters from Browse, partial) and #8
+(Suwayomi manga Popular/Latest) — not a design block; Block 7 (History) is still next.**
+
+1. **`novelfire.js` chapter truncation (#1) — root-caused and fixed.** `parseNovel` only ever
+   fetched chapter-list page 1 (`/book/{slug}/chapters?page=1`, ~100 chapters/page). Verified live
+   against Shadow Slave (3,139 chapters, 32 pages on the real site): the app was silently showing
+   only the first 100. Rewrote to loop pages until a short/empty page confirms the last one
+   (capped at 60 pages as a safety net), matching the pattern `mangadex.js`/`asurascans.js` already
+   use. Verified live in-app: chapter count now reads exactly 3,139, content still loads correctly.
+   Deployed as v1.1.0.
+
+2. **`freewebnovel.js` — found a worse bug than truncation, then hit a new site-wide Cloudflare
+   block.** The old scrape (`a.con` on the plain novel page) was pulling from a small "Latest
+   Chapters" widget *mixed with unrelated "related novels" links* that share the same CSS class —
+   not real chapters at all. Found the site's own AJAX pagination (`?ajax=chapters&page=N&pageSize=200`,
+   ascending order, returns `totalPage`/`totalChapters`) and rewrote `parseNovel` to loop it
+   properly — verified correct against Martial Peak (6,108 chapters) via live browser testing.
+   **However**, a subsequent cold `curl` (no cookies, fresh IP context) showed freewebnovel.com now
+   Cloudflare-challenges *all* non-browser requests — both the HTML page and the AJAX endpoint
+   return a "Just a moment…" challenge page with no cookies present. This means the rewrite is
+   correct but currently **cannot succeed via plain `SOURCE.fetch`** until CF-bypass is wired into
+   the novel detail/chapter-loading path (`MangaDetailView.loadChapters()` has no bypass
+   integration at all today — `CFBypassManager`/`CFBypassView` only exist in `BrowseView.swift`'s
+   manga flow). Deployed as v1.1.0 anyway since it's strictly more correct than the old code and
+   will start working the moment CF-bypass covers this path — **flagging as a new, currently-
+   blocking issue for next session**, distinct from the pre-existing manga-source bypass flow.
+
+3. **NovelBin (#1) — the whole domain was dead.** `novelbin.me` returned
+   `DNS_PROBE_FINISHED_NXDOMAIN` live. Confirmed via web search: NovelBin rebranded to
+   **NovelArrow** (`novelarrow.com`), a Next.js rebuild with a clean, cookie-free JSON API —
+   verified every endpoint cold via `curl` with no session:
+   - `GET /api-web/novels?limit=&page=&status=all&sort={HOT|SEARCH_KEYWORD}&genre=ALL&keyword=` —
+     popular (sort=HOT) and search, real pagination via `pagination.totalPages`.
+   - `GET /api-web/novels/{slug}` — full metadata (author, description, genres, status).
+   - `GET /api-web/novels/{slug}/chapters?sort=asc` — **all** chapters in one response, no
+     pagination needed (verified 3,139/3,139 for Shadow Slave in a single request).
+   - `GET /api-web/novels/{slug}/chapters/{chapterId}` — chapter content as clean HTML.
+   - Covers are predictable: `https://images.novelarrow.com/novel_480_720/{slug}.jpg`.
+   Rewrote `novelbin.js` from scratch against this API (v2.0.0, then v2.0.1 fixing a
+   `cheerio.load(html).text is not a function` runtime error in the description-stripping helper —
+   cheerio's `load()` result isn't directly callable as a text node; switched to the same plain
+   regex `stripHtml()` pattern `asurascans.js` already uses). Verified fully live in-app: search,
+   popular, detail, 3,139-chapter list, and chapter content all correct.
+
+4. **Found and fixed a real duplicate-extension-row bug while updating the three plugins above.**
+   `ExtensionManager.install()` (used by both "Install" and "Update") always upserts under the
+   *new* `Extension.id` without checking whether the same plugin is already installed under a
+   *different* id. Yomi went through at least one ID-scheme migration (old sha256-hash ids →
+   stable catalog ids like `com.yomi.novelfire`), and `PluginCatalogService.availableUpdate(for:)`
+   already falls back to matching by **name** when id doesn't match — so an old-id install still
+   correctly shows "Update available," but tapping Update just inserted a second row under the new
+   id and left the old one in place forever. Result: Plugins and Browse's source list showed
+   "NovelFire" (and FreeWebNovel, NovelBin) **twice**, one stale/unupdatable, one fresh — confirmed
+   directly in the simulator's `yomi.db` (`ecef3974…`/`14be4a2c…`/`64a5417437…` sha256-id rows
+   sitting alongside the `com.yomi.*` rows, all with matching `.js` files present in
+   `Documents/Extensions/`, so it wasn't an orphaned-file issue). Fixed: `install()` now deletes
+   any other installed extension with the same name (case-insensitive) before writing the new row.
+   **Users with plugins installed since before the id-scheme migration likely have this exact
+   duplication on their real device** — worth a quick Plugins-screen glance next session.
+
+5. **Suwayomi manga Popular/Latest (#8) — root-caused via code, not a source limitation.**
+   `SuwayomiSource.supportsLatest` is already decoded from the Suwayomi server's own API response
+   per source (so real Keiyoushi/Tachiyomi extensions correctly report it) — but `SuwayomiService`
+   never had a `fetchLatest()` method, and `SuwayomiBrowseView` never called anything but
+   `fetchPopular()`. It's a client-side gap, not a source-side one. Added
+   `SuwayomiService.fetchLatest(sourceId:page:)` (`GET /api/v1/source/{id}/latest/{page}`, mirrors
+   the existing `fetchPopular`) and a `FeedTab` segmented picker in `SuwayomiBrowseView` gated by
+   `source.supportsLatest`, matching the exact pattern `BrowseView.swift`'s `SourceBrowseView`
+   already uses for direct JS-plugin sources. Compiles clean; **not live-verified** — no Suwayomi
+   server was configured in this session's simulator to test against.
+
+**Not investigated this session:** re-testing "chapters from Browse" for Asura Scans/MangaDex
+(code-reviewed only — both already loop through all pages correctly, no truncation found by
+inspection, so lower priority than the three novel sources above which had confirmed live bugs).
+
+---
 
 **S87 (2026-08-04): Bugfix pass through the Known Issues table (CLAUDE.md rows 1/3/7/8/9) —
 not a design block; Block 7 (History) is still next.**
