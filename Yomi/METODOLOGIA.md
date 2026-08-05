@@ -122,6 +122,36 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S89
+
+**`INFOPLIST_ADDITIONAL_FILE` does not reliably merge into a `GENERATE_INFOPLIST_FILE = YES`
+target — verify with `plutil -p` on the compiled bundle, never assume it worked.** This project
+used it since S80 to inject `UIAppFonts` (and, briefly this session, `NSAppTransportSecurity`) —
+confirmed via a clean build + `plutil -p` on the actual compiled `Info.plist` that **neither key
+ever appeared**, even after a full clean rebuild. The reliable fix for a Swift-Xcode-16-generation
+project (`PBXFileSystemSynchronizedRootGroup`) is to switch the target to an explicit
+`INFOPLIST_FILE` (write the few `INFOPLIST_KEY_*`-equivalent keys — scene manifest, launch screen,
+orientations, etc. — directly into it; build-environment keys like `MinimumOSVersion`/`DTXcode`/
+`CFBundleIcons` are still injected automatically by Xcode's build steps regardless of which mode is
+used), same pattern `YomiWidget` already used successfully. **One extra trap**: if the new
+`Info.plist` lives inside a folder that's a `PBXFileSystemSynchronizedRootGroup` member (any file
+physically present under `Yomi/` in this project), Xcode will *also* try to copy it as a bundle
+resource, producing a "Multiple commands produce Info.plist" build error — must add `Info.plist` to
+that folder's `PBXFileSystemSynchronizedBuildFileExceptionSet.membershipExceptions` array (exactly
+how `YomiWidget`'s own exception set already excluded its `Info.plist`).
+
+**zsh trap: never use `for path in ...`** — `path` is a special zsh variable tied to `$PATH`;
+overwriting it with a `for` loop breaks all command resolution (`command not found: curl`) for the
+rest of that shell invocation. Use any other loop-variable name.
+
+**Backgrounding a real long-running process (e.g. a local test server) from an agent session is
+unreliable with `nohup ... & disown` — it can get silently reaped** even though the process starts
+and logs correctly. The Bash tool's own `run_in_background: true` parameter is the reliable
+mechanism; even then, one observed case (running two `run_in_background` Bash calls back-to-back in
+the same turn) appeared to kill the first process early. Prefer one `run_in_background` server
+launch per turn, then poll/verify with a plain foreground `curl`/`ps` check rather than chaining
+another background call immediately after.
+
 ## Technical learnings — S88
 
 **The custom `cheerio` shim doesn't support `cheerio.load(html).text()` — chain off a selection,
@@ -378,6 +408,16 @@ The script now loads existing Firebase index.json before writing. New TS-compile
 - `saved_searches` / `save_query_title` — persist named search queries
 - `repair_database` — dangerous DB repair tool
 - `liquid_glass_appearance_title` — iOS 26 Liquid Glass toggle
+
+### Addendum — S89: how Tachimanga does Keiyoushi
+Confirmed via web research: Tachimanga does **not** embed or bundle Keiyoushi/Suwayomi — it's a
+thin REST client against a separately self-hosted Suwayomi-Server (Docker/JVM/standalone jar),
+same architecture Yomi already shipped in S41 via `SuwayomiService.swift`. No Flutter-specific
+trick, no App Store precedent for bundling the JVM (matches the S53 feasibility study's DEFER
+verdict). The reason it "just works" for Tachimanga users and didn't for Yomi users wasn't
+architecture — it was two real bugs in `SuwayomiService.swift`/`Info.plist` (missing ATS
+exception + a 404ing chapter-list REST path), both fixed and live-verified S89. See
+`ROADMAP.md`'s S89 entry.
 
 ## Technical learnings — S39 visual audit
 

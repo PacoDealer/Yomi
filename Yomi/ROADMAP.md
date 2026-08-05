@@ -21,6 +21,76 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S89 — 2026-08-05 · Keiyoushi/Suwayomi root-cause + fix session)
+
+**S89 (2026-08-05): User asked how Tachimanga makes Keiyoushi work via Suwayomi-Server "the same
+way LNReader works" and reported the existing Suwayomi bridge (shipped S41) still doesn't work in
+practice. Found and fixed two real, independent bugs that fully explain why — not a design block;
+Block 7 (History) is still next.**
+
+Researched Tachimanga's actual architecture first (per the "never say impossible without asking
+the second question" rule): confirmed it does **not** embed Keiyoushi — like Yomi, it's a thin
+client against a **separately self-hosted Suwayomi-Server** (Docker/JVM/standalone jar, port 4567).
+So there's no shortcut Tachimanga has that Yomi's architecture doesn't already have. But two real
+bugs meant the existing bridge could never have worked even with a server configured:
+
+1. **No App Transport Security exception, at all (new Known Issue, fixed this session).**
+   `Yomi/Info.plist` had zero `NSAppTransportSecurity` config. Self-hosted Suwayomi-Server is
+   almost always plain `http://` on a LAN (`http://192.168.x.x:4567`) — iOS blocks that silently
+   by default. Any Suwayomi URL the user configured would fail at the network layer before ever
+   reaching `SuwayomiService`. **While fixing this, found the actual mechanism was broken too**:
+   the project used `INFOPLIST_ADDITIONAL_FILE` (pointing at `design/Fonts/YomiFonts.plist`) to
+   merge extra keys into the `GENERATE_INFOPLIST_FILE = YES` auto-generated Info.plist — this
+   silently does not merge anything (verified: `UIAppFonts` was never actually present in the
+   compiled Info.plist either, going all the way back to when it was introduced in S80). **This
+   means Space Grotesk/Space Mono custom fonts have likely never been registered/rendering in the
+   app at all since the design system shipped in S80** — the whole app has probably been silently
+   falling back to the system font this entire time. Fixed by switching the main app target from
+   `GENERATE_INFOPLIST_FILE` to an explicit `Yomi/Info.plist` (same pattern `YomiWidget` already
+   used successfully), with `UIAppFonts` and `NSAppTransportSecurity` (`NSAllowsArbitraryLoads`)
+   written directly into it, plus adding `Info.plist` to the `Yomi` folder's
+   `PBXFileSystemSynchronizedBuildFileExceptionSet` (needed or the synced-folder resource copy and
+   the `INFOPLIST_FILE` build step both try to produce the same output path). Verified via
+   `plutil -p` on the compiled bundle: both keys now present. **Next session: confirm live whether
+   custom fonts are now visibly different from before** (screenshot compare) — could not do this
+   tonight without the user around to eyeball a subtle typography diff.
+2. **`SuwayomiService.fetchChapters()` had the wrong REST path (new Known Issue, fixed this
+   session).** Called `/api/v1/manga/{id}/chapter/list?onlineFetch=true` — this 404s on a real
+   Suwayomi-Server. The correct endpoint is `/api/v1/manga/{id}/chapters` (plural, no `/list`).
+   This means **every Suwayomi/Keiyoushi manga would show "No chapters found," unconditionally**,
+   regardless of the ATS bug — confirmed by direct `curl` against a real server. One-line fix.
+
+**Both fixes live-verified end-to-end**, not just code-reviewed: downloaded and ran a real
+Suwayomi-Server v2.3.2243 locally (no Docker on this Mac — used the bundled-JRE macOS-arm64
+tarball release, standalone `bin/Suwayomi-Server.jar`, H2 embedded DB, `rootDir` pointed at a
+scratch dir), added the real Keiyoushi repo
+(`https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json`, via GraphQL
+`addExtensionStore(indexUrl:)`) — 1,368 real extensions listed, 189 English non-NSFW — and
+installed a real Kotlin/APK extension (`Asura Scans`, `eu.kanade.tachiyomi.extension.en.asurascans`,
+v1.6.66) via `updateExtension(patch:{install:true})`. Pointed the running Yomi simulator at
+`http://127.0.0.1:4567` in Settings → Suwayomi Server: "Connected — 2 sources" (proves the ATS
+fix), browsed to Asura Scans' Popular feed (real live covers), opened "The Former Supreme," saw
+its real 8-chapter list load (proves the endpoint fix — this was "No chapters found" before),
+opened Chapter 8, and a real page image rendered in the manga reader. Full pipeline confirmed
+working, matching Tachimanga's user experience exactly, using Yomi's existing S41 architecture.
+
+**For the user, next steps to actually use this:** the demo server used tonight was ephemeral
+(ran from this session's scratch directory, already stopped). For real day-to-day use, install
+Suwayomi-Server persistently — either on this Mac (the same
+`Suwayomi-Server-v2.3.2243-macOS-arm64.tar.gz` release, run as a login item / launchd service so
+it survives reboots) or on a NAS/always-on home server (Docker image `ghcr.io/suwayomi/suwayomi-server`
+is the standard way there). Then add its LAN address in Settings → Suwayomi Server exactly as
+tonight. **Side note found along the way**: Suwayomi-Server has a built-in Cloudflare bypass (CEF/
+embedded Chromium, confirmed downloading and working live tonight against `asurascans.com`) — worth
+remembering as a possible alternative fix for Known Issues #9 (AquaManga) and #11 (FreeWebNovel)
+if Yomi's own per-plugin CF-bypass work proves too fragile; bridging a stubborn source through
+Suwayomi instead of hand-rolling bypass logic is a legitimate fallback, not just a Keiyoushi-only
+feature.
+
+Committed as (pending), pushed. No Firebase deploy needed (no `.js` plugin files touched).
+
+---
+
 ## Current state (post S88 — 2026-08-05 · Known-issues fix session)
 
 **S88 (2026-08-05): Investigated Known Issues #1 (chapters from Browse, partial) and #8
