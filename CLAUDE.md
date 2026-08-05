@@ -26,30 +26,34 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92.** Next session: Block 9 (Downloads).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92; Block 9 (Downloads) live-verified S93.** Next session: Block 10 (Insights).
 
-## Current state (post S92 — 2026-08-05 · Block 8 — Updates)
+## Current state (post S93 — 2026-08-05 · Block 9 — Downloads)
 
-S92 implemented Block 8 (Updates) of the 12-block design track against N.12 in
-`YOMI Screens.dc.html`. Blocks 1-8 of 12 complete; Block 9 (Downloads) is next. `UpdatesView.swift`
-moved from a native `List`/`.insetGrouped` layout (one `Section` per manga/novel, one row per new
-chapter) to `ScrollView` + `LazyVStack` grouped by date bucket (Today/Yesterday/This week/This
-month/Earlier), matching N.12's `sec.group`/`it` row shape — **a real behavior change, not just
-visual**: the mock is one summary row per title, not per chapter, so the old per-chapter row list was
-consolidated into a single row per manga/novel with a chapter-range note (new
-`Notation.chapterRange(low:high:)`, e.g. "CH. 002–008") and a count pill. Two judgment calls for
-behavior the mock didn't spell out: (1) per-chapter tap-to-read → a trailing circular icon jumps into
-the reader at the *oldest* unread new chapter (picking a different chapter is still possible by
-tapping the row to open Detail, same as History); (2) the header "mark all read" button → moved to a
-long-press `.contextMenu` per row (`ScrollView`/`LazyVStack` has no `.swipeActions`, same constraint
-History hit in S91). The mock's second header icon (filter/lines glyph) was interpreted as a shortcut
-into the existing "Update rules" settings (`UpdatesSettingsView`, un-privatized from `SettingsView.swift`).
-Also extracted `Notation.dateGroupLabel()`/`dateGroupOrder` out of `HistoryView.swift`'s private
-date-bucketing so History and Updates share one implementation. Verified live via `build_run_sim` +
-mobile-mcp against real on-device data: row→Detail navigation, start-reading icon opening the reader
-at the correct oldest chapter, long-press mark-all-read (row disappears, correct empty state), and
-the filter icon reaching Update Rules — all confirmed working, zero build warnings. Full detail in
-`Yomi/ROADMAP.md`'s S92 entry.
+S93 implemented Block 9 (Downloads) of the 12-block design track against N.13 in
+`YOMI Screens.dc.html`. Blocks 1-9 of 12 complete; Block 10 (Insights) is next. Unlike History/Updates
+(native `.navigationTitle`), N.13 uses the same floating-glass-chrome-over-content treatment as Detail
+(Blocks 3-5), so `DownloadsView.swift` was rebuilt with `.toolbar(.hidden, for: .navigationBar)` +
+`.overlay(alignment: .top) { glassNavBar }` reusing `MangaDetailView`'s exact glass-nav pattern
+(back/trash `.glassChip()` buttons) rather than the native-title-bar convention. The "DOWNLOADED"
+section was **consolidated from one row per chapter to one row per manga** (same per-title
+consolidation call as Updates/S92) showing "N chapters · size", pushing into `MangaDetailView` (which
+already has full per-chapter download management, so no new view was needed). "DOWNLOADING" keeps its
+existing per-chapter-job behavior, re-skinned to the 44×62pt cover + progress-bar row style. New:
+`DownloadManager.directorySize(mangaId:)` (nonisolated recursive `FileManager` byte count — no size
+was previously tracked) and `queueMangas: [Manga]` (replaces `queueMangaTitles: [String]` so queued
+rows can show real cover art). Real Swift 6 finding: `DownloadManager.shared` itself (the static
+property, not just its methods) is MainActor-isolated — calling `directorySize` from `Task.detached`
+required capturing `let manager = DownloadManager.shared` on MainActor first, same pattern as
+`ExtensionManager.shared.bridge(for:)`. Two judgment calls: the mock's queue-row "pause" icon has no
+real pause/resume in `DownloadManager` (only cancel), so it renders as `xmark.circle` rather than a
+glyph implying capability that doesn't exist; the header trash button is a new `deleteEverything()`
+gated behind a `.confirmationDialog`, matching History's "Clear all" convention. Verified live via
+`build_run_sim` + mobile-mcp against real downloads (Asura Scans): downloaded 4 real chapters,
+confirmed the per-manga row and byte-size footer compute correctly from real on-disk files, row→Detail
+navigation, long-press "Delete all downloads", and header trash → confirm → empty state. The
+progress-bar row was code-reviewed but not caught live (downloads complete in well under a second).
+Zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S93 entry.
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
@@ -242,7 +246,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
-- Screenshots — blocked until design implementation complete (Blocks 9-12 remain: Downloads, Insights, More+Settings, Onboarding+empty states)
+- Screenshots — blocked until design implementation complete (Blocks 10-12 remain: Insights, More+Settings, Onboarding+empty states)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

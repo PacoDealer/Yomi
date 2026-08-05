@@ -5,26 +5,35 @@ import Kingfisher
 // MARK: - DownloadViewModel
 
 @Observable final class DownloadViewModel {
-    var downloadedByManga: [(manga: Manga, chapters: [Chapter])] = []
+
+    struct MangaDownloadGroup: Identifiable {
+        let manga: Manga
+        let chapterCount: Int
+        let byteSize: Int64
+        var id: String { manga.id }
+    }
+
+    var groups: [MangaDownloadGroup] = []
     var isLoading = false
+
+    var totalChapters: Int { groups.reduce(0) { $0 + $1.chapterCount } }
+    var totalBytes: Int64 { groups.reduce(0) { $0 + $1.byteSize } }
 
     func load() async {
         isLoading = true
-        await Task.detached(priority: .userInitiated) {
+        let manager = DownloadManager.shared
+        let result = await Task.detached(priority: .userInitiated) { () -> [MangaDownloadGroup] in
             let chapters = (try? DownloadQueries.fetchAllDownloaded()) ?? []
             let mangaIds = Array(Set(chapters.map { $0.mangaId }))
             let mangas = mangaIds.compactMap { try? MangaQueries.fetchOne(id: $0) }
-            let grouped = mangas.map { manga in
-                (manga: manga,
-                 chapters: chapters
-                    .filter { $0.mangaId == manga.id }
-                    .sorted { ($0.chapterNumber ?? 0) < ($1.chapterNumber ?? 0) })
+            return mangas.map { manga in
+                let count = chapters.filter { $0.mangaId == manga.id }.count
+                let size = manager.directorySize(mangaId: manga.id)
+                return MangaDownloadGroup(manga: manga, chapterCount: count, byteSize: size)
             }.sorted { $0.manga.title < $1.manga.title }
-            await MainActor.run {
-                self.downloadedByManga = grouped
-                self.isLoading = false
-            }
         }.value
+        groups = result
+        isLoading = false
     }
 
     func deleteAll(for manga: Manga) async {
@@ -34,160 +43,281 @@ import Kingfisher
         }.value
         await load()
     }
+
+    func deleteEverything() async {
+        for group in groups { await deleteAll(for: group.manga) }
+    }
 }
 
 // MARK: - DownloadsView
+//
+// Design spec: YOMI Screens.dc.html N.13 (Downloads).
 
 struct DownloadsView: View {
 
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.yomiCanvas) private var canvas
     @State private var vm = DownloadViewModel()
+    @State private var confirmDeleteAll = false
     private var dm: DownloadManager { DownloadManager.shared }
 
+    private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty }
+    private var hasContent: Bool { hasDownloading || !vm.groups.isEmpty }
+
     var body: some View {
-        NavigationStack {
-            Group {
-                if vm.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if !dm.isRunning && vm.downloadedByManga.isEmpty {
-                    ContentUnavailableView(
-                        "No downloads",
-                        systemImage: "arrow.down.circle"
-                    )
-                } else {
-                    list
+        Group {
+            if vm.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !hasContent {
+                ContentUnavailableView(
+                    "No downloads",
+                    systemImage: "arrow.down.circle",
+                    description: Text("Download chapters from a title's chapter list to read them offline.")
+                )
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Downloads")
+                            .font(YomiTokens.Font.grotesk(26, weight: .medium))
+                            .foregroundStyle(canvas.textPrimary)
+                            .padding(.top, 8)
+
+                        if hasDownloading {
+                            sectionHeader("Downloading · \(dm.queue.count + (dm.isRunning ? 1 : 0))")
+
+                            if let active = dm.activeChapter {
+                                DownloadingRow(
+                                    coverURL: dm.activeManga?.coverURL,
+                                    customCoverPath: dm.activeManga?.resolvedCustomCoverPath,
+                                    title: dm.activeManga?.title ?? "",
+                                    note: "\(active.name) · \(Int((dm.progress[active.id] ?? 0) * 100))%",
+                                    fraction: dm.progress[active.id] ?? 0,
+                                    onCancel: { dm.cancel(chapterId: active.id) }
+                                )
+                                Divider().padding(.leading, 72)
+                            }
+
+                            ForEach(Array(dm.queue.enumerated()), id: \.element.id) { idx, chapter in
+                                DownloadingRow(
+                                    coverURL: idx < dm.queueMangas.count ? dm.queueMangas[idx].coverURL : nil,
+                                    customCoverPath: idx < dm.queueMangas.count ? dm.queueMangas[idx].resolvedCustomCoverPath : nil,
+                                    title: idx < dm.queueMangas.count ? dm.queueMangas[idx].title : "",
+                                    note: "\(chapter.name) · Queued",
+                                    fraction: 0,
+                                    onCancel: { dm.cancel(chapterId: chapter.id) }
+                                )
+                                Divider().padding(.leading, 72)
+                            }
+                        }
+
+                        if !vm.groups.isEmpty {
+                            sectionHeader("Downloaded")
+
+                            ForEach(vm.groups) { group in
+                                NavigationLink {
+                                    MangaDetailView(manga: group.manga)
+                                } label: {
+                                    DownloadedRow(
+                                        title: group.manga.title,
+                                        coverURL: group.manga.coverURL,
+                                        customCoverPath: group.manga.resolvedCustomCoverPath,
+                                        note: "\(group.chapterCount) chapter\(group.chapterCount == 1 ? "" : "s") · \(formatBytes(group.byteSize))"
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task { await vm.deleteAll(for: group.manga) }
+                                    } label: {
+                                        Label("Delete all downloads", systemImage: "trash")
+                                    }
+                                }
+                                Divider().padding(.leading, 72)
+                            }
+
+                            Text("\(formatBytes(vm.totalBytes).uppercased()) USED · \(vm.totalChapters) CHAPTER\(vm.totalChapters == 1 ? "" : "S")")
+                                .font(YomiTokens.Font.mono(11))
+                                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 20)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 60)
+                    .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Downloads")
-            .navigationBarTitleDisplayMode(.large)
         }
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) { glassNavBar }
         .task { await vm.load() }
         .onChange(of: dm.completedDownloadCount) { _, _ in
             Task { await vm.load() }
         }
-    }
-
-    // MARK: List
-
-    private var list: some View {
-        List {
-            // MARK: Active Queue
-            if dm.isRunning || !dm.queue.isEmpty {
-                Section("Downloading") {
-                    if let active = dm.activeChapter {
-                        VStack(alignment: .leading, spacing: 2) {
-                            if let title = dm.activeManga?.title {
-                                Text(title)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .lineLimit(1)
-                            }
-                            HStack {
-                                Text(active.name)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                ProgressView(value: dm.progress[active.id] ?? 0)
-                                    .frame(width: 80)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    ForEach(Array(dm.queue.enumerated()), id: \.element.id) { idx, chapter in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                if idx < dm.queueMangaTitles.count {
-                                    Text(dm.queueMangaTitles[idx])
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .lineLimit(1)
-                                }
-                                Text(chapter.name)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button {
-                                dm.cancel(chapterId: chapter.id)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-            }
-
-            // MARK: Downloaded
-            ForEach(vm.downloadedByManga, id: \.manga.id) { entry in
-                Section {
-                    ForEach(entry.chapters) { chapter in
-                        HStack {
-                            Text(chapter.name)
-                                .font(.subheadline)
-                            Spacer()
-                            if let date = chapter.downloadedAt {
-                                Text(date, style: .relative)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                DownloadManager.shared.deleteDownload(chapter: chapter)
-                                Task { await vm.load() }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
-                } header: {
-                    MangaSectionHeader(manga: entry.manga) {
-                        Task { await vm.deleteAll(for: entry.manga) }
-                    }
-                }
-            }
+        .confirmationDialog("Delete all downloads?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
+            Button("Delete all", role: .destructive) { Task { await vm.deleteEverything() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every downloaded chapter from this device. Titles stay in your library.")
         }
     }
-}
 
-// MARK: - MangaSectionHeader
+    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
 
-private struct MangaSectionHeader: View {
-    let manga: Manga
-    let onDeleteAll: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            CoverImage(url: manga.coverURL)
-                .frame(width: 32, height: 48)
-                .cornerRadius(4)
-                .clipped()
-
-            Text(manga.title)
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+    private var glassNavBar: some View {
+        HStack(spacing: 10) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .glassChip()
 
             Spacer()
 
-            Button(role: .destructive, action: onDeleteAll) {
-                Text("Delete all")
-                    .font(.caption)
+            if !vm.groups.isEmpty {
+                Button { confirmDeleteAll = true } label: {
+                    Image(systemName: "trash")
+                }
+                .glassChip()
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Section header
+
+    private func sectionHeader(_ label: String) -> some View {
+        Text(label.uppercased())
+            .font(YomiTokens.Font.mono(11))
+            .tracking(0.6)
+            .foregroundStyle(canvas.textSecondary)
+            .padding(.top, 18)
+            .padding(.bottom, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Byte formatting
+
+private func formatBytes(_ bytes: Int64) -> String {
+    let f = ByteCountFormatter()
+    f.countStyle = .file
+    return f.string(fromByteCount: bytes)
+}
+
+// MARK: - DownloadingRow
+
+private struct DownloadingRow: View {
+    let coverURL: URL?
+    let customCoverPath: String?
+    let title: String
+    let note: String
+    let fraction: Double
+    let onCancel: () -> Void
+
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        HStack(spacing: 12) {
+            cover
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                Text(note)
+                    .font(YomiTokens.Font.mono(12))
+                    .foregroundStyle(canvas.textSecondary)
+                    .lineLimit(1)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(canvas.textSecondary.opacity(0.16))
+                        Capsule().fill(Color.accentColor).frame(width: geo.size.width * fraction)
+                    }
+                }
+                .frame(height: 3)
+            }
+
+            Button(action: onCancel) {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 22))
+                    .foregroundStyle(canvas.textSecondary)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.red)
         }
-        .padding(.vertical, 4)
-        .textCase(nil)
+        .padding(.vertical, 11)
+    }
+
+    private var cover: some View {
+        Group {
+            if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(2 / 3, contentMode: .fill)
+                    .coverAspectSized()
+            } else {
+                CoverImage(url: coverURL)
+            }
+        }
+        .frame(width: 44)
+        .cornerRadius(YomiTokens.Radius.thumb)
+        .clipped()
+    }
+}
+
+// MARK: - DownloadedRow
+
+private struct DownloadedRow: View {
+    let title: String
+    let coverURL: URL?
+    let customCoverPath: String?
+    let note: String
+
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Group {
+                if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                        .coverAspectSized()
+                } else {
+                    CoverImage(url: coverURL)
+                }
+            }
+            .frame(width: 44)
+            .cornerRadius(YomiTokens.Radius.thumb)
+            .clipped()
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                Text(note)
+                    .font(YomiTokens.Font.mono(12))
+                    .foregroundStyle(canvas.textSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(canvas.textSecondary.opacity(0.5))
+        }
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
     }
 }
 
 // MARK: - Preview
 
 #Preview {
-    DownloadsView()
+    NavigationStack { DownloadsView() }
 }
