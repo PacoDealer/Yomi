@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Kingfisher
 
 // MARK: - AppDelegate
 
@@ -88,6 +89,14 @@ struct YomiApp: App {
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
         #endif
+        // Covers on Cloudflare-protected sources (e.g. AquaManga) 403 without this — cf_clearance
+        // is bound to the UA that solved the challenge, and that UA must match SOURCE.fetch's.
+        let uaModifier = AnyModifier { request in
+            var request = request
+            request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
+            return request
+        }
+        KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
     }
 
     var body: some Scene {
