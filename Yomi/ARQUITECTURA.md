@@ -733,6 +733,15 @@ Yomi uses the extension model for App Store compliance, identical to Paperback a
 - App Store description frames Yomi as "an extensible reader with user-installed JavaScript plugins"
 - seedBundledPlugins removed from YomiApp.swift before App Store build (S19)
 - Legal precedent: Paperback (App Store), Aidoku (TestFlight) use identical model
+- **Same rule applies to the shared Suwayomi/Keiyoushi bridge server (S90):** `AppSettings.suwayomiURL`
+  defaults to empty, exactly as before — the shared server's address is published only in
+  `README.md`'s Keiyoushi row (same pattern as the LNReader repo URL), never as an app default or
+  an in-app shortcut. Deploy infra lives outside this repo at
+  `~/Desktop/Projects/Yomi/SuwayomiServer-Deploy/` (`DEPLOY.md` is source of truth). This is a
+  materially different compliance posture than a hosted default would be — see ROADMAP.md's S90
+  entry for the full reasoning, including the centralized-hosting legal exposure (Tachiyomi/Kakao
+  precedent) that's separate from the App Store point and applies regardless of how the app
+  references the server.
 
 ## Language
 All code, commits, documentation, prompts, and communication between

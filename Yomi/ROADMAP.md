@@ -21,6 +21,88 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S90 — 2026-08-05 · Suwayomi hosting architecture session, NOT a design block)
+
+**S90: user's stated goal — "all Yomi users should be able to use Keiyoushi manga sources without
+hosting Suwayomi-server, just like LNReader" — i.e. remove the self-host barrier to entry entirely.
+No app code changed net this session (see below); the output is a hardened, ready-to-run deploy
+package plus a documented decision on how it's exposed to the app. Block 7 (History) is still next
+— this was explicitly deferred in favor of frontend work, see decision at the end.**
+
+**Two architecture options were weighed.** (A) grow Yomi's own hand-written JS manga-plugin catalog
+(the actual LNReader model — LNReader doesn't use Keiyoushi either, it has its own JS plugin repo)
+vs. (B) host one shared Suwayomi-Server so every user gets all 1,368+ Keiyoushi extensions with zero
+setup. User chose B explicitly: Keiyoushi is community-maintained and constantly updated, whereas
+hand-written plugins need Martin to personally fix them whenever a source changes layout (exactly
+what S87/S88 were — 3 broken scrapers fixed by hand that session alone).
+
+**First implementation attempt was wrong and reverted.** Initially wired the shared server in as
+`AppSettings.suwayomiURL`'s literal default (with a one-tap "Use Yomi Community Server" button in
+`SettingsView.swift`) so every fresh install would auto-connect. User caught this: baking a
+scraping-source bridge into the **App Store–reviewed binary itself** — as a default or an in-app
+shortcut — is a materially different compliance posture than a user manually pasting a URL, and
+risks App Review treating the binary as shipping with built-in piracy-adjacent access. Both files
+were reverted to their exact original state (build-verified clean after revert). The fix instead:
+**the server address lives only in `README.md`'s Keiyoushi row** — same pattern as the LNReader repo
+URL directly above it — a manual copy-paste into the existing empty `Settings > Suwayomi Server`
+field, never touching the binary. `git status` after this session shows only `README.md` changed in
+the whole iOS repo.
+
+**Deep research (forked, ~56 tool calls) surfaced one finding that mattered more than anything
+technical**: running a *shared* server means Martin's own account/IP is the one issuing every scrape
+request to third-party manga sites on behalf of every Yomi user — a more centralized, identifiable
+role than each user self-hosting individually. When Kakao Entertainment sent legal threats to
+Tachiyomi's contributors in Jan 2024, the app itself never hosted or fetched content (each user's
+own device did) and that was still enough to end the project — this setup is a more exposed posture
+than that. User accepted the tradeoff consciously after being shown the precedent, with two
+mitigations: keep the deploy fully disposable, and keep Martin's name out of anything public
+(WHOIS, hostnames, commits).
+
+Research also found concrete technical gaps in the first deploy draft, both fixed in the final
+design: Suwayomi-Server ships with **no auth by default** and its own wiki recommends enabling it
+for public hosting (the open WebUI/API could otherwise let anyone install/remove extensions for
+every user, not just browse); and a single shared IP means target manga sites can rate-limit/block
+based on aggregate traffic from every Yomi user at once, not per-user behavior.
+
+**Final hardened design** (`~/Desktop/Projects/Yomi/SuwayomiServer-Deploy/`, not part of this git
+repo): Oracle Cloud "Always Free" ARM VM (2 OCPU/12GB RAM, confirmed still free-forever in 2026
+research despite a mid-2026 halving from 4/24 — the only free tier with enough egress headroom;
+Google Cloud's free e2-micro was checked and rejected for a ~1GB/month egress cap that an
+image-serving proxy would exhaust immediately) running Suwayomi-Server + Caddy + `cloudflared`
+behind a **Cloudflare Tunnel** — the VM has zero open inbound ports except SSH, since the tunnel is
+outbound-only from the VM's side. Caddy applies scoped Basic Auth: only the 8 exact REST paths
+`SuwayomiService.swift` calls stay open with no credentials (enumerated explicitly in `Caddyfile`'s
+`@adminPaths` matcher, kept in sync with the service by hand), everything else (WebUI, extension
+install/uninstall, settings, GraphQL) requires a password. VM hardened with key-only SSH, `ufw`,
+`fail2ban`, `unattended-upgrades`. Needs one real domain (not free — recommended `.dev` via
+Cloudflare Registrar, ~$12/yr, chosen over cheaper `.xyz`/`.site` TLDs specifically because those get
+blocked by some corporate/school network filters) since a stable Cloudflare Tunnel hostname requires
+a zone in the account, unlike the DuckDNS-based first draft.
+
+**Deliverables**: `docker-compose.yml`, `Caddyfile`, `.env.example`, `.gitignore`,
+`install-extensions.sh` (bulk-installs Keiyoushi extensions by language via REST, verified the repo
+URL against `keiyoushi/extensions-source` to guard against impostor repos that circulated after the
+2024 Tachiyomi shutdown), and `DEPLOY.md` as the source-of-truth walkthrough. Also published an
+interactive HTML checklist artifact mirroring `DEPLOY.md` (7 phases, persistent per-step checkboxes,
+copy-to-clipboard command blocks) for Martin to actually work through when deploying.
+
+**Full project cost audit performed** (grepped SPM deps, entitlements, Swift source for any paid
+SDK): only two real recurring costs exist anywhere in the project — Apple Developer Program ($99/yr,
+confirmed not yet enrolled) and this new domain (~$12/yr, not yet purchased), ~$111/yr total. GRDB
+and Kingfisher are the only two dependencies (both open source). `import StoreKit` in
+`ChapterReaderView`/`TextReaderView` is only the review-prompt API, not IAP. The old `Backend/`
+folder (abandoned pre-S41 Node/Railway proxy attempt, superseded by the Suwayomi bridge) was
+confirmed by the user to already be deleted from Railway — not a hidden ongoing cost.
+
+**Decision to defer deployment**: nothing in `SuwayomiServer-Deploy/` has actually been deployed yet
+— domain purchase and Oracle/Cloudflare account setup are still ahead, entirely on Martin. Explicitly
+deprioritized versus frontend work: this server is a supplementary feature with no ship deadline,
+while Blocks 7-12 are the only thing blocking App Store screenshots and submission. **Next session:
+Block 7 (History)**, in a fresh session to conserve context, since this session's research/design
+work is fully captured here and doesn't need to stay loaded to continue frontend work.
+
+---
+
 ## Current state (post S89 — 2026-08-05 · Keiyoushi/Suwayomi root-cause + fix session)
 
 **S89 (2026-08-05): User asked how Tachimanga makes Keiyoushi work via Suwayomi-Server "the same
