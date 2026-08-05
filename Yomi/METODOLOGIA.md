@@ -122,6 +122,22 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S94
+
+**The `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` / pure-computed-property bug (S91's `Notation`
+finding) isn't limited to enums — it hits computed properties on plain structs too.**
+`Manga.resolvedCustomCoverPath` and `Novel.resolvedCustomCoverPath` are simple stateless path-string
+computations (no stored state, no MainActor dependency of any kind) but were still MainActor-isolated
+under the project's actor-isolation default, because the isolation attaches to the *type*, not to
+whether the member actually touches shared mutable state. Neither property had ever been called from
+a `Task.detached` context until `InsightsView`'s "Most Read" cover lookup needed one this session —
+the bug was invisible until then. Fixed the same way as `Notation`: mark the specific
+member `nonisolated` (not the whole struct, since `Manga`/`Novel` do have other MainActor-relevant
+context via GRDB's `PersistableRecord` conformance elsewhere in the project). General rule, extending
+S91's: before adding *any* struct/enum member to a call site inside `Task.detached`, check whether it
+reads only its own stored properties (safe to mark `nonisolated`) — don't wait for the compiler error
+to discover it one type at a time.
+
 ## Technical learnings — S91
 
 **`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` makes plain enums/structs MainActor-isolated by

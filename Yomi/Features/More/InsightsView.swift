@@ -1,9 +1,15 @@
 import SwiftUI
 import GRDB
+import Kingfisher
 
 // MARK: - InsightsView
+//
+// Design spec: YOMI Screens.dc.html N.14 (Insights).
 
 struct InsightsView: View {
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.yomiCanvas) private var canvas
 
     // MARK: - State
 
@@ -12,15 +18,7 @@ struct InsightsView: View {
     @State private var readChaptersCount: Int = 0
     @State private var totalSeconds: Int = 0
     @State private var titlesStarted: Int = 0
-    @State private var mangaStats: [(title: String, seconds: Int, isNovel: Bool)] = []
-
-    // Manga vs novel split
-    @State private var mangaChaptersRead: Int = 0
-    @State private var novelChaptersRead: Int = 0
-    @State private var mangaSeconds: Int = 0
-    @State private var novelSeconds: Int = 0
-
-    // Reading activity calendar (day → chapters read)
+    @State private var mostRead: [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)] = []
     @State private var readingCalendar: [DateComponents: Int] = [:]
 
     private let cardColumns = [
@@ -34,136 +32,105 @@ struct InsightsView: View {
         Group {
             if isLoading {
                 ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        // MARK: Stat cards grid
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Insights")
+                            .font(YomiTokens.Font.grotesk(26, weight: .medium))
+                            .foregroundStyle(canvas.textPrimary)
+                            .padding(.bottom, 16)
+
                         LazyVGrid(columns: cardColumns, spacing: 12) {
-                            StatCard(title: "Reading Streak",
-                                     value: "\(streak)",
-                                     unit: streak == 1 ? "day" : "days",
-                                     systemImage: "flame.fill",
-                                     color: .orange)
-                            StatCard(title: "Chapters Read",
-                                     value: "\(readChaptersCount)",
-                                     unit: "chapters",
-                                     systemImage: "book.closed.fill",
-                                     color: .accentColor)
-                            StatCard(title: "Time Read",
-                                     value: formatDuration(totalSeconds),
-                                     unit: nil,
-                                     systemImage: "clock.fill",
-                                     color: .purple)
-                            StatCard(title: "Titles Started",
-                                     value: "\(titlesStarted)",
-                                     unit: "titles",
-                                     systemImage: "square.stack.fill",
-                                     color: .green)
+                            statCard(num: "\(streak)", label: "DAY STREAK")
+                            statCard(num: "\(readChaptersCount)", label: "CHAPTERS READ")
+                            statCard(num: formatDuration(totalSeconds), label: "TIME READ")
+                            statCard(num: "\(titlesStarted)", label: "TITLES STARTED")
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
 
-                        // MARK: Reading activity calendar
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Reading Activity")
-                                .font(.headline)
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 10)
-                            ReadingCalendarView(activityMap: readingCalendar)
-                                .padding(.horizontal, 16)
-                        }
+                        ActivityHeatmap(calendarMap: readingCalendar)
+                            .padding(.bottom, 24)
 
-                        // MARK: Manga vs Novel breakdown
-                        if mangaChaptersRead > 0 || novelChaptersRead > 0 {
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("Breakdown")
-                                    .font(.headline)
-                                    .padding(.horizontal, 16)
-                                    .padding(.bottom, 10)
+                        if !mostRead.isEmpty {
+                            Text("MOST READ")
+                                .font(YomiTokens.Font.mono(11))
+                                .tracking(0.6)
+                                .foregroundStyle(canvas.textSecondary)
+                                .padding(.bottom, 14)
 
-                                VStack(spacing: 0) {
-                                    breakdownRow(label: "Manga",
-                                                 icon: "book.closed.fill",
-                                                 chapters: mangaChaptersRead,
-                                                 seconds: mangaSeconds)
-                                    Divider().padding(.leading, 16)
-                                    breakdownRow(label: "Novel",
-                                                 icon: "text.book.closed.fill",
-                                                 chapters: novelChaptersRead,
-                                                 seconds: novelSeconds)
+                            VStack(spacing: 14) {
+                                ForEach(mostRead, id: \.title) { stat in
+                                    MostReadRow(
+                                        title: stat.title,
+                                        seconds: stat.seconds,
+                                        coverURL: stat.coverURL,
+                                        customCoverPath: stat.customCoverPath,
+                                        maxSeconds: mostRead.first?.seconds ?? 1
+                                    )
                                 }
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .padding(.horizontal, 16)
-                            }
-                        }
-
-                        // MARK: By manga
-                        if !mangaStats.isEmpty {
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("By Title")
-                                    .font(.headline)
-                                    .padding(.horizontal, 16)
-                                    .padding(.bottom, 10)
-
-                                VStack(spacing: 0) {
-                                    let maxSeconds = mangaStats.first?.seconds ?? 1
-                                    ForEach(Array(mangaStats.enumerated()), id: \.element.title) { index, stat in
-                                        ZStack(alignment: .leading) {
-                                            GeometryReader { geo in
-                                                Rectangle()
-                                                    .fill(Color.accentColor.opacity(0.12))
-                                                    .frame(width: geo.size.width * min(Double(stat.seconds) / Double(maxSeconds), 1.0))
-                                            }
-                                            HStack(spacing: 6) {
-                                                if stat.isNovel {
-                                                    Text("N")
-                                                        .font(.system(size: 8, weight: .bold))
-                                                        .foregroundStyle(.white)
-                                                        .padding(.horizontal, 3)
-                                                        .padding(.vertical, 1)
-                                                        .background(Color.accentColor.opacity(0.85),
-                                                                    in: RoundedRectangle(cornerRadius: 3))
-                                                }
-                                                Text(stat.title)
-                                                    .font(.subheadline)
-                                                    .lineLimit(1)
-                                                Spacer()
-                                                Text(formatDuration(stat.seconds))
-                                                    .font(.subheadline)
-                                                    .foregroundStyle(.secondary)
-                                                    .monospacedDigit()
-                                            }
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 12)
-                                        }
-                                        .frame(height: 44)
-                                        .background(Color(.secondarySystemGroupedBackground))
-
-                                        if index < mangaStats.count - 1 {
-                                            Divider()
-                                                .padding(.leading, 16)
-                                        }
-                                    }
-                                }
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .padding(.horizontal, 16)
                             }
                         }
                     }
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 60)
+                    .padding(.bottom, 28)
                 }
-                .background(Color(.systemGroupedBackground))
                 .refreshable { await loadStats() }
             }
         }
-        .navigationTitle("Insights")
-        .navigationBarTitleDisplayMode(.inline)
+        .background(canvas.bg.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) { glassNavBar }
         .task { await loadStats() }
+    }
+
+    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
+
+    private var glassNavBar: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .glassChip()
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Stat card
+
+    @ViewBuilder
+    private func statCard(num: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(num)
+                .font(YomiTokens.Font.grotesk(30, weight: .medium))
+                .tracking(-1)
+                .foregroundStyle(canvas.textPrimary)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+            Text(label)
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.5)
+                .foregroundStyle(canvas.textSecondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(canvas.surface1)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Load
 
     private func loadStats() async {
-        let result = await Task.detached(priority: .userInitiated) { () -> (Int, Int, Int, Int, [(title: String, seconds: Int, isNovel: Bool)], Int, Int, Int, Int, [DateComponents: Int]) in
+        let result = await Task.detached(priority: .userInitiated) { () -> (
+            Int, Int, Int, Int,
+            [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)],
+            [DateComponents: Int]
+        ) in
 
             let calendar = Calendar.current
 
@@ -214,9 +181,7 @@ struct InsightsView: View {
             let novelSeconds = allNovelChapters.reduce(0) { $0 + $1.readingSeconds }
             let totalSeconds = mangaSeconds + novelSeconds
 
-            let mangaReadCount = allMangaChapters.filter { $0.isRead }.count
-            let novelReadCount = allNovelChapters.filter { $0.isRead }.count
-            let readCount = mangaReadCount + novelReadCount
+            let readCount = allMangaChapters.filter { $0.isRead }.count + allNovelChapters.filter { $0.isRead }.count
 
             // --- Titles started ---
             let allManga = (try? MangaQueries.fetchAll()) ?? []
@@ -232,44 +197,42 @@ struct InsightsView: View {
             }.count
             let titlesStarted = mangaTitlesStarted + novelTitlesStarted
 
-            // --- By title (manga + novels merged) ---
-            let mangaStats: [(title: String, seconds: Int, isNovel: Bool)] = allManga.compactMap { manga in
+            // --- Most read (manga + novels merged, top 5 by time spent) ---
+            let mangaStats: [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)] = allManga.compactMap { manga in
                 let secs = (chaptersByManga[manga.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
                 guard secs > 0 else { return nil }
-                return (title: manga.title, seconds: secs, isNovel: false)
+                return (manga.title, secs, manga.coverURL, manga.resolvedCustomCoverPath)
             }
-            let novelStats: [(title: String, seconds: Int, isNovel: Bool)] = allNovels.compactMap { novel in
+            let novelStats: [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)] = allNovels.compactMap { novel in
                 let secs = (chaptersByNovel[novel.id] ?? []).reduce(0) { $0 + $1.readingSeconds }
                 guard secs > 0 else { return nil }
-                return (title: novel.title, seconds: secs, isNovel: true)
+                return (novel.title, secs, novel.coverURL, novel.resolvedCustomCoverPath)
             }
-            let stats = (mangaStats + novelStats).sorted { $0.seconds > $1.seconds }
+            let mostRead = Array((mangaStats + novelStats).sorted { $0.seconds > $1.seconds }.prefix(5))
 
             // --- Reading activity calendar (day → chapters read) ---
             var calendarMap: [DateComponents: Int] = [:]
-            for ch in readMangaChapters where ch.readAt != nil {
-                let dc = calendar.dateComponents([.year, .month, .day], from: ch.readAt!)
+            for ch in readMangaChapters {
+                guard let d = ch.readAt else { continue }
+                let dc = calendar.dateComponents([.year, .month, .day], from: d)
                 calendarMap[dc, default: 0] += 1
             }
-            for ch in readNovelChapters where ch.readAt != nil {
-                let dc = calendar.dateComponents([.year, .month, .day], from: ch.readAt!)
+            for ch in readNovelChapters {
+                guard let d = ch.readAt else { continue }
+                let dc = calendar.dateComponents([.year, .month, .day], from: d)
                 calendarMap[dc, default: 0] += 1
             }
 
-            return (streak, totalSeconds, readCount, titlesStarted, stats, mangaReadCount, novelReadCount, mangaSeconds, novelSeconds, calendarMap)
+            return (streak, totalSeconds, readCount, titlesStarted, mostRead, calendarMap)
         }.value
 
         await MainActor.run {
-            streak              = result.0
-            totalSeconds        = result.1
-            readChaptersCount   = result.2
-            titlesStarted       = result.3
-            mangaStats          = result.4
-            mangaChaptersRead   = result.5
-            novelChaptersRead   = result.6
-            self.mangaSeconds   = result.7
-            self.novelSeconds   = result.8
-            readingCalendar     = result.9
+            streak            = result.0
+            totalSeconds      = result.1
+            readChaptersCount = result.2
+            titlesStarted     = result.3
+            mostRead          = result.4
+            readingCalendar   = result.5
             isLoading = false
         }
     }
@@ -285,167 +248,151 @@ struct InsightsView: View {
         if seconds >= 60 { return "\(seconds / 60)m" }
         return "\(seconds)s"
     }
-
-    @ViewBuilder
-    private func breakdownRow(label: String, icon: String, chapters: Int, seconds: Int) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 20)
-            Text(label)
-                .font(.subheadline)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(chapters) chapters")
-                    .font(.subheadline)
-                    .monospacedDigit()
-                if seconds > 0 {
-                    Text(formatDuration(seconds))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(.secondarySystemGroupedBackground))
-    }
 }
 
-// MARK: - StatCard
+// MARK: - ActivityHeatmap
 
-private struct StatCard: View {
-    let title: String
-    let value: String
-    let unit: String?
-    let systemImage: String
-    let color: Color
+private struct ActivityHeatmap: View {
+    let calendarMap: [DateComponents: Int]
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(color)
+    @Environment(\.yomiCanvas) private var canvas
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.title2.bold())
-                    .foregroundStyle(.primary)
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
-                if let unit {
-                    Text(unit)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Text(title)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-// MARK: - ReadingCalendarView
-
-private struct ReadingCalendarView: View {
-    let activityMap: [DateComponents: Int]
-
-    private let cal = Calendar.current
+    private let weeks = 18
     private let cellSize: CGFloat = 12
     private let gap: CGFloat = 3
+    private let cal = Calendar.current
 
-    private var gridData: (start: Date, today: Date, dayLabels: [String], monthLabels: [Int: String]) {
+    private var days: [(date: Date, count: Int)] {
         let today = cal.startOfDay(for: Date())
-        let weekday = cal.component(.weekday, from: today)
-        let firstWD = cal.firstWeekday
-        let daysToStart = (weekday - firstWD + 7) % 7
-        let thisWeekStart = cal.date(byAdding: .day, value: -daysToStart, to: today)!
-        let start = cal.date(byAdding: .weekOfYear, value: -12, to: thisWeekStart)!
-
-        let dayLabels: [String] = (0..<7).map { offset in
-            let wd = (firstWD - 1 + offset) % 7  // 0=Sun…6=Sat
-            return ["S", "M", "T", "W", "T", "F", "S"][wd]
+        return (0..<(weeks * 7)).reversed().map { offset in
+            let date = cal.date(byAdding: .day, value: -offset, to: today)!
+            let dc = cal.dateComponents([.year, .month, .day], from: date)
+            return (date, calendarMap[dc] ?? 0)
         }
-
-        let fmt = DateFormatter(); fmt.dateFormat = "MMM"
-        var monthLabels: [Int: String] = [:]
-        var lastMonth = -1
-        for weekIdx in 0..<13 {
-            let weekStart = cal.date(byAdding: .weekOfYear, value: weekIdx, to: start)!
-            let month = cal.component(.month, from: weekStart)
-            if month != lastMonth { monthLabels[weekIdx] = fmt.string(from: weekStart); lastMonth = month }
-        }
-
-        return (start, today, dayLabels, monthLabels)
     }
 
-    private func cellColor(date: Date, today: Date) -> Color {
-        if date > today { return Color.secondary.opacity(0.06) }
-        let dc = cal.dateComponents([.year, .month, .day], from: date)
-        let count = activityMap[dc] ?? 0
-        guard count > 0 else { return Color.secondary.opacity(0.15) }
-        return Color.accentColor.opacity(min(0.35 + Double(count - 1) * 0.18, 1.0))
+    private var maxCount: Int { days.map(\.count).max() ?? 0 }
+
+    private func opacity(for count: Int) -> Double {
+        guard count > 0, maxCount > 0 else { return 0.08 }
+        let frac = Double(count) / Double(maxCount)
+        if frac > 0.75 { return 1.0 }
+        if frac > 0.5  { return 0.8 }
+        if frac > 0.25 { return 0.45 }
+        return 0.14
+    }
+
+    private var edgeMonths: (first: String, last: String) {
+        let f = DateFormatter(); f.dateFormat = "MMM"
+        let d = days
+        return (f.string(from: d.first!.date).uppercased(), f.string(from: d.last!.date).uppercased())
     }
 
     var body: some View {
-        let (start, today, dayLabels, monthLabels) = gridData
-        let weekWidth = cellSize + gap          // 15 pt per column
-        let dayLabelWidth: CGFloat = 10
+        VStack(alignment: .leading, spacing: 0) {
+            Text("ACTIVITY · LAST \(weeks) WEEKS")
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.bottom, 12)
 
-        VStack(alignment: .leading, spacing: 6) {
-            // Month labels: ZStack with absolute offsets so text isn't clipped to cellSize
-            HStack(spacing: 0) {
-                Color.clear.frame(width: dayLabelWidth + gap)
-                ZStack(alignment: .topLeading) {
-                    Color.clear.frame(width: CGFloat(13) * weekWidth - gap, height: 11)
-                    ForEach(0..<13, id: \.self) { weekIdx in
-                        if let label = monthLabels[weekIdx] {
-                            Text(label)
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                                .offset(x: CGFloat(weekIdx) * weekWidth)
+            VStack(spacing: 14) {
+                let dayCounts = days
+                HStack(alignment: .top, spacing: gap) {
+                    ForEach(0..<weeks, id: \.self) { weekIdx in
+                        VStack(spacing: gap) {
+                            ForEach(0..<7, id: \.self) { dayIdx in
+                                let index = weekIdx * 7 + dayIdx
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.accentColor.opacity(opacity(for: dayCounts[index].count)))
+                                    .frame(width: cellSize, height: cellSize)
+                            }
                         }
                     }
                 }
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Day labels + week columns
-            HStack(alignment: .top, spacing: gap) {
-                VStack(spacing: gap) {
-                    ForEach(0..<7, id: \.self) { dayIdx in
-                        Text(dayIdx % 2 == 1 ? dayLabels[dayIdx] : "")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .frame(width: dayLabelWidth, height: cellSize, alignment: .trailing)
-                    }
-                }
-                ForEach(0..<13, id: \.self) { weekIdx in
-                    VStack(spacing: gap) {
-                        ForEach(0..<7, id: \.self) { dayIdx in
-                            let date = cal.date(byAdding: .day, value: weekIdx * 7 + dayIdx, to: start)!
+                HStack {
+                    Text(edgeMonths.first)
+                    Spacer()
+                    HStack(spacing: 5) {
+                        Text("LESS")
+                        ForEach([0.14, 0.45, 0.8, 1.0], id: \.self) { op in
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(cellColor(date: date, today: today))
-                                .frame(width: cellSize, height: cellSize)
+                                .fill(Color.accentColor.opacity(op))
+                                .frame(width: 9, height: 9)
                         }
+                        Text("MORE")
+                    }
+                    Spacer()
+                    Text(edgeMonths.last)
+                }
+                .font(YomiTokens.Font.mono(10))
+                .foregroundStyle(canvas.textSecondary.opacity(0.7))
+            }
+            .padding(16)
+            .background(canvas.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+}
+
+// MARK: - MostReadRow
+
+private struct MostReadRow: View {
+    let title: String
+    let seconds: Int
+    let coverURL: URL?
+    let customCoverPath: String?
+    let maxSeconds: Int
+
+    @Environment(\.yomiCanvas) private var canvas
+
+    private var fraction: Double {
+        guard maxSeconds > 0 else { return 0 }
+        return min(Double(seconds) / Double(maxSeconds), 1.0)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            cover
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(title)
+                        .font(YomiTokens.Font.grotesk(14))
+                        .foregroundStyle(canvas.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(Notation.readingTimeShort(seconds: seconds))
+                        .font(YomiTokens.Font.mono(12))
+                        .foregroundStyle(canvas.textSecondary)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(canvas.hairline)
+                        Capsule().fill(Color.accentColor).frame(width: geo.size.width * fraction)
                     }
                 }
+                .frame(height: 5)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var cover: some View {
+        Group {
+            if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(2 / 3, contentMode: .fill)
+                    .coverAspectSized()
+            } else {
+                CoverImage(url: coverURL)
+            }
+        }
+        .frame(width: 34)
+        .cornerRadius(5)
+        .clipped()
     }
 }
 
