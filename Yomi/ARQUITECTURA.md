@@ -25,7 +25,7 @@ Yomi/
 │   ├── Color+Hex.swift             # Color(hex:) init (#RRGGBB and #RRGGBBAA) + Color.hexString via UIColor sRGB
 │   ├── CoverImage.swift            # KFImage wrapper (Kingfisher) with 2:3 ratio + fade transition
 │   ├── DesignTokens.swift          # YomiTokens: Canvas presets (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Layout, Motion
-│   ├── Notation.swift              # Catalog-notation formatters: chapter(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), historyTimestamp(), etc. — all output in Space Mono. `nonisolated enum` (S91) — callable from Task.detached
+│   ├── Notation.swift              # Catalog-notation formatters: chapter(), chapterRange(), progress(), readingTime(), status(), novelIndex(), chapterProgress(), historyTimestamp(), dateGroupLabel(), etc. — all output in Space Mono. `nonisolated enum` (S91) — callable from Task.detached. dateGroupLabel()/dateGroupOrder (S92) shared between HistoryView and UpdatesView for date-bucket section grouping
 │   ├── NotificationManager.swift   # @Observable singleton, UNUserNotificationCenter
 │   └── WidgetDataWriter.swift      # Writes WidgetReadingItem[5] to App Group UserDefaults (suiteName: "group.pacodealer.Yomi"); calls WidgetCenter.shared.reloadAllTimelines()
 ├── design/                          # All design assets (consolidated S82)
@@ -82,7 +82,7 @@ Yomi/
 │   │   ├── BackupView.swift         # UI: iCloud section (top), ShareLink export, fileImporter import, Tachiyomi import
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView
-│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdatesRow
+│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdateRow. ScrollView+LazyVStack grouped by date bucket (S92 — N.12 spec), one row per title (not per chapter); long-press .contextMenu to mark all read, trailing icon jumps into reader at oldest unread chapter
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift     # First-launch full-screen card (S19 — new); guides user to Browse catalog; gated by AppSettings.hasSeenOnboarding
 │   ├── Backup/

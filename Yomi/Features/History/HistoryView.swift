@@ -62,32 +62,15 @@ struct HistoryView: View {
     }
 
     private var groupedHistory: [HistoryGroup] {
-        let cal = Calendar.current
-        let now = Date()
         var buckets: [String: [HistoryItem]] = [:]
         for item in filteredItems {
-            let key = dateGroupLabel(for: item.lastReadAt, calendar: cal, now: now)
+            let key = Notation.dateGroupLabel(for: item.lastReadAt)
             buckets[key, default: []].append(item)
         }
-        let order = ["Today", "Yesterday", "This week", "This month", "Earlier"]
-        return order.compactMap { key in
+        return Notation.dateGroupOrder.compactMap { key in
             guard let arr = buckets[key], !arr.isEmpty else { return nil }
             return HistoryGroup(label: key, items: arr)
         }
-    }
-
-    private func dateGroupLabel(for date: Date?, calendar: Calendar, now: Date) -> String {
-        guard let date else { return "Earlier" }
-        if calendar.isDateInToday(date) { return "Today" }
-        if calendar.isDateInYesterday(date) { return "Yesterday" }
-        let days = calendar.dateComponents(
-            [.day],
-            from: calendar.startOfDay(for: date),
-            to: calendar.startOfDay(for: now)
-        ).day ?? 0
-        if days < 7  { return "This week" }
-        if days < 30 { return "This month" }
-        return "Earlier"
     }
 
     // MARK: - Body

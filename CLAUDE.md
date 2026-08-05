@@ -26,27 +26,30 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → Updates → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91.** Next session: Block 8 (Updates).
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → Downloads → Insights → More+Settings → Onboarding+empty states. Compile + screenshot checkpoints after blocks 1, 3, 5, 12 — **Blocks 1-5 screenshot-verified with no known fidelity debt as of S85; Block 6 (Browse) screenshot-verified S86; Block 7 (History) live-verified S91; Block 8 (Updates) live-verified S92.** Next session: Block 9 (Downloads).
 
-## Current state (post S91 — 2026-08-05 · Block 7 — History)
+## Current state (post S92 — 2026-08-05 · Block 8 — Updates)
 
-S91 implemented Block 7 (History) of the 12-block design track against N.11 in
-`YOMI Screens.dc.html` — deferred across S87-S90's bugfix/infra sessions, now done. Blocks 1-7 of 12
-complete; Block 8 (Updates) is next. `HistoryView.swift` moved from a native `List`/`.insetGrouped`
-layout to `ScrollView` + `LazyVStack` (matching the structural move Library/Browse already made) for
-full control over the spec's row design: 44×62pt cover, single-line title, Space Mono catalog
-notation subtitle ("CH. 042 · read to 68%" while in-progress, plain "CH. 042" once finished, via new
-`Notation.chapterReadTo()`), right-aligned adaptive timestamp (new `Notation.historyTimestamp()`:
-"14:20" today / "MON" this week / "JUL 28" older), and a MANGA/NOVEL kind pill. Per-row delete moved
-from swipe/`EditButton` to long-press `.contextMenu` ("Remove from History"), matching Library's
-existing convention — `ScrollView`/`LazyVStack` doesn't support native `.swipeActions`. Kept native
-`.navigationTitle` + `.searchable()` rather than building the mock's custom header/search-pill from
-scratch, matching the precedent already screenshot-verified in Blocks 1-6. One general-purpose fix
-along the way: `Notation`'s static formatters are implicitly MainActor-isolated under this project's
-default actor isolation setting, which broke calling them from `Task.detached` DB work — fixed by
-marking `enum Notation` `nonisolated` (it's pure formatting, safe project-wide). Verified live via
-`build_run_sim` + mobile-mcp against real on-device data: grouping, search, both navigation paths,
-and delete all confirmed working, zero build warnings. Full detail in `Yomi/ROADMAP.md`'s S91 entry.
+S92 implemented Block 8 (Updates) of the 12-block design track against N.12 in
+`YOMI Screens.dc.html`. Blocks 1-8 of 12 complete; Block 9 (Downloads) is next. `UpdatesView.swift`
+moved from a native `List`/`.insetGrouped` layout (one `Section` per manga/novel, one row per new
+chapter) to `ScrollView` + `LazyVStack` grouped by date bucket (Today/Yesterday/This week/This
+month/Earlier), matching N.12's `sec.group`/`it` row shape — **a real behavior change, not just
+visual**: the mock is one summary row per title, not per chapter, so the old per-chapter row list was
+consolidated into a single row per manga/novel with a chapter-range note (new
+`Notation.chapterRange(low:high:)`, e.g. "CH. 002–008") and a count pill. Two judgment calls for
+behavior the mock didn't spell out: (1) per-chapter tap-to-read → a trailing circular icon jumps into
+the reader at the *oldest* unread new chapter (picking a different chapter is still possible by
+tapping the row to open Detail, same as History); (2) the header "mark all read" button → moved to a
+long-press `.contextMenu` per row (`ScrollView`/`LazyVStack` has no `.swipeActions`, same constraint
+History hit in S91). The mock's second header icon (filter/lines glyph) was interpreted as a shortcut
+into the existing "Update rules" settings (`UpdatesSettingsView`, un-privatized from `SettingsView.swift`).
+Also extracted `Notation.dateGroupLabel()`/`dateGroupOrder` out of `HistoryView.swift`'s private
+date-bucketing so History and Updates share one implementation. Verified live via `build_run_sim` +
+mobile-mcp against real on-device data: row→Detail navigation, start-reading icon opening the reader
+at the correct oldest chapter, long-press mark-all-read (row disappears, correct empty state), and
+the filter icon reaching Update Rules — all confirmed working, zero build warnings. Full detail in
+`Yomi/ROADMAP.md`'s S92 entry.
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
 (archived) — not duplicated here. This file keeps only the single most-recent state above.
@@ -239,7 +242,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
-- Screenshots — blocked until design implementation complete (Blocks 8-12 remain: Updates, Downloads, Insights, More+Settings, Onboarding+empty states)
+- Screenshots — blocked until design implementation complete (Blocks 9-12 remain: Downloads, Insights, More+Settings, Onboarding+empty states)
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)
