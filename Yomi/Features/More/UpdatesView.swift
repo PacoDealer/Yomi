@@ -146,13 +146,14 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     private func checkUpdates(for manga: Manga) async {
-        let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications) =
+        let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications, autoDownload) =
             await MainActor.run {
                 (AppSettings.shared.skipUpdateNotStarted,
                  AppSettings.shared.skipUpdateCompleted,
                  AppSettings.shared.skipUpdateWithUnread,
                  AppSettings.shared.excludedCategoryIds,
-                 AppSettings.shared.sendUpdateNotifications)
+                 AppSettings.shared.sendUpdateNotifications,
+                 AppSettings.shared.backgroundDownloadEnabled)
             }
 
         if skipNotStarted && manga.lastReadAt == nil { return }
@@ -189,6 +190,14 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: newChapters)
         try? MangaQueries.touchLastUpdated(mangaId: mangaId)
+
+        if autoDownload, let bridge {
+            await MainActor.run {
+                for chapter in newChapters {
+                    DownloadManager.shared.enqueue(chapter, manga: manga, bridge: bridge)
+                }
+            }
+        }
 
         let title = manga.title
         let count = newChapters.count
@@ -614,7 +623,7 @@ private struct UpdateRow<Destination: View>: View {
             VStack(alignment: .trailing, spacing: 7) {
                 Text("\(count)")
                     .font(YomiTokens.Font.mono(11, bold: true))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppSettings.shared.accentForeground)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
                     .background(Color.accentColor, in: Capsule())

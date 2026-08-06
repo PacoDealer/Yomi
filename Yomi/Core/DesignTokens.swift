@@ -130,6 +130,25 @@ enum YomiTokens {
         ]
 
         static func color(for hex: String) -> Color { Color(hex: hex) }
+
+        /// Legible label/icon color for content rendered on a fill of this accent — several
+        /// presets (Yellow, Sky, Mint, …) are bright enough that the canvas's own ink color is
+        /// close to unreadable on them (WCAG contrast well under 2:1), even though the same
+        /// accent reads perfectly well as an icon/progress-bar color directly on the canvas
+        /// background. Keeps `canvasTextPrimary` (the color every other label on that canvas
+        /// already uses — near-white ink on Ink/Midnight, near-black on Paper/Sepia) whenever it
+        /// clears a pragmatic 3:1 against the accent; only for accents where that genuinely fails
+        /// does it flip to the opposite pole. A blanket "always pick whichever of white/black
+        /// wins" was tried first and rejected — it flipped even passable defaults (e.g. Vermilion
+        /// on Ink, ~4:1) to black, breaking the all-one-ink-color convention for no real
+        /// legibility gain on the one case anyone actually looks at.
+        static func foreground(for hex: String, on canvasTextPrimary: Color) -> Color {
+            let bg = Color(hex: hex)
+            if Color.wcagContrast(canvasTextPrimary, bg) >= 3.0 {
+                return canvasTextPrimary
+            }
+            return canvasTextPrimary.relativeLuminance > 0.5 ? .black : .white
+        }
     }
 
     // MARK: - Reader themes (separate axis from chrome canvas)

@@ -21,6 +21,78 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)
+
+**S101: shipped the 3 features S100 deliberately deferred (background auto-refresh, background
+download, in-reader source-URL icon), plus a canvas×accent contrast audit Martin asked for that
+surfaced 3 real bugs.**
+
+**Theme audit, done first.** Computed WCAG contrast for all 4 canvases × 11 accent presets, two ways:
+accent-vs-canvas.bg (icon/progress-bar usage) and white-vs-accent (button-fill-with-white-label
+usage, e.g. the Continue card's Resume button). Findings: on Paper/Sepia, 9 of 11 accents are nearly
+invisible as icons/progress bars against the light background (ratios as low as 1.24:1) — a real,
+unfixed-this-session color-science tension between "accent is always exactly the user's chosen color"
+and "some chosen colors don't read on some canvases," flagged for Martin rather than silently
+recolored. More urgently: **every accent's hardcoded white button-label text was failing WCAG AA
+(only Indigo cleared 4.5:1)** — confirmed live (Ink canvas + Yellow accent: "Resume" text was
+genuinely unreadable, white-on-#FECA57 measures 1.52:1). Fixed with a new
+`YomiTokens.Accent.foreground(for:on:)`: keeps the canvas's own ink color (what every other label on
+that canvas already uses) whenever it clears 3:1 against the accent, only flipping to the opposite
+pole for the accents that genuinely fail. Applied at all ~12 real accent-fill+white-text call sites
+app-wide (Resume buttons, unread/NOVEL badges, empty-state CTAs, onboarding CTA, selection
+checkmarks). **Live testing then surfaced 2 more real bugs Martin caught firsthand** (see below) —
+first attempt at the foreground fix used a blanket "always pick whichever of white/black wins"
+formula, which flipped even the *passing* default (Vermilion on Ink, ~4:1) to black, breaking the
+card's established all-one-ink-color convention for no legibility gain; corrected to the
+canvas-consistent 3:1-threshold version above. Second: `Core/CoverImage.swift`'s no-cover placeholder
+used `Color.secondary` (system light/dark mode only) instead of canvas tokens — any manga/novel
+without cover art ignored canvas choice entirely. Root-caused deeper while fixing: Kingfisher's
+`KFImage.placeholder` snapshots once at mount and doesn't live-repaint on an environment-only change
+(confirmed: correct from a fresh launch with the new canvas already active, stale after switching
+canvas mid-session without relaunching) — fixed with `.id(canvas.name)` forcing a clean remount on
+every canvas switch. Third (Martin's own catch, a design-consistency issue not a bug): novels got two
+different indicator badges depending on screen — Library grid's small translucent "NOVEL" text pill
+vs. the "Up next" shelf's chunky solid-accent "N" square — unified both to the pill style.
+
+**Rows 31-33, in order shipped:**
+1. **In-reader source-URL icon.** New `JSBridge.resolveSourceURL(path:)` — best-effort, no plugin
+   changes: if `path` is already absolute (Mangayomi-format plugins store a full URL there) returns
+   it directly; otherwise opportunistically reads the plugin's own top-level `BASE_URL`/`BASE` JS
+   global back out of the JSContext (`typeof` guard, safe if undeclared) and re-prepends it. Works for
+   the ~7 plugins that declare `const BASE_URL` outside an IIFE (aquamanga, freewebnovel, novelbin,
+   novelfire, royalroad, scribblehub) plus any Mangayomi-format source; can't resolve one for
+   esbuild-bundled IIFE plugins (`var BASE_URL` stays lexically scoped) or pure-API sources
+   (MangaDex/Comick — path is an id, not a URL) — returns nil rather than guessing, callers hide the
+   icon in that case. Wired into both readers: `ChapterReaderView.swift` (new globe `glassChip` between
+   the list and settings icons) and `TextReaderView.swift` (same position), reusing the existing
+   `DiscussWebSheet`/`WebView` sheet from the pre-existing (separate) discussion-URL feature. Verified
+   live: AquaManga's globe icon appears and correctly resolves a real chapter URL. Tap-to-open itself
+   hit the session's documented mobile-mcp tap flakiness (confirmed via a control tap on the
+   pre-existing gearshape icon failing identically) — not re-verified past icon visibility, but the
+   sheet plumbing is a verbatim reuse of the already-shipped Discuss pattern.
+2. **Background auto-refresh toggle.** Real `BGTaskScheduler` wiring, not just a UI toggle:
+   `BGTaskSchedulerPermittedIdentifiers`/`UIBackgroundModes: fetch` added to `Yomi/Info.plist`;
+   `AppDelegate` registers `com.yomi.refresh`'s handler at launch; `YomiApp`'s `scenePhase ==
+   .background` branch submits a `BGAppRefreshTaskRequest` when `AppSettings.backgroundAutoRefreshEnabled`
+   is on. The handler itself reuses `UpdatesViewModel.refresh()` verbatim (the exact same code path
+   Updates' manual refresh/pull-to-refresh already runs) rather than a second implementation, reschedules
+   the next request before running, and cancels via `task.expirationHandler`. Toggle added to
+   `SettingsView`'s Data section, default off. Live-verified: registration doesn't crash on launch,
+   toggle persists and its subtitle/dependent-toggle state update correctly; actually triggering a real
+   `BGAppRefreshTask` fire isn't practically testable via the simulator without attaching lldb — not
+   done this session.
+3. **Background download toggle.** `AppSettings.backgroundDownloadEnabled`, gated on (has no effect
+   without) auto-refresh — the Settings toggle is visibly disabled/dimmed while auto-refresh is off,
+   with a subtitle explaining why. Wired directly into `UpdatesViewModel.checkUpdates(for:)` — after
+   inserting newly-discovered chapters, enqueues each into `DownloadManager.shared` using the bridge
+   already resolved for that manga's update check. Manga only, matching `DownloadManager`'s existing
+   scope (novels have no download feature at all, not just in the background).
+
+All live-verified via `build_run_sim` + mobile-mcp/XcodeBuildMCP screenshot comparison across
+multiple canvas×accent combos, zero build warnings throughout.
+
+---
+
 ## Current state (post S100 — 2026-08-06 · S99 audit backlog cleared)
 
 **S100: worked through S99's audit backlog (Known Issues rows 24-30, 25, 26, 34, 35) end to end, per
