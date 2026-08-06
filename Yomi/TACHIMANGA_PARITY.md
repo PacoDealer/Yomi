@@ -61,7 +61,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Display Mode (grid/list) | Yes | `libraryDisplayMode` — ✅ | ✅ Parity |
 | Grid columns / items per row | Yes (stepper) | `libraryColumns` stepper in `AppearanceStudioView.swift:355` | ✅ Parity |
 | Skip updating titles (completed / not-started / excluded categories) | Yes | `skipUpdateWithUnread/NotStarted/Completed`, `excludedCategoryIds` — full parity, `SettingsView.swift:221` → `UpdatesSettingsView` | ✅ Parity |
-| Updates continue in background / Automatic refresh | Toggles | Present per Tachimanga screenshot; Yomi equivalent not fully confirmed — needs check | 🟡 Needs check |
+| Updates continue in background / Automatic refresh | Toggles | ❌ Confirmed missing S99 — live-checked Settings (Data/Reading), Update Rules, and Advanced Settings in full; no toggle for *when* update checks run exists anywhere in the UI. Whether `BGTaskScheduler` silently powers background checks under the hood is a separate open code question, not yet answered. | ❌ Missing (UI) |
 | **Global Update** (force-refresh all sources) | Yes, top-level Library long-press action | ✅ Already existed — `UpdatesViewModel.refresh()` (`UpdatesView.swift:117`) checks every manga+novel in the library in parallel via `TaskGroup`, triggered by the refresh icon in Updates' toolbar or pull-to-refresh. Different entry point (Updates tab vs. Library context menu) but functionally equivalent. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity |
 | **Updates Summary** (info sheet on last global update) | Yes | ✅ Fixed S97 — `refresh()` now returns the count of newly-discovered chapters (diffing chapter-id sets before/after); `UpdatesView` shows a "N new chapters found" / "No new chapters" toast for 2s after any manual or pull-to-refresh. Live-verified rendering (temporarily extended the dismiss timer to confirm the toast text/style, then restored it). | ✅ Parity |
 | **Open random entry** | Yes | ✅ Already existed — the Shuffle toolbar icon in `LibraryView.swift:310-320` jumps to a random manga. Scoped to manga only (not novels) and unconditional (not filtered to unread) — minor gap vs. Tachimanga's version, not worth a separate fix. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity (manga only) |
@@ -77,7 +77,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Downloads: per-manga row, byte size, delete-all | Yes | ✅ (S93) | ✅ Parity |
 | Downloads: active queue with speed + progress + Pause | "Pause" button shown live | Yomi's `DownloadManager.swift` only has `cancel(chapterId:)` — **no true pause/resume**, deliberate judgment call from S93 (rendered as ✕ instead of implying a capability that doesn't exist) | 🟡 Partial — real pause/resume would need actual implementation, not just a relabeled button |
 | Concurrent downloads setting | Yes [premium] | `concurrentDownloads` (1-5), exposed via `stepperPill` in `SettingsView.swift:216` | ✅ Parity (and free, where Tachimanga gates it) |
-| Background Download toggle | Yes [premium] | Not found as an explicit toggle — check whether downloads already continue in background by OS default | 🟡 Needs check |
+| Background Download toggle | Yes [premium] | ❌ Confirmed missing S99 — live-checked Settings' Data section and Advanced Settings in full; no such toggle exists anywhere in the UI. | ❌ Missing (UI) |
 | Delete download after reading | Yes [premium] | `deleteDownloadAfterReading` — `SettingsView.swift:209` | ✅ Parity (free) |
 | Reading Insights | Flat per-title bar-chart ranking, total hours, quote | GitHub-style contribution heatmap + streak + Most-Read list (S94) | 🔷 Yomi ahead — different approach, arguably more distinctive; not a gap |
 
@@ -106,7 +106,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Stylized "Current: Chapter N" splash before the reader loads (art + scanlator credit/links) | Yes | Not found — Yomi opens straight into pages | ❌ Missing — cosmetic flair, arguably adds friction; low priority, judgment call |
-| In-reader header shows source URL + external-link/globe icons | Yes | Needs check | 🟡 Needs check |
+| In-reader header shows source URL + external-link/globe icons | Yes | ❌ Confirmed missing S99 — live-opened the manga reader (AquaManga, "Path of Vengeance" Ch. 2); header shows only back/list/settings icons, no source-URL or external-link icon. | ❌ Missing |
 
 ## 8. Appearance
 
@@ -157,3 +157,11 @@ roughly in order of expected value:
 
 **Not recommended to copy:** Tachimanga's premium/paywall model itself (not relevant — Yomi has no
 monetization here), and the "watermark on shared images" feature (not clearly desirable).
+
+**S99 addendum**: a full project audit (code/docs/live-testing/App-Store-readiness, see `CLAUDE.md`
+Known Issues rows 24-36 and `ROADMAP.md`'s S99 entry) resolved 3 of this doc's "needs check" rows to
+confirmed-missing (background auto-refresh toggle, background download toggle, in-reader source-URL
+icon — all small, none re-prioritized above item 4). The audit also surfaced items outside this doc's
+scope entirely (stale age-rating declaration, an OPDS credential-storage inconsistency, silent DB-write
+failures, an unresolved AquaManga reader-page render bug) — those live only in `CLAUDE.md`'s Known
+Issues table, not here, since they aren't Tachimanga-parity items.

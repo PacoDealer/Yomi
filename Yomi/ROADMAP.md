@@ -21,6 +21,69 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S99 — 2026-08-06 · full project audit, documentation-only — no fixes yet)
+
+**S99: Martin asked for a full audit of "absolutely everything" — code, docs, organization, unknown
+bugs, App Store readiness — before continuing feature work.** Ran 4 parallel research passes plus a
+manual live-simulator spot-check, then catalogued every finding as new rows in `CLAUDE.md`'s Known
+Issues table (rows 24-36) and updated `TACHIMANGA_PARITY.md`'s "needs check" rows with confirmed
+answers. **Deliberately no fixes made this session** — Martin's instruction was to document everything
+now and start fixing next session. Full finding text lives in `CLAUDE.md`; this entry is the narrative
+summary of how the audit was run.
+
+**1. Code quality & repo hygiene** (static Swift review, 69 files, zero simulator use): genuinely
+clean after 98 sessions of iterative hardening. Zero `TODO`/`FIXME`/`HACK`, zero `try!`/`as!`, all 16
+force-unwraps traced and provably safe, no Swift 6 actor-isolation violations found (the project's own
+documented failure mode — MainActor-isolated statics/computed-properties read from `Task.detached` —
+was specifically checked for and not found elsewhere), no stragglers of previously-fixed patterns
+(`.glassEffect()` shape bug, `ContentUnavailableView` vs `YomiEmptyState`, cover-image sizing), no
+secrets in tracked files, clean `build_sim` (0 warnings). Two real findings: silent `print()`-only
+error handling on mark-read/toggle-library DB writes (Known Issue #26), and a stale doc comment in
+CLAUDE.md's own file index (#30).
+
+**2. Docs consistency**: found the project's docs are well-organized, not sprawling (`CLAUDE.md` is a
+genuine 293-line self-sufficient entry point, not the 900+ lines feared). Real findings: **the age
+rating declaration is wrong** — `CLAUDE.md` and `Yomi/design/DESIGN_HANDOFF.md` still say "17+" (the
+2026 system replaced this with 18+, and every other doc already says 18+) — a real compliance risk if
+uncaught before submission (#24). `README.md` (public-facing) still has one stale reference to the
+removed Browse → Extensions tab, missed by a prior "fixed" pass (#28). `EXTENSIONS.md` is fully
+orphaned — built around the removed tab, lists 7 of 15 plugins, duplicates README with worse content
+(#29). App Store Connect readiness (age rating/screenshots/description) has zero local tracking
+artifact, just a floating TODO copy-pasted across 4 docs (#36).
+
+**3. Live simulator verification**: `build_run_sim` succeeded, 0 warnings. Definitively resolved two
+long-standing `TACHIMANGA_PARITY.md` "needs check" rows to **confirmed missing**: no background
+auto-refresh toggle exists anywhere in Settings/Update Rules (whether `BGTaskScheduler` silently
+handles this under the hood is now a separate open code question, #31), and no background-download
+toggle exists (#32). Also confirmed the in-reader header has no source-URL/globe icon (#33). Could not
+reach list-mode multi-select to reconfirm Known Issue #19 due to `mobile-mcp` tap flakiness (#35).
+Surfaced a **new, systematic** `mobile-mcp` quirk this session, distinct from prior flakiness: a
+consistent coordinate offset specifically on the bottom tab bar (tapping the reported x-coordinate for
+"More" landed on "Updates" instead; a manually-compensated x-value worked) — full-width list rows were
+unaffected. Documented in CLAUDE.md's mobile-mcp section for future sessions to watch for.
+
+**4. App Store readiness & security**: privacy manifest, entitlements, and Info.plist permissions all
+checked out clean and accurate. Two real findings: a blanket `NSAllowsArbitraryLoads` ATS exception
+with no per-domain scoping (#27 — functionally probably necessary for arbitrary self-hosted
+Suwayomi/OPDS servers, but a known review-scrutiny trigger, recommend review-notes at submission
+rather than a code change), and the OPDS server password is stored in plain `UserDefaults` instead of
+`Core/KeychainHelper.swift`, inconsistent with the MAL-token precedent the codebase already established
+(#25). Confirmed clean: `AppSecrets.swift` has zero git history (never leaked, not just currently
+gitignored), no other credential-shaped strings in tracked files, no unused/missing entitlements.
+
+**5. Follow-up live check (not part of the 4 forks, done directly after)**: opening AquaManga's "Path
+of Vengeance" Ch. 2 in the manga reader showed a broken-image placeholder instead of real page art
+(page 1/26), unchanged after a wait — not a loading state. Possibly Known Issue #9's still-unresolved
+cover-loading problem (Kingfisher/Cloudflare UA mismatch) extending to reader pages, or a separate bug
+— not investigated further, needs a dedicated look (#34).
+
+**Next session starts here**: work the new Known Issues rows (24-36) in `CLAUDE.md`, roughly in
+priority order — age rating fix (#24, trivial, real compliance risk) and doc cleanup (#28-30) first,
+then the OPDS Keychain migration (#25) and silent-failure toasts (#26), then investigate the AquaManga
+reader-page bug (#34) and re-attempt list-mode multi-select verification (#35) once `mobile-mcp` is
+behaving. CloudKit sync scoping (`TACHIMANGA_PARITY.md`'s #1 remaining big item) is still separately
+parked, unrelated to this audit.
+
 ## Current state (post S97 — 2026-08-06 · Tachimanga parity pass, in progress)
 
 **S97: Martin did a live walkthrough of Tachimanga on his physical iPhone via macOS iPhone Mirroring
