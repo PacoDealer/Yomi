@@ -281,6 +281,11 @@ import Observation
         didSet { defaults.set(tapZoneLayout, forKey: "tapZoneLayout") }
     }
 
+    /// Manga reader page layout: "single" / "double" (spreads) / "automatic" (spreads in landscape)
+    var pageLayout: String {
+        didSet { defaults.set(pageLayout, forKey: "pageLayout") }
+    }
+
     // MARK: - Library display mode
 
     /// Library display mode: "grid" | "list"
@@ -400,6 +405,7 @@ import Observation
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
         tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
+        pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false

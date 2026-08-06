@@ -195,10 +195,10 @@ struct ChapterReaderView: View {
         }
         .onChange(of: currentPage) { _, newPage in
             if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-            if pages.count > 0 && newPage == pages.count - 1 {
+            if pages.count > 0 && newPage >= pages.count - 2 {
                 withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
             }
-            if !AppSettings.shared.isIncognito && pages.count > 0 && newPage == pages.count - 1 {
+            if !AppSettings.shared.isIncognito && pages.count > 0 && newPage >= pages.count - 2 {
                 markChapterRead()
                 if MALService.shared.isLoggedIn {
                     Task {
@@ -395,21 +395,80 @@ struct MangaReaderView: View {
     var isRTL: Bool = true
 
     @State private var settings = AppSettings.shared
+    @State private var viewportIsLandscape = false
+
+    // MARK: - Double-page spreads
+    //
+    // "double"/"automatic" pair consecutive pages into spreads. currentPage keeps its normal
+    // meaning everywhere else (progress, resume, scrubber) — it's just an index into `pages`.
+    // TabView only ever selects/produces spread-start indices via `spreadSelection`, a proxy
+    // binding that snaps any raw page index down to the start of its enclosing spread.
+
+    private var isDoubleActive: Bool {
+        switch settings.pageLayout {
+        case "double":    return true
+        case "automatic": return viewportIsLandscape
+        default:          return false
+        }
+    }
+
+    private var spreadGroups: [[Int]] {
+        guard isDoubleActive, pages.count > 1 else { return pages.indices.map { [$0] } }
+        var groups: [[Int]] = []
+        var i = 0
+        while i < pages.count {
+            groups.append(i + 1 < pages.count ? [i, i + 1] : [i])
+            i += 2
+        }
+        return groups
+    }
+
+    private func spreadStart(for page: Int) -> Int {
+        spreadGroups.first(where: { $0.contains(page) })?.first ?? page
+    }
+
+    private var spreadSelection: Binding<Int> {
+        Binding(
+            get: { spreadStart(for: currentPage) },
+            set: { currentPage = $0 }
+        )
+    }
 
     var body: some View {
         ZStack {
-            TabView(selection: $currentPage) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                    MangaPageView(url: url)
-                        .tag(index)
+            TabView(selection: spreadSelection) {
+                ForEach(spreadGroups, id: \.self) { group in
+                    spreadContent(group)
+                        .tag(group.first!)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
             .ignoresSafeArea()
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { viewportIsLandscape = geo.size.width > geo.size.height }
+                        .onChange(of: geo.size) { _, newSize in
+                            viewportIsLandscape = newSize.width > newSize.height
+                        }
+                }
+            }
 
             tapZoneOverlay
                 .ignoresSafeArea()
+        }
+    }
+
+    @ViewBuilder
+    private func spreadContent(_ group: [Int]) -> some View {
+        if group.count == 2 {
+            HStack(spacing: 0) {
+                MangaPageView(url: pages[group[0]])
+                MangaPageView(url: pages[group[1]])
+            }
+        } else {
+            MangaPageView(url: pages[group[0]])
         }
     }
 
@@ -417,17 +476,21 @@ struct MangaReaderView: View {
     //
     // "Left"/"right" here means physical screen side, not reading direction — RTL flips which
     // physical side advances vs. goes back, matching the original thirds/sides behavior.
+    // Both move by a whole spread (1 or 2 pages) so they always land on a valid TabView tag.
 
     private func tapLeft() {
-        let next = isRTL ? min(currentPage + 1, pages.count - 1) : max(currentPage - 1, 0)
-        if next != currentPage {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            currentPage = next
-        }
+        moveSpread(forward: isRTL)
     }
 
     private func tapRight() {
-        let next = isRTL ? max(currentPage - 1, 0) : min(currentPage + 1, pages.count - 1)
+        moveSpread(forward: !isRTL)
+    }
+
+    private func moveSpread(forward: Bool) {
+        let groups = spreadGroups
+        guard let idx = groups.firstIndex(where: { $0.first == spreadStart(for: currentPage) }) else { return }
+        let targetIdx = forward ? min(idx + 1, groups.count - 1) : max(idx - 1, 0)
+        let next = groups[targetIdx].first!
         if next != currentPage {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             currentPage = next
