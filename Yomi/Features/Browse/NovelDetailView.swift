@@ -22,6 +22,7 @@ struct NovelDetailView: View {
     @State private var chapterFilterUnread: Bool = false
     @State private var showNotesSheet = false
     @State private var notesText: String = ""
+    @State private var showCFBypass = false
     @State private var showCoverPicker = false
     @State private var selectedCoverItem: PhotosPickerItem? = nil
     @State private var isSelectingChapters = false
@@ -196,6 +197,12 @@ struct NovelDetailView: View {
                 let novelId = novel.id
                 let text = notesText
                 Task.detached { try? NovelQueries.updateNotes(novelId: novelId, notes: text) }
+            }
+        }
+        .sheet(isPresented: $showCFBypass) {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
+                bridge?.clearCFBlock()
+                Task { await loadChapters() }
             }
         }
         .photosPicker(isPresented: $showCoverPicker, selection: $selectedCoverItem, matching: .images)
@@ -469,7 +476,22 @@ struct NovelDetailView: View {
             if isLoadingChapters {
                 HStack { Spacer(); ProgressView(); Spacer() }.padding(.vertical, 4)
             } else if chapters.isEmpty {
-                Text("No chapters found.").font(.subheadline).foregroundStyle(.secondary)
+                if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
+                    VStack(spacing: 10) {
+                        Label("Cloudflare blocked this source.", systemImage: "shield.slash")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Button {
+                            showCFBypass = true
+                        } label: {
+                            Label("Bypass Cloudflare", systemImage: "shield.slash")
+                                .font(.subheadline)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    Text("No chapters found.").font(.subheadline).foregroundStyle(.secondary)
+                }
             } else {
                 if chapters.count > 30 {
                     HStack {

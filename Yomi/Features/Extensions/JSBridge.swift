@@ -866,9 +866,14 @@ final class JSBridge {
                 if let data = data { result = String(data: data, encoding: .utf8) ?? "" }
                 if let http = response as? HTTPURLResponse {
                     let hasCFRay = http.allHeaderFields["CF-RAY"] != nil
-                    let is403 = http.statusCode == 403
-                    let bodyHasCF = result.contains("Just a moment") || result.contains("cf-mitigated")
-                    if hasCFRay || (is403 && bodyHasCF) { detectedCFURL = urlString }
+                    let isErrorStatus = http.statusCode >= 400
+                    let bodyHasCF = result.contains("Just a moment")
+                        || result.contains("cf-mitigated")
+                        || result.contains("Cloudflare Ray ID")
+                        || result.contains("cf-browser-verification")
+                        || result.contains("Attention Required! | Cloudflare")
+                        || result.contains("Please enable cookies")
+                    if hasCFRay || (isErrorStatus && bodyHasCF) { detectedCFURL = urlString }
                 }
                 sem.signal()
             }.resume()
