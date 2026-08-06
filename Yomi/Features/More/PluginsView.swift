@@ -293,6 +293,7 @@ struct PluginsView: View {
 private struct FeaturedRepoRow: View {
     let repo: FeaturedRepo
     @State private var settings = AppSettings.shared
+    @State private var justCopied = false
 
     private var isAlreadyAdded: Bool {
         settings.pluginCatalogURLs.contains(repo.url)
@@ -313,12 +314,15 @@ private struct FeaturedRepoRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
-                Button("Add") {
-                    settings.pluginCatalogURLs.append(repo.url)
-                    PluginCatalogService.shared.invalidateCache()
-                    Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
+                Button(justCopied ? "Copied" : "Copy URL") {
+                    UIPasteboard.general.string = repo.url
+                    withAnimation { justCopied = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        withAnimation { justCopied = false }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
         }
@@ -342,7 +346,7 @@ private struct AddRepoSheet: View {
                 } header: {
                     Text("Featured")
                 } footer: {
-                    Text("Tap Add to subscribe to a community plugin catalog.")
+                    Text("Copy a featured repo's URL, then paste it below to subscribe to it.")
                 }
 
                 Section {
@@ -399,6 +403,7 @@ private struct AddRepoSheet: View {
 private struct AddRepoFeaturedRow: View {
     let repo: FeaturedRepo
     @State private var settings = AppSettings.shared
+    @State private var justCopied = false
 
     private var isAlreadyAdded: Bool {
         settings.pluginCatalogURLs.contains(repo.url)
@@ -419,12 +424,15 @@ private struct AddRepoFeaturedRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
-                Button("Add") {
-                    settings.pluginCatalogURLs.append(repo.url)
-                    PluginCatalogService.shared.invalidateCache()
-                    Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
+                Button(justCopied ? "Copied" : "Copy URL") {
+                    UIPasteboard.general.string = repo.url
+                    withAnimation { justCopied = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        withAnimation { justCopied = false }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
         }

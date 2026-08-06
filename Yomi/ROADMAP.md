@@ -119,6 +119,21 @@ missed:**
    thumb is a large white pill. Built `Core/YomiScrubber.swift`, a small custom scrubber matching the
    existing aesthetic, and swapped it in at both call sites.
 
+**Addendum 2, same session — App Store exposure question raised by Martin.** Flagged: the LNReader
+featured repo (500+ novel sources) was a one-tap "Add" button in the Plugins screen, reachable
+straight from Onboarding's first-launch flow — more turnkey than the S90 precedent, which
+deliberately kept the Suwayomi server address *out* of the binary (manual paste from README only)
+specifically to reduce App Store review exposure. The underlying 2.5.2 compliance story is solid
+either way (JavaScriptCore execution is Apple's documented exemption, live precedent: Paperback,
+Aidoku, Tachimanga — see `RESEARCH.md` §5/§15) — this was purely about how turnkey the in-app
+experience *looks* to a reviewer. Martin's call: match the Suwayomi treatment. Changed
+`FeaturedRepoRow`/`AddRepoFeaturedRow` (`PluginsView.swift`) from an instant-install "Add" button to
+a "Copy URL" button (with brief "Copied" feedback) — the user now copies the URL and pastes it into
+the same sheet's Custom URL field themselves, identical friction to the Suwayomi flow. Also fixed
+`README.md`, which is the canonical "how to install repos" guide (linked in-app as "Plugin setup
+guide"): it still said "Browse → Extensions" (that tab was removed in S86 — it's "More → Plugins"
+now) and its instructions now match the new copy-then-paste flow.
+
 App Store screenshot work can now proceed — this was the last blocker noted at the end of S95.
 
 ---
