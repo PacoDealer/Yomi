@@ -21,12 +21,12 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Reading modes | 7: Paged LTR/RTL/vertical, Continuous LTR/RTL/vertical, Webtoon | ✅ Fixed S97 — `ReaderMode` now has 6 cases (Paged RTL/LTR, Paged Vertical, Continuous RTL/LTR, Webtoon = continuous vertical). Paged-vertical uses the standard rotate-90°/counter-rotate-content TabView technique; Continuous horizontal is a new `ContinuousHorizontalReaderView` mirroring `WebtoonReaderView`'s structure. Both wired into the in-reader mode picker and Settings' default-mode picker. Live-verified: renders without crashing in the simulator; swipe-to-page interaction not independently confirmed due to the pre-existing documented mobile-mcp swipe-simulation unreliability in this environment (see `ROADMAP.md` S87) — the technique itself is SwiftUI-standard and low-risk. | ✅ Parity (6 of 7 — "Continuous vertical" intentionally treated as identical to existing Webtoon mode, not duplicated) |
-| Page Layout (double-page spreads) | Single / Double / Automatic, "Separate first page", "Invert double pages" [premium] | No concept of double-page spreads anywhere in `ChapterReaderView.swift` | ❌ Missing entirely |
-| Tap zones | 5 presets: L-Shaped, Right-And-Left, Edge, Kindle-ish, Disabled | 3: `tapZoneLayout` = "default" (thirds) / "sides" (20%/60%/20%) / "disabled" — `ChapterReaderView.swift:392-430` | 🟡 Partial — fewer presets, no visual zone-diagram picker (Tachimanga's dialog shows named layouts, Yomi's `SettingsView.swift:414` is a plain Picker) |
+| Page Layout (double-page spreads) | Single / Double / Automatic, "Separate first page", "Invert double pages" [premium] | ✅ Fixed S98 — `pageLayout` = "single"/"double"/"automatic" (spreads in landscape, via a live `GeometryReader` width/height comparison). `MangaReaderView`'s `TabView` selection goes through a proxy `Binding` snapping any page index to its spread's start, so `currentPage` keeps its normal meaning everywhere else (progress/resume/scrubber). Tap zones move by whole spreads. "Separate first page"/"Invert double pages" not implemented (smaller Tachimanga-premium niceties, out of scope). Live-verified: single mode unregressed, double mode renders 2 pages side by side and advances 1→3→5. | ✅ Parity (core Single/Double/Automatic) |
+| Tap zones | 5 presets: L-Shaped, Right-And-Left, Edge, Kindle-ish, Disabled | ✅ Fixed S98 — `tapZoneLayout` now has 6 presets: `default` (thirds, unchanged), `sides` (Edge, unchanged), plus new `lShaped`/`kindle`/`rightLeft`/`disabled`. New layouts are Yomi's own reasonable interpretation of the named behaviors (not pixel-verified against Tachimanga's exact zone geometry) — all share a fixed top-center menu strip for reachability. Still a plain Picker, no visual zone-diagram. | ✅ Parity (6 presets, superset of Tachimanga's 5) |
 | Auto Webtoon detection | Not observed in Tachimanga's Reader settings | `autoWebtoonFromTags` — auto-switches by genre tags — `AppSettings.swift:203` | 🔷 Yomi ahead |
 | Autoscroll | Toggle in in-reader settings sheet | `autoScrollSpeed` (1-10s) exists in `AppSettings.swift:242`, used in `ChapterReaderView.swift` | ✅ Parity |
 | Keep screen on while reading | Listed toggle | `keepScreenOn` → `UIApplication.shared.isIdleTimerDisabled` — `ChapterReaderView.swift:136,143` | ✅ Parity |
-| Double tap to zoom | Toggle | Not found — check pinch/zoom gesture support in reader | ❌ Likely missing (needs live check) |
+| Double tap to zoom | Toggle | ✅ Fixed S98 — `MangaPageView`'s double-tap previously always reset to 1x (not a real zoom toggle); now toggles between 1x and 2x. | ✅ Parity |
 | Press and hold to scroll | Toggle (Webtoon/Continuous only) | Not found | ❌ Missing |
 | Long press action menu | Toggle | Not found | ❌ Missing |
 | Show status bar when reading | Toggle | Not found (reader likely always hides status bar) | ❌ Missing (probably fine as-is, low priority) |
@@ -46,7 +46,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Source list (Last used / Pinned / by language) | Yes | Have Browse with installed sources — pinning/grouping not confirmed, needs check | 🟡 Needs live check |
-| **Migrate tab** — move a library title from one source to another, preserving progress, with per-source match-count badges | Full dedicated tab under Browse | No migration feature anywhere in codebase | ❌ Missing entirely — real gap, meaningful for source churn (sources die/get CF-blocked often, per Yomi's own Known Issues) |
+| **Migrate tab** — move a library title from one source to another, preserving progress, with per-source match-count badges | Full dedicated tab under Browse | ✅ Fixed S98 — `MigrateView.swift`/`MigrationService.swift`, reachable from Browse's segmented control (Sources / Global search / **Migrate**). Picks a library manga, searches every other installed manga source in parallel with match-count badges, transfers reading status/notes/categories/per-chapter read-state (matched by chapterNumber) on migrate, with a replace-vs-keep-old-entry choice. Manga only (novels not covered). Live-verified end-to-end with real installed sources + direct DB inspection. | ✅ Parity |
 | Cloudflare bypass | Automatic, global toggle, configurable timeout, request-dump debug log, applies to all source types uniformly | ✅ Fixed S97 — `NovelDetailView.swift` now has the same `cfBlockedURL`/`CFBypassView` wiring as `MangaDetailView.swift`. Also fixed a deeper bug found while verifying: the CF-detection heuristic in `JSBridge.swift` only matched 403 + "Just a moment"/"cf-mitigated", missing real-world variants like Cloudflare's 1015 rate-limit page — broadened to any error status + a wider marker list. Live-verified against FreeWebNovel's real Cloudflare block. Tachimanga's configurable-timeout + request-dump-log affordances are still not matched — tracked in §9. | ✅ Parity (core bypass), 🟡 partial on debug tooling |
 | Extension repositories UI | Repo shown with URL, Copy/Discord buttons, "Add repository" (by URL or by name) | `SettingsView.swift:302-338` — text field for URL + link out to GitHub docs. No "by name" directory lookup, no per-repo Copy/Discord affordance shown for *installed* repos (only for adding new ones) | 🟡 Partial — functionally fine, less polished |
 | Show NSFW extensions/sources toggle + disclaimer copy | Yes, with disclaimer that toggle doesn't fully prevent NSFW surfacing | `showNSFW` exists (`AppSettings.swift:80`), check if SettingsView copy includes the same disclaimer | 🟡 Needs copy check |
@@ -56,8 +56,8 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Categories: create/rename/delete/reorder | Full CRUD | **Already fully implemented** — `Yomi/Features/Library/CategoryView.swift` (rename:116, delete:132, reorder:144), reachable via More → Categories | ✅ Parity (earlier draft of this audit wrongly called this missing — corrected) |
-| Default category (Always ask / specific) | Yes | Not found | ❌ Missing |
-| Show number of items (on category tabs) | Toggle | Not found — Yomi's category tabs (`LibraryView.swift:491+`) don't show counts | ❌ Missing |
+| Default category (Always ask / specific) | Yes | ✅ Fixed S98 — `defaultCategoryId` setting auto-assigns new library adds (manga + novel) to a chosen category. "Always ask" (an interactive picker sheet on every add) not implemented — judgment call to keep scope contained; "specific category" mode covers the common case. | 🟡 Partial (specific-category mode only, no "Always ask") |
+| Show number of items (on category tabs) | Toggle | ✅ Fixed S98 — the backing query (`CategoryQueries.fetchItemCounts()`) already existed for More → Categories but was never wired into `LibraryView`'s tab bar; now toggleable via `showCategoryItemCounts`. | ✅ Parity |
 | Display Mode (grid/list) | Yes | `libraryDisplayMode` — ✅ | ✅ Parity |
 | Grid columns / items per row | Yes (stepper) | `libraryColumns` stepper in `AppearanceStudioView.swift:355` | ✅ Parity |
 | Skip updating titles (completed / not-started / excluded categories) | Yes | `skipUpdateWithUnread/NotStarted/Completed`, `excludedCategoryIds` — full parity, `SettingsView.swift:221` → `UpdatesSettingsView` | ✅ Parity |
@@ -126,9 +126,9 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Customize Tabs (reorder/hide bottom tabs) | Yes [premium] | Not found — fixed 6-tab `TabView` | ❌ Missing |
-| Default tab (which tab opens on launch) | Yes | Not found | ❌ Missing, easy add |
-| **Storage composition view** (visual bar: cache/sources/downloads/backups/other, each with size + Manage/Clear) | Yes, detailed | `AdvancedSettingsView.swift` only has undifferentiated "Clear image cache / Clear plugin catalog cache / Clear WebView cookies" buttons — no sizes shown at all, no visual breakdown. `DownloadManager.directorySize(mangaId:)` exists but is only used per-manga in Downloads, never aggregated | ❌ Real gap — Tachimanga's storage screen is genuinely more transparent |
-| Network settings: user agent, timeout | Shown, editable, plus CF-bypass toggle + request-dump | `AdvancedSettingsView.swift` shows User Agent / timeout as **hardcoded read-only text** ("fixed in this version") | 🟡 Partial — Yomi under-exposes control here vs Tachimanga |
+| Default tab (which tab opens on launch) | Yes | ✅ Fixed S98 — `defaultTab` setting, wired into `AppRouter.init()`. | ✅ Parity |
+| **Storage composition view** (visual bar: cache/sources/downloads/backups/other, each with size + Manage/Clear) | Yes, detailed | ✅ Fixed S98 — `StorageManager.swift`/`StorageView.swift`, reachable from Advanced → Storage. Real byte-accurate breakdown (Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other) with Manage/Clear actions per category. | ✅ Parity |
+| Network settings: user agent, timeout | Shown, editable, plus CF-bypass toggle + request-dump | ✅ Partially fixed S98 — request timeout (10-60s) now editable in Advanced → Network. User Agent deliberately stays fixed: it's bound to the Cloudflare-bypass WebView's solved-challenge cookie (`CFBypassConstants.userAgent`, shared with `JSBridge`'s fetch) — making it editable would risk silently breaking CF bypass for a control most users would never touch. Request-dump debug log not implemented. | 🟡 Partial (timeout editable, UA intentionally fixed, no request-dump) |
 | Repair Database | Yes | Not found (Yomi has DB migrations but no user-facing repair action) | ❌ Missing, low priority unless corruption reports come in |
 | Enable log / Export log / HTTP request dump | Yes, toggleable | Yomi has one-shot "Export diagnostic log" only — no persistent logging toggle, no HTTP dump | 🟡 Partial |
 
@@ -136,29 +136,24 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 
 ## Summary: real, actionable gaps (excluding low-priority/cosmetic items)
 
-Roughly in order of expected value to Yomi, not yet a commitment to sequence — for discussion:
+**Status as of S98 (2026-08-06): every item explicitly called out below as high-value is shipped.**
+Items 1-6 (original ordering) are all done — Cloudflare bypass (S97), reading modes + double-page
+spreads (S97 + S98), Secure screen (S97), Storage composition view (S98), Migrate tab (S98), Global
+Update/Updates Summary/Open random entry (S97, turned out already-implemented). Remaining open items,
+roughly in order of expected value:
 
-1. **Cloudflare bypass missing from the novel path** (`NovelDetailView.swift`) — this isn't just
-   parity, it's an existing open bug (Known Issue #11) that Tachimanga's architecture happens to
-   avoid by applying bypass uniformly. Fixing this unblocks real broken sources today.
-2. **More reading modes** (continuous LTR/RTL/vertical, paged-vertical) + **double-page spread
-   support** — meaningful reader-completeness gap, likely to matter to manga readers specifically.
-3. **Secure screen** (app-switcher content blur) — cheap, real privacy win given the app's content.
-4. **Storage composition view** — cheap-ish (the byte-counting primitive already exists via
-   `DownloadManager.directorySize`), meaningfully more transparent than today's undifferentiated
-   clear-cache buttons.
-5. **Migrate tab** (source-to-source library migration) — bigger feature, valuable given how often
-   Yomi's own sources go down/get Cloudflare-blocked (see Known Issues table).
-6. **Global Update / Updates Summary / Open random entry** — small, cheap, rounds out Library.
-7. **Full multi-device sync** (vs today's iCloud backup-on-background) — the biggest lift by far,
-   real architecture decision (CloudKit or similar), should be scoped separately if wanted at all.
-8. Everything else in the tables above (tap-zone presets, category default/count-toggle, Tachiyomi
-   *export*, dated backup list, customize tabs, default tab, network settings exposure, reader gesture
-   settings) — smaller, mostly additive, can slot in around the above.
+1. **Full multi-device sync** (vs today's iCloud backup-on-background) — the biggest lift by far,
+   real architecture decision (CloudKit or similar), should be scoped separately if wanted at all —
+   same treatment S90 gave the Suwayomi-server design before any implementation.
+2. **Dated backup list** (multiple retained backups with sizes) — Yomi shows only a single "last
+   backup date."
+3. **Tachiyomi-compatible *export*** (for migrating out to Tachiyomi/Mihon/forks) — low priority,
+   mostly a trust/no-lock-in signal rather than day-to-day utility.
+4. **Customize Tabs** (reorder/hide bottom tabs), **color blend slider**, **date format picker** —
+   smaller, additive, no urgency.
+5. Cosmetic/low-priority items scattered through the tables above (AppLockView's pre-S79 styling,
+   reader chapter-open splash screen, crop borders, press-and-hold-to-scroll, scanlator dedup, etc.) —
+   pick up opportunistically, not worth a dedicated pass.
 
 **Not recommended to copy:** Tachimanga's premium/paywall model itself (not relevant — Yomi has no
 monetization here), and the "watermark on shared images" feature (not clearly desirable).
-
-Next step: confirm priority/order above, then work through them as normal Yomi sessions (one or a
-few related items per session, live-verified via `build_run_sim` + mobile-mcp per this project's
-established methodology) — not a single mega-session.

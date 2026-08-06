@@ -64,6 +64,89 @@ source library migration — a real standalone feature, not a quick add), and fu
 sync (the single biggest item — needs its own architecture scoping session, same treatment S90 gave
 the Suwayomi-server design before any implementation). Session continues from this point.
 
+## Current state (post S98 — 2026-08-06 · Tachimanga parity pass, part 2 — the 4 items picked up from
+S97's backlog: storage view, small round-out items, double-page spreads, Migrate)
+
+**S98 continued the parity push, working through 4 backlog items from S97 in order of increasing
+complexity.** All 4 shipped, live-verified via `build_run_sim` + mobile-mcp (plus direct sqlite
+inspection for Migrate, where a UI limitation in this session's tooling made pure UI verification
+insufficient — see below), zero build warnings throughout. 4 commits.
+
+1. **Storage composition view** (`StorageManager.swift` + `StorageView.swift`, replacing
+   `AdvancedSettingsView`'s undifferentiated clear-cache buttons) — a real byte-accurate breakdown of
+   Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other, each computed via
+   `FileManager` directory enumeration (Kingfisher's `diskStorageSize` for image cache,
+   `URLCache.shared.currentDiskUsage` for web cache), with Manage/Clear actions per category. **Real
+   bug found and fixed live**: a `GeometryReader` used directly as List row content (to measure the
+   summary bar's width) destabilized every row's layout/hit-testing below it — rows became untappable
+   and the List's own scroll position desynced from what the accessibility tree reported. Fixed by
+   moving the summary bar entirely outside the `List` (a plain header above it), which is also just a
+   more robust pattern in general for List-embedded charts.
+2. **Small Library/Settings round-out items**: category item counts on Library's tab bar (the backing
+   query, `CategoryQueries.fetchItemCounts()`, already existed for More → Categories but was never
+   wired into the tab bar itself — now toggleable via `showCategoryItemCounts`); a Default Category
+   setting (auto-assigns new library adds, both manga and novel paths); a Default Tab setting (which
+   tab opens on launch, wired into `AppRouter.init()`); an editable request timeout (10-60s) in
+   Advanced → Network — mirrored into a `nonisolated(unsafe)` module var (`jsBridgeRequestTimeout`)
+   since `JSBridge`'s `SOURCE.fetch` reads it from `Task.detached`, where touching `AppSettings.shared`
+   directly is unsafe per this project's concurrency rules; User Agent stays fixed (now with an
+   explanation: it's bound to the Cloudflare-bypass WebView's solved-challenge cookie — Tachimanga
+   exposing this control isn't actually replicable without breaking the CF bypass); tap zones expanded
+   from 3 to 6 presets (Default/Edge/L-Shaped/Kindle-ish/Right & Left/Disabled). Also fixed
+   double-tap-to-zoom in the manga page viewer while touching that code: it only ever reset to 1x
+   before, not a real double-tap-to-zoom toggle.
+3. **Double-page spreads** for the manga reader (Paged RTL/LTR) — Single/Double/Automatic (spreads in
+   landscape) page layout, the reader-completeness item flagged as the #2 priority in
+   `TACHIMANGA_PARITY.md`. Design constraint: `currentPage` is read from many places (progress
+   tracking, resume, the scrubber) and had to keep meaning "a real index into `pages`" everywhere else
+   — so `MangaReaderView`'s `TabView` selection goes through a proxy `Binding` that snaps any raw page
+   index down to the start of its enclosing spread, rather than changing what `currentPage` means.
+   Tap-zone navigation (`tapLeft`/`tapRight`) now moves by a whole spread for the same reason. Also
+   generalized the "reached last page" checks (`== pages.count - 1`) to `>= pages.count - 2`, so the
+   finished-chapter banner still fires correctly when an even page count's last spread starts one page
+   short of the end. Live-verified against a real installed source (AquaManga, "Path of Vengeance"):
+   single mode unregressed (advances 1 page/tap), double mode renders two pages side by side and
+   advances by whole spreads (1 → 3 → 5, confirmed via the on-screen page counter).
+4. **Migrate tab** — the biggest lift, and the last major gap: move a library manga to a different
+   installed source, preserving reading status/notes/categories, with per-chapter read-state transfer
+   matched by `chapterNumber` (sources essentially never agree on chapter IDs/paths, but do agree on
+   numbering). New `MigrationService.swift` (pure GRDB logic, built entirely from already-proven query
+   functions — `MangaQueries.upsert`, `ChapterQueries.setRead`/`updateProgress`,
+   `CategoryQueries.assign`) and `MigrateView.swift` (library-title picker → per-source parallel search
+   with match-count badges, reusing `GlobalSearchView`'s established pattern → confirmation → migrate).
+   Reachable from Browse's segmented control (Sources / Global search / **Migrate**, new third option).
+   "Migrate and remove old entry" vs. "...and keep old entry" mirrors Tachiyomi's replace-vs-keep
+   convention. **Real bug found and fixed while live-verifying — not a tooling issue, though it looked
+   exactly like one at first**: the confirmation dialog's `isPresented` binding was a computed
+   `Binding` derived from `migrationTarget != nil`; SwiftUI's auto-dismiss-on-button-tap calls that
+   binding's setter (clearing `migrationTarget`) as part of the same transaction as the tap, so
+   `performMigration`'s `guard let target = migrationTarget` — reading the property again after a
+   `Task` suspension point — raced and silently saw `nil`. From the outside this looked identical to a
+   dead button: the dialog would dismiss, nothing would happen, no crash, no error. Cost real
+   debugging time before the actual cause (a state-race, not a tap-delivery problem) was found; fixed
+   by capturing the target by value in each button's closure instead of re-reading the observable
+   property inside the async task. Live-verified end-to-end via `build_run_sim` + mobile-mcp + direct
+   sqlite inspection of the simulator's `yomi.db` against two real installed sources (AquaManga →
+   Asura Scans, searched "solo", 10 real matches with correct badge count, migrated "Path of Vengeance"
+   → "Emperor of Solo Play"): new manga row correct (`inLibrary=1`, correct `sourceId`), chapter 1
+   correctly carried `isRead=1, progress=1.0` matched by `chapterNumber`, old entry correctly preserved
+   per "keep old entry."
+
+**Tooling note for future sessions**: this session hit a **separate, real** class of tap-delivery
+unreliability in `mobile-mcp` (distinct from the Migrate race bug above) — plain SwiftUI `Button`
+actions (not `NavigationLink`s, which were reliably tappable throughout) intermittently failed to
+fire when several navigation levels deep (e.g. More → Settings → Advanced → Storage), confirmed via
+a completely untouched, pre-existing button ("Export diagnostic log") exhibiting the identical
+symptom. Retrying the same tap 2-3 times, or a fresh `build_run_sim` relaunch, usually cleared it.
+Not a code bug — but don't assume a dead-looking button is this tooling issue without first checking
+for a state race like the Migrate one above; they can look identical from the outside.
+
+`TACHIMANGA_PARITY.md`'s remaining backlog (dated backup history, Tachiyomi-compatible *export*,
+Customize Tabs, color blend slider, date format picker, full multi-device CloudKit sync — the single
+biggest remaining item, needing its own architecture scoping session like S90 gave the Suwayomi-server
+design) is now genuinely just the long tail — every item explicitly called out as high-value in the
+audit's own priority ordering is shipped.
+
 ## Current state (post S96 — 2026-08-06 · full functional app audit, not a design block)
 
 **S96: the systematic functional audit Martin asked for at the end of S95** — every screen walked
