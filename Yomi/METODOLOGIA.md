@@ -1357,6 +1357,34 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
 - **`TimelineProvider` with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` in widget extension**: works as-is. The provider's callback-based methods (`getTimeline(in:completion:)`) are implicitly `@MainActor`, and calling the completion handler from the same context is valid. No nonisolated annotation needed. Widget extensions don't have the same JSBridge DispatchSemaphore constraint as the main app.
 - **App Groups and widget data sharing**: shared data goes in `UserDefaults(suiteName: "group.pacodealer.Yomi")`, not `UserDefaults.standard`. Both the main app and widget extension must declare `com.apple.security.application-groups` in their `.entitlements` files. Both entitlements files must be wired to their respective targets via `CODE_SIGN_ENTITLEMENTS` in build settings. Call `WidgetCenter.shared.reloadAllTimelines()` after writing to trigger a widget refresh.
 
+## S97 — Technical learnings (2026-08-06)
+
+- **iPhone Mirroring (macOS) cannot be automated** — `iPhone Mirroring.app` renders the real device
+  live (screenshots via `screencapture -R` work perfectly), but synthetic clicks (`cliclick`,
+  AppleScript `System Events click at`) never register as touches on the phone — confirmed via both
+  instant clicks and explicit down/hold/up sequences, on multiple known-good targets. Almost certainly
+  a deliberate Apple anti-automation measure on that specific feature. For any future "watch Martin's
+  real device" task, the only path is Martin driving it manually while Claude screenshots/observes —
+  don't burn time re-attempting programmatic clicks.
+- **A "verified against source" audit still needs a second pass before triggering new work.**
+  `TACHIMANGA_PARITY.md`'s first draft, though grep/read-verified per file, still called two already-
+  implemented features "missing" (Global Update, Open random entry) because the search terms used
+  didn't match their actual names in the codebase (`refresh()`, "shuffle"). Re-reading the actual
+  call site before implementing — not just trusting a clean grep miss — caught both before wasted work.
+- **mobile-mcp round-trips in this environment can take much longer in wall-clock time than the
+  simulator's own clock suggests is happening within the app** — a 2-second SwiftUI auto-dismiss timer
+  (Updates' refresh toast) reliably closed before any screenshot could land, across several attempts,
+  even back-to-back. Diagnosed by watching the simulator's own status-bar clock jump by many real
+  minutes between one tool call and the next. Workaround for verifying short-lived transient UI:
+  temporarily inflate the dismiss duration, confirm the visual, then restore the real value — don't
+  conclude a short-lived toast/banner is broken just because a screenshot missed it.
+- **CF-detection heuristics need to match real-world block pages, not just the textbook one.**
+  `JSBridge.swift`'s Cloudflare check only looked for `"Just a moment"` / `"cf-mitigated"` — real
+  Cloudflare error pages vary a lot (1015 rate-limit, 1020 access-denied, etc.) and don't all contain
+  either string. Found by actually triggering a live block (FreeWebNovel) and reading the raw response
+  body via `mobile_list_elements_on_screen`'s full accessibility dump, not by reasoning about it in
+  the abstract.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
