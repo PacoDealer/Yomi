@@ -7,7 +7,7 @@ A clean, fast manga, manhwa, manhua and light novel reader for iOS. Extensible a
 ## Quick Start
 
 1. Open **Yomi** on your device
-2. Go to **Browse** → **Extensions** → tap **+** → **Add Repository**
+2. Go to **More** → **Plugins** → tap **+** → **Add Repository**
 3. Add a repository from the table below, install a source, then open **Browse → Sources**
 
 ---
@@ -29,7 +29,7 @@ Hand-picked, high-quality sources for manga and novels. The catalog URL is added
 ```
 https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json
 ```
-Copy this URL → Browse → Extensions → **+** → **Add Repository** → paste → **Add**
+Copy this URL → More → Plugins → **+** → **Add Repository** → paste → **Add**
 
 ### Keiyoushi (1000+ manga)
 Keiyoushi extensions run through a [Suwayomi Server](https://github.com/Suwayomi/Suwayomi-Server) — Yomi runs a shared one so you don't have to host your own:
@@ -45,9 +45,10 @@ Prefer full control (or the shared server is down)? [Self-host your own](https:/
 
 ## How to Add a Repository
 
-1. Open **Browse** → **Extensions**
+1. Open **More** → **Plugins**
 2. Tap **+** → **Add Repository**
-3. Tap **Add** next to a featured repo — or paste a custom URL and tap **Add**
+3. Tap **Copy URL** next to a featured repo, then paste it into the Custom URL field and tap
+   **Add** — or paste any other repo URL directly
 4. The catalog refreshes automatically
 5. Find a source in the list and tap **Install**
 6. Go to **Browse → Sources** → your new source appears in the list
