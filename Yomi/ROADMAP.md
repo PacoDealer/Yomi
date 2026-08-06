@@ -104,6 +104,21 @@ Update Rules), Downloads (download → row → delete-all → confirm), Insights
 Most Read), More/Settings/Appearance Studio (canvas/accent live-switching)/About, and a full
 Onboarding walkthrough (all 3 pages, accent tint correct, final CTA deep-links into Plugins).
 
+**Addendum, same session — Martin's live visual review caught 2 more real bugs the walkthrough
+missed:**
+8. **Systemic `.glassEffect()` misuse across the whole app**: every glass panel used
+   `.background { RoundedRectangle(...).glassEffect() }` — a documented iOS 26 gotcha where the
+   parameterless `glassEffect()` doesn't reliably clip to the declared shape and can render as a
+   Capsule instead. Circular chips looked fine by coincidence; wide panels (both readers' bottom
+   bars, Library's selection action bar) rendered as an oval/blob instead of a rounded rectangle —
+   most visible on the novel reader's settings panel, which Martin screenshotted looking like a gray
+   blob overlapping the text. Fixed all 6 call sites to `.glassEffect(.regular, in: <Shape>)` applied
+   directly to content.
+9. The native `Slider` (manga reader page scrubber, novel reader font-size control) clashed
+   visually with the rest of the app's thin-capsule-progress-bar design language — its default iOS 26
+   thumb is a large white pill. Built `Core/YomiScrubber.swift`, a small custom scrubber matching the
+   existing aesthetic, and swapped it in at both call sites.
+
 App Store screenshot work can now proceed — this was the last blocker noted at the end of S95.
 
 ---

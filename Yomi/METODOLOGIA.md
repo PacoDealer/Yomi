@@ -122,6 +122,31 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S96 (part 2, same session — Martin's live visual review)
+
+**`.glassEffect()` called with no arguments does not reliably clip to the shape it's placed on —
+it needs the shape passed explicitly via `.glassEffect(_:in:)`, applied directly to the content, not
+as a `.background { Shape().glassEffect() }`.** Every reader/action-bar glass panel in the app
+(`ChapterReaderView`'s and `TextReaderView`'s bottom bars, `LibraryView`'s selection action bar,
+`GlassChip.swift`'s shared circle chip) used the `.background { RoundedRectangle(cornerRadius:
+_).glassEffect() }` pattern. This is a documented iOS 26 gotcha: the parameterless `glassEffect()`
+has its own shape-inference behavior and is known to render as a Capsule instead of the declared
+shape. Circular chips (`GlassChip`) looked fine by coincidence (a Capsule on a square bounding box
+*is* a circle), which is why this went unnoticed through 6 sessions of design-track work — it only
+became visually obvious on wide/short panels, where the fallback rendered as an oval/blob instead of
+a softly-rounded rectangle. Confirmed by Martin screenshotting the novel reader's settings panel and
+asking why it looked like a gray oval overlapping the text. Fixed all 6 call sites to
+`.glassEffect(.regular, in: <Shape>)` applied directly to the content (no `.background {}` wrapper).
+
+**A native SwiftUI `Slider` doesn't fit into an otherwise fully custom design system, even when
+`.tint()`'d correctly** — its default iOS 26 thumb is a large white pill/capsule shape that visually
+clashes with everything else in Yomi (thin accent-color capsule progress bars everywhere else: cover
+cells' read-progress bar, the reader's own chapter-progress footer, the Continue card). Martin
+flagged this live ("why is there both a rectangle and a circle") on the manga reader's page scrubber.
+Built `Core/YomiScrubber.swift` — a small custom `GeometryReader` + `DragGesture` scrubber matching
+the app's thin-track/small-accent-thumb language — and swapped it in for both native `Slider` uses
+(manga reader page scrubber, novel reader font-size control).
+
 ## Technical learnings — S96
 
 **iOS Simulator's `cfprefsd` daemon caches app preferences at a device-level path, independent of

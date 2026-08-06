@@ -601,7 +601,7 @@ struct TextReaderOverlayView: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Circle())
                 }
-                .background { Circle().glassEffect() }
+                .glassEffect(.regular, in: Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(novel.title)
@@ -622,7 +622,7 @@ struct TextReaderOverlayView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Circle())
                     }
-                    .background { Circle().glassEffect() }
+                    .glassEffect(.regular, in: Circle())
                 }
             }
             .padding(.horizontal, 12)
@@ -690,7 +690,7 @@ struct TextReaderOverlayView: View {
                 // Row 1: Font size slider
                 HStack(spacing: 10) {
                     Text("A").font(.caption).foregroundStyle(.secondary)
-                    Slider(value: $fontSize, in: 14...28, step: 1)
+                    YomiScrubber(value: $fontSize, range: 14...28)
                     Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 20)
@@ -852,10 +852,7 @@ struct TextReaderOverlayView: View {
                 }
             }
             .padding(.vertical, 14)
-            .background {
-                RoundedRectangle(cornerRadius: 24)
-                    .glassEffect()
-            }
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
         }

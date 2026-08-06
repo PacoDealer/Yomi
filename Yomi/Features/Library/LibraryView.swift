@@ -426,10 +426,7 @@ struct LibraryView: View {
             Spacer()
         }
         .frame(height: 60)
-        .background {
-            RoundedRectangle(cornerRadius: 26)
-                .glassEffect()
-        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26))
         .padding(.horizontal, 12)
         .padding(.bottom, 14)
     }
