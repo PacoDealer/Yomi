@@ -23,24 +23,10 @@ struct AdvancedSettingsView: View {
 
     private var cacheSection: some View {
         Section("Cache") {
-            Button("Clear image cache") {
-                URLCache.shared.removeAllCachedResponses()
-                ImageCache.default.clearCache()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
-            .foregroundStyle(.primary)
+            NavigationLink("Storage") { StorageView() }
 
             Button("Clear plugin catalog cache") {
                 PluginCatalogService.shared.invalidateCache()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
-            .foregroundStyle(.primary)
-
-            Button("Clear WebView cookies & cache") {
-                WKWebsiteDataStore.default().removeData(
-                    ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                    modifiedSince: .distantPast
-                ) { }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
             .foregroundStyle(.primary)
