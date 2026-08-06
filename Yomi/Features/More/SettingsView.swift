@@ -208,6 +208,12 @@ struct SettingsView: View {
             rowDivider()
             toggleRow("Show unread count badge", isOn: $settings.showUnreadBadge)
             rowDivider()
+            toggleRow("Show item count on category tabs", isOn: $settings.showCategoryItemCounts)
+            rowDivider()
+            defaultCategoryRow
+            rowDivider()
+            defaultTabRow
+            rowDivider()
             toggleRow("Delete after reading", isOn: $settings.deleteDownloadAfterReading, subtitle: "Removes downloaded files when you finish a chapter")
             rowDivider()
             HStack {
@@ -221,6 +227,67 @@ struct SettingsView: View {
             .padding(.vertical, 12)
             rowDivider()
             navRow("Update rules") { UpdatesSettingsView() }
+        }
+    }
+
+    @State private var libraryCategories: [Category] = []
+
+    private var defaultCategoryRow: some View {
+        Menu {
+            Button("None") { settings.defaultCategoryId = nil }
+            ForEach(libraryCategories) { cat in
+                Button(cat.name) { settings.defaultCategoryId = cat.id }
+            }
+        } label: {
+            HStack {
+                Text("Default category")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer(minLength: 8)
+                Text(libraryCategories.first(where: { $0.id == settings.defaultCategoryId })?.name ?? "None")
+                    .font(YomiTokens.Font.mono(11))
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .task {
+            libraryCategories = (try? CategoryQueries.fetchAll()) ?? []
+        }
+    }
+
+    private var defaultTabRow: some View {
+        Menu {
+            Button("Library") { settings.defaultTab = AppRouter.tabLibrary }
+            Button("Browse") { settings.defaultTab = AppRouter.tabBrowse }
+            Button("History") { settings.defaultTab = AppRouter.tabHistory }
+            Button("Updates") { settings.defaultTab = AppRouter.tabUpdates }
+            Button("More") { settings.defaultTab = AppRouter.tabMore }
+        } label: {
+            HStack {
+                Text("Default tab")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .foregroundStyle(canvas.textPrimary)
+                Spacer(minLength: 8)
+                Text(tabLabel(settings.defaultTab))
+                    .font(YomiTokens.Font.mono(11))
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func tabLabel(_ tab: Int) -> String {
+        switch tab {
+        case AppRouter.tabLibrary: return "Library"
+        case AppRouter.tabBrowse:  return "Browse"
+        case AppRouter.tabHistory: return "History"
+        case AppRouter.tabUpdates: return "Updates"
+        case AppRouter.tabMore:    return "More"
+        default: return "Library"
         }
     }
 
@@ -418,7 +485,10 @@ private struct MangaReaderSettingsView: View {
 
                 Picker("Tap zones", selection: $settings.tapZoneLayout) {
                     Text("Default (equal thirds)").tag("default")
-                    Text("Sides (20 · 60 · 20%)").tag("sides")
+                    Text("Edge (20 · 60 · 20%)").tag("sides")
+                    Text("L-Shaped").tag("lShaped")
+                    Text("Kindle-ish").tag("kindle")
+                    Text("Right & Left (50 / 50)").tag("rightLeft")
                     Text("Disabled (swipe only)").tag("disabled")
                 }
 
