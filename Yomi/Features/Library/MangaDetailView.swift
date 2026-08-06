@@ -38,6 +38,7 @@ struct MangaDetailView: View {
 
     // Feature 3 — Storage size
     @State private var storageSizeLabel: String? = nil
+    @State private var toastMessage: String? = nil
 
     // Feature 4 — Chapter selection
     @State private var isSelectingChapters = false
@@ -591,6 +592,7 @@ struct MangaDetailView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .yomiToast($toastMessage)
     }
 
     // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
@@ -959,6 +961,8 @@ struct MangaDetailView: View {
             }
         } catch {
             print("toggleLibrary error: \(error)")
+            toastMessage = "Couldn't update library"
+            YomiHaptics.error()
         }
     }
 

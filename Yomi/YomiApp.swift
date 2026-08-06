@@ -89,14 +89,25 @@ struct YomiApp: App {
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
         #endif
-        // Covers on Cloudflare-protected sources (e.g. AquaManga) 403 without this — cf_clearance
-        // is bound to the UA that solved the challenge, and that UA must match SOURCE.fetch's.
+        // Covers and reader pages on Cloudflare-protected sources (e.g. AquaManga) 403 without this.
+        // Two separate things are both required, not just the UA:
+        // 1. cf_clearance is bound to the UA that solved the challenge — CFBypassView copies it into
+        //    HTTPCookieStorage.shared, so every outgoing request's UA must match CFBypassConstants.userAgent.
+        // 2. Kingfisher's ImageDownloader defaults to URLSessionConfiguration.ephemeral, which has its
+        //    own private in-memory cookie store — HTTPCookieStorage.shared is invisible to it regardless
+        //    of the UA. Repointing its session config at .shared makes it actually see the cf_clearance
+        //    cookie CFBypassView wrote there.
         let uaModifier = AnyModifier { request in
             var request = request
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
             return request
         }
         KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
+        let kfSessionConfig = URLSessionConfiguration.default
+        kfSessionConfig.httpCookieStorage = .shared
+        kfSessionConfig.httpShouldSetCookies = true
+        kfSessionConfig.httpCookieAcceptPolicy = .always
+        KingfisherManager.shared.downloader.sessionConfiguration = kfSessionConfig
     }
 
     var body: some Scene {

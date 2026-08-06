@@ -21,6 +21,69 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S100 — 2026-08-06 · S99 audit backlog cleared)
+
+**S100: worked through S99's audit backlog (Known Issues rows 24-30, 25, 26, 34, 35) end to end, per
+Martin's "let's go through all the known issues and fix them."** Explicit scope decision up front: rows
+31-33 (background auto-refresh toggle, background download toggle, in-reader source-URL icon) are
+confirmed-missing *features*, not bugs — Martin chose to skip building them this session and have them
+written down as backlog instead (now in `TACHIMANGA_PARITY.md`'s S100 addendum), reserving this session
+for actual fixes.
+
+**Docs (trivial, done first):** age rating 17+→18+ fixed in `CLAUDE.md` + `DESIGN_HANDOFF.md` (3
+mentions), project-wide grep confirmed no stragglers (#24). `README.md`'s one remaining stale
+Extensions-tab reference fixed (#28). `EXTENSIONS.md` deleted — not linked from any Swift source, fully
+superseded by `README.md`'s repository-based install flow (#29). `CLAUDE.md`'s own stale file-index
+note about `NovelQueries.fetchLibrary()` corrected (#30).
+
+**OPDS password → Keychain (#25):** `AppSettings.opdsPassword`'s `didSet` now writes through
+`KeychainHelper` instead of `UserDefaults`, matching the MAL-token precedent; init migrates any existing
+UserDefaults value once. Live-verified: set a password, force-quit (not backgrounded) and relaunch —
+value survived while confirmed absent from `defaults read`, proving it round-tripped through Keychain.
+
+**Silent DB-write failures (#26):** new reusable `Core/YomiToast.swift` (self-dismissing top banner,
+`.yomiToast(_:)` modifier, matches `UpdatesView`'s existing refresh-summary banner styling) +
+`YomiHaptics.error()`. Wired into `ChapterReaderView.markChapterRead` and
+`MangaDetailView.toggleLibrary`'s `catch` blocks. GRDB failures are rare by nature, not reproduced live
+— verified by code review + clean build.
+
+**AquaManga reader-page bug (#34) — root-caused deeper than expected, also fully explains #9's
+long-standing unverified cover fix.** Two separate bugs stacked: (1) reader pages used raw `AsyncImage`,
+which can't carry any custom request config — swapped to `KFImage` at all 3 call sites
+(`MangaPageView`/`WebtoonReaderView`/`ContinuousHorizontalReaderView`) so they inherit
+`KingfisherManager.shared`'s config, matching `CoverImage.swift`'s existing pattern. That alone still
+403'd live: Kingfisher's `ImageDownloader` defaults to `URLSessionConfiguration.ephemeral`, which keeps
+its own private in-memory cookie store — invisible to `HTTPCookieStorage.shared`, exactly where
+`CFBypassView` copies the `cf_clearance` cookie after a Cloudflare challenge. The S89 UA
+`requestModifier` was necessary but never sufficient. Fixed by pointing Kingfisher's downloader at an
+explicit session config with `httpCookieStorage = .shared` (`YomiApp.swift` init). Verified live end to
+end: AquaManga's cover art and "Path of Vengeance" Ch. 2 pages 1-2 both render real art now (previously
+gray placeholder / broken-image icon).
+
+**List-mode multi-select (#35) — confirmed genuinely broken, not just untested, then fixed.** List
+mode's `.contextMenu` had no "Select" entry and `MangaListRow`/`NovelLibraryListRow` had no selection UI
+at all, unlike grid mode (fixed S96). Added matching selection UI to both, wired into the same
+`isSelecting`/`selectedIds`/`selectedNovelIds` state grid mode already uses. Hit the exact
+`NavigationLink` + `.contextMenu` "narrows tappable area, context menu never triggers" bug from row 8's
+S86 finding — same fix, an explicit `.contentShape(Rectangle())` on the row container. Verified live:
+long-press → Select → multi-row checkbox selection → bulk-action bar, both manga and novel rows.
+
+**App Store readiness consolidated (#27, #36):** `ROADMAP.md`'s "App Store submission checklist" table
+(below) is now the single authoritative source — updated to current accurate status (app icon done,
+OPDS Keychain done) and gained an ATS-review-notes line item for #27's recommendation (not a code
+change, a submission-time review note). `CLAUDE.md`'s own checklist section now points here instead of
+duplicating.
+
+**One real mistake this session, disclosed to Martin at the time:** reached for `xcrun simctl
+uninstall` to clean up a stray test string that had leaked into a settings field during `mobile-mcp` tap
+troubleshooting — this wiped the dev simulator's accumulated library/reading-history test data (built up
+across many prior sessions), not just the one value. Not the user's real device, but avoidable — see the
+new `METODOLOGIA.md` S100 lesson: use `defaults delete` or direct `sqlite3` for surgical resets, reserve
+`uninstall` for genuine fresh-install testing.
+
+All fixes verified live via `build_run_sim` + `mobile-mcp` + direct `sqlite3`/`defaults read` inspection
+where UI confirmation was unreliable, zero build warnings throughout.
+
 ## Current state (post S99 — 2026-08-06 · full project audit, documentation-only — no fixes yet)
 
 **S99: Martin asked for a full audit of "absolutely everything" — code, docs, organization, unknown
@@ -1192,15 +1255,16 @@ S51 (continued): AniList score badge added to both `MangaDetailView` and `NovelD
 3. **MangaDetailView.loadChapters() silent failure** — `guard let ext else { return }` fired without clearing `isLoadingChapters` (spinner stuck forever). Also `ChapterQueries.fetchAll` was called synchronously on MainActor. Both fixed.
 4. **NovelFull plugin** added to Firebase catalog (novelfull.net — verified accessible, Format B).
 
-**App Store blockers remaining:**
-1. App icon (1024×1024 PNG, 3 layers for iOS 26 Liquid Glass) — user designing — **primary blocker**
-2. Age rating 18+, description, screenshots — App Store Connect
+**App Store blockers remaining (see the full checklist below — this is now genuinely just App Store
+Connect data-entry, not code):**
+1. ~~App icon~~ ✅ Done S87
+2. Age rating 18+, description, screenshots, support URL, ATS review notes — all App Store Connect only
 3. ~~Apple Developer Program enrollment~~ ✅ Created S36
 
 ## Technical debt
 | Area | Issue | Priority |
 |------|-------|----------|
-| App icon | 1024×1024 PNG missing — user designing. App Store primary blocker. | Critical |
+| ~~App icon~~ | ✅ Done S87 — designed S79/S82, wired into Xcode S87. | Done |
 | ~~Firebase pending deploy~~ | ✅ Deployed S53 — babelnovel.js + lightnovelpub.js live at yomi-plugins.web.app. | Done |
 | Chapters from Browse (partial fix) | Defensive fixes applied in S37 but root cause not fully confirmed. Chapters may still fail for some sources. Needs device testing with live plugins to verify. | High |
 | ReadComicOnline + Mangapill broken | Source files contain "404: Not Found" — downloaded from dead `entityJY/mangayomi-extensions-eJ` GitHub repo. User should uninstall these two plugins from Extensions tab. | Medium |
@@ -1232,13 +1296,15 @@ These items must ALL be complete before submitting to App Store Connect:
 |------|--------|-------|
 | PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
 | Privacy policy URL | ✅ Done S25 | yomi-plugins.web.app/privacy — linked from Settings → About. |
-| App icon | ❌ Missing | All required sizes. Use Asset Catalog. User designing separately. |
+| App icon | ✅ Done S87 | "Y." monogram, Ink default + Paper alternate, wired into Xcode (`ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`). |
 | Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
 | MAL token in Keychain | ✅ Done S24 | KeychainHelper + auto-migration from UserDefaults on first load. |
-| Age rating: 18+ | ❌ Pending | 2026 system uses 4/9/13/16/18+ (replaces old 17+). App enables NSFW content via user-installed plugins. Must declare in App Store Connect. |
+| OPDS password in Keychain | ✅ Done S100 | Same `KeychainHelper` pattern as the MAL token — was plain UserDefaults. |
+| Age rating: 18+ | ❌ Pending | 2026 system uses 4/9/13/16/18+ (replaces old 17+). App enables NSFW content via user-installed plugins. Must declare in App Store Connect — this is an App Store Connect step, not a code change; every doc mention of the rating itself already says 18+ as of S100. |
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
-| Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). |
+| Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). Design + functional work both complete since S96 — nothing code-side is blocking this anymore. |
 | Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |
+| ATS review notes (`NSAllowsArbitraryLoads`) | ❌ Pending | Blanket exception (S89, for self-hosted Suwayomi/OPDS over HTTP) has no per-domain scoping — target hosts aren't known in advance, so scoping isn't feasible. Not a code change: add an App Store Connect review-note at submission explaining the self-hosted-server feature. Revisit scoping only if reviewers push back. |
 
 ## App Store compliance
 Yomi is App Store compliant via the extension model:

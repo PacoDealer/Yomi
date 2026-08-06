@@ -165,3 +165,11 @@ icon — all small, none re-prioritized above item 4). The audit also surfaced i
 scope entirely (stale age-rating declaration, an OPDS credential-storage inconsistency, silent DB-write
 failures, an unresolved AquaManga reader-page render bug) — those live only in `CLAUDE.md`'s Known
 Issues table, not here, since they aren't Tachimanga-parity items.
+
+**S100 addendum**: worked through the S99 audit's Known Issues backlog (rows 24-30, 25, 26, 34, 35 —
+age rating, doc cleanup, OPDS→Keychain, silent-failure toasts, the AquaManga reader-page bug, and
+list-mode multi-select — all fixed, see `CLAUDE.md`). Martin made an explicit scope call on the 3 items
+this doc flagged confirmed-missing above (background auto-refresh toggle, background download toggle,
+in-reader source-URL icon): these are genuine new features, not bugs, and were deliberately **not**
+built this session — left here as the backlog for a future dedicated feature pass, same treatment as
+item 1 (multi-device sync).
