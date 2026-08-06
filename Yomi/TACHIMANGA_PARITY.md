@@ -99,7 +99,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 |---|---|---|---|
 | App lock (biometric/passcode on foreground) | Yes [premium] | ✅ `AppLockView.swift` + `appLockEnabled`, wired in `YomiApp.swift` via `scenePhase` | ✅ Parity (free, where Tachimanga gates it) — but **cosmetic gap**: `AppLockView.swift` uses plain `Color(.systemBackground)`/system font, never restyled to the Ink/Space-Grotesk design system (predates S79 redesign) |
 | Incognito mode (pause history) | Yes [premium] | ✅ `isIncognito` | ✅ Parity (free) |
-| **Secure screen** (hide content in app switcher / on lock) | Yes [premium] | Not found anywhere — no `UIVisualEffectView` snapshot-blur, no `isProtectedDataAvailable` handling | ❌ Missing — genuinely relevant given the app's content is piracy-adjacent |
+| **Secure screen** (hide content in app switcher / on lock) | Yes [premium] | ✅ Fixed S97 — `AppSettings.secureScreenEnabled` + a `SecureScreenCover` overlay in `YomiApp.swift`, shown whenever `scenePhase != .active` (covers the App Switcher snapshot and any other non-active transition). Free, on-brand (Ink canvas + app icon), toggle in Settings next to App Lock. Live-verified: toggle persists, app backgrounds/resumes cleanly with no crash. | ✅ Parity (free, where Tachimanga gates it) |
 
 ## 7. Reader chapter-open experience
 

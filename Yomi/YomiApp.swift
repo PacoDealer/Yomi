@@ -122,6 +122,13 @@ struct YomiApp: App {
                         OnboardingView()
                     }
                 }
+                .overlay {
+                    // .inactive fires during the app-switch snapshot/transition, before
+                    // .background — this is what actually hides content from the App Switcher.
+                    if settings.secureScreenEnabled && scenePhase != .active {
+                        SecureScreenCover()
+                    }
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -148,5 +155,27 @@ struct YomiApp: App {
                 }
             }
         }
+    }
+}
+
+// MARK: - SecureScreenCover
+
+/// Covers the window whenever the scene isn't `.active` (App Switcher, incoming call, etc.)
+/// so Yomi's content — reading history included — never appears in a system snapshot.
+private struct SecureScreenCover: View {
+    var body: some View {
+        ZStack {
+            YomiTokens.Canvas.ink.bg.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image("OnboardingIcon")
+                    .resizable()
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                Text("Yomi")
+                    .font(YomiTokens.Font.grotesk(20, weight: .semibold))
+                    .foregroundStyle(YomiTokens.Canvas.ink.textPrimary)
+            }
+        }
+        .transition(.opacity)
     }
 }
