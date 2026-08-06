@@ -142,9 +142,11 @@ spreads (S97 + S98), Secure screen (S97), Storage composition view (S98), Migrat
 Update/Updates Summary/Open random entry (S97, turned out already-implemented). Remaining open items,
 roughly in order of expected value:
 
-1. **Full multi-device sync** (vs today's iCloud backup-on-background) — the biggest lift by far,
-   real architecture decision (CloudKit or similar), should be scoped separately if wanted at all —
-   same treatment S90 gave the Suwayomi-server design before any implementation.
+1. **Full multi-device sync** (vs today's iCloud backup-on-background) — the biggest lift by far.
+   ✅ Architecture scoped S102 (not yet implemented) — see `Yomi/CLOUDKIT_SYNC_DESIGN.md` and
+   `Yomi/ROADMAP.md`'s S102 entry. `CKSyncEngine`, sync on foreground/background (no push
+   entitlement), metadata + reading-state only (no files). Next session that picks this up implements
+   directly against that doc.
 2. **Dated backup list** (multiple retained backups with sizes) — Yomi shows only a single "last
    backup date."
 3. **Tachiyomi-compatible *export*** (for migrating out to Tachiyomi/Mihon/forks) — low priority,

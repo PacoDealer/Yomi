@@ -705,6 +705,15 @@ Sites using Disqus (Flame Scans, MangaFire) can be queried via Disqus API:
 Returns read-only comments natively — no moderation burden, no UGC risk.
 Plugin declares `disqusShortname` field. Future feature, not S23.
 
+### Full multi-device sync (future — S102, designed not built)
+Today's iCloud Drive backup (`BackupManager.swift`) is a point-in-time JSON snapshot, not live sync.
+Full architecture for real cross-device sync (reading progress, library membership, categories)
+designed S102 — see `Yomi/CLOUDKIT_SYNC_DESIGN.md`. `CKSyncEngine` against a custom private-database
+zone, hooked into the existing `*Queries` write layer via one new `markDirty()` choke point. Key
+enabler found while designing it: `Manga.id`/`Chapter.id` are already content-derived (a plugin's own
+path/id), not local UUIDs, so record identity already matches across devices with zero new ID scheme.
+Not implemented yet — no `CloudSyncManager.swift` exists in the codebase as of S102.
+
 ## Design decisions
 | Decision | Discarded alternative | Reason |
 |----------|----------------------|--------|
@@ -727,6 +736,8 @@ Plugin declares `disqusShortname` field. Future feature, not S23.
 | OnboardingView on first launch | No onboarding, empty state only | Without onboarding, new users see an empty app and churn; Paperback users confirm the "setup moment" is critical |
 | BGAppRefreshTask reuses UpdatesViewModel.refresh() (S101) | Separate background-only update-check implementation | One code path for manual/pull-to-refresh/background refresh — no risk of the background path silently drifting from what Updates' own refresh does |
 | resolveSourceURL reads a plugin's own JS global (S101) | Require every plugin to export a new `getSourceURL()` API | Zero-plugin-change, best-effort — works for ~7/15 existing plugins for free; a required API would need updating all 15 plugin files + Firebase redeploy for a "nice to have" reader icon |
+| CKSyncEngine for future multi-device sync (S102, designed) | NSPersistentCloudKitContainer | Requires Core Data — Yomi is deliberately GRDB; migrating persistence layers just for sync would be far riskier than sync itself |
+| Sync on foreground/background, not real-time push (S102, designed) | CKSubscription + Remote Notifications | No two-devices-open-simultaneously use case for a reading app; avoids a push entitlement and background-wake handling entirely |
 
 ## App Store strategy
 Yomi uses the extension model for App Store compliance, identical to Paperback and Aidoku:

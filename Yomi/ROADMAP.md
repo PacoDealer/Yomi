@@ -21,6 +21,55 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S102 — 2026-08-06 · CloudKit sync scoping)
+
+**S102: architecture-scoping session for full multi-device sync — designed, not implemented, same
+treatment S90 gave the Suwayomi-server design before any code was written.** Full design at
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`. Two decisions confirmed with Martin up front: sync on app
+foreground/background (not real-time push — avoids a Remote Notifications entitlement entirely), and
+metadata + reading-state only, no files (downloaded chapters and custom cover images stay
+device-local, matching Tachiyomi/Mihon convention).
+
+**Key finding that shaped the whole design**: traced `Manga.id`/`Chapter.id` through `JSBridge.swift`
+and found both are content-derived (the chapter's own URL/path, the plugin's own list-item id), not
+locally-random UUIDs — meaning the same manga/chapter fetched from the same source on two devices
+already gets the same id today, with zero sync code involved. Two direct consequences: (1) the
+chapter list itself never needs to sync — only the ~5 mutable state fields per touched chapter
+(isRead/progress/lastPageRead/readAt/readingSeconds), since every device already re-derives the full
+chapter list locally via `getChapterList()`; a 3,139-chapter novel (Shadow Slave, from S88 testing)
+stays cheap to sync because most chapters never get a state record at all. (2) first-sync bootstrap on
+an existing library needs no special-cased merge logic — content-derived ids mean a manga that exists
+identically on both the local device and in CloudKit naturally converges into one record, not a
+duplicate, which is usually the hardest part of this kind of design.
+
+Also found, by grepping every call site: `MangaQueries.delete`/`NovelQueries.delete`/
+`ChapterQueries.delete` exist but are never actually called anywhere in `Features/` — "remove from
+library" is `toggleLibrary()` → `inLibrary = false`, a field update, not a row delete. So CloudKit
+record-deletion propagation (usually the other hardest part of a sync design) is only needed for
+category deletion, which is small and self-contained.
+
+Chose `CKSyncEngine` (iOS 17+) over `NSPersistentCloudKitContainer` (requires Core Data — ruled out,
+Yomi is deliberately GRDB) and over raw manual `CKDatabase` operations (re-implements what
+CKSyncEngine already owns: batching, retry/backoff, change-token bookkeeping). Proposed hook point is
+a new `CloudSyncManager.swift` singleton, with `*Queries` write methods calling one new
+`markDirty(recordType:recordID:)` — same choke-point pattern the codebase already uses for
+`lastReadAt`/toast-on-failure (#20/#26/#35). Conflict policy: last-write-wins for everything,
+including `readingSeconds` (an additive stat where this is technically imprecise) — flagged as a
+known v1 tradeoff rather than solved with custom merge logic, since true concurrent-device conflicts
+are rare for a reading app.
+
+**Left open, flagged for whoever implements this rather than decided here**: one `Manga.id`
+construction path (`JSBridge.swift:1795`, Mangayomi-format parsing) sets `id` to the bare path with no
+`sourceId` prefix — a pre-existing id-collision risk between two different sources sharing a path
+string, independent of sync, but sync would make a collision silently merge two unrelated manga into
+one record instead of just showing two visually-identical local rows. Worth a quick audit of all
+`Manga(id:...)`/`Novel(id:...)` construction sites before turning sync on broadly.
+
+No implementation started this session — full narrative, data-model table, write/read path, bootstrap
+flow, entitlements checklist, and testing plan all in `Yomi/CLOUDKIT_SYNC_DESIGN.md`.
+
+---
+
 ## Current state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)
 
 **S101: shipped the 3 features S100 deliberately deferred (background auto-refresh, background
