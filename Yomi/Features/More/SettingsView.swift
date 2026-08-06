@@ -176,6 +176,8 @@ struct SettingsView: View {
             rowDivider()
             toggleRow("App Lock", isOn: $settings.appLockEnabled, subtitle: "Require Face ID / Touch ID when opening Yomi")
             rowDivider()
+            toggleRow("Secure screen", isOn: $settings.secureScreenEnabled, subtitle: "Hide content in the App Switcher")
+            rowDivider()
             toggleRow("Incognito mode", isOn: $settings.isIncognito, subtitle: "Reading progress and history won't be saved")
         }
     }

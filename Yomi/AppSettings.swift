@@ -276,6 +276,11 @@ import Observation
         didSet { defaults.set(appLockEnabled, forKey: "appLockEnabled") }
     }
 
+    /// Hide app content (behind a cover) in the App Switcher / during app-switch transitions
+    var secureScreenEnabled: Bool {
+        didSet { defaults.set(secureScreenEnabled, forKey: "secureScreenEnabled") }
+    }
+
     // MARK: - TTS
 
     /// AVSpeechSynthesizer rate for novel TTS (0.1 slow – 0.5 default – 1.0 fast)
@@ -367,6 +372,7 @@ import Observation
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
+        secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
