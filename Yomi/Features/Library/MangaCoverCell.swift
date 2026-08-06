@@ -41,6 +41,11 @@ struct MangaCoverCell: View {
         }
         .contextMenu {
             if !isSelecting {
+                Button {
+                    onLongPress?()
+                } label: {
+                    Label("Select", systemImage: "checkmark.circle")
+                }
                 Menu {
                     ForEach(ReadingStatus.allCases) { status in
                         Button {
@@ -63,10 +68,6 @@ struct MangaCoverCell: View {
                     Label("Remove from Library", systemImage: "trash")
                 }
             }
-        }
-        .onLongPressGesture(minimumDuration: 0.4) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onLongPress?()
         }
         .overlay(alignment: .topLeading) {
             if isSelecting {

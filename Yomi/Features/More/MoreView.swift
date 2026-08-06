@@ -65,7 +65,7 @@ struct MoreView: View {
             .navigationDestination(isPresented: $showPlugins) { PluginsView() }
         }
         .task { await catalogService.fetchCatalog() }
-        .onChange(of: appRouter.openMorePlugins) { _, open in
+        .onChange(of: appRouter.openMorePlugins, initial: true) { _, open in
             if open {
                 showPlugins = true
                 appRouter.openMorePlugins = false

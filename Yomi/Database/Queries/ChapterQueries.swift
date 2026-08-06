@@ -118,7 +118,7 @@ enum ChapterQueries {
     }
 
     /// Marks a chapter as read or unread.
-    nonisolated static func setRead(chapterId: String, isRead: Bool) throws {
+    nonisolated static func setRead(chapterId: String, mangaId: String, isRead: Bool) throws {
         _ = try appDatabase.write { db in
             if isRead {
                 try db.execute(
@@ -131,6 +131,9 @@ enum ChapterQueries {
                     arguments: [chapterId]
                 )
             }
+        }
+        if isRead {
+            try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
     }
 

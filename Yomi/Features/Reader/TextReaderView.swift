@@ -171,8 +171,9 @@ struct TextReaderView: View {
                     onReadComplete: {
                         if !AppSettings.shared.isIncognito {
                             let chapterId = activeChapter.id
+                            let novelId = novel.id
                             Task {
-                                try? NovelQueries.markRead(chapterId: chapterId)
+                                try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId)
                                 await MainActor.run {
                                     if AppSettings.shared.recordChapterRead() {
                                         shouldRequestReview = true
@@ -328,8 +329,9 @@ struct TextReaderView: View {
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
         let chapterId = activeChapter.id
+        let novelId = novel.id
         if !AppSettings.shared.isIncognito {
-            Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId) }
+            Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
         }
         rawContent    = ""
         isLoading     = true
