@@ -82,6 +82,15 @@ enum NovelQueries {
         }
     }
 
+    /// Sets lastReadAt to now for the given novel
+    nonisolated static func touchLastRead(novelId: String) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("lastReadAt").set(to: Date())])
+        }
+    }
+
     /// Clears lastReadAt for a novel (swipe-to-delete in History)
     nonisolated static func clearLastRead(novelId: String) throws {
         _ = try appDatabase.write { db in
@@ -180,7 +189,7 @@ enum NovelQueries {
     }
 
     /// Marks a chapter as read: isRead=true, readAt=now
-    nonisolated static func markRead(chapterId: String) throws {
+    nonisolated static func markRead(chapterId: String, novelId: String) throws {
         _ = try appDatabase.write { db in
             try NovelChapter
                 .filter(Column("id") == chapterId)
@@ -189,6 +198,7 @@ enum NovelQueries {
                     Column("readAt").set(to: Date())
                 ])
         }
+        try? touchLastRead(novelId: novelId)
     }
 
     /// Marks a chapter as unread: isRead=false, readAt=nil
@@ -220,6 +230,9 @@ enum NovelQueries {
                     Column("isRead").set(to: read),
                     Column("readAt").set(to: read ? Date() : DatabaseValue.null)
                 ])
+        }
+        if read {
+            try? touchLastRead(novelId: novelId)
         }
     }
 }

@@ -264,6 +264,7 @@ struct LibraryView: View {
                     }
                 }
             }
+            .background(canvas.bg.ignoresSafeArea())
             .navigationTitle(isSelecting
                 ? { let total = selectedIds.count + selectedNovelIds.count; return total == 0 ? "Select" : "\(total) selected" }()
                 : "Library")
@@ -759,6 +760,11 @@ private struct NovelLibraryCoverCell: View {
         .disabled(isSelecting)
         .contextMenu {
             if !isSelecting {
+                Button {
+                    onLongPress?()
+                } label: {
+                    Label("Select", systemImage: "checkmark.circle")
+                }
                 Menu {
                     ForEach(ReadingStatus.allCases) { status in
                         Button {
@@ -806,10 +812,6 @@ private struct NovelLibraryCoverCell: View {
                 .onTapGesture { onSelect?() }
         }
         } // ZStack
-        .onLongPressGesture(minimumDuration: 0.4) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onLongPress?()
-        }
         .overlay(alignment: .topLeading) {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")

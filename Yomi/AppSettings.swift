@@ -317,7 +317,7 @@ import Observation
             switch savedTheme {
             case "Dark":  canvas = savedPureBlack ? "Midnight" : "Ink"
             case "Light": canvas = "Paper"
-            default:      canvas = ""   // follow device
+            default:      canvas = "Ink"   // true fresh install — documented design default
             }
         }
         accentColor             = d.string(forKey: "accentColor")            ?? "#E5473A"

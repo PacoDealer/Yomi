@@ -585,7 +585,8 @@ struct NovelDetailView: View {
                     guard !ids.isEmpty else { return }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     let markSet = Set(ids)
-                    Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0) } }
+                    let novelId = novel.id
+                    Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0, novelId: novelId) } }
                     chapters = chapters.map { ch in
                         markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
                     }
@@ -680,9 +681,10 @@ struct NovelDetailView: View {
         chapters[idx] = updated
         let id = updated.id
         let nowRead = updated.isRead
+        let novelId = novel.id
         Task.detached {
             if nowRead {
-                try? NovelQueries.markRead(chapterId: id)
+                try? NovelQueries.markRead(chapterId: id, novelId: novelId)
             } else {
                 try? NovelQueries.markUnread(chapterId: id)
             }
@@ -841,10 +843,11 @@ extension NovelDetailView {
             updated.readAt = read ? now : nil
             return updated
         }
+        let novelId = novel.id
         Task.detached {
             for id in ids {
                 if read {
-                    try? NovelQueries.markRead(chapterId: id)
+                    try? NovelQueries.markRead(chapterId: id, novelId: novelId)
                 } else {
                     try? NovelQueries.markUnread(chapterId: id)
                 }

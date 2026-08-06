@@ -24,32 +24,49 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
 - `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — **full 16-screen design spec** (primary implementation reference; HTML + inline CSS; all canvas/reader theme colors, screentone patterns, Liquid Glass overlays)
 
-## Design track (S82-S86 — Blocks 1-6 of 12 implemented, Phase 0 fidelity gaps closed S85)
+## Design track (S82-S95 — all 12 blocks complete)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **Implementation order (12 blocks):** ~~Library~~ → ~~Library-selection~~ → ~~Detail~~ → ~~Manga Reader overlay~~ → ~~Novel Reader overlay~~ → ~~Browse~~ → ~~History~~ → ~~Updates~~ → ~~Downloads~~ → ~~Insights~~ → ~~More+Settings~~ → ~~Onboarding+empty states~~. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **Next session: a complete, systematic app audit (every button/scroll/setting, Browse/History/Updates, Detail, both readers) per Martin's explicit request — not another design block.**
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done — see below.** App Store screenshot work is unblocked.
 
-## Current state (post S95 — 2026-08-05 · design track complete, Blocks 11-12)
+## Current state (post S96 — 2026-08-06 · full functional app audit, not a design block)
 
-S95 closed out the 12-block design track: Block 11 (More+Settings, N.07/N.10) and Block 12
-(Onboarding+empty states, N.08/N.09). Triggered by user feedback that the simulator didn't match
-the mocks — the resulting audit found and fixed 4 real bugs, none of them accent-color-related (that
-turned out to be stale simulator UserDefaults, see Known Issues). Real bugs fixed: (1)
-`ContinueHeroCard`'s Resume button was clipped by a copy-pasted fixed height that didn't account for
-2-line titles — also explained the user's "taps land on the wrong thing" report, since
-`.clipShape()` clips hit-testing too. (2) A bare `Color.clear.frame(width: 44)` (no height) used to
-symmetrically center a glass-nav-bar title expanded to fill the whole screen, breaking Settings' and
-About's nav bars — fixed by adding the height every other such spacer in the app already had. (3)
-`UIImage(named: "AppIcon")` doesn't reliably load an `.appiconset` — added a plain `.imageset` copy
-for Onboarding's real app-icon display. (4) `fullScreenCover` presents a separate view hierarchy that
-doesn't inherit `.tint()`, so Onboarding's accent-colored elements rendered system blue — fixed with
-an explicit `.tint()` on `OnboardingView`. Also found, while debugging why Onboarding wouldn't even
-appear: `YomiApp.swift` chained two separate `.fullScreenCover` modifiers on one view, so the first
-(`showOnboarding`) was silently never presented — **no user has ever seen onboarding** regardless of
-the `hasSeenOnboarding` flag. Merged into one cover. New reusable `Core/YomiEmptyState.swift` replaces
-12 native `ContentUnavailableView` call sites app-wide with the N.09 boxed-icon design. Full detail
-including 3 new for-next-session findings (Library's un-wired canvas background, a stale debug
-`#00FF00` accentColor that survived `simctl uninstall`, and this session's test data being wiped by
-that same uninstall) in `Yomi/ROADMAP.md`'s S95 entry.
+S96 was the systematic, every-screen functional audit requested at the end of S95 — walked live via
+`build_run_sim` + mobile-mcp from a genuinely fresh install, not just a code read. Found and fixed 6
+real bugs (zero build warnings throughout), plus root-caused a long-standing simulator mystery:
+1. **Root cause of S95's "doesn't match the mocks" complaint, more fundamental than #15 alone:**
+   `AppSettings.canvasColors` didn't implement "follow device" for canvas `""` — `colorScheme`
+   correctly resolved it to `nil` (follow system) but `canvasColors` unconditionally returned Ink, so
+   on a light-mode device native chrome rendered light while all custom backgrounds rendered dark.
+   This hit **every genuine first-time user on a light-mode device** (onboarding never sets a canvas).
+   Fixed at the true root: `AppSettings.init()`'s fresh-install path now sets `canvas = "Ink"` (the
+   documented default) instead of `""`.
+2. `LibraryView` root wasn't wired to `\.yomiCanvas` (#15) — fixed, added the missing `.background()`.
+3. "Get plugins" (Library/Browse empty-state CTA) silently failed to deep-link into Plugins on a
+   genuinely first visit to More — `MoreView`'s `.onChange(of: appRouter.openMorePlugins)` doesn't
+   fire for a flag that's already `true` when the view first mounts. Fixed with `initial: true`.
+4. Library's multi-select bulk-action mode (checkboxes + action bar, built S82) was unreachable via
+   long-press on grid cells — `.contextMenu` was consistently winning over a separate
+   `.onLongPressGesture` on the same view (confirmed live, deterministic). Fixed by adding a "Select"
+   item to the context menu instead of the dead-code long-press gesture.
+5. Manually marking chapters read (Updates' mark-read/mark-all, Detail's per-chapter/bulk toggles,
+   and even `TextReaderView`'s own organic reading flow) never updated the manga/novel's `lastReadAt`
+   — only the reader's auto-mark-on-finish path did. Broke History, Library's "last read" sort, and
+   the Continue card for anything marked read outside that one path. Fixed at the query layer
+   (`ChapterQueries.setRead`, `NovelQueries.markRead`/`markAllChapters` now touch `lastReadAt`,
+   matching their sibling functions) across every call site.
+6. **Root-caused Known Issue #16 (S95's "mysterious accentColor survived uninstall") — not a Yomi
+   bug.** iOS Simulator's `cfprefsd` caches app preferences at a device-level path independent of the
+   app's Data Container, and `simctl uninstall` doesn't reliably clear it. Hit the same thing again
+   this session on `hasSeenOnboarding`. Real fresh-install testing on this simulator now requires
+   deleting `.../data/Library/Preferences/<bundleid>.plist` and restarting `cfprefsd` after uninstall
+   — plain `simctl uninstall` is not sufficient. See `Yomi/ROADMAP.md`'s S96 entry for the exact
+   commands and full detail on all 6 fixes, plus a note that 3 of 4 novel test sources tried this
+   session are currently genuinely Cloudflare/bot-gated site-side (not a Yomi bug, confirmed via
+   `curl`).
+
+Full walkthrough coverage: Library, Browse, Manga Detail+Reader (paged + webtoon auto-detect), Novel
+Detail+Reader, History, Updates, Downloads, Insights, More/Settings/Appearance Studio/About, and a
+full Onboarding run from a real fresh install. All confirmed working live.
 
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
@@ -72,8 +89,13 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 12 | Duplicate extension rows (new, found+fixed S88) | `ExtensionManager.install()` always inserted under the *catalog's* id without removing an existing install of the same plugin under a *different*, older id — Yomi went through a sha256-hash-id → stable-catalog-id migration at some point and nothing ever cleaned up the old rows. Result: Plugins/Browse showed some sources (NovelFire, FreeWebNovel, NovelBin) **twice**, one stale/unupdatable alongside one fresh, confirmed directly in `yomi.db`. Fixed: `install()` now deletes any other installed extension with the same name before writing the new row. **The user's real device likely has this same duplication for any plugin installed before the id-scheme migration** — worth a quick glance at the Plugins screen next session; if duplicates are there, tapping "Update" on the affected source once (with this fix shipped) will self-heal it. |
 | 13 | ~~Custom fonts may never have rendered~~ | ✅ Resolved S95 — confirmed not actually broken. Verified live via a temporary debug print: `UIFont.familyNames`/`fontNames(forFamilyName:)` show both Space Grotesk and Space Mono registered correctly, and `UIFont(name: "Space Grotesk", size:)` resolves a real font instance. The S89 `Info.plist` fix was sufficient; no further action needed. |
 | 14 | Onboarding was never actually presented to any user (found+fixed S95) | `YomiApp.swift` chained two separate `.fullScreenCover` modifiers on the same `ContentView()` (`showOnboarding` and `isLocked`) — SwiftUI only reliably tracks one presentation slot per view identity this way, so the first (`showOnboarding`) silently never fired, regardless of `hasSeenOnboarding`. Fixed by merging into a single `.fullScreenCover` with a computed `Binding` and if/else content (lock screen takes priority). Verified live via a full `simctl uninstall`+reinstall (forcing a genuine first launch) — all 3 pages now show correctly. |
-| 15 | `LibraryView` root background not wired to `\.yomiCanvas` (found S95, not fixed) | After a `simctl uninstall` test (canvas resets to `""`/follow-device), Library rendered with a plain white/system-light background instead of the Ink canvas — unlike every view touched since S85, it has no `.background(canvas.bg.ignoresSafeArea())` on its root. Block 1 predates the canvas-wiring convention. Needs the same treatment Blocks 3+ already use. |
-| 16 | Stale debug `#00FF00` accentColor survived `simctl uninstall` (found S95, worked around not root-caused) | On this specific long-lived dev simulator, `AppSettings.accentColor` read back as pure debug green after a full app uninstall+reinstall — not found in any `.swift` source, Xcode scheme, or MCP session config checked. Manually reset via `defaults write ... accentColor "#E5473A"`. If accent ever looks wrong again after a fresh install, check this before assuming a code bug (see also row 15's Appearance Studio blue, which *was* just stale state, not this). |
+| 15 | ~~`LibraryView` root background not wired to `\.yomiCanvas`~~ | ✅ Fixed S96 — added `.background(canvas.bg.ignoresSafeArea())` to its root, matching every view since S85. |
+| 16 | ~~Stale debug accentColor survived `simctl uninstall`~~ | ✅ Root-caused S96 — **not a Yomi bug.** iOS Simulator's `cfprefsd` caches app preferences at a device-level path (`.../data/Library/Preferences/<bundleid>.plist`) independent of the app's per-install Data Container; `simctl uninstall` doesn't reliably clear it. Real fresh-install testing needs `rm` on that plist + `xcrun simctl spawn <device> launchctl stop com.apple.cfprefsd.xpc.daemon` after uninstall, before reinstalling. |
+| 17 | ~~`AppSettings.canvasColors` didn't implement "follow device"~~ | ✅ Fixed S96 — canvas `""` (the true fresh-install default) resolved `colorScheme` to `nil` (follow system) but `canvasColors` unconditionally to Ink, breaking chrome/content consistency for any first-time user on a light-mode device. Fixed by defaulting fresh installs to `canvas = "Ink"` directly. See `ROADMAP.md` S96. |
+| 18 | ~~"Get plugins" silently failed to deep-link on first visit to More~~ | ✅ Fixed S96 — `MoreView`'s `.onChange(of: appRouter.openMorePlugins)` doesn't fire for a flag already `true` when the view first mounts (i.e. More never visited yet this session). Fixed with `initial: true`. |
+| 19 | ~~Library multi-select unreachable via long-press on grid cells~~ | ✅ Fixed S96 — `.contextMenu` was consistently winning over a separate `.onLongPressGesture` on the same view. Replaced the dead-code gesture with a "Select" context-menu item. List mode still has no selection entry point (would need row checkbox overlays + disabled navigation there too — left as a smaller follow-up, not fixed). |
+| 20 | ~~Manual mark-read actions never touched `lastReadAt`~~ | ✅ Fixed S96 — `ChapterQueries.setRead`/`NovelQueries.markRead`/`markAllChapters` (used by Updates, Detail's per-chapter/bulk toggles, and even `TextReaderView`'s own reading flow) never updated the parent manga/novel's `lastReadAt`, unlike their sibling functions — broke History, Library's last-read sort, and the Continue card. Fixed at the query layer across every call site. |
+| 21 | 3 of 4 novel sources tried S96 are site-side blocked (not a Yomi bug) | LightNovelPub and BabelNovel return raw HTTP 403 to a real browser UA via `curl`; BoxNovel returns HTTP 200 but a JS-only anti-bot redirect shell with no real HTML. All three are genuinely Cloudflare/bot-gated right now, not a client parsing bug — the app's "may be down or Cloudflare-protected" message is accurate. NovelBin (novelarrow.com backend) still works correctly. |
 
 ## MCP tools — use these every session
 
@@ -246,7 +268,7 @@ Firebase folder lives outside the Xcode repo — not committed to git.
 
 ## App Store checklist (incomplete items)
 - App icon — ✅ designed S79/S82, ✅ Xcode-wired S87 ("Y." monogram, Ink default + Paper alternate; `ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`, verified in compiled Info.plist). Remaining: upload to App Store Connect at submission time.
-- Screenshots — design implementation is now complete (all 12 blocks, S95). Blocked instead on the next session's full app audit (functional QA pass) before shipping App Store screenshots.
+- Screenshots — design implementation complete (all 12 blocks, S95) and the functional audit (S96) is done. No known blockers remain — ready to shoot App Store screenshots.
 - Age rating 17+ declaration (App Store Connect only)
 - App description, screenshots, support URL (App Store Connect only)
 - PrivacyInfo.xcprivacy — DONE (S22)

@@ -16,7 +16,7 @@ Yomi/
 │   ├── DatabaseManager.swift        # GRDB setup, migrations, FetchableRecord conformances; module-level appDatabase var
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, updateReadingStatus, delete
-│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist), insert, upsert, upsertAll, markRead, markAllRead, updateProgress (saves lastPageRead), addReadingTime, setRead(chapterId:isRead:), delete, deleteAll
+│       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist), insert, upsert, upsertAll, markRead, markAllRead, updateProgress (saves lastPageRead), addReadingTime, setRead(chapterId:mangaId:isRead:) [touches manga.lastReadAt when isRead, S96], delete, deleteAll
 │       ├── CategoryQueries.swift    # CRUD category + manga_category join: fetchAll, insert, rename, delete, updateSort, assign, unassign, categoriesForManga, mangaIds(inCategory:)
 │       ├── NovelQueries.swift       # CRUD novel + novel_chapter
 │       └── ExtensionQueries.swift   # CRUD extensions
