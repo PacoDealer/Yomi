@@ -26,47 +26,42 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 ## Design track (S82-S95 — all 12 blocks complete)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done — see below.** App Store screenshot work is unblocked.
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S96 — 2026-08-06 · full functional app audit, not a design block)
+## Current state (post S98 — 2026-08-06 · Tachimanga parity pass complete)
 
-S96 was the systematic, every-screen functional audit requested at the end of S95 — walked live via
-`build_run_sim` + mobile-mcp from a genuinely fresh install, not just a code read. Found and fixed 6
-real bugs (zero build warnings throughout), plus root-caused a long-standing simulator mystery:
-1. **Root cause of S95's "doesn't match the mocks" complaint, more fundamental than #15 alone:**
-   `AppSettings.canvasColors` didn't implement "follow device" for canvas `""` — `colorScheme`
-   correctly resolved it to `nil` (follow system) but `canvasColors` unconditionally returned Ink, so
-   on a light-mode device native chrome rendered light while all custom backgrounds rendered dark.
-   This hit **every genuine first-time user on a light-mode device** (onboarding never sets a canvas).
-   Fixed at the true root: `AppSettings.init()`'s fresh-install path now sets `canvas = "Ink"` (the
-   documented default) instead of `""`.
-2. `LibraryView` root wasn't wired to `\.yomiCanvas` (#15) — fixed, added the missing `.background()`.
-3. "Get plugins" (Library/Browse empty-state CTA) silently failed to deep-link into Plugins on a
-   genuinely first visit to More — `MoreView`'s `.onChange(of: appRouter.openMorePlugins)` doesn't
-   fire for a flag that's already `true` when the view first mounts. Fixed with `initial: true`.
-4. Library's multi-select bulk-action mode (checkboxes + action bar, built S82) was unreachable via
-   long-press on grid cells — `.contextMenu` was consistently winning over a separate
-   `.onLongPressGesture` on the same view (confirmed live, deterministic). Fixed by adding a "Select"
-   item to the context menu instead of the dead-code long-press gesture.
-5. Manually marking chapters read (Updates' mark-read/mark-all, Detail's per-chapter/bulk toggles,
-   and even `TextReaderView`'s own organic reading flow) never updated the manga/novel's `lastReadAt`
-   — only the reader's auto-mark-on-finish path did. Broke History, Library's "last read" sort, and
-   the Continue card for anything marked read outside that one path. Fixed at the query layer
-   (`ChapterQueries.setRead`, `NovelQueries.markRead`/`markAllChapters` now touch `lastReadAt`,
-   matching their sibling functions) across every call site.
-6. **Root-caused Known Issue #16 (S95's "mysterious accentColor survived uninstall") — not a Yomi
-   bug.** iOS Simulator's `cfprefsd` caches app preferences at a device-level path independent of the
-   app's Data Container, and `simctl uninstall` doesn't reliably clear it. Hit the same thing again
-   this session on `hasSeenOnboarding`. Real fresh-install testing on this simulator now requires
-   deleting `.../data/Library/Preferences/<bundleid>.plist` and restarting `cfprefsd` after uninstall
-   — plain `simctl uninstall` is not sufficient. See `Yomi/ROADMAP.md`'s S96 entry for the exact
-   commands and full detail on all 6 fixes, plus a note that 3 of 4 novel test sources tried this
-   session are currently genuinely Cloudflare/bot-gated site-side (not a Yomi bug, confirmed via
-   `curl`).
+S97-S98 worked through `Yomi/TACHIMANGA_PARITY.md` (a source-verified feature audit against Tachimanga,
+produced S97) end to end — **every item the audit itself flagged as high-value is now shipped.**
+S98 alone shipped 4 items, in order of increasing complexity:
+1. **Storage composition view** (`StorageManager.swift`/`StorageView.swift`, Advanced → Storage) — real
+   byte-accurate breakdown (Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other) with
+   Manage/Clear actions. Found + fixed a real SwiftUI bug live: a `GeometryReader` used directly as
+   List row content destabilized every row below it (untappable, accessibility-tree/scroll desync) —
+   moved the summary bar entirely outside the `List`.
+2. **Library/Settings round-out**: category item counts on Library's tab bar, Default Category
+   (auto-assign on add), Default Tab (launch tab), editable request timeout in Advanced → Network
+   (User Agent stays fixed — bound to the Cloudflare-bypass WebView's solved-challenge cookie), tap
+   zones expanded 3→6 presets, and a real double-tap-to-zoom fix (previously just reset to 1x).
+3. **Double-page spreads** for the manga reader (Single/Double/Automatic-in-landscape). `currentPage`
+   keeps meaning "a real page index" everywhere (progress/resume/scrubber) — `MangaReaderView`'s
+   `TabView` selection goes through a proxy `Binding` that snaps to the enclosing spread's start.
+4. **Migrate tab** (Browse → Migrate) — move a library manga to a different installed source,
+   transferring status/notes/categories/per-chapter read-state (matched by `chapterNumber`). **Real bug
+   found live, looked exactly like a dead button from the outside**: the confirmation dialog's
+   `isPresented` binding cleared `migrationTarget` as part of the same transaction as the button tap's
+   auto-dismiss, so re-reading `migrationTarget` inside the button's `async` closure (after a
+   suspension point) raced and saw `nil`. Fixed by capturing the target by value in the closure instead.
 
-Full walkthrough coverage: Library, Browse, Manga Detail+Reader (paged + webtoon auto-detect), Novel
-Detail+Reader, History, Updates, Downloads, Insights, More/Settings/Appearance Studio/About, and a
-full Onboarding run from a real fresh install. All confirmed working live.
+All 4 live-verified via `build_run_sim` + mobile-mcp (Migrate also cross-checked via direct sqlite
+inspection of the simulator's `yomi.db`), zero build warnings throughout. See `Yomi/ROADMAP.md`'s S98
+entry for full detail, and `Yomi/TACHIMANGA_PARITY.md` for the updated per-feature status table and
+remaining (now genuinely long-tail) backlog — full multi-device CloudKit sync is the only big item left,
+and needs its own architecture-scoping session like S90 gave the Suwayomi-server design.
+
+**Tooling note**: this session hit real `mobile-mcp` tap-delivery flakiness on plain `Button`s several
+navigation levels deep (confirmed via an untouched pre-existing button failing identically) —
+`NavigationLink`s stayed reliable throughout. Don't assume a dead-looking button is this tooling issue
+without first checking for a state race like the Migrate one above; they can look identical.
 
 
 Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and `Yomi/HISTORY.md`
@@ -127,6 +122,17 @@ mcp__mobile-mcp__mobile_take_screenshot         — visual snapshot
 mcp__mobile-mcp__mobile_list_elements_on_screen — accessibility tree with coordinates
 mcp__mobile-mcp__mobile_click_on_screen_at_coordinates — tap a UI element
 ```
+**Known flakiness (S98):** plain `Button` taps intermittently fail to register several navigation
+levels deep — confirmed via an untouched, pre-existing button failing identically, so it's a tooling
+issue, not a code regression. `NavigationLink`s stayed reliable throughout. Retrying 2-3 times, or a
+fresh `build_run_sim` relaunch, usually clears it. **But don't assume every dead-looking button is
+this** — S98 also found a real state-race bug (`confirmationDialog`'s `isPresented` binding clearing
+observable state before an `async` button closure re-read it) that looked externally identical to
+this tooling flakiness. If a tap-triggered dialog/sheet dismisses but nothing happens, check for a
+race before blaming the tool. For quick UserDefaults-backed setting changes, `xcrun simctl spawn
+<device> defaults write <bundle-id> <key> <value>` + relaunch is a reliable bypass. For DB-state setup
+(seeding test data), `sqlite3` directly against the simulator's `yomi.db` (via `xcrun simctl
+get_app_container <device> <bundle-id> data`) also works well and was used to verify Migrate.
 
 ### github
 Use for PR/issue management. Repo: `PacoDealer/Yomi`.
@@ -237,13 +243,17 @@ Yomi/Features/Library/LibraryView.swift        # grid/list toggle (settings.libr
 Yomi/Features/Library/LibraryViewModel.swift   # manga + novels; SortOrder enum; fetchLibrary() runs in Task.detached
 Yomi/Features/Library/MangaDetailView.swift    # Chapter tap→reader via navigationDestination(item:). insertAllIgnoringConflicts in loadChapters.
 Yomi/Features/Library/MangaCoverCell.swift     # Cover cell + MangaListRow struct (for list mode)
-Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse; Suwayomi section
-Yomi/Features/Reader/ChapterReaderView.swift   # Auto-mark read, incognito guard, lastPageRead save/resume
+Yomi/Features/Library/MigrateView.swift        # Migrate tab UI: library picker → per-source parallel search w/ match badges → confirm → migrate
+Yomi/Features/Library/MigrationService.swift   # Migration logic: transfers status/notes/categories/chapter read-state (matched by chapterNumber)
+Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse; Suwayomi section; Migrate segment
+Yomi/Features/Reader/ChapterReaderView.swift   # Auto-mark read, incognito guard, lastPageRead save/resume; MangaReaderView has double-page spread logic
 Yomi/Features/Reader/TextReaderView.swift      # Novel reader; overlay opacity animation; dynamic colorScheme (sepia/dark/light)
 Yomi/Features/More/PluginsView.swift
 Yomi/Features/More/SettingsView.swift          # Plugin Repos section, Suwayomi section, Advanced → NavigationLink; Appearance → AppearanceStudioView
 Yomi/Features/More/AppearanceStudioView.swift  # Canvas × Accent × Type studio; live preview card; WCAG contrast badge; app icon tiles; Reset defaults
-Yomi/Features/More/AdvancedSettingsView.swift  # Cache, Network (read-only), Database (log export), Build info
+Yomi/Features/More/AdvancedSettingsView.swift  # Cache → Storage NavigationLink, Network (editable timeout), Database (log export), Build info
+Yomi/Features/More/StorageManager.swift        # Pure FileManager/Kingfisher size computation for the Storage view — safe from Task.detached
+Yomi/Features/More/StorageView.swift           # Storage composition view: per-category size + Manage/Clear, reachable from Advanced
 Yomi/Features/More/InsightsView.swift          # ScrollView + LazyVGrid StatCards redesign
 Yomi/Features/Onboarding/OnboardingView.swift
 Yomi/Resources/                                # JS plugins (test-source.js only; production on Firebase)

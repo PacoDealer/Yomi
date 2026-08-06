@@ -1385,6 +1385,45 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   body via `mobile_list_elements_on_screen`'s full accessibility dump, not by reasoning about it in
   the abstract.
 
+## S98 — Technical learnings (2026-08-06)
+
+- **`GeometryReader` used directly as `List` row content destabilizes every row below it** — not just
+  a layout quirk, a real hit-testing bug. `StorageView`'s summary bar used a `GeometryReader` to
+  measure its own width for a proportional stacked-bar chart, placed as the first `Section`'s row
+  content; every row in every `Section` after it became untappable, and the List's actual scroll
+  position visibly desynced from what `mobile_list_elements_on_screen`'s accessibility tree reported
+  (rows reported at y-offsets that didn't match the screenshot). Fixed by moving the chart entirely
+  outside the `List` (a plain header view above it) — the safe pattern for any chart/graph that needs
+  its own geometry, inside a `List`, in this codebase from now on: don't nest `GeometryReader` in a row.
+- **A `confirmationDialog`/`.alert` with a computed `isPresented` `Binding` (derived from some other
+  observable, e.g. `optionalTarget != nil`) races its own dismiss-triggered `Binding` setter against an
+  `async` button closure that reads the same observable again.** SwiftUI's auto-dismiss-on-tap calls
+  the `isPresented` setter (which cleared `migrationTarget` in `MigrateView`) as part of the same
+  transaction as the button tap; a `Button { Task { await doThing() } }` whose `doThing()` re-reads
+  `migrationTarget` after a suspension point sees `nil` — the guard silently bails, no crash, no error.
+  From the outside this is indistinguishable from a dead button (dialog dismisses, nothing happens) —
+  looked exactly like the `mobile-mcp` tap-flakiness this session already knew about (see
+  `CLAUDE.md`'s mobile-mcp section), which cost real time before the actual cause was found. **Fix
+  pattern: capture the target by value in each button's closure at dialog-build time, never re-read the
+  optional/observable property inside the button's own action after any `await`.**
+- **`mobile-mcp` plain-`Button` tap flakiness (documented in `CLAUDE.md`) is real and distinct from the
+  race above** — confirmed by reproducing the identical symptom on `AdvancedSettingsView`'s untouched,
+  pre-existing "Export diagnostic log" button. `NavigationLink`s were reliably tappable throughout this
+  session even at the same navigation depth; only plain `Button` actions (sheet/dialog presentation,
+  in-place state mutation) were affected. When a button-triggered UI change won't register, try 2-3x
+  and a fresh relaunch before concluding it's a real bug — but check for a state race first if the
+  surrounding code has one, since the two failure modes are visually identical.
+- **`xcrun simctl spawn <device> defaults write <bundle-id> <key> -string <value>` is a reliable way to
+  seed a `UserDefaults`-backed `AppSettings` property for testing** without fighting flaky UI —
+  `AppSettings` reads all its defaults once in `init()`, so a relaunch (`build_run_sim` again) after
+  the `defaults write` picks it up. Used to force `pageLayout` to verify double-page spreads without
+  needing the in-reader settings sheet's gear icon (itself affected by the tap flakiness above).
+- **Direct `sqlite3` against the simulator's `yomi.db`** (path via `xcrun simctl get_app_container
+  <device> <bundle-id> data`, then `Documents/yomi.db`) is the fastest way to both seed test data (e.g.
+  marking a chapter read to verify Migrate's progress-transfer) and to verify a feature's actual
+  database effect when the UI's own confirmation is unreliable or absent. Read-only inspection is
+  always safe; writes for test-seeding purposes only (never as a substitute for the app's own logic).
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
