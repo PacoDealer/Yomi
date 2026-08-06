@@ -68,7 +68,7 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 | Step | Owner | Status |
 |------|-------|--------|
 | Upload app icon | [A] | ⬜ |
-| Age rating 17+, description (drafted S46), keywords, support URL | [A] | ⬜ |
+| Age rating 18+, description (drafted S46), keywords, support URL | [A] | ⬜ |
 | Screenshots — from redesigned screens, **Appearance Studio as the hero** | [CD]/[Me] produce, [A] upload | ⬜ |
 | Privacy: `PrivacyInfo.xcprivacy` ✅ (S22), privacy policy ✅ (yomi-plugins.web.app/privacy) | — | ✅ |
 | Final build → TestFlight → submit for review | [A] + [CC] | ⬜ |
@@ -134,7 +134,7 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 1. **Develop the app icon (Option A "Y.")** — resolve proportions / stroke weight / screentone density; build 3-layer art (bg / mid / mark) + a pure-white layer for Icon Composer (Xcode 26); export default/dark/tinted/clear.
 2. **Update the onboarding mark (N.08)** to match the final icon (currently the rejected crescent).
 3. **Hand off to Claude Code** — implement the system in SwiftUI: add Space Grotesk + Space Mono, update `DesignTokens.swift` (warm Ink surfaces + Vermilion default + theming model), add a `Notation` helper, build the Appearance Studio, apply components + screens from the Claude Design bundle.
-4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 17+, description (drafted S46), submit.
+4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 18+, description (drafted S46), submit.
 
 ⚠️ **Commit + push before closing:**
 `cd ~/Desktop/Projects/Yomi/iOS && git add -A && git commit -m "S79 cont: v0.3 screens approved + icon direction A + handoff" && git push`
@@ -149,6 +149,6 @@ Owner key: **[A]** = Andy · **[CD]** = Claude Design · **[CC]** = Claude Code 
 1. **Assemble the icon in Icon Composer** (Xcode 26): new doc → `layers/Ink-bg.png` as background, `layers/Ink-mark.png` as foreground, mark `Ink-white.png` as the pure-white/Tinted layer; repeat with the Paper layers as an alternate icon. QUICK PATH: drop `AppIcon-Ink-1024.png` straight into the asset catalog to ship now.
 2. **Update the onboarding mark (N.08)** in Claude Design to the final "Y." (currently the rejected crescent).
 3. **Hand off to Claude Code** — implement the design system in SwiftUI (Space Grotesk + Space Mono; warm-Ink `DesignTokens` + Vermilion default + theming model; Notation helper; Appearance Studio; apply components/screens); wire the two alternate icons (Ink/Paper) via `setAlternateIconName` from the Appearance Studio.
-4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 17+, description (drafted S46), submit.
+4. **App Store Connect** — upload icon, screenshots (Appearance Studio as hero), age rating 18+, description (drafted S46), submit.
 
 ⚠️ **Commit + push:** `cd ~/Desktop/Projects/Yomi/iOS && git add -A && git commit -m "S79 cont: final app icon (Y. monogram, Ink+Paper) + docs" && git push`

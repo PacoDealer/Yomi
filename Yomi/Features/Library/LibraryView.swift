@@ -79,31 +79,61 @@ struct LibraryView: View {
                                 if settings.libraryDisplayMode == "list" {
                                     LazyVStack(spacing: 0) {
                                         ForEach(viewModel.displayedManga) { manga in
-                                            NavigationLink(destination: MangaDetailView(manga: manga)) {
-                                                MangaListRow(manga: manga,
-                                                             unreadCount: viewModel.unreadCounts[manga.id] ?? 0)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .contextMenu {
-                                                Menu {
-                                                    ForEach(ReadingStatus.allCases) { status in
-                                                        Button {
-                                                            let id = manga.id
-                                                            Task.detached { try? MangaQueries.updateReadingStatus(mangaId: id, status: status) }
-                                                        } label: {
-                                                            Label(status.label, systemImage: status.systemImage)
-                                                        }
-                                                    }
-                                                } label: {
-                                                    Label("Reading Status", systemImage: "bookmark")
+                                            ZStack(alignment: .leading) {
+                                                NavigationLink(destination: MangaDetailView(manga: manga)) {
+                                                    MangaListRow(manga: manga,
+                                                                 unreadCount: viewModel.unreadCounts[manga.id] ?? 0,
+                                                                 isSelecting: isSelecting,
+                                                                 isSelected: selectedIds.contains(manga.id))
                                                 }
-                                                Divider()
-                                                Button(role: .destructive) {
-                                                    let m = manga
-                                                    Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
-                                                    Task { await viewModel.loadLibrary() }
-                                                } label: {
-                                                    Label("Remove from Library", systemImage: "trash")
+                                                .buttonStyle(.plain)
+                                                .disabled(isSelecting)
+
+                                                if isSelecting {
+                                                    Color.clear
+                                                        .contentShape(Rectangle())
+                                                        .onTapGesture {
+                                                            withAnimation(.spring(duration: 0.15)) {
+                                                                if selectedIds.contains(manga.id) {
+                                                                    selectedIds.remove(manga.id)
+                                                                } else {
+                                                                    selectedIds.insert(manga.id)
+                                                                }
+                                                            }
+                                                        }
+                                                }
+                                            }
+                                            .contentShape(Rectangle())
+                                            .contextMenu {
+                                                if !isSelecting {
+                                                    Button {
+                                                        withAnimation(.spring(duration: 0.2)) {
+                                                            isSelecting = true
+                                                            selectedIds.insert(manga.id)
+                                                        }
+                                                    } label: {
+                                                        Label("Select", systemImage: "checkmark.circle")
+                                                    }
+                                                    Menu {
+                                                        ForEach(ReadingStatus.allCases) { status in
+                                                            Button {
+                                                                let id = manga.id
+                                                                Task.detached { try? MangaQueries.updateReadingStatus(mangaId: id, status: status) }
+                                                            } label: {
+                                                                Label(status.label, systemImage: status.systemImage)
+                                                            }
+                                                        }
+                                                    } label: {
+                                                        Label("Reading Status", systemImage: "bookmark")
+                                                    }
+                                                    Divider()
+                                                    Button(role: .destructive) {
+                                                        let m = manga
+                                                        Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
+                                                        Task { await viewModel.loadLibrary() }
+                                                    } label: {
+                                                        Label("Remove from Library", systemImage: "trash")
+                                                    }
                                                 }
                                             }
                                             Divider().padding(.leading, 76)
@@ -165,14 +195,43 @@ struct LibraryView: View {
                                     if settings.libraryDisplayMode == "list" {
                                         LazyVStack(spacing: 0) {
                                             ForEach(viewModel.displayedNovels) { novel in
-                                                Button { selectedNovel = novel; showNovelDetail = true } label: {
-                                                    NovelLibraryListRow(
-                                                        novel: novel,
-                                                        unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0
-                                                    )
+                                                ZStack(alignment: .leading) {
+                                                    Button { selectedNovel = novel; showNovelDetail = true } label: {
+                                                        NovelLibraryListRow(
+                                                            novel: novel,
+                                                            unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
+                                                            isSelecting: isSelecting,
+                                                            isSelected: selectedNovelIds.contains(novel.id)
+                                                        )
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    .disabled(isSelecting)
+
+                                                    if isSelecting {
+                                                        Color.clear
+                                                            .contentShape(Rectangle())
+                                                            .onTapGesture {
+                                                                withAnimation(.spring(duration: 0.15)) {
+                                                                    if selectedNovelIds.contains(novel.id) {
+                                                                        selectedNovelIds.remove(novel.id)
+                                                                    } else {
+                                                                        selectedNovelIds.insert(novel.id)
+                                                                    }
+                                                                }
+                                                            }
+                                                    }
                                                 }
-                                                .buttonStyle(.plain)
+                                                .contentShape(Rectangle())
                                                 .contextMenu {
+                                                    if !isSelecting {
+                                                    Button {
+                                                        withAnimation(.spring(duration: 0.2)) {
+                                                            isSelecting = true
+                                                            selectedNovelIds.insert(novel.id)
+                                                        }
+                                                    } label: {
+                                                        Label("Select", systemImage: "checkmark.circle")
+                                                    }
                                                     Menu {
                                                         ForEach(ReadingStatus.allCases) { status in
                                                             Button {
@@ -193,6 +252,7 @@ struct LibraryView: View {
                                                         Task { await viewModel.loadLibrary() }
                                                     } label: {
                                                         Label("Remove from Library", systemImage: "trash")
+                                                    }
                                                     }
                                                 }
                                                 Divider().padding(.leading, 76)
@@ -611,10 +671,18 @@ private struct LibraryTab: View {
 private struct NovelLibraryListRow: View {
     let novel: Novel
     let unreadCount: Int
+    var isSelecting: Bool = false
+    var isSelected: Bool = false
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 12) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
+            }
+
             Group {
                 if let customPath = novel.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
@@ -646,9 +714,11 @@ private struct NovelLibraryListRow: View {
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+            if !isSelecting {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(canvas.textSecondary.opacity(0.6))
+            }
         }
         .padding(.vertical, 8)
     }

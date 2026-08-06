@@ -1424,6 +1424,49 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   database effect when the UI's own confirmation is unreliable or absent. Read-only inspection is
   always safe; writes for test-seeding purposes only (never as a substitute for the app's own logic).
 
+## S100 — Technical learnings (2026-08-06)
+
+- **Kingfisher's `ImageDownloader` defaults to `URLSessionConfiguration.ephemeral`, which has its own
+  private in-memory cookie store — completely separate from `HTTPCookieStorage.shared`.** This was the
+  real root cause of the AquaManga reader-page/cover-image bug (Known Issue #34/#9): `CFBypassView`
+  correctly copies `cf_clearance` into `HTTPCookieStorage.shared` after a Cloudflare challenge, and a
+  UA-matching `requestModifier` (added S89) is necessary but **not sufficient** — Kingfisher's ephemeral
+  session never sees that cookie jar at all, regardless of UA. Fix: give Kingfisher's downloader an
+  explicit session config with `httpCookieStorage = .shared` (`YomiApp.swift` init). Any future
+  Cloudflare-gated asset loaded through Kingfisher needs both pieces, not just the UA modifier — check
+  this first if a CF-bypassed source's images still fail after the challenge visibly succeeds.
+- **`AsyncImage` cannot carry a custom `requestModifier`/session config at all** — it's hardcoded to
+  `URLSession.shared`. Any image that needs Cloudflare-bypass cookies or a custom UA must use `KFImage`
+  (or another Kingfisher-backed view), never `AsyncImage`, even for the app's reader pages which
+  historically used it because covers were "the only Cloudflare-sensitive images." `ChapterReaderView`
+  had 3 separate `AsyncImage` call sites (`MangaPageView`, `WebtoonReaderView`,
+  `ContinuousHorizontalReaderView`) needing this swap.
+- **The S86 `NavigationLink` + `.contextMenu` "narrows tappable area to content only" bug (documented
+  in `CLAUDE.md` Known Issue row 8) reproduces for `.contextMenu` triggering itself, not just plain
+  taps.** Library's list-mode rows had a working tap-to-navigate (landing on real content: cover image,
+  title text) but a completely dead long-press/context-menu — no menu ever appeared, at any duration up
+  to 1500ms, while the structurally-identical grid-mode `MangaCoverCell` context menu worked reliably.
+  Root cause was the same missing `.contentShape(Rectangle())` on the row's outer container; adding it
+  fixed both tap-through-to-Spacer AND context-menu triggering. Any new `NavigationLink`/`Button` row
+  wrapped in a `ZStack` for a `.contextMenu` needs this by default in this codebase — don't wait for a
+  bug report to add it.
+- **`mobile-mcp` tap flakiness this session was frequently a real coordinate/hit-testing miss, not
+  random** — repeated identical taps at the same reported coordinate would alternately land correctly
+  and land nowhere (visually a "dead tap"), including on buttons with zero app-side state race
+  possible (e.g. a display-mode toggle `Button`). Confirmed via direct DB inspection (`sqlite3` on
+  `yomi.db`) that an OPDS-password Keychain toggle test actually *did* register on attempts that looked
+  identical to ones that didn't — the failure mode is genuinely inconsistent per-tap, not deterministic
+  on any one element. When a tap looks dead, retry 2-4x before concluding the UI itself is broken; when
+  in doubt about actual app state (not just visual confirmation), check the DB or `defaults read`
+  directly rather than trusting a screenshot.
+- **`xcrun simctl uninstall` wipes the whole app container, not just the specific `UserDefaults` key or
+  UI state you're trying to reset.** Reached for it to clear one stray text string that had leaked into
+  a settings `TextField` during tap-flakiness troubleshooting — it also erased the simulator's entire
+  accumulated library/reading-history test data built up over many prior sessions. If the goal is
+  resetting one specific value, use `xcrun simctl spawn <device> defaults delete <bundle-id> <key>` (or
+  direct `sqlite3` on `yomi.db`) instead — both are surgical and don't touch anything else. Reserve
+  `uninstall` for genuine fresh-install testing, where wiping everything is the actual goal.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy

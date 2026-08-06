@@ -1,5 +1,6 @@
 import SwiftUI
 import StoreKit
+import Kingfisher
 
 // MARK: - ReaderMode
 
@@ -38,6 +39,7 @@ struct ChapterReaderView: View {
     @State private var showDiscussSheet = false
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
+    @State private var toastMessage: String? = nil
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -155,6 +157,7 @@ struct ChapterReaderView: View {
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .tabBar)
+        .yomiToast($toastMessage)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
             sessionStart = Date()
@@ -284,6 +287,10 @@ struct ChapterReaderView: View {
                 try ChapterQueries.markRead(id: cid, mangaId: mid)
             } catch {
                 print("markChapterRead error: \(error)")
+                await MainActor.run {
+                    toastMessage = "Couldn't save read status"
+                    YomiHaptics.error()
+                }
             }
             // Auto-delete download after finishing a downloaded chapter
             if wasDownloaded && deleteAfterReading {
@@ -622,29 +629,35 @@ private struct MangaPageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @State private var loadFailed = false
 
     var body: some View {
         GeometryReader { geo in
-            AsyncImage(url: URL(string: url)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
+            // KFImage, not AsyncImage: page hosts behind Cloudflare (e.g. AquaManga) need the same
+            // UA-matching requestModifier YomiApp.swift registers globally on KingfisherManager —
+            // AsyncImage uses a bare URLSession with no way to attach that, so it 403s silently.
+            Group {
+                if loadFailed {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    KFImage(URL(string: url))
+                        .placeholder {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                        .onFailure { _ in loadFailed = true }
                         .resizable()
                         .scaledToFit()
                         .scaleEffect(scale)
                         .offset(offset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .failure:
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                default:
-                    ProgressView()
-                        .tint(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .onChange(of: url) { _, _ in loadFailed = false }
             .background(Color.black)
             .gesture(
                 MagnificationGesture()
@@ -710,21 +723,17 @@ struct WebtoonReaderView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                        AsyncImage(url: URL(string: url)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity)
-                            default:
+                        KFImage(URL(string: url))
+                            .placeholder {
                                 Rectangle()
                                     .fill(Color.gray.opacity(0.2))
                                     .aspectRatio(2 / 3, contentMode: .fit)
                                     .frame(maxWidth: .infinity)
                             }
-                        }
-                        .id(index)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .id(index)
                     }
                 }
                 .padding(.horizontal, CGFloat(settings.webtoonHorizontalPadding))
@@ -803,21 +812,17 @@ struct ContinuousHorizontalReaderView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                        AsyncImage(url: URL(string: url)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: .infinity)
-                            default:
+                        KFImage(URL(string: url))
+                            .placeholder {
                                 Rectangle()
                                     .fill(Color.gray.opacity(0.2))
                                     .aspectRatio(2 / 3, contentMode: .fit)
                                     .frame(maxHeight: .infinity)
                             }
-                        }
-                        .id(index)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: .infinity)
+                            .id(index)
                     }
                 }
                 .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)

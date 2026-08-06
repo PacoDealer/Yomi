@@ -23,7 +23,7 @@ Three choices depending on what you want to read:
 | **Setup** | URL pre-configured | Add URL below | Add address below |
 
 ### Yomi Catalog — URL pre-configured
-Hand-picked, high-quality sources for manga and novels. The catalog URL is added by default — just open Browse → Extensions and install.
+Hand-picked, high-quality sources for manga and novels. The catalog URL is added by default — just open Browse → Sources and install.
 
 ### LNReader Novels
 ```
