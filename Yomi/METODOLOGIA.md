@@ -1506,6 +1506,28 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   best-effort plugin metadata without requiring every plugin to explicitly export a new API: check
   `typeof` first, treat a miss as "this plugin can't help," never assume the global exists.
 
+## S102 — Technical learnings (2026-08-06)
+
+- **Before designing a sync system, trace how the local IDs you'd sync by are actually generated —
+  it can eliminate entire classes of hard sync problems for free.** Scoping CloudKit sync (see
+  `Yomi/CLOUDKIT_SYNC_DESIGN.md`), traced `Manga.id`/`Chapter.id` through `JSBridge.swift` expecting to
+  need a new stable-id scheme for CloudKit record identity. Found both are already content-derived
+  (the chapter's own URL/path, a plugin list-item's own id) — not locally-generated UUIDs. That single
+  fact removes two of the usually-hardest parts of any sync design: first-sync bootstrap on an
+  existing library needs no special merge logic (same content → same id → natural convergence, no
+  "did this get duplicated" risk), and an entire table (the chapter list itself) doesn't need to sync
+  at all, only the small mutable state layered on top of it — since every device already
+  re-derives the immutable part independently. Lesson: `grep` for where an entity's `id:` is actually
+  assigned before assuming a sync/dedup design needs new plumbing; an app's existing ID scheme is
+  often already doing useful work nobody designed on purpose.
+- **A quick `grep` for all call sites of a "delete" function before designing tombstone/deletion
+  propagation can turn out to make the problem nearly disappear.** Assumed CloudKit record deletion
+  would be a real design surface (it usually is, for any sync system). Grepped
+  `MangaQueries.delete`/`NovelQueries.delete`/`ChapterQueries.delete` — zero call sites in `Features/`.
+  The actual "remove from library" UI path is `toggleLibrary()` (a field update), not a row delete.
+  Deletion propagation ended up only needed for the one delete path that *is* actually called
+  (`CategoryQueries.delete`), not the three others that looked like they'd matter.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy

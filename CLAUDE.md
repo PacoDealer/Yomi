@@ -28,7 +28,23 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)
+## Current state (post S102 — 2026-08-06 · CloudKit sync architecture scoped, not implemented)
+
+**S102: designed the full multi-device CloudKit sync architecture** — the last big item on
+`TACHIMANGA_PARITY.md`'s backlog, scoped (not built) the same way S90 scoped the Suwayomi-server
+design before writing code. Full design doc: `Yomi/CLOUDKIT_SYNC_DESIGN.md`. Headline decisions
+(confirmed with Martin): sync on app foreground/background rather than real-time push (no push
+entitlement needed), and metadata + reading-state only — no downloaded files or custom cover images
+sync. Key finding: `Manga.id`/`Chapter.id` are already content-derived (traced through
+`JSBridge.swift`), not local UUIDs, which means (1) chapter lists never need to sync, only the small
+per-chapter state a user actually touches, and (2) first-sync bootstrap on an existing library needs
+no special merge logic — same content, same id, on any device. `CKSyncEngine` chosen over
+`NSPersistentCloudKitContainer` (Core Data-only, ruled out — Yomi is GRDB) and raw `CKDatabase` calls.
+See `Yomi/ROADMAP.md`'s S102 entry for the full narrative and `Yomi/CLOUDKIT_SYNC_DESIGN.md` for data
+model, write/read paths, bootstrap flow, entitlements, and testing plan. **Next session that picks
+this up starts by implementing against that doc**, not re-scoping.
+
+**Prior state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)**
 
 **S101: shipped the 3 features S100 deferred, plus a canvas×accent contrast audit that found 3 real
 bugs (live-testing, not just math).** Background auto-refresh (real `BGTaskScheduler` wiring —
