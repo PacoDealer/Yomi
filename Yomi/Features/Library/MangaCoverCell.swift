@@ -259,10 +259,18 @@ private struct SkeletonView: View {
 struct MangaListRow: View {
     let manga: Manga
     let unreadCount: Int
+    var isSelecting: Bool = false
+    var isSelected: Bool = false
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 12) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
+            }
+
             Group {
                 if let customPath = manga.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
@@ -294,9 +302,11 @@ struct MangaListRow: View {
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+            if !isSelecting {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(canvas.textSecondary.opacity(0.6))
+            }
         }
         .padding(.vertical, 8)
     }

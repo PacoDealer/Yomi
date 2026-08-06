@@ -331,9 +331,11 @@ import Observation
         didSet { defaults.set(opdsUsername, forKey: "opdsUsername") }
     }
 
-    /// Optional Basic-Auth password for the OPDS server
+    /// Optional Basic-Auth password for the OPDS server. Stored in Keychain, not UserDefaults
+    /// (matches the MAL-token precedent) — the stored property itself only exists so @Observable
+    /// can track it; the didSet writes through to Keychain instead of `defaults`.
     var opdsPassword: String {
-        didSet { defaults.set(opdsPassword, forKey: "opdsPassword") }
+        didSet { KeychainHelper.save(opdsPassword, for: "opdsPassword") }
     }
 
     // MARK: - Init
@@ -413,7 +415,12 @@ import Observation
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
-        opdsPassword             = d.string(forKey: "opdsPassword")             ?? ""
+        // opdsPassword: migrate any legacy UserDefaults value to Keychain, then load from Keychain.
+        if let legacy = d.string(forKey: "opdsPassword"), !legacy.isEmpty {
+            KeychainHelper.save(legacy, for: "opdsPassword")
+            d.removeObject(forKey: "opdsPassword")
+        }
+        opdsPassword             = KeychainHelper.load(for: "opdsPassword") ?? ""
         iCloudAutoBackup         = d.object(forKey: "iCloudAutoBackup")        as? Bool ?? true
         readingReminderEnabled   = d.object(forKey: "readingReminderEnabled") as? Bool ?? false
         readingReminderDays      = d.object(forKey: "readingReminderDays")    as? Int  ?? 2
