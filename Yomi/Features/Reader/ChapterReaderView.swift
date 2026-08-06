@@ -7,6 +7,9 @@ enum ReaderMode: String, CaseIterable {
     case horizontalRTL  = "Manga (RTL)"
     case horizontalLTR  = "Manhwa (LTR)"
     case verticalScroll = "Webtoon"
+    case verticalPaged  = "Paged (Vertical)"
+    case continuousRTL  = "Continuous (RTL)"
+    case continuousLTR  = "Continuous (LTR)"
 }
 
 // MARK: - ChapterReaderView
@@ -100,6 +103,26 @@ struct ChapterReaderView: View {
                         pages: pages,
                         currentPage: $currentPage,
                         showOverlay: $showOverlay
+                    )
+                case .verticalPaged:
+                    VerticalPagedReaderView(
+                        pages: pages,
+                        currentPage: $currentPage,
+                        showOverlay: $showOverlay
+                    )
+                case .continuousRTL:
+                    ContinuousHorizontalReaderView(
+                        pages: pages,
+                        currentPage: $currentPage,
+                        showOverlay: $showOverlay,
+                        isRTL: true
+                    )
+                case .continuousLTR:
+                    ContinuousHorizontalReaderView(
+                        pages: pages,
+                        currentPage: $currentPage,
+                        showOverlay: $showOverlay,
+                        isRTL: false
                     )
                 }
             }
@@ -613,6 +636,95 @@ struct WebtoonReaderView: View {
     }
 }
 
+// MARK: - ContinuousHorizontalReaderView
+
+struct ContinuousHorizontalReaderView: View {
+    let pages: [String]
+    @Binding var currentPage: Int
+    @Binding var showOverlay: Bool
+    var isRTL: Bool = false
+
+    @State private var visibleId: Int? = nil
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
+                        AsyncImage(url: URL(string: url)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: .infinity)
+                            default:
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .aspectRatio(2 / 3, contentMode: .fit)
+                                    .frame(maxHeight: .infinity)
+                            }
+                        }
+                        .id(index)
+                    }
+                }
+                .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
+            }
+            .scrollPosition(id: $visibleId, anchor: .center)
+            .onAppear {
+                if currentPage > 0 {
+                    proxy.scrollTo(currentPage, anchor: .center)
+                }
+            }
+            .onChange(of: visibleId) { _, id in
+                if let id { currentPage = id }
+            }
+            .onChange(of: currentPage) { _, new in
+                guard new != visibleId else { return }
+                withAnimation { proxy.scrollTo(new, anchor: .center) }
+            }
+        }
+        .ignoresSafeArea()
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showOverlay.toggle()
+            }
+        }
+    }
+}
+
+// MARK: - VerticalPagedReaderView
+
+struct VerticalPagedReaderView: View {
+    let pages: [String]
+    @Binding var currentPage: Int
+    @Binding var showOverlay: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            TabView(selection: $currentPage) {
+                ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
+                    MangaPageView(url: url)
+                        .frame(width: geo.size.height, height: geo.size.width)
+                        .rotationEffect(.degrees(-90))
+                        .tag(index)
+                }
+            }
+            .frame(width: geo.size.height, height: geo.size.width)
+            .rotationEffect(.degrees(90))
+            .frame(width: geo.size.width, height: geo.size.height)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+        }
+        .ignoresSafeArea()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showOverlay.toggle()
+            }
+        }
+    }
+}
+
 // MARK: - ReaderOverlayView
 
 struct ReaderOverlayView: View {
@@ -740,7 +852,10 @@ struct ReaderOverlayView: View {
                             Picker("Mode", selection: $readerMode) {
                                 Label("Right to left", systemImage: "book.pages").tag(ReaderMode.horizontalRTL)
                                 Label("Left to right", systemImage: "book.pages.fill").tag(ReaderMode.horizontalLTR)
-                                Label("Vertical scroll", systemImage: "scroll").tag(ReaderMode.verticalScroll)
+                                Label("Paged (vertical)", systemImage: "square.stack").tag(ReaderMode.verticalPaged)
+                                Label("Continuous (right to left)", systemImage: "arrow.left").tag(ReaderMode.continuousRTL)
+                                Label("Continuous (left to right)", systemImage: "arrow.right").tag(ReaderMode.continuousLTR)
+                                Label("Webtoon", systemImage: "scroll").tag(ReaderMode.verticalScroll)
                             }
                             .pickerStyle(.inline)
                             .labelsHidden()
