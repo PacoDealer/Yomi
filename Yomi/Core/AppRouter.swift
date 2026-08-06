@@ -21,7 +21,7 @@ final class AppRouter {
 
     // MARK: - State
 
-    var selectedTab: Int = 0
+    var selectedTab: Int
 
     /// When true, MoreView will push PluginsView and reset this flag.
     var openMorePlugins: Bool = false
@@ -32,5 +32,7 @@ final class AppRouter {
 
     // MARK: - Init
 
-    init() {}
+    init() {
+        selectedTab = AppSettings.shared.defaultTab
+    }
 }

@@ -68,6 +68,7 @@ final class LibraryViewModel {
     // MARK: - Categories
 
     var categories: [Category] = []
+    var categoryItemCounts: [String: Int] = [:]
 
     /// When nil → show all library manga. When set → filter to that category.
     var selectedCategoryId: String? = nil {
@@ -99,7 +100,8 @@ final class LibraryViewModel {
     func loadCategories() {
         Task.detached {
             let cats = (try? CategoryQueries.fetchAll()) ?? []
-            await MainActor.run { self.categories = cats }
+            let counts = (try? CategoryQueries.fetchItemCounts()) ?? [:]
+            await MainActor.run { self.categories = cats; self.categoryItemCounts = counts }
         }
     }
 
