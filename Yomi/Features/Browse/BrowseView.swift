@@ -16,12 +16,14 @@ struct BrowseView: View {
     @State private var opdsRootFeed: OPDSFeed? = nil
     @State private var opdsLoading = false
     @State private var showSearch = false
+    @State private var showMigrate = false
 
     var body: some View {
         NavigationStack {
             sourcesTab
                 .navigationTitle("Browse")
                 .navigationDestination(isPresented: $showSearch) { SearchScreen() }
+                .navigationDestination(isPresented: $showMigrate) { MigrateView() }
         }
     }
 
@@ -88,6 +90,7 @@ struct BrowseView: View {
             HStack(spacing: 6) {
                 segmentButton(title: "Sources", isSelected: true) {}
                 segmentButton(title: "Global search", isSelected: false) { showSearch = true }
+                segmentButton(title: "Migrate", isSelected: false) { showMigrate = true }
             }
             .padding(3)
             .background(canvas.surface2, in: Capsule())
