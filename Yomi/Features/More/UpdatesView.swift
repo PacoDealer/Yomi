@@ -112,9 +112,14 @@ private struct NovelReaderDest: Identifiable, Hashable {
         novelGroups = novelResult
     }
 
-    func refresh() async {
-        guard !isRefreshing else { return }
+    /// Returns the number of newly-discovered unread chapters (manga + novel) found this refresh.
+    @discardableResult
+    func refresh() async -> Int {
+        guard !isRefreshing else { return 0 }
         isRefreshing = true
+
+        let oldChapterIds = Set(groups.flatMap { $0.chapters.map(\.id) })
+        let oldNovelChapterIds = Set(novelGroups.flatMap { $0.chapters.map(\.id) })
 
         let (library, novelLibrary) = await Task.detached(priority: .userInitiated) {
             let manga = (try? MangaQueries.fetchLibrary()) ?? []
@@ -133,6 +138,11 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         await loadFromDB()
         isRefreshing = false
+
+        let newChapterIds = Set(groups.flatMap { $0.chapters.map(\.id) })
+        let newNovelChapterIds = Set(novelGroups.flatMap { $0.chapters.map(\.id) })
+        return newChapterIds.subtracting(oldChapterIds).count
+            + newNovelChapterIds.subtracting(oldNovelChapterIds).count
     }
 
     private func checkUpdates(for manga: Manga) async {
@@ -347,6 +357,7 @@ struct UpdatesView: View {
     @State private var mangaReaderDest: MangaReaderDest? = nil
     @State private var novelReaderDest: NovelReaderDest? = nil
     @State private var isLoadingReader = false
+    @State private var refreshSummary: String? = nil
 
     private var hasContent: Bool { !vm.groups.isEmpty || !vm.novelGroups.isEmpty }
 
@@ -389,17 +400,30 @@ struct UpdatesView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                 }
-                .refreshable { await vm.refresh() }
+                .refreshable { await runRefresh() }
             }
         }
         .navigationTitle("Updates")
+        .overlay(alignment: .top) {
+            if let summary = refreshSummary {
+                Text(summary)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: refreshSummary)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if vm.isRefreshing || isLoadingReader {
                     ProgressView()
                 } else {
                     Button {
-                        Task { await vm.refresh() }
+                        Task { await runRefresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
@@ -476,6 +500,18 @@ struct UpdatesView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Refresh summary
+
+    private func runRefresh() async {
+        let newCount = await vm.refresh()
+        let summary = newCount == 0
+            ? "No new chapters"
+            : "\(newCount) new chapter\(newCount == 1 ? "" : "s") found"
+        refreshSummary = summary
+        try? await Task.sleep(for: .seconds(2))
+        if refreshSummary == summary { refreshSummary = nil }
     }
 
     // MARK: - Reader loading
