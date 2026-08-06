@@ -134,7 +134,7 @@ private struct OnboardingPage: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(Color.accentColor)
-                        .foregroundStyle(Color(hex: "#FFF8F5"))
+                        .foregroundStyle(AppSettings.shared.accentForeground)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
 

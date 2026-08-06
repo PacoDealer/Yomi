@@ -141,7 +141,7 @@ struct MangaCoverCell: View {
                 if !manga.inLibrary && dbInLibrary && !isSelecting {
                     Image(systemName: "bookmark.fill")
                         .font(.caption2)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppSettings.shared.accentForeground)
                         .padding(4)
                         .background(Color.accentColor.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
                         .padding(5)
@@ -151,7 +151,7 @@ struct MangaCoverCell: View {
                 if unreadCount > 0 && !isSelecting && AppSettings.shared.showUnreadBadge {
                     Text("\(min(unreadCount, 999))")
                         .font(YomiTokens.Font.mono(11, bold: true))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppSettings.shared.accentForeground)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
                         .background(Color.accentColor)

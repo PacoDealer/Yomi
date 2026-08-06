@@ -164,10 +164,10 @@ private struct ContinueHeroCard: View {
                         Text("Resume")
                             .font(YomiTokens.Font.grotesk(13, weight: .medium))
                         if isLoading {
-                            ProgressView().scaleEffect(0.6).tint(.white)
+                            ProgressView().scaleEffect(0.6).tint(AppSettings.shared.accentForeground)
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppSettings.shared.accentForeground)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(Color.accentColor, in: Capsule())
@@ -557,14 +557,18 @@ private struct ContinueReadingNovelCell: View {
                             .frame(height: 3)
                         }
                     }
-                    .overlay(alignment: .topLeading) {
-                        Text("N")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
+                    .overlay(alignment: .topTrailing) {
+                        // Same "NOVEL" pill as the Library grid's NovelLibraryCoverCell — this
+                        // shelf used to render a solid accent-filled "N" square instead, a second,
+                        // visually louder novel indicator that didn't match anywhere else.
+                        Text("NOVEL")
+                            .font(YomiTokens.Font.mono(10, bold: true))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
-                            .padding(4)
+                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
+                            .padding(.top, 6)
+                            .padding(.trailing, 6)
                     }
 
                     Text(novel.title)

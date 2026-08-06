@@ -1817,6 +1817,27 @@ final class JSBridge {
         return URL(string: urlString)
     }
 
+    // MARK: - Source URL (best-effort, no plugin changes required)
+
+    /// Absolute URL of a chapter/manga's page on its origin site — backs the reader's
+    /// "view source" icon. `path` is usually source-relative (each plugin strips its own
+    /// `BASE_URL`/`BASE` constant before storing `path`), so this opportunistically reads that
+    /// same top-level global back out of the JS context and re-prepends it. Not every plugin
+    /// exposes a resolvable base this way — IIFE-bundled plugins (esbuild output, `var BASE_URL`
+    /// stays lexically scoped) and pure-API sources (MangaDex, Comick — `path` is an id, not a
+    /// URL segment) can't resolve one. Returns nil rather than guessing; callers should hide the
+    /// icon in that case instead of showing a dead link.
+    nonisolated func resolveSourceURL(path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        if path.hasPrefix("http://") || path.hasPrefix("https://") {
+            return URL(string: path)
+        }
+        guard let result = context.evaluateScript(
+            "(typeof BASE_URL !== 'undefined') ? BASE_URL : ((typeof BASE !== 'undefined') ? BASE : '')"
+        ), let base = result.toString(), !base.isEmpty, base != "undefined" else { return nil }
+        return URL(string: base + path)
+    }
+
     // MARK: - Search
 
     nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {

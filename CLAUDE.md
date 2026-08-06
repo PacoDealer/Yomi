@@ -28,7 +28,43 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S100 — 2026-08-06 · S99 audit backlog cleared)
+## Current state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)
+
+**S101: shipped the 3 features S100 deferred, plus a canvas×accent contrast audit that found 3 real
+bugs (live-testing, not just math).** Background auto-refresh (real `BGTaskScheduler` wiring —
+`com.yomi.refresh` registered in `AppDelegate`, scheduled on `scenePhase == .background`, handler
+reuses `UpdatesViewModel.refresh()` verbatim), background download (gated on auto-refresh, hooks into
+`UpdatesViewModel.checkUpdates(for:)`'s new-chapter discovery to auto-enqueue via `DownloadManager`,
+manga only), and an in-reader source-URL globe icon (new `JSBridge.resolveSourceURL(path:)` —
+best-effort, no plugin changes: reads a plugin's own top-level `BASE_URL`/`BASE` JS global back out
+of the JSContext when `path` isn't already absolute; works for ~7 of 15 plugins + Mangayomi-format
+sources, hides the icon rather than guessing for the rest). Toggles in `SettingsView`'s Data section,
+both default off.
+
+**Theme audit (Martin's ask: "revise how the different app themes look with every possible accent
+combination"), computed first, then live-verified — found the audit's own math was too optimistic
+until live-tested.** WCAG contrast across all 4 canvases × 11 accents flagged: (1) most accents are
+barely visible as icons/progress-bars on Paper/Sepia (as low as 1.24:1) — a real, unresolved tension
+between "accent is always exactly the user's chosen color" and legibility, flagged for Martin rather
+than silently recolored; (2) every accent's hardcoded white button-label text was failing WCAG AA
+except Indigo — confirmed live (Ink + Yellow: "Resume" text genuinely unreadable). Fixed with
+`YomiTokens.Accent.foreground(for:on:)`, applied at ~12 real sites app-wide. **First version of that
+fix was itself wrong, caught by Martin from a live screenshot**: a blanket "pick whichever of
+white/black wins" formula flipped even passing defaults (Vermilion on Ink) to black, breaking the
+card's all-one-ink-color convention — corrected to keep the canvas's own ink color whenever it clears
+a 3:1 threshold, only flipping for accents that genuinely fail. Martin's screenshot also caught 2 more
+real bugs missed by the math-only pass: `CoverImage.swift`'s no-cover placeholder used `Color.secondary`
+(system light/dark only) instead of canvas tokens, and — root-caused while fixing — Kingfisher's
+`KFImage.placeholder` doesn't live-repaint on an environment-only change (`.id(canvas.name)` forces a
+remount on canvas switch); and a novel-indicator badge rendered two different ways on two screens
+(Library grid's "NOVEL" pill vs. the Continue shelf's chunky "N" square), unified to the pill. **Lesson
+for future theme/design passes: WCAG math alone missed real bugs a live screenshot caught in seconds —
+always live-verify at least the worst-case combos the math flags, don't stop at the calculator.**
+
+Full narrative in `Yomi/ROADMAP.md`'s S101 entry. All fixes live-verified via `build_run_sim` +
+mobile-mcp/XcodeBuildMCP screenshots across multiple canvas×accent combos, zero build warnings.
+
+**Prior state (post S100 — 2026-08-06 · S99 audit backlog cleared)**
 
 **S100: worked through S99's Known Issues backlog end to end** (rows 24-30, 25, 26, 34, 35 — age
 rating, doc cleanup, OPDS→Keychain, silent-failure toasts, the AquaManga reader-page bug, list-mode
@@ -125,12 +161,15 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 28 | ~~`README.md` still references removed Extensions tab~~ | ✅ Fixed S100 — line 26 changed from "open Browse → Extensions and install" to "open Browse → Sources and install," matching line 54's already-correct wording. |
 | 29 | ~~`EXTENSIONS.md` orphaned/stale~~ | ✅ Fixed S100 — deleted. Not referenced from any Swift source (the in-app "Plugin setup guide" link points to `README.md`), and its content (7/15 plugins, built around the removed Extensions tab) was fully superseded by `README.md`'s repository-based install flow. |
 | 30 | ~~This doc's own file-index note is stale~~ | ✅ Fixed S100 — the "Key file paths" table's `NovelQueries.swift` note corrected to reflect its real call sites (`LibraryViewModel.swift:191`, `UpdatesView.swift:96,126`). |
-| 31 | No "background auto-refresh" toggle in UI | Confirmed via live test S99 — checked Settings (Data/Reading), Update Rules, and Advanced Settings in full; no toggle for *when* update checks run exists anywhere in the UI. Whether `BGTaskScheduler` silently powers background checks under the hood is a separate, still-open code question. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing from the UI at least. |
-| 32 | No "background download" toggle in UI | Confirmed via live test S99 — checked Settings' Data section and Advanced Settings in full; no such toggle exists anywhere. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing. |
-| 33 | In-reader header has no source-URL/globe icon | Confirmed via live test S99 — opened the manga reader (AquaManga, "Path of Vengeance" Ch. 2); header shows only back/list/settings icons, no source-URL or external-link icon. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing. |
+| 31 | ~~No "background auto-refresh" toggle in UI~~ | ✅ Fixed S101 — real `BGTaskScheduler` wiring (`com.yomi.refresh`, registered in `AppDelegate`, scheduled on `scenePhase == .background`), not just a toggle. Handler reuses `UpdatesViewModel.refresh()` verbatim. Toggle in `SettingsView`'s Data section, default off. Actually triggering a real `BGAppRefreshTask` fire isn't practically testable in the simulator without lldb — registration/no-crash/toggle-persistence verified live, the task body itself was not. |
+| 32 | ~~No "background download" toggle in UI~~ | ✅ Fixed S101 — `AppSettings.backgroundDownloadEnabled`, gated on #31 (disabled/dimmed in Settings while auto-refresh is off). Wired into `UpdatesViewModel.checkUpdates(for:)`'s new-chapter discovery to auto-enqueue via `DownloadManager`. Manga only — novels have no download feature at all, not just in the background. |
+| 33 | ~~In-reader header has no source-URL/globe icon~~ | ✅ Fixed S101 — new `JSBridge.resolveSourceURL(path:)`, best-effort with no plugin changes required: reads a plugin's own top-level `BASE_URL`/`BASE` JS global back out of the JSContext when `path` isn't already absolute. Works for ~7 of 15 plugins (those declaring `const BASE_URL` outside an IIFE) plus Mangayomi-format sources; can't resolve one for esbuild-bundled IIFE plugins or pure-API sources (MangaDex/Comick) — hides the icon rather than guessing. Wired into both `ChapterReaderView.swift` and `TextReaderView.swift`, reusing the existing `DiscussWebSheet`. Icon visibility (meaning URL resolution) verified live against AquaManga; tap-to-open hit this session's mobile-mcp tap flakiness (a control tap on the pre-existing gearshape icon failed identically) and wasn't re-confirmed past that. |
 | 34 | ~~AquaManga reader page failed to render live~~ | ✅ Root-caused + fixed S100 — deeper than #9's UA-only theory. Reader pages (`ChapterReaderView.swift`'s `MangaPageView`/`WebtoonReaderView`/`ContinuousHorizontalReaderView`) used raw `AsyncImage`, which can't carry any custom request modifier at all — switched to `KFImage` (matching `CoverImage.swift`'s pattern) so they inherit `KingfisherManager.shared`'s global config. But that alone still 403'd live: Kingfisher's `ImageDownloader` defaults to `URLSessionConfiguration.ephemeral`, which keeps its own private in-memory cookie store — invisible to `HTTPCookieStorage.shared`, exactly where `CFBypassView` copies the `cf_clearance` cookie. Fixed by pointing Kingfisher's downloader at an explicit session config with `httpCookieStorage = .shared` (`YomiApp.swift` init, alongside the existing UA `requestModifier`). This was the real root cause of **both** #34 and #9's previously-unverified cover fix — verified live: AquaManga's cover art and "Path of Vengeance" Ch. 2 pages 1–2 all render correctly now (previously gray placeholder / broken-image icon). |
 | 35 | ~~List-mode multi-select still open (re: #19)~~ | ✅ Fixed S100 — confirmed genuinely broken (not just untested): list mode's `.contextMenu` had no "Select" entry and `MangaListRow`/`NovelLibraryListRow` had no selection UI at all, unlike grid mode's `MangaCoverCell`/`NovelLibraryCoverCell` (fixed S96). Added matching "Select" context-menu entries + checkbox rendering to both list rows, wired into the same `isSelecting`/`selectedIds`/`selectedNovelIds` state grid mode already uses (so the existing toolbar Select-All/Cancel and bottom bulk-action bar work for free). Hit the exact `NavigationLink` + `.contextMenu` "narrows tappable area to content only" bug documented in row 8's S86 finding — fixed the same way, an explicit `.contentShape(Rectangle())` on the row container. Verified live: long-press → Select → multi-row checkbox selection → bulk-action bar, both manga and novel list rows. |
 | 36 | ~~App Store Connect readiness has zero local tracking artifact~~ | ✅ Fixed S100 — `Yomi/ROADMAP.md`'s "App Store submission checklist" table is now the single authoritative source (updated to current accurate status — app icon done, OPDS Keychain done, ATS review-note item added from #27). This file's own "App Store checklist" section now points to it instead of duplicating. RESEARCH.md/HISTORY.md sections are historical/research narrative, not live checklists — left as-is, not floating duplicates of the actionable list. |
+| 37 | ~~Accent-fill buttons had hardcoded white text, unreadable on bright accents~~ | ✅ Fixed S101 — WCAG audit found every accent preset except Indigo failed AA (4.5:1) for white text on its own fill; confirmed live (Ink + Yellow: "Resume" text invisible, 1.52:1). New `YomiTokens.Accent.foreground(for:on:)` keeps the canvas's own ink color whenever it clears 3:1 against the accent, else flips to the opposite pole — applied at ~12 real sites (Resume buttons, badges, empty-state/onboarding CTAs, selection checkmarks). A first "always pick whichever of white/black wins" version was wrong (flipped passing defaults like Vermilion-on-Ink to black, breaking the card's one-ink-color convention) — caught live by Martin, corrected to the threshold version. Paper/Sepia's deeper issue — most accents are also low-contrast as icons/progress-bars directly against those light backgrounds — is a real, separate, *unresolved* color-science tension (accent-vs-bg, not fixable by a foreground-color trick) and was deliberately left for Martin to weigh in on rather than silently recoloring his chosen accents. |
+| 38 | ~~No-cover placeholder ignored canvas selection~~ | ✅ Fixed S101 — `Core/CoverImage.swift`'s placeholder used `Color.secondary` (system light/dark mode only), not canvas tokens; any manga/novel without cover art rendered a plain gray box regardless of Ink/Midnight/Paper/Sepia. Fixed to `canvas.surface2`. Root-caused a second layer while fixing: Kingfisher's `KFImage.placeholder` snapshots once at mount and doesn't live-repaint on an environment-only change (correct from a fresh launch with the new canvas already active, stale after switching canvas mid-session without relaunching) — added `.id(canvas.name)` to force a clean remount on every canvas switch, verified live both ways. |
+| 39 | ~~Novel indicator badge rendered two different ways~~ | ✅ Fixed S101 (Martin's live catch) — Library grid's `NovelLibraryCoverCell` used a small translucent "NOVEL" text pill (top-trailing); `ContinueReadingRow`'s "Up next" shelf used a chunky solid-accent-filled "N" square (top-leading) for the exact same meaning. Unified the shelf cell to the grid's pill style. |
 
 ## MCP tools — use these every session
 
@@ -264,7 +303,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 ```
 Yomi/AppSettings.swift                         # @Observable singleton, UserDefaults, 40+ props (incl. canvas, accentColor, libraryColumns, keepScreenOn, isIncognito, showUnreadBadge, lineSpacing, libraryDisplayMode)
 Yomi/ContentView.swift                         # Root TabView with AppRouter binding
-Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBUG seed, .tint + .preferredColorScheme on ContentView
+Yomi/YomiApp.swift                             # Entry point, DB setup, #if DEBUG seed, .tint + .preferredColorScheme on ContentView, BGTaskScheduler registration + scheduleBackgroundRefresh()
 Yomi/Core/AppRouter.swift                      # @Observable, module-level appRouter var
 Yomi/Core/Color+Hex.swift                      # Color(hex:) init + Color.hexString
 Yomi/Core/DesignTokens.swift                   # YomiTokens: Canvas (Ink/Midnight/Paper/Sepia), Accent (Vermilion default), Font (Space Grotesk + Mono), TypeScale, Reader themes, Radius, Spacing, Motion

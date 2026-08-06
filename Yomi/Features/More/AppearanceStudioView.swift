@@ -14,6 +14,7 @@ struct AppearanceStudioView: View {
 
     private var canvas: YomiTokens.CanvasColors { settings.canvasColors }
     private var accent: Color { Color(hex: settings.accentColor) }
+    private var accentForeground: Color { settings.accentForeground }
 
     private let accentSwatches = YomiTokens.Accent.presets.map(\.hex)
 
@@ -98,7 +99,7 @@ struct AppearanceStudioView: View {
                             .overlay(
                                 Text("Resume")
                                     .font(.custom(YomiTokens.Font.groteskFamily, size: 11).weight(.medium))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(accentForeground)
                             )
                     }
                 }
@@ -280,7 +281,8 @@ struct AppearanceStudioView: View {
                 Circle().fill(Color(hex: hex)).frame(width: 32, height: 32)
                 if isSelected {
                     Circle().strokeBorder(.white, lineWidth: 2.5).frame(width: 32, height: 32)
-                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(YomiTokens.Accent.foreground(for: hex, on: canvas.textPrimary))
                 }
             }
         }

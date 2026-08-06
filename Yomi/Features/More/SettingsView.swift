@@ -226,6 +226,12 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             rowDivider()
+            toggleRow("Background auto-refresh", isOn: $settings.backgroundAutoRefreshEnabled, subtitle: "Periodically check for new chapters when the app isn't open. iOS decides the actual timing.")
+            rowDivider()
+            toggleRow("Background download", isOn: $settings.backgroundDownloadEnabled, subtitle: settings.backgroundAutoRefreshEnabled ? "Auto-download new manga chapters found during a background refresh" : "Requires background auto-refresh — otherwise nothing runs to find new chapters")
+                .disabled(!settings.backgroundAutoRefreshEnabled)
+                .opacity(settings.backgroundAutoRefreshEnabled ? 1 : 0.5)
+            rowDivider()
             navRow("Update rules") { UpdatesSettingsView() }
         }
     }

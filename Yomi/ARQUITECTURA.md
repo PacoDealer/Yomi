@@ -725,6 +725,8 @@ Plugin declares `disqusShortname` field. Future feature, not S23.
 | module-level appRouter | AppRouter.shared singleton | Consistent with appDatabase pattern; nonisolated(unsafe) at module level is the established pattern in this project |
 | Remove bundled plugins for App Store | Ship 7 .js files in binary | Binary with piracy-adjacent content risks rejection; user-installed model is legally sound and has App Store precedent |
 | OnboardingView on first launch | No onboarding, empty state only | Without onboarding, new users see an empty app and churn; Paperback users confirm the "setup moment" is critical |
+| BGAppRefreshTask reuses UpdatesViewModel.refresh() (S101) | Separate background-only update-check implementation | One code path for manual/pull-to-refresh/background refresh — no risk of the background path silently drifting from what Updates' own refresh does |
+| resolveSourceURL reads a plugin's own JS global (S101) | Require every plugin to export a new `getSourceURL()` API | Zero-plugin-change, best-effort — works for ~7/15 existing plugins for free; a required API would need updating all 15 plugin files + Firebase redeploy for a "nice to have" reader icon |
 
 ## App Store strategy
 Yomi uses the extension model for App Store compliance, identical to Paperback and Aidoku:

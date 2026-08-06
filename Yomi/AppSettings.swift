@@ -71,6 +71,13 @@ import Observation
         canvas.isEmpty ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(canvas)
     }
 
+    /// Legible label/icon color for content rendered on an accent-colored fill (Resume buttons,
+    /// unread badges, empty-state CTAs, …). Read this instead of hardcoding `.white` — several
+    /// accent presets are too bright for white text to stay readable on them.
+    var accentForeground: Color {
+        YomiTokens.Accent.foreground(for: accentColor, on: canvasColors.textPrimary)
+    }
+
     var useSystemFont: Bool {
         didSet { defaults.set(useSystemFont, forKey: "useSystemFont") }
     }
@@ -240,6 +247,21 @@ import Observation
         didSet { defaults.set(concurrentDownloads, forKey: "concurrentDownloads") }
     }
 
+    // MARK: - Background tasks
+
+    /// Periodically check the library for new chapters in the background (BGAppRefreshTask).
+    /// iOS decides actual timing/frequency — this only controls whether one gets scheduled at all.
+    var backgroundAutoRefreshEnabled: Bool {
+        didSet { defaults.set(backgroundAutoRefreshEnabled, forKey: "backgroundAutoRefreshEnabled") }
+    }
+
+    /// Auto-download newly-discovered manga chapters found during a background refresh.
+    /// No effect while `backgroundAutoRefreshEnabled` is off — nothing runs to find new chapters.
+    /// Novels have no download feature at all (not just in the background), so this is manga-only.
+    var backgroundDownloadEnabled: Bool {
+        didSet { defaults.set(backgroundDownloadEnabled, forKey: "backgroundDownloadEnabled") }
+    }
+
     // MARK: - Smart updates
 
     /// Skip update check for manga that has unread chapters
@@ -400,6 +422,8 @@ import Observation
         autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true
         deleteDownloadAfterReading = d.object(forKey: "deleteDownloadAfterReading") as? Bool ?? true
         concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 3
+        backgroundAutoRefreshEnabled = d.object(forKey: "backgroundAutoRefreshEnabled") as? Bool ?? false
+        backgroundDownloadEnabled    = d.object(forKey: "backgroundDownloadEnabled")    as? Bool ?? false
         skipUpdateWithUnread    = d.object(forKey: "skipUpdateWithUnread")         as? Bool ?? false
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false

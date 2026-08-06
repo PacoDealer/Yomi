@@ -1467,6 +1467,45 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   direct `sqlite3` on `yomi.db`) instead — both are surgical and don't touch anything else. Reserve
   `uninstall` for genuine fresh-install testing, where wiping everything is the actual goal.
 
+## S101 — Technical learnings (2026-08-06)
+
+- **WCAG contrast math alone isn't enough to validate a design-token fix — live-screenshot it before
+  calling it done.** Computing accent-vs-canvas and white-vs-accent contrast ratios for all 44
+  canvas×accent combos correctly identified that hardcoded white button text was failing AA on most
+  accents, but the *first* fix — "always render whichever of white/black wins the higher contrast
+  ratio" — was itself wrong in a way the math didn't flag: it "correctly" flipped Vermilion-on-Ink
+  (the actual shipping default) from white to black, since black's ratio (5.29) edges out white's
+  (3.97). The math wasn't wrong, but the framing was — a formal AA pass and "does this look right"
+  are different questions, and only a live screenshot caught that the fix broke the card's established
+  all-one-ink-color visual convention for a combo that already read fine in practice. Lesson: after any
+  contrast/color-token fix, screenshot the actual default configuration, not just the pathological
+  cases the audit flagged.
+- **Kingfisher's SwiftUI `KFImage.placeholder { }` builder snapshots once at mount and does not
+  live-repaint on an environment-only change.** Confirmed via a controlled test: the same nil-URL cell
+  rendered the correct canvas-token color when the app launched fresh with that canvas already active,
+  but stayed stuck on the *previous* canvas's color after switching canvas mid-session without
+  relaunching — even though the `@Environment(\.yomiCanvas)` read and the color logic were both
+  correct. Fix: `.id(canvas.name)` on the `KFImage` forces SwiftUI to treat a canvas switch as a brand
+  new view instance, which Kingfisher then mounts fresh with the current environment. Any future
+  Kingfisher `.placeholder`/`.onFailure` builder that reads canvas/theme-dependent state needs the same
+  `.id()` treatment, or it will silently go stale on any live theme switch.
+- **A `Button` control failing to respond isn't proof of a code bug — check whether a known-working
+  control on the same screen fails identically first.** Both a newly-added button and the reader's
+  pre-existing, previously-shipped gearshape settings button failed to register taps identically in
+  the same session; one tap even registered as a full-screen background tap (toggling the reader
+  overlay off) instead of hitting either circular chip, pointing to a coordinate-mapping issue on that
+  screen at that moment rather than either button's code. Matches this project's already-documented
+  mobile-mcp tap flakiness (`CLAUDE.md`'s mobile-mcp section) — the control-button check is the fast
+  way to tell "my new code is broken" apart from "the tooling is flaky right now" without burning many
+  retries.
+- **A plugin's own top-level `const`/`var BASE_URL` is opportunistically readable back out of its
+  JSContext for URL-resolution purposes it was never written for** — `context.evaluateScript("typeof
+  BASE_URL !== 'undefined' ? BASE_URL : ''")` safely returns `''` (not a crash) for plugins that never
+  declare it, or that declare it `var`-scoped inside an IIFE (esbuild-bundled TS sources — the variable
+  never reaches the global object). Useful pattern for any future Swift-side feature that wants
+  best-effort plugin metadata without requiring every plugin to explicitly export a new API: check
+  `typeof` first, treat a miss as "this plugin can't help," never assume the global exists.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy

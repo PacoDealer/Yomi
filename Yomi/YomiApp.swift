@@ -1,6 +1,35 @@
 import SwiftUI
 import UIKit
 import Kingfisher
+import BackgroundTasks
+
+// MARK: - Background refresh
+
+let backgroundRefreshTaskId = "com.yomi.refresh"
+
+/// Submits the next BGAppRefreshTask request. iOS decides the actual fire time (typically hours
+/// out, based on usage patterns) — `earliestBeginDate` is a lower bound, not a schedule.
+func scheduleBackgroundRefresh() {
+    let request = BGAppRefreshTaskRequest(identifier: backgroundRefreshTaskId)
+    request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
+    try? BGTaskScheduler.shared.submit(request)
+}
+
+/// Handler for `com.yomi.refresh`, registered at launch. Reuses the exact same library-wide
+/// update check the Updates tab's manual refresh/pull-to-refresh runs (`UpdatesViewModel.refresh()`)
+/// — background auto-download (if enabled) is wired inside that same code path, not here.
+func handleBackgroundRefresh(_ task: BGAppRefreshTask) {
+    if AppSettings.shared.backgroundAutoRefreshEnabled {
+        scheduleBackgroundRefresh()
+    }
+    let refreshTask = Task {
+        await UpdatesViewModel.shared.refresh()
+        task.setTaskCompleted(success: true)
+    }
+    task.expirationHandler = {
+        refreshTask.cancel()
+    }
+}
 
 // MARK: - AppDelegate
 
@@ -9,6 +38,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundRefreshTaskId, using: nil) { task in
+            handleBackgroundRefresh(task as! BGAppRefreshTask)
+        }
         application.shortcutItems = [
             UIApplicationShortcutItem(
                 type: "com.yomi.continueReading",
@@ -148,6 +180,7 @@ struct YomiApp: App {
             }
             if phase == .background {
                 if settings.appLockEnabled { isLocked = true }
+                if settings.backgroundAutoRefreshEnabled { scheduleBackgroundRefresh() }
                 if settings.iCloudAutoBackup {
                     Task { await BackupManager.shared.uploadToICloud() }
                 }
