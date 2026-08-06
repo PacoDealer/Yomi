@@ -28,7 +28,23 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S98 — 2026-08-06 · Tachimanga parity pass complete)
+## Current state (post S99 — 2026-08-06 · full project audit, documentation-only)
+
+**S99: full audit of the whole project** — code quality, docs consistency, live simulator
+verification, and App Store/security readiness, run as 4 parallel research passes plus a manual
+live-simulator spot-check. **No fixes made this session by design** — findings are catalogued as new
+rows 24-36 in the Known Issues table below (and reflected in `Yomi/TACHIMANGA_PARITY.md`'s updated
+"needs check" rows) for next session to work through. Headline findings: the age rating declaration
+is stale (17+ should be 18+, real compliance risk — #24), an OPDS password sits in UserDefaults
+instead of Keychain against the codebase's own established pattern (#25), two silent-failure DB-write
+paths give no user feedback (#26), a blanket ATS exception has review-scrutiny risk (#27), `README.md`
+and `EXTENSIONS.md` have stale/orphaned content (#28-29), background auto-refresh/download toggles and
+the in-reader source-URL icon are now confirmed (not just suspected) missing (#31-33), and a live check
+found AquaManga reader pages failing to render for an unconfirmed reason (#34). Full narrative in
+`Yomi/ROADMAP.md`'s S99 entry; code/quality is otherwise genuinely clean after 98 sessions (zero
+TODO/FIXME, zero unsafe force-unwraps, zero Swift-6 isolation violations, clean build).
+
+**Prior state (post S98 — 2026-08-06 · Tachimanga parity pass complete)**
 
 S97-S98 worked through `Yomi/TACHIMANGA_PARITY.md` (a source-verified feature audit against Tachimanga,
 produced S97) end to end — **every item the audit itself flagged as high-value is now shipped.**
@@ -93,6 +109,19 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 21 | 3 of 4 novel sources tried S96 are site-side blocked (not a Yomi bug) | LightNovelPub and BabelNovel return raw HTTP 403 to a real browser UA via `curl`; BoxNovel returns HTTP 200 but a JS-only anti-bot redirect shell with no real HTML. All three are genuinely Cloudflare/bot-gated right now, not a client parsing bug — the app's "may be down or Cloudflare-protected" message is accurate. NovelBin (novelarrow.com backend) still works correctly. |
 | 22 | ~~`.glassEffect()` rendering as an oval/blob instead of the declared shape~~ | ✅ Fixed S96 (Martin's live visual review) — the parameterless `.glassEffect()` used via `.background { Shape().glassEffect() }` across 6 call sites (both readers' bottom bars, Library's selection action bar, `GlassChip`) doesn't reliably clip to that shape, a documented iOS 26 gotcha. Fixed by applying `.glassEffect(.regular, in: <Shape>)` directly to content instead. |
 | 23 | ~~Native `Slider` clashed with the app's design language~~ | ✅ Fixed S96 (Martin's live visual review) — the default iOS 26 `Slider` thumb (large white pill) didn't match the thin-capsule-progress-bar look used everywhere else. Built `Core/YomiScrubber.swift`, swapped in at both call sites (manga reader page scrubber, novel reader font size). |
+| 24 | Age rating declaration stale (17+ vs 18+) | Found S99 audit — this doc's "App Store checklist" section below and `Yomi/design/DESIGN_HANDOFF.md` (3 mentions) still say "17+." The 2026 App Store rating system replaced 17+ with 18+, and every other doc (ROADMAP/RESEARCH/HISTORY/METODOLOGIA) already reflects 18+. Real compliance risk if uncaught before App Store Connect submission — fix both docs, then grep for any other stale "17+" mention project-wide. |
+| 25 | OPDS password stored in UserDefaults, not Keychain | Found S99 audit — `AppSettings.swift:334-336,416` persists the user's Kavita/Komga server credential (`opdsPassword`) via plain `UserDefaults`, unlike the MAL OAuth token which correctly uses `Core/KeychainHelper.swift` (see App Store checklist below, "MAL token → Keychain — DONE S24"). Inconsistent with the codebase's own established secure-storage precedent; migrate `opdsPassword` to Keychain the same way. |
+| 26 | Silent DB-write failures on mark-read / toggle-library | Found S99 audit — `ChapterReaderView.swift:275-286` (`markChapterRead`) and `MangaDetailView.swift:928-943` (`toggleLibrary`) both catch GRDB write errors and only `print()` to console. A failed tap on two of the app's most common actions gives the user zero feedback — the UI just silently doesn't reflect the change next time they check. Low frequency (GRDB writes rarely fail) but real; worth a toast/haptic-failure signal. |
+| 27 | Blanket `NSAllowsArbitraryLoads` ATS exception | Found S99 audit — `Info.plist` has `NSAllowsArbitraryLoads = true` with no per-domain `NSExceptionDomains` scoping (added S89 for self-hosted Suwayomi/OPDS HTTP support, where target hosts aren't known in advance, so scoping may not be feasible at all). Real App Store review-scrutiny risk. Recommend keeping functionally as-is but adding an explicit review-notes explanation at submission time citing the self-hosted-server feature; revisit scoping only if reviewers push back. |
+| 28 | `README.md` still references removed Extensions tab | Found S99 audit — line 26 says "open Browse → Extensions and install," a tab removed in S86. Line 54 was already correctly updated to "Browse → Sources" in a prior pass (the S96 addendum 2 commit claimed this was fully fixed — it wasn't; line 26 was missed). Public-facing file, worth a clean pass. |
+| 29 | `EXTENSIONS.md` orphaned/stale | Found S99 audit — entirely built around the removed "Browse → Extensions" tab (never updated post-S86), lists only 7 of 15 production plugins (missing NovelBin, FreeWebNovel, BabelNovel, LightNovelPub, BoxNovel, Suwayomi/Keiyoushi, LNReader), duplicates `README.md`'s "add a repository" purpose with worse/wrong content. Recommend deleting it or merging its URL table into README. |
+| 30 | This doc's own file-index note is stale | Found S99 audit (independently flagged by two audit passes) — the "Key file paths" table below claims `NovelQueries.fetchLibrary()` "EXISTS but is never called by LibraryViewModel." False today: called from `LibraryViewModel.swift:191` and `UpdatesView.swift:96,126`. Cosmetic doc bug, trivial fix. |
+| 31 | No "background auto-refresh" toggle in UI | Confirmed via live test S99 — checked Settings (Data/Reading), Update Rules, and Advanced Settings in full; no toggle for *when* update checks run exists anywhere in the UI. Whether `BGTaskScheduler` silently powers background checks under the hood is a separate, still-open code question. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing from the UI at least. |
+| 32 | No "background download" toggle in UI | Confirmed via live test S99 — checked Settings' Data section and Advanced Settings in full; no such toggle exists anywhere. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing. |
+| 33 | In-reader header has no source-URL/globe icon | Confirmed via live test S99 — opened the manga reader (AquaManga, "Path of Vengeance" Ch. 2); header shows only back/list/settings icons, no source-URL or external-link icon. Was a `TACHIMANGA_PARITY.md` "needs check" item — now confirmed missing. |
+| 34 | AquaManga reader page failed to render live (new, root cause unconfirmed) | Found S99 live check — opening "Path of Vengeance" Ch. 2 (AquaManga) in the manga reader showed a broken-image placeholder instead of real page art (page 1/26), unchanged after a wait (not a loading state). Possibly related to Known Issue #9's still-unresolved cover-loading problem (Kingfisher/Cloudflare UA mismatch) extending to reader pages too, or a separate bug — not investigated further, needs a dedicated look next session. |
+| 35 | List-mode multi-select still open (re: #19) | Not independently reverified S99 — `mobile-mcp` tap flakiness blocked reaching Library's list-mode toggle during live testing. Presumed still open per #19 (no code changes to that area since S96) but not reconfirmed live; re-attempt once tooling cooperates. |
+| 36 | App Store Connect readiness has zero local tracking artifact | Found S99 audit — age rating/description/screenshots is a floating 2-3 line TODO copy-pasted across CLAUDE.md/ROADMAP.md/RESEARCH.md/HISTORY.md, no checklist, no owner, no dates. Not itself a bug, but worth consolidating into one authoritative location before it grows further. |
 
 ## MCP tools — use these every session
 
@@ -133,6 +162,13 @@ race before blaming the tool. For quick UserDefaults-backed setting changes, `xc
 <device> defaults write <bundle-id> <key> <value>` + relaunch is a reliable bypass. For DB-state setup
 (seeding test data), `sqlite3` directly against the simulator's `yomi.db` (via `xcrun simctl
 get_app_container <device> <bundle-id> data`) also works well and was used to verify Migrate.
+
+**New tooling note (S99):** a second, distinct issue — a systematic coordinate offset specifically on
+the bottom tab bar. Tapping the reported x-coordinate for "More" landed on "Updates" instead; a
+manually-compensated x-value worked correctly. Full-width list rows elsewhere were unaffected — this
+looks like a coordinate-mapping quirk for this specific device/session rather than a real SwiftUI
+hit-testing bug (the tab bar is a standard `TabView`, not custom-built). If tab-bar taps land on the
+wrong tab, try a small x-offset before concluding it's a real bug.
 
 ### github
 Use for PR/issue management. Repo: `PacoDealer/Yomi`.
