@@ -174,6 +174,32 @@ import Observation
         didSet { defaults.set(showUnreadBadge, forKey: "showUnreadBadge") }
     }
 
+    /// Show item count on Library category tabs
+    var showCategoryItemCounts: Bool {
+        didSet { defaults.set(showCategoryItemCounts, forKey: "showCategoryItemCounts") }
+    }
+
+    /// Category a newly-added title is auto-assigned to (nil = none, leave unassigned)
+    var defaultCategoryId: String? {
+        didSet { defaults.set(defaultCategoryId, forKey: "defaultCategoryId") }
+    }
+
+    /// Which tab the app opens to on launch. Matches ContentView's Tab(value:) tags
+    /// (0 Library, 1 Browse, 2 History, 3 Updates, 4 More).
+    var defaultTab: Int {
+        didSet { defaults.set(defaultTab, forKey: "defaultTab") }
+    }
+
+    /// SOURCE.fetch request timeout, seconds. Mirrored into jsBridgeRequestTimeout (a
+    /// nonisolated(unsafe) module var) since JSBridge reads it from Task.detached, where
+    /// touching AppSettings.shared directly is unsafe.
+    var requestTimeout: Double {
+        didSet {
+            defaults.set(requestTimeout, forKey: "requestTimeout")
+            jsBridgeRequestTimeout = requestTimeout
+        }
+    }
+
     // MARK: - Reader behaviour
 
     /// Keep screen on while reading
@@ -357,6 +383,11 @@ import Observation
         keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
         isIncognito             = d.bool(forKey: "isIncognito")
         showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
+        showCategoryItemCounts  = d.object(forKey: "showCategoryItemCounts") as? Bool ?? true
+        defaultCategoryId       = d.string(forKey: "defaultCategoryId")
+        defaultTab              = d.object(forKey: "defaultTab") as? Int ?? 0
+        requestTimeout          = d.object(forKey: "requestTimeout") as? Double ?? 30
+        jsBridgeRequestTimeout  = d.object(forKey: "requestTimeout") as? Double ?? 30
         pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false
         alternateIconName       = d.string(forKey: "alternateIconName")
         autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true

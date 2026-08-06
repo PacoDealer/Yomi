@@ -646,6 +646,12 @@ struct NovelDetailView: View {
         var updated = novel
         updated.inLibrary = isInLibrary
         try? NovelQueries.upsert(updated)
+        if isInLibrary, let defaultCatId = AppSettings.shared.defaultCategoryId {
+            let novelId = novel.id
+            Task.detached {
+                try? CategoryQueries.assignNovel(novelId: novelId, categoryId: defaultCatId)
+            }
+        }
     }
 
     // MARK: - Update Reading Status

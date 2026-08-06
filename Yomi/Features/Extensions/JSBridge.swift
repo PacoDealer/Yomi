@@ -5,6 +5,11 @@ import JavaScriptCore
 nonisolated private let _cfLock = NSLock()
 nonisolated(unsafe) private var _cfBlockedByContext: [ObjectIdentifier: String] = [:]
 
+/// Request timeout for SOURCE.fetch, mirrored from AppSettings.shared.requestTimeout on MainActor
+/// (AppSettings didSet) — read from inside Task.detached JS execution, where reading
+/// AppSettings.shared directly is unsafe (see CLAUDE.md's concurrency rules).
+nonisolated(unsafe) var jsBridgeRequestTimeout: TimeInterval = 30
+
 // MARK: - Novel Result Types
 
 struct NovelItem {
@@ -841,7 +846,7 @@ final class JSBridge {
         let ctxID = ObjectIdentifier(ctx)
         let fetchSync: @convention(block) (String, String, String?, String?) -> String = { urlString, method, body, headersJSON in
             guard let url = URL(string: urlString) else { return "" }
-            var request = URLRequest(url: url, timeoutInterval: 30)
+            var request = URLRequest(url: url, timeoutInterval: jsBridgeRequestTimeout)
             // Default headers — prevents Cloudflare/CDN blocks
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
             request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")

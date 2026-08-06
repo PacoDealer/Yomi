@@ -413,54 +413,138 @@ struct MangaReaderView: View {
         }
     }
 
+    // MARK: - Tap zone actions
+    //
+    // "Left"/"right" here means physical screen side, not reading direction — RTL flips which
+    // physical side advances vs. goes back, matching the original thirds/sides behavior.
+
+    private func tapLeft() {
+        let next = isRTL ? min(currentPage + 1, pages.count - 1) : max(currentPage - 1, 0)
+        if next != currentPage {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            currentPage = next
+        }
+    }
+
+    private func tapRight() {
+        let next = isRTL ? max(currentPage - 1, 0) : min(currentPage + 1, pages.count - 1)
+        if next != currentPage {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            currentPage = next
+        }
+    }
+
+    private func tapMenu() {
+        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+    }
+
     @ViewBuilder
     private var tapZoneOverlay: some View {
         let layout = settings.tapZoneLayout
 
         if layout == "disabled" {
             Color.clear.contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
-                }
+                .onTapGesture(perform: tapMenu)
         } else {
             GeometryReader { geo in
-                let w = geo.size.width
-                let leftFraction: CGFloat = layout == "sides" ? 0.2 : 1.0 / 3.0
-                let rightFraction: CGFloat = layout == "sides" ? 0.2 : 1.0 / 3.0
-                let centerFraction = 1.0 - leftFraction - rightFraction
-
-                HStack(spacing: 0) {
-                    // Left zone
-                    Color.clear.contentShape(Rectangle())
-                        .frame(width: w * leftFraction)
-                        .onTapGesture {
-                            let next = isRTL
-                                ? min(currentPage + 1, pages.count - 1)
-                                : max(currentPage - 1, 0)
-                            if next != currentPage {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                currentPage = next
-                            }
-                        }
-                    // Center zone — toggles overlay
-                    Color.clear.contentShape(Rectangle())
-                        .frame(width: w * centerFraction)
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
-                        }
-                    // Right zone
-                    Color.clear.contentShape(Rectangle())
-                        .frame(width: w * rightFraction)
-                        .onTapGesture {
-                            let next = isRTL
-                                ? max(currentPage - 1, 0)
-                                : min(currentPage + 1, pages.count - 1)
-                            if next != currentPage {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                currentPage = next
-                            }
-                        }
+                switch layout {
+                case "lShaped":   lShapedZones(geo: geo)
+                case "kindle":    kindleZones(geo: geo)
+                case "rightLeft": rightLeftZones(geo: geo)
+                case "sides":     thirdsOrEdgeZones(geo: geo, sides: true)
+                default:          thirdsOrEdgeZones(geo: geo, sides: false)
                 }
+            }
+        }
+    }
+
+    // MARK: - Tap zone layouts
+
+    /// "default" (equal thirds) / "sides" a.k.a. Edge (20 · 60 · 20)
+    @ViewBuilder
+    private func thirdsOrEdgeZones(geo: GeometryProxy, sides: Bool) -> some View {
+        let w = geo.size.width
+        let leftFraction: CGFloat = sides ? 0.2 : 1.0 / 3.0
+        let rightFraction: CGFloat = sides ? 0.2 : 1.0 / 3.0
+        let centerFraction = 1.0 - leftFraction - rightFraction
+        HStack(spacing: 0) {
+            Color.clear.contentShape(Rectangle())
+                .frame(width: w * leftFraction)
+                .onTapGesture(perform: tapLeft)
+            Color.clear.contentShape(Rectangle())
+                .frame(width: w * centerFraction)
+                .onTapGesture(perform: tapMenu)
+            Color.clear.contentShape(Rectangle())
+                .frame(width: w * rightFraction)
+                .onTapGesture(perform: tapRight)
+        }
+    }
+
+    /// L-Shaped: left column + bottom band both go "left" (the L), a top menu strip, everything
+    /// else goes "right" — approximates Tachimanga's L-Shaped tap zone preset.
+    @ViewBuilder
+    private func lShapedZones(geo: GeometryProxy) -> some View {
+        let w = geo.size.width
+        let h = geo.size.height
+        let menuHeight = h * 0.12
+        let bottomBandHeight = h * 0.18
+        let leftWidth = w * 0.28
+
+        ZStack(alignment: .top) {
+            HStack(spacing: 0) {
+                Color.clear.contentShape(Rectangle())
+                    .frame(width: leftWidth, height: h)
+                    .onTapGesture(perform: tapLeft)
+                Color.clear.contentShape(Rectangle())
+                    .frame(width: w - leftWidth, height: h)
+                    .onTapGesture(perform: tapRight)
+            }
+
+            VStack(spacing: 0) {
+                Spacer()
+                Color.clear.contentShape(Rectangle())
+                    .frame(width: w, height: bottomBandHeight)
+                    .onTapGesture(perform: tapLeft)
+            }
+            .frame(height: h)
+
+            Color.clear.contentShape(Rectangle())
+                .frame(width: w, height: menuHeight)
+                .onTapGesture(perform: tapMenu)
+        }
+        .frame(width: w, height: h)
+    }
+
+    /// Kindle-ish: a thin left strip goes back, the rest of the screen advances — optimized for
+    /// mostly-forward reading. Top strip reaches the menu.
+    @ViewBuilder
+    private func kindleZones(geo: GeometryProxy) -> some View {
+        edgeWeightedZones(geo: geo, leftFraction: 0.2)
+    }
+
+    /// Right-and-Left: a plain 50/50 split, top strip reaches the menu.
+    @ViewBuilder
+    private func rightLeftZones(geo: GeometryProxy) -> some View {
+        edgeWeightedZones(geo: geo, leftFraction: 0.5)
+    }
+
+    @ViewBuilder
+    private func edgeWeightedZones(geo: GeometryProxy, leftFraction: CGFloat) -> some View {
+        let w = geo.size.width
+        let h = geo.size.height
+        let menuHeight = h * 0.12
+        let leftWidth = w * leftFraction
+        VStack(spacing: 0) {
+            Color.clear.contentShape(Rectangle())
+                .frame(width: w, height: menuHeight)
+                .onTapGesture(perform: tapMenu)
+            HStack(spacing: 0) {
+                Color.clear.contentShape(Rectangle())
+                    .frame(width: leftWidth, height: h - menuHeight)
+                    .onTapGesture(perform: tapLeft)
+                Color.clear.contentShape(Rectangle())
+                    .frame(width: w - leftWidth, height: h - menuHeight)
+                    .onTapGesture(perform: tapRight)
             }
         }
     }
@@ -531,10 +615,15 @@ private struct MangaPageView: View {
                 TapGesture(count: 2)
                     .onEnded {
                         withAnimation(.spring()) {
-                            scale = 1.0
-                            lastScale = 1.0
-                            offset = .zero
-                            lastOffset = .zero
+                            if scale > 1.0 {
+                                scale = 1.0
+                                lastScale = 1.0
+                                offset = .zero
+                                lastOffset = .zero
+                            } else {
+                                scale = 2.0
+                                lastScale = 2.0
+                            }
                         }
                     }
             )

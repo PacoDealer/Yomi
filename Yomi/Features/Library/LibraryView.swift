@@ -495,13 +495,18 @@ struct LibraryView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
-                    LibraryTab(label: "All", isSelected: viewModel.selectedCategoryId == nil) {
+                    LibraryTab(
+                        label: "All",
+                        count: settings.showCategoryItemCounts ? viewModel.mangas.count + viewModel.novels.count : nil,
+                        isSelected: viewModel.selectedCategoryId == nil
+                    ) {
                         viewModel.selectedCategoryId = nil
                     }
                     .id("tab_all")
                     ForEach(viewModel.categories) { category in
                         LibraryTab(
                             label: category.name,
+                            count: settings.showCategoryItemCounts ? viewModel.categoryItemCounts[category.id] ?? 0 : nil,
                             isSelected: viewModel.selectedCategoryId == category.id
                         ) {
                             viewModel.selectedCategoryId = category.id
@@ -570,6 +575,7 @@ struct LibraryView: View {
 
 private struct LibraryTab: View {
     let label: String
+    var count: Int? = nil
     let isSelected: Bool
     let action: () -> Void
     @Environment(\.yomiCanvas) private var canvas
@@ -577,8 +583,15 @@ private struct LibraryTab: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
-                Text(label)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: isSelected ? .medium : .regular))
+                HStack(spacing: 4) {
+                    Text(label)
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: isSelected ? .medium : .regular))
+                    if let count {
+                        Text("\(count)")
+                            .font(YomiTokens.Font.mono(11))
+                            .foregroundStyle(canvas.textSecondary.opacity(0.7))
+                    }
+                }
                     .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)

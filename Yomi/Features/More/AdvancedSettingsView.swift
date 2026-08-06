@@ -6,6 +6,7 @@ import Kingfisher
 
 struct AdvancedSettingsView: View {
     @State private var showClearConfirm = false
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         List {
@@ -42,15 +43,16 @@ struct AdvancedSettingsView: View {
                     .foregroundStyle(.secondary)
                     .font(.footnote)
             }
-            LabeledContent("Request timeout") {
-                Text("30s")
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
-            }
+            Stepper(
+                "Request timeout: \(Int(settings.requestTimeout))s",
+                value: $settings.requestTimeout,
+                in: 10...60,
+                step: 5
+            )
         } header: {
             Text("Network")
         } footer: {
-            Text("User agent and timeout are fixed in this version.")
+            Text("User agent is fixed — it must match the Cloudflare bypass browser's, or solved challenges won't carry over to source requests.")
                 .font(.caption)
         }
     }

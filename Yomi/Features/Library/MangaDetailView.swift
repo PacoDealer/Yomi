@@ -940,6 +940,13 @@ struct MangaDetailView: View {
                     await NotificationManager.shared.requestPermission()
                 }
             }
+            // Auto-assign the configured default category on fresh add
+            if manga.inLibrary, let defaultCatId = AppSettings.shared.defaultCategoryId {
+                let mangaId = manga.id
+                Task.detached {
+                    try? CategoryQueries.assign(mangaId: mangaId, categoryId: defaultCatId)
+                }
+            }
             // Clean up downloaded chapters when removing from library
             if !manga.inLibrary {
                 let mangaId = manga.id
