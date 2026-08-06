@@ -57,6 +57,8 @@ struct TextReaderView: View {
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
     @State private var lastKnownScrollPercent: Double? = nil
+    @State private var sourceURL: URL? = nil
+    @State private var showSourceSheet = false
 
     // TTS
     @State private var isSpeaking = false
@@ -216,11 +218,13 @@ struct TextReaderView: View {
                 isSpeaking:           $isSpeaking,
                 hasPrevChapter:       hasPrevChapter,
                 hasNextChapter:       hasNextChapter,
+                sourceURL:            sourceURL,
                 onDismiss:            { dismiss() },
                 onPrevChapter:        { navigateToChapter(currentChapterIndex - 1) },
                 onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
                 onJumpToChapter:      { navigateToChapter($0) },
-                onToggleTTS:          { toggleTTS() }
+                onToggleTTS:          { toggleTTS() },
+                onViewSource:         { showSourceSheet = true }
             )
         }
         .navigationBarHidden(true)
@@ -228,6 +232,18 @@ struct TextReaderView: View {
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(novelTheme.colorScheme)
         .task(id: activeChapter.id) { await loadContent() }
+        .task(id: activeChapter.id) {
+            let path = activeChapter.path
+            let b = bridge
+            sourceURL = await Task.detached(priority: .background) {
+                b.resolveSourceURL(path: path)
+            }.value
+        }
+        .sheet(isPresented: $showSourceSheet) {
+            if let url = sourceURL {
+                DiscussWebSheet(url: url, title: "Source")
+            }
+        }
         .onChange(of: fontSize)   { _, v in AppSettings.shared.fontSize = v }
         .onChange(of: novelTheme) { _, v in
             AppSettings.shared.novelTheme  = v.rawValue
@@ -576,11 +592,13 @@ struct TextReaderOverlayView: View {
     @Binding var isSpeaking:  Bool
     var hasPrevChapter:       Bool = false
     var hasNextChapter:       Bool = false
+    var sourceURL:            URL? = nil
     let onDismiss:            () -> Void
     var onPrevChapter:        (() -> Void)? = nil
     var onNextChapter:        (() -> Void)? = nil
     var onJumpToChapter:      ((Int) -> Void)? = nil
     var onToggleTTS:          (() -> Void)? = nil
+    var onViewSource:         (() -> Void)? = nil
 
     @State private var showChapterSheet = false
 
@@ -618,6 +636,18 @@ struct TextReaderOverlayView: View {
                         showChapterSheet = true
                     } label: {
                         Image(systemName: "list.bullet")
+                            .font(.system(size: 17))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .glassEffect(.regular, in: Circle())
+                }
+
+                if sourceURL != nil {
+                    Button {
+                        onViewSource?()
+                    } label: {
+                        Image(systemName: "globe")
                             .font(.system(size: 17))
                             .frame(width: 44, height: 44)
                             .contentShape(Circle())

@@ -129,7 +129,7 @@ private struct MoreRow<Destination: View>: View {
                 if let badge {
                     Text(badge)
                         .font(YomiTokens.Font.mono(11, bold: true))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppSettings.shared.accentForeground)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color.accentColor, in: Capsule())

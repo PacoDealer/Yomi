@@ -999,7 +999,7 @@ private struct NovelCoverCell: View {
                     if !novel.inLibrary && dbInLibrary {
                         Image(systemName: "bookmark.fill")
                             .font(.caption2)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppSettings.shared.accentForeground)
                             .padding(4)
                             .background(Color.accentColor.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
                             .padding(5)

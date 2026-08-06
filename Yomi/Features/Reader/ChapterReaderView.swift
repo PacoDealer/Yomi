@@ -37,6 +37,8 @@ struct ChapterReaderView: View {
     @State private var sessionSeconds: Int = 0
     @State private var discussURL: URL? = nil
     @State private var showDiscussSheet = false
+    @State private var sourceURL: URL? = nil
+    @State private var showSourceSheet = false
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
     @State private var toastMessage: String? = nil
@@ -144,10 +146,12 @@ struct ChapterReaderView: View {
                 showOverlay: $showOverlay,
                 showPageNumber: true,
                 discussURL: discussURL,
+                sourceURL: sourceURL,
                 hasPrevChapter: hasPrevChapter,
                 hasNextChapter: hasNextChapter,
                 onDismiss: { dismiss() },
                 onDiscuss: { showDiscussSheet = true },
+                onViewSource: { showSourceSheet = true },
                 onPrevChapter: { navigateToChapter(currentChapterIndex - 1) },
                 onNextChapter: { navigateToChapter(currentChapterIndex + 1) },
                 onJumpToChapter: { navigateToChapter($0) }
@@ -221,10 +225,18 @@ struct ChapterReaderView: View {
             discussURL = await Task.detached(priority: .background) {
                 b.getDiscussionURL(chapterPath: path)
             }.value
+            sourceURL = await Task.detached(priority: .background) {
+                b.resolveSourceURL(path: path)
+            }.value
         }
         .sheet(isPresented: $showDiscussSheet) {
             if let url = discussURL {
                 DiscussWebSheet(url: url)
+            }
+        }
+        .sheet(isPresented: $showSourceSheet) {
+            if let url = sourceURL {
+                DiscussWebSheet(url: url, title: "Source")
             }
         }
         .onChange(of: shouldRequestReview) { _, should in
@@ -895,10 +907,12 @@ struct ReaderOverlayView: View {
     @Binding var showOverlay: Bool
     let showPageNumber: Bool
     let discussURL: URL?
+    let sourceURL: URL?
     let hasPrevChapter: Bool
     let hasNextChapter: Bool
     let onDismiss: () -> Void
     let onDiscuss: () -> Void
+    let onViewSource: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
     var onJumpToChapter: ((Int) -> Void)? = nil
@@ -933,6 +947,14 @@ struct ReaderOverlayView: View {
                         showChapterSheet = true
                     } label: {
                         Image(systemName: "list.bullet")
+                            .font(.system(size: 17))
+                    }
+                    .glassChip()
+                }
+
+                if sourceURL != nil {
+                    Button(action: onViewSource) {
+                        Image(systemName: "globe")
                             .font(.system(size: 17))
                     }
                     .glassChip()
@@ -1096,13 +1118,14 @@ import WebKit
 
 struct DiscussWebSheet: View {
     let url: URL
+    var title: String = "Discussion"
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             WebView(url: url)
                 .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Discussion")
+                .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {

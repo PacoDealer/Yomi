@@ -59,7 +59,7 @@ struct YomiEmptyState: View {
                         Text(actionLabel)
                             .font(YomiTokens.Font.grotesk(15, weight: .medium))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppSettings.shared.accentForeground)
                     .padding(.horizontal, 24)
                     .frame(height: 46)
                     .background(Color.accentColor, in: Capsule())

@@ -251,7 +251,7 @@ struct MangaDetailView: View {
                                 Text(resumeButtonTitle)
                                     .font(YomiTokens.Font.grotesk(15, weight: .medium))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppSettings.shared.accentForeground)
                             .frame(maxWidth: .infinity)
                             .frame(height: 46)
                             .background(Color.accentColor, in: Capsule())

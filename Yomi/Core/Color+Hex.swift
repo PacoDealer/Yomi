@@ -33,4 +33,29 @@ extension Color {
         return String(format: "#%02X%02X%02X",
                       Int(r * 255), Int(g * 255), Int(b * 255))
     }
+
+    // MARK: - WCAG contrast
+    //
+    // Single source of truth for relative-luminance/contrast math — used by AppearanceStudioView's
+    // contrast badge and by YomiTokens.Accent.foreground(for:on:) (picks legible text/icon color for an
+    // accent fill). Previously duplicated privately inside AppearanceStudioView.
+
+    /// WCAG 2.x relative luminance (0 = black, 1 = white).
+    var relativeLuminance: Double {
+        let uic = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uic.getRed(&r, green: &g, blue: &b, alpha: &a)
+        func lin(_ v: CGFloat) -> Double {
+            let d = Double(v)
+            return d <= 0.04045 ? d / 12.92 : pow((d + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    }
+
+    /// WCAG contrast ratio between two colors (1:1 to 21:1).
+    static func wcagContrast(_ c1: Color, _ c2: Color) -> Double {
+        let hi = max(c1.relativeLuminance, c2.relativeLuminance)
+        let lo = min(c1.relativeLuminance, c2.relativeLuminance)
+        return (hi + 0.05) / (lo + 0.05)
+    }
 }
