@@ -10,6 +10,6 @@ extension View {
         self
             .frame(width: 44, height: 44)
             .contentShape(Circle())
-            .background { Circle().glassEffect() }
+            .glassEffect(.regular, in: Circle())
     }
 }

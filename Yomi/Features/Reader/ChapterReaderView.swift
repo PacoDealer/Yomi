@@ -793,15 +793,13 @@ struct ReaderOverlayView: View {
                             .font(YomiTokens.Font.mono(12))
                             .foregroundStyle(.secondary)
 
-                        Slider(
+                        YomiScrubber(
                             value: Binding(
                                 get: { Double(currentPage) },
                                 set: { currentPage = Int($0.rounded()) }
                             ),
-                            in: 0...Double(totalPages - 1),
-                            step: 1
+                            range: 0...Double(totalPages - 1)
                         )
-                        .tint(Color.accentColor)
 
                         Text("\(totalPages)")
                             .font(YomiTokens.Font.mono(12))
@@ -811,10 +809,7 @@ struct ReaderOverlayView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background {
-                RoundedRectangle(cornerRadius: 22)
-                    .glassEffect()
-            }
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
         }
