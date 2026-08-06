@@ -21,6 +21,93 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S96 — 2026-08-06 · full functional app audit, not a design block)
+
+**S96: the systematic functional audit Martin asked for at the end of S95** — every screen walked
+live via `build_run_sim` + mobile-mcp, starting from a genuinely fresh install. Found and fixed 6
+real bugs, plus root-caused a long-standing simulator mystery from S95. All fixes verified live,
+zero build warnings throughout.
+
+1. **Root cause of the S95 "doesn't match the mocks" complaint, more fundamental than Known Issue
+   #15 alone: `AppSettings.canvasColors` didn't actually implement "follow device" for canvas `""`.**
+   `colorScheme` correctly resolved `""` to `nil` (follow system), but `canvasColors` unconditionally
+   returned Ink regardless of system appearance — so on a light-mode device, native chrome (nav bars,
+   search fields, tab bar material) rendered light while every custom-drawn background rendered Ink
+   dark. Since `""` is not even a selectable Appearance Studio option (only a silent legacy-migration
+   fallback for a true fresh install) and onboarding never sets a canvas either, **every genuine
+   first-time user on a light-mode device saw this exact mismatch.** Fixed at the true root:
+   `AppSettings.init()`'s fresh-install migration branch now sets `canvas = "Ink"` (the documented
+   default) instead of `""`, which self-heals `colorScheme` too since it already special-cases `"Ink"`.
+2. Known Issue #15 (`LibraryView` root not wired to `\.yomiCanvas`) — fixed: added
+   `.background(canvas.bg.ignoresSafeArea())` to its root, matching every view since S85.
+3. **Real bug: "Get plugins" (Library/Browse empty-state CTA, and Onboarding's own final page)
+   silently failed to deep-link into Plugins on a genuinely first-time visit to the More tab.**
+   `MoreView`'s `.onChange(of: appRouter.openMorePlugins)` only fires on a transition *observed while
+   the view is live* — if More had never been visited yet this session, the flag was already `true`
+   by the time `MoreView` first mounted, so no change was ever observed and the deep-link silently
+   no-op'd (landing on the plain More list instead). Onboarding had already independently worked
+   around this with a 0.4s `DispatchQueue` delay hack (see its S95 comment); the real fix is
+   `.onChange(of:initial: true)`, which also fires for the already-true-on-mount case. Verified live
+   on a fresh launch: Library's "Get plugins" now correctly lands on Plugins every time.
+4. **Real bug: Library's multi-select bulk-action mode (checkboxes + Mark read/Download/Remove
+   action bar, built S82) was unreachable via long-press on grid cover cells**, and had no entry
+   point at all in list mode. `MangaCoverCell`/`NovelLibraryCoverCell` each had both a `.contextMenu`
+   and a separate `.onLongPressGesture(minimumDuration: 0.4)` on the same view — SwiftUI's
+   `.contextMenu` interaction consistently wins that composition, so the custom long-press handler
+   never fired (confirmed twice, deterministically, live). Fixed by removing the now-dead
+   `onLongPressGesture` and adding a "Select" item to the top of each grid cell's context menu
+   instead — verified live: long-press → "Select" → full checkbox/action-bar UI now works correctly.
+   List mode's total absence of a selection entry point was left as-is (fixing it properly needs
+   checkbox overlays + disabled row-navigation there too, out of proportion for this pass).
+5. **Real bug, broad impact: manually marking chapters read (Updates screen's mark-read/mark-all,
+   and Detail's own per-chapter/bulk mark-read toggles) never updated the manga/novel's `lastReadAt`
+   column** — only the reader's own auto-mark-on-finish path did. Confirmed live: marking Hellogin's
+   chapters read via Updates' "Mark all read" left it permanently invisible in History (which filters
+   on `lastReadAt`), and would equally have gone stale in Library's "last read" sort and the Continue
+   card. Root cause: `ChapterQueries.setRead()` and `NovelQueries.markRead(chapterId:)`/
+   `markAllChapters()` never called `MangaQueries.touchLastRead()`/`NovelQueries.touchLastRead()`,
+   unlike their sibling functions (`markRead(id:mangaId:)`, `ChapterQueries.markAllRead(mangaId:)`)
+   which already did. Fixed at the query layer (added `NovelQueries.touchLastRead(novelId:)`,
+   threaded `mangaId`/`novelId` through both functions) — touches every call site: Updates (both
+   manga+novel, single+bulk), `MangaDetailView`'s per-chapter toggle + "mark previous read",
+   `NovelDetailView`'s equivalents, and `TextReaderView`'s own chapter-read/chapter-advance calls
+   (which had the same gap even in the *organic* reading flow, not just Updates). Verified live:
+   History correctly picks up a manga the moment `lastReadAt` is set.
+6. **Root-caused the S95 "mysterious `#00FF00` accentColor survived `simctl uninstall`" mystery
+   (Known Issue #16) — not a Yomi bug at all.** Hit the same phenomenon again this session, this time
+   on `hasSeenOnboarding` (read back `true` on a supposedly-fresh install, causing Onboarding to not
+   appear). Traced it: iOS Simulator's `cfprefsd` daemon caches app preferences at a **device-level**
+   path — `.../data/Library/Preferences/<bundleid>.plist` — independent of the app's per-install Data
+   Container UUID. `simctl uninstall` removes the app bundle and its Data Container but does **not**
+   reliably clear this device-level `cfprefsd` cache, so old `UserDefaults` values can silently
+   survive a full uninstall+reinstall. Workaround (now the correct QA procedure for this project,
+   superseding the S95 "check for stale state" note): `xcrun simctl terminate` + `uninstall`, **then
+   explicitly `rm` `.../data/Library/Preferences/<bundleid>.plist` and `launchctl stop
+   com.apple.cfprefsd.xpc.daemon`** on the simulator, before reinstalling — a plain uninstall is not
+   sufficient for genuine fresh-install testing on this simulator. Saved to memory
+   (`feedback_yomi_qa_state`, superseding its prior "stale UserDefaults" framing with this concrete
+   root cause + fix).
+7. **Not a Yomi bug, informational**: 3 of 4 novel sources tried this session (LightNovelPub,
+   BoxNovel, BabelNovel) currently return "No titles found" — confirmed via direct `curl` from a real
+   browser UA that all 3 are presently bot/Cloudflare-gated site-side (LightNovelPub/BabelNovel: raw
+   HTTP 403; BoxNovel: HTTP 200 but a JS-only anti-bot redirect shell, no real HTML). The app's
+   generic "may be down or Cloudflare-protected" error message is accurate for all three. NovelBin
+   (novelarrow.com backend, rewritten S88) still works correctly and was used for the rest of this
+   session's novel testing instead.
+
+**Full walkthrough coverage this session** (all live via `build_run_sim` + mobile-mcp, not just code
+review): Library (both empty states, list+grid, multi-select, category tabs), Browse (source list,
+Popular carousel, install flow), Manga Detail + Reader (paged RTL + webtoon auto-detect via
+`autoWebtoonFromTags`, resume tracking), Novel Detail + Reader (NovelBin, theme switching, TTS
+button), History, Updates (row tap → resume oldest-unread, long-press mark-all-read, filter →
+Update Rules), Downloads (download → row → delete-all → confirm), Insights (stat cards, heatmap,
+Most Read), More/Settings/Appearance Studio (canvas/accent live-switching)/About, and a full
+Onboarding walkthrough (all 3 pages, accent tint correct, final CTA deep-links into Plugins).
+
+App Store screenshot work can now proceed — this was the last blocker noted at the end of S95.
+
+---
+
 ## Current state (post S95 — 2026-08-05 · Blocks 11-12 — design track complete)
 
 **S95: implemented Blocks 11 (More+Settings, N.07/N.10) and 12 (Onboarding+empty states, N.08/N.09)

@@ -400,8 +400,9 @@ struct MangaDetailView: View {
                             },
                             onToggleRead: {
                                 let id = chapter.id
+                                let mangaId = manga.id
                                 let newRead = !chapter.isRead
-                                Task.detached { try? ChapterQueries.setRead(chapterId: id, isRead: newRead) }
+                                Task.detached { try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: newRead) }
                                 chapters = chapters.map { ch in
                                     ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
                                 }
@@ -413,7 +414,8 @@ struct MangaDetailView: View {
                                 guard !ids.isEmpty else { return }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 let markSet = Set(ids)
-                                Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, isRead: true) } }
+                                let mangaId = manga.id
+                                Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, mangaId: mangaId, isRead: true) } }
                                 chapters = chapters.map { ch in
                                     markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
                                 }
@@ -1065,7 +1067,7 @@ struct MangaDetailView: View {
             : []
         await Task.detached(priority: .userInitiated) {
             for id in ids {
-                try? ChapterQueries.setRead(chapterId: id, isRead: read)
+                try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: read)
             }
             // Auto-delete downloaded files when marking as read
             for id in downloadedIds {
@@ -1103,7 +1105,7 @@ struct MangaDetailView: View {
             : []
         await Task.detached(priority: .userInitiated) {
             for id in ids {
-                try? ChapterQueries.setRead(chapterId: id, isRead: read)
+                try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: read)
             }
             if read {
                 for id in downloadedIds {

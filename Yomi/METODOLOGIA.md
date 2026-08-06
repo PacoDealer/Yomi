@@ -122,6 +122,81 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S96
+
+**iOS Simulator's `cfprefsd` daemon caches app preferences at a device-level path, independent of
+the app's per-install Data Container — `simctl uninstall` does not reliably clear it.** This
+resolves the S95 mystery (#16, "stale `#00FF00` accentColor survived `simctl uninstall`") for real:
+it was never a Yomi bug or leftover manual-testing state. The actual cache lives at
+`~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/Preferences/<bundleid>.plist` — a
+device-global path, not inside `Containers/Data/Application/<container-uuid>/`. `simctl uninstall`
+removes the app bundle and its Data Container (which *does* get a fresh UUID each reinstall) but
+apparently doesn't always invalidate this separate `cfprefsd`-level cache, so `UserDefaults.standard`
+reads on the "fresh" install can silently return values from a previous install. Hit this again S96
+on `hasSeenOnboarding` (read back `true` on a supposedly-fresh install, so Onboarding never
+appeared). **Correct procedure for genuine fresh-install QA on this simulator**, superseding plain
+`simctl uninstall`:
+```
+xcrun simctl terminate <udid> <bundleid>
+xcrun simctl uninstall <udid> <bundleid>
+rm -f ~/Library/Developer/CoreSimulator/Devices/<udid>/data/Library/Preferences/<bundleid>.plist
+xcrun simctl spawn <udid> launchctl stop com.apple.cfprefsd.xpc.daemon
+```
+Then reinstall. This is now the standing procedure (see memory `feedback_yomi_qa_state`) — do not
+spend time again treating a "value survived uninstall" symptom as a Yomi code bug without first
+clearing this cache and retesting.
+
+**`.contextMenu` and a separate `.onLongPressGesture` attached to the same view do not compose —
+`.contextMenu`'s own long-press interaction consistently wins, silently starving the custom
+gesture.** `MangaCoverCell`/`NovelLibraryCoverCell` each had both, meaning Library's entire
+multi-select mode (checkboxes + bottom action bar, a real S82 feature) was unreachable by long-press
+— confirmed live, deterministically, across repeated tries with varying press durations. There is no
+reliable way to run a custom long-press *and* a native context menu off the same gesture recognition
+in SwiftUI; the fix is to fold the custom action into the context menu itself (add a "Select" `Button`
+as the first item) rather than trying to win the gesture race. General rule: **never attach
+`.onLongPressGesture` to a view that also has `.contextMenu` — the long-press gesture will not fire.**
+
+**`.onChange(of:)` does not fire for a value that is already at its "changed" state when the view
+first mounts — only for transitions observed while the view is live.** `MoreView`'s
+`.onChange(of: appRouter.openMorePlugins) { … }` was meant to auto-push `PluginsView` whenever
+another screen set the flag to request a deep link. This worked once More had already been visited
+once this session (so `MoreView` was alive to observe the `false → true` transition), but silently
+no-op'd on a *genuinely first* visit to More — the flag was already `true` by the time `MoreView`'s
+body first evaluated, so there was no transition to observe. `OnboardingView` had already
+independently hit this and papered over it with a `DispatchQueue.main.asyncAfter(deadline: .now() +
+0.4)` delay (a timing hack, not a real fix). The correct fix is `.onChange(of:initial: true) { … }`
+(iOS 17+), which also invokes the closure once for the view's initial value. Any `.onChange`-driven
+deep-link/flag-consumption pattern in this app should default to `initial: true` unless there's a
+specific reason not to fire on first appearance.
+
+**When a config value has an explicit "system/auto" state (empty string, `nil`, etc.), every
+downstream consumer of that value must agree on what "auto" resolves to — a partial implementation
+is worse than no feature at all.** `AppSettings.canvas == ""` meant "follow device" — `colorScheme`
+correctly resolved this to `nil` (defer to system dark/light), but the separate `canvasColors`
+computed property, used to paint every custom background in the app, unconditionally hard-coded Ink
+regardless of system appearance. The result wasn't a crash or an obviously-broken screen — it was a
+systemic, silent mismatch (light system chrome over dark custom content) that only shows up on a
+specific device appearance setting, and precisely matches "the whole app doesn't look like the
+mocks," the exact complaint that opened S95's session. Since "follow device" wasn't even a reachable
+picker option (only a silent legacy-migration fallback), the simplest correct fix was to stop
+producing that half-implemented state at all — default fresh installs straight to the fully-specified
+`"Ink"`. Lesson: grep every read site of a shared "auto" value before shipping it, not just the one
+you're actively changing.
+
+**A helper function that mutates a child record should also update the parent's derived "touch"
+timestamp if a sibling helper for the same conceptual action already does — an inconsistency here is
+invisible until a downstream screen filters on that timestamp.** `ChapterQueries.markRead(id:
+mangaId:)` and `ChapterQueries.markAllRead(mangaId:)` both call `MangaQueries.touchLastRead(mangaId:)`
+after writing to the `chapter` table; `ChapterQueries.setRead(chapterId:isRead:)` — used by Updates'
+mark-read actions and Detail's manual per-chapter toggle — did not, despite doing the same
+conceptual "mark as read" write. Chapters correctly showed `isRead = true`, but the owning
+manga/novel's `lastReadAt` never moved, so History (which filters on `lastReadAt != nil`), Library's
+"last read" sort, and the Continue-reading card all silently excluded or stale-dated anything marked
+read this way — while still looking completely correct on the screen where the action was taken.
+This class of bug (two near-identical functions, one incomplete) won't surface in code review of
+either function alone; only grepping *all* functions that touch the same underlying "read" concept
+and diffing their side effects catches it.
+
 ## Technical learnings — S95
 
 **`.frame(height:)` doesn't clip — a fixed height copied from a sibling view can silently overflow
