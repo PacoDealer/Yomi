@@ -398,6 +398,9 @@ private struct MangaReaderSettingsView: View {
                 Picker("Default mode", selection: $settings.readerMode) {
                     Text("Manga (RTL)").tag("Manga (RTL)")
                     Text("Manhwa (LTR)").tag("Manhwa (LTR)")
+                    Text("Paged (Vertical)").tag("Paged (Vertical)")
+                    Text("Continuous (RTL)").tag("Continuous (RTL)")
+                    Text("Continuous (LTR)").tag("Continuous (LTR)")
                     Text("Webtoon").tag("Webtoon")
                 }
                 .pickerStyle(.menu)
