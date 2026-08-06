@@ -483,6 +483,12 @@ private struct MangaReaderSettingsView: View {
                     }
                 }
 
+                Picker("Page layout", selection: $settings.pageLayout) {
+                    Text("Single page").tag("single")
+                    Text("Double page (spreads)").tag("double")
+                    Text("Automatic (spreads in landscape)").tag("automatic")
+                }
+
                 Picker("Tap zones", selection: $settings.tapZoneLayout) {
                     Text("Default (equal thirds)").tag("default")
                     Text("Edge (20 · 60 · 20%)").tag("sides")
