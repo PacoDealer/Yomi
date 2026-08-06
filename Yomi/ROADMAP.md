@@ -21,6 +21,49 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S97 — 2026-08-06 · Tachimanga parity pass, in progress)
+
+**S97: Martin did a live walkthrough of Tachimanga on his physical iPhone via macOS iPhone Mirroring
+(screen-shared, not app-controlled — synthetic clicks are blocked by Apple for that feature) and asked
+for full feature parity + "make Yomi the best possible."** Produced `Yomi/TACHIMANGA_PARITY.md`, a
+verified (not memory-based) feature-by-feature audit cross-checked against actual source, then started
+working through it in priority order. Real, live-verified progress this session:
+
+1. **Fixed Cloudflare bypass missing from the novel reader path (Known Issue #11)** —
+   `NovelDetailView.swift` had zero `CFBypassView` wiring, unlike `MangaDetailView.swift`; mirrored the
+   proven pattern. **Also found + fixed a deeper bug while verifying live against FreeWebNovel's real
+   Cloudflare Error 1015 page**: `JSBridge.swift`'s CF-detection only matched 403 + "Just a
+   moment"/"cf-mitigated" — real block-page variants (1015 rate-limit, etc.) don't all match those
+   strings. Broadened to any error status + a wider marker list (purely additive). Live-verified
+   end-to-end: FreeWebNovel's "Shadow Slave" now shows the Bypass button and `CFBypassView` opens with
+   the real page source.
+2. **Added 3 new reading modes** — `ReaderMode` grows from 3 to 6: Paged Vertical (new
+   `VerticalPagedReaderView`, rotate-90°/counter-rotate TabView technique), Continuous RTL/LTR (new
+   `ContinuousHorizontalReaderView`, mirrors `WebtoonReaderView`'s structure). Wired into both the
+   in-reader settings picker and Settings' default-mode picker. Live-verified rendering without
+   crashes; swipe-to-page interaction itself wasn't independently confirmed due to the pre-existing
+   documented mobile-mcp swipe-simulation unreliability in this environment (see S87 below) — the
+   rotation technique is SwiftUI-standard and low-risk.
+3. **Added Secure Screen** (`AppSettings.secureScreenEnabled` + a `SecureScreenCover` overlay in
+   `YomiApp.swift`, shown whenever `scenePhase != .active`) — hides app content from the App Switcher
+   snapshot. Free (Tachimanga gates this behind premium), on-brand (Ink canvas + app icon). Toggle
+   added next to App Lock in Settings. Live-verified: toggle persists, app backgrounds/resumes cleanly.
+4. **Added an Updates Summary toast** — `UpdatesViewModel.refresh()` now returns the count of
+   newly-discovered chapters (diffing chapter-id sets before/after); `UpdatesView` shows a "N new
+   chapters found" / "No new chapters" toast for 2s after any manual or pull-to-refresh.
+5. **Corrected two false positives in the parity doc itself** — "Global Update" and "Open random
+   entry" were both already implemented (`UpdatesViewModel.refresh()` triggered from Updates' toolbar;
+   Library's Shuffle button) and had been wrongly flagged as missing on the first pass. A reminder that
+   even a "verified against source" audit needs a second look before triggering new work.
+
+**Not yet started, still in `TACHIMANGA_PARITY.md`'s backlog**: double-page spread support (bigger,
+riskier lift — needs care around spread-pairing/progress-tracking), expanded tap-zone presets, storage
+composition view, network settings exposure, dated backup history, Tachiyomi-compatible *export*,
+Customize Tabs, default tab, color blend slider, date format picker, the Migrate feature (source-to-
+source library migration — a real standalone feature, not a quick add), and full multi-device CloudKit
+sync (the single biggest item — needs its own architecture scoping session, same treatment S90 gave
+the Suwayomi-server design before any implementation). Session continues from this point.
+
 ## Current state (post S96 — 2026-08-06 · full functional app audit, not a design block)
 
 **S96: the systematic functional audit Martin asked for at the end of S95** — every screen walked
