@@ -27,6 +27,20 @@ private let featuredRepos: [FeaturedRepo] = [
 // not as a catalog URL — it requires a REST bridge, not a JS plugin catalog.
 // Mangayomi extensions are Dart (not JS) — cannot run in JSC. Removed from featured repos.
 
+/// Catalog entries reachable via a documented public API (MangaDex) or that host only
+/// originally-authored content on their own platform (Royal Road, Scribble Hub) — these are
+/// the only sources in the Yomi-hosted catalog that aren't unlicensed third-party scrapes of
+/// someone else's copyrighted translations. App Store Guideline 5.2.2 requires being
+/// "specifically permitted" to access/display third-party content; everything not on this list
+/// requires an explicit Copy URL + manual add instead of one-tap install, the same friction
+/// already applied to the LNReader featured repo below. Deny-by-default: any new catalog entry
+/// defaults to the manual-add path unless explicitly allowlisted here.
+private let instantInstallSourceIDs: Set<String> = [
+    "com.yomi.mangadex",
+    "com.yomi.royalroad",
+    "com.yomi.scribblehub",
+]
+
 // MARK: - PluginsView
 
 struct PluginsView: View {
@@ -239,9 +253,10 @@ struct PluginsView: View {
             } else {
                 ForEach(filteredGroups) { group in
                     CatalogGroupRow(
-                        group:        group,
-                        isInstalled:  catalogService.isGroupInstalled(group),
-                        installingID: installingID
+                        group:            group,
+                        isInstalled:      catalogService.isGroupInstalled(group),
+                        installingID:     installingID,
+                        isInstantInstall: instantInstallSourceIDs.contains(group.primaryEntry.id)
                     ) {
                         if group.isMultiLang {
                             langPickerGroup = group
@@ -253,6 +268,10 @@ struct PluginsView: View {
             }
         } header: {
             Text("Catalog (\(filteredGroups.count))")
+        } footer: {
+            if filteredGroups.contains(where: { !instantInstallSourceIDs.contains($0.primaryEntry.id) }) {
+                Text("Sources marked \"Copy URL\" are third-party — paste the URL via + → Install from URL to add them.")
+            }
         }
     }
 
@@ -515,10 +534,13 @@ private struct InstalledExtensionRow: View {
 // MARK: - CatalogGroupRow
 
 struct CatalogGroupRow: View {
-    let group:        PluginCatalogGroup
-    let isInstalled:  Bool
-    let installingID: String?
-    let onInstall:    () -> Void
+    let group:            PluginCatalogGroup
+    let isInstalled:      Bool
+    let installingID:     String?
+    let isInstantInstall: Bool
+    let onInstall:        () -> Void
+
+    @State private var justCopied = false
 
     private var isInstalling: Bool {
         group.entries.contains { $0.id == installingID }
@@ -584,10 +606,21 @@ struct CatalogGroupRow: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             } else if isInstalling {
                 ProgressView().scaleEffect(0.8)
-            } else {
+            } else if isInstantInstall {
                 Button(group.isMultiLang ? "Get" : "Install", action: onInstall)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+            } else {
+                Button(justCopied ? "Copied" : "Copy URL") {
+                    UIPasteboard.general.string = group.primaryEntry.fileURL
+                    withAnimation { justCopied = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        withAnimation { justCopied = false }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .padding(.vertical, 2)
