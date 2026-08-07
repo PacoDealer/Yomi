@@ -263,6 +263,43 @@ final class DatabaseManager {
             }
         }
 
+        // CloudKit sync fixes (S105, code-review findings #41/#43):
+        // - `pendingChange` on cloud_sync_map durably records a dirty/delete mark made while no
+        //   CKSyncEngine is running yet (the async window during CloudSyncManager.enable()'s
+        //   accountStatus check) — drained into the engine's own persisted state right after the
+        //   engine is created, instead of being silently dropped.
+        // - `pending_chapter_state`/`pending_novel_chapter_state` hold a remote chapter-state change
+        //   that arrived before the chapter row itself was ever locally cached (its detail page was
+        //   never opened on this device). A real upsert isn't possible here — the sync payload only
+        //   carries read-state fields, not the full chapter row (title/url/chapterNumber/etc. only
+        //   exist plugin-side) — so the change is stashed and replayed once the chapter actually gets
+        //   inserted locally (ChapterQueries.insertAllIgnoringConflicts/insertMangaAndChapters,
+        //   NovelQueries.insertAllIgnoringConflicts).
+        migrator.registerMigration("v21_cloud_sync_pending") { db in
+            try db.alter(table: "cloud_sync_map") { t in
+                t.add(column: "pendingChange", .text)
+            }
+            try db.create(table: "pending_chapter_state", ifNotExists: true) { t in
+                t.column("mangaId", .text).notNull()
+                t.column("chapterId", .text).notNull()
+                t.column("isRead", .boolean).notNull()
+                t.column("progress", .double).notNull()
+                t.column("lastPageRead", .integer).notNull()
+                t.column("readAt", .datetime)
+                t.column("readingSeconds", .integer).notNull()
+                t.primaryKey(["mangaId", "chapterId"])
+            }
+            try db.create(table: "pending_novel_chapter_state", ifNotExists: true) { t in
+                t.column("novelId", .text).notNull()
+                t.column("chapterId", .text).notNull()
+                t.column("isRead", .boolean).notNull()
+                t.column("readAt", .datetime)
+                t.column("readingSeconds", .integer).notNull()
+                t.column("lastScrollPercent", .double)
+                t.primaryKey(["novelId", "chapterId"])
+            }
+        }
+
         try migrator.migrate(db)
     }
 }

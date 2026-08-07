@@ -46,12 +46,25 @@ enum CategoryQueries {
         markCloudDirty(.category, key: id)
     }
 
-    /// Deletes a category; manga_category rows are removed by CASCADE
+    /// Deletes a category; manga_category/novel_category rows are removed by CASCADE. The join-row
+    /// ids are read out *before* the delete so their CloudKit records can be marked deleted too —
+    /// CASCADE alone leaves them as orphans in CloudKit forever (code-review finding #42).
     nonisolated static func delete(id: String) throws {
+        let (mangaIds, novelIds): ([String], [String]) = try appDatabase.read { db in
+            let mangaIds = try String.fetchAll(db, sql: "SELECT mangaId FROM manga_category WHERE categoryId = ?", arguments: [id])
+            let novelIds = try String.fetchAll(db, sql: "SELECT novelId FROM novel_category WHERE categoryId = ?", arguments: [id])
+            return (mangaIds, novelIds)
+        }
         _ = try appDatabase.write { db in
             _ = try Category.deleteOne(db, key: id)
         }
         markCloudDeleted(.category, key: id)
+        for mangaId in mangaIds {
+            markCloudDeleted(.mangaCategoryLink, key: "\(mangaId)|\(id)")
+        }
+        for novelId in novelIds {
+            markCloudDeleted(.novelCategoryLink, key: "\(novelId)|\(id)")
+        }
     }
 
     /// Updates the sort value of a category
