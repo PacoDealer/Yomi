@@ -1568,6 +1568,37 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   as an explicit "What was verified, and what wasn't" section in `CLOUDKIT_SYNC_DESIGN.md` rather than
   folding it into a single "live-verified" claim the way most other sessions' summaries do.
 
+## S104 — Technical learnings (2026-08-07)
+
+- **A compliance/legal question ("do we follow App Store piracy regulations") needs the same
+  fetch-the-live-source discipline as an API question, not a recall from `RESEARCH.md`.** The doc's
+  existing App Store section (S23/S32, last touched S44) was stale in two separate, non-obvious ways:
+  it cited a 2.5.2 "JavaScriptCore/WebKit named exemption" that Apple removed from the guideline text
+  in 2017 (rewritten primary-purpose test instead), and it cited Aidoku as an "approved" App Store
+  precedent when Aidoku isn't distributed via the App Store at all. Both were caught by fetching
+  developer.apple.com directly and a fresh `WebSearch`, not by re-reading the existing doc more
+  carefully. Lesson: treat any standing compliance/regulatory doc the same way `CLAUDE.md`'s "Research
+  rule" already treats ecosystem-integration claims — re-verify against a live source before repeating
+  it, especially once it's months old.
+- **The most reviewer-visible instance of a known risk pattern can be the one nobody re-checked.** S96
+  already identified and fixed "one-tap install makes a source catalog look more turnkey to a reviewer"
+  for the *third-party* LNReader repo. The *first-party* Yomi catalog (`yomi-plugins.web.app/index.json`)
+  — arguably the more exposed surface, since it's the developer's own onboarding flow pointing at it,
+  not a repo a user had to go find — carried the exact same one-tap-install pattern for 12 unlicensed
+  sources and was never touched by that fix, because nobody re-asked "does this same reasoning apply
+  elsewhere in the app" once the specific LNReader instance was resolved. Worth a standing habit: when a
+  review-exposure fix lands for one surface, grep for the same *pattern* (not just the same feature)
+  across the rest of the app before considering the risk closed.
+- **A remote-config-style JSON flag would have been the wrong place to encode this fix, even though it
+  would have been less code.** `PluginCatalogEntry` is already decoded from a remote `index.json` Yomi
+  itself hosts — adding a `"licensed": true/false` field there and reading it client-side was briefly
+  considered and rejected: a compliance-relevant behavior switch that lives in a server response the
+  compiled binary doesn't control is exactly the kind of thing App Review would (rightly) treat with
+  more suspicion than a hardcoded allowlist baked into the reviewed binary, deny-by-default for any
+  future addition. When a fix is specifically about *what a reviewer sees*, prefer encoding it
+  somewhere the reviewer's own build determines, not somewhere a server could differ from what was
+  submitted.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
