@@ -72,6 +72,7 @@ enum MangaQueries {
         _ = try appDatabase.write { db in
             try updated.save(db)
         }
+        markCloudDirty(.manga, key: updated.id)
         return updated
     }
 
@@ -87,6 +88,7 @@ enum MangaQueries {
         _ = try appDatabase.write { db in
             try manga.update(db)
         }
+        markCloudDirty(.manga, key: manga.id)
     }
 
     /// Inserts or updates a manga (save = INSERT OR REPLACE)
@@ -94,6 +96,7 @@ enum MangaQueries {
         _ = try appDatabase.write { db in
             try manga.save(db)
         }
+        markCloudDirty(.manga, key: manga.id)
     }
 
     /// Sets lastReadAt to now for the given manga
@@ -103,6 +106,7 @@ enum MangaQueries {
                 .filter(Column("id") == mangaId)
                 .updateAll(db, [Column("lastReadAt").set(to: Date())])
         }
+        markCloudDirty(.manga, key: mangaId)
     }
 
     /// Clears lastReadAt for the given manga (removes it from history)
@@ -131,6 +135,7 @@ enum MangaQueries {
                 .filter(Column("id") == mangaId)
                 .updateAll(db, [Column("readingStatus").set(to: status.rawValue)])
         }
+        markCloudDirty(.manga, key: mangaId)
     }
 
     /// Saves the user's personal notes for a manga
@@ -140,6 +145,7 @@ enum MangaQueries {
                 .filter(Column("id") == mangaId)
                 .updateAll(db, [Column("notes").set(to: notes)])
         }
+        markCloudDirty(.manga, key: mangaId)
     }
 
     // MARK: - Delete
