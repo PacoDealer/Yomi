@@ -51,6 +51,8 @@ struct MoreView: View {
                         MoreRow(icon: "arrow.down.circle", label: "Downloads") { DownloadsView() }
                         Divider().padding(.leading, 58).overlay(canvas.hairline)
                         MoreRow(icon: "externaldrive", label: "Backup") { BackupView() }
+                        Divider().padding(.leading, 58).overlay(canvas.hairline)
+                        MoreRow(icon: "arrow.triangle.2.circlepath.icloud", label: "Sync") { CloudSyncView() }
                     }
 
                     card("ABOUT") {

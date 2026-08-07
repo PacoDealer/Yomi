@@ -245,6 +245,24 @@ final class DatabaseManager {
                           on: "novel", columns: ["sourceId"], ifNotExists: true)
         }
 
+        // CloudKit sync (S102): recordName -> (recordType, localKey) reverse index.
+        // CKSyncEngine's pending-change queue only carries CKRecord.IDs (recordName is a SHA256 hash
+        // of the local key, to stay within CloudKit's recordName limits regardless of source-URL
+        // length) — this table is what lets CloudSyncManager turn a bare recordID back into "which
+        // GRDB row do I re-fetch to build this record" when the engine asks for a send batch.
+        migrator.registerMigration("v20_cloud_sync_map") { db in
+            try db.create(table: "cloud_sync_map", ifNotExists: true) { t in
+                t.column("recordName", .text).primaryKey()
+                t.column("recordType", .text).notNull()
+                t.column("key", .text).notNull()
+                // Archived CKRecord (NSSecureCoding via CKRecord's own coder) from the last time we
+                // saved or fetched this record — reused as the base for the next save so it carries
+                // the real server recordChangeTag. Without this, every save would be a "fresh" record
+                // with no change tag, defeating CloudKit's conflict detection entirely.
+                t.column("recordData", .blob)
+            }
+        }
+
         try migrator.migrate(db)
     }
 }

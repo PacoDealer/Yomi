@@ -1528,6 +1528,46 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   Deletion propagation ended up only needed for the one delete path that *is* actually called
   (`CategoryQueries.delete`), not the three others that looked like they'd matter.
 
+## S103 — Technical learnings (2026-08-06)
+
+- **A framework's own official WWDC talk can ship code that doesn't compile against the release SDK —
+  verify exact symbol names against the live doc site, not the transcript, once a beta-era API is
+  involved.** Implementing `CloudSyncManager.swift` against `CKSyncEngine`, the WWDC23 "Sync to iCloud
+  with CKSyncEngine" session's own code sample uses `.save(recordID)`/`.delete(recordID)` for
+  `CKSyncEngine.PendingRecordZoneChange` and `context.options.zoneIDs.contains(...)` for batch scoping
+  — neither compiles. Checking developer.apple.com directly (via `mcp__apple-docs__get_apple_doc_content`
+  with `includeSimilarApis: true`, which surfaces the actual enum-case list a plain page fetch doesn't
+  show) found the real shipped names: `.saveRecord(_:)`/`.deleteRecord(_:)`,
+  `.saveZone(_:)`/`.deleteZone(_:)`, and `context.options.scope.contains(pendingChange)`. Likely
+  renamed between the iOS 17 beta the talk was recorded against and GA. Lesson: for any new-ish Apple
+  framework API (introduced within the last few iOS majors), treat a WWDC transcript's code as
+  directionally correct only — confirm exact symbol names against the live doc page (with
+  `includeSimilarApis`/`includeReferences` on, since the default page render often omits enum cases)
+  before writing code you expect to compile on the first try.
+- **This project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` build setting applies to free-standing
+  `enum`s, not just classes/singletons.** `CloudRecordType` (a plain `enum` with computed properties,
+  no `@MainActor` written anywhere near it) still produced "main actor-isolated property... cannot be
+  referenced from a nonisolated context" warnings when called from `CloudSyncManager`'s nonisolated
+  static helper functions. Fixed by marking the whole enum declaration `nonisolated` — the same
+  pattern `Notation` already uses (S91) for exactly this reason. Any new top-level type in this project
+  meant to be called from a nonisolated/`Task.detached` context needs this, not just `*Queries` methods
+  and singleton classes — the existing "ABSOLUTE RULES" in `CLAUDE.md` covers the latter two, this
+  extends it to plain enums/structs too.
+- **`try?` flattens a double-optional result instead of nesting it.** `try? appDatabase.read { db in
+  try Row.fetchOne(...) }` — where the closure itself already returns `Row?` — yields `Row?`, not
+  `Row??`. A first draft written expecting the latter (`guard let row = try? ..., let row else {...}`)
+  produced a real compiler error ("initializer for conditional binding must have Optional type, not
+  'Row'") once `row` was already non-optional after the first unwrap. Worth remembering any time a
+  `try?`-wrapped closure's own return type is itself `Optional` — Swift collapses the two rather than
+  giving back a double-wrapped value.
+- **When a live-testable precondition genuinely isn't met in the current environment (no iCloud
+  account signed into this dev simulator), say exactly that rather than presenting a partial test as
+  full verification.** CloudKit sync's actual record-transfer path, remote-fetch/merge path, and
+  conflict resolution are all unverified — only "compiles clean, launches without crashing, and
+  correctly reports `.unavailable` for a signed-out account" was actually confirmed live. Documented
+  as an explicit "What was verified, and what wasn't" section in `CLOUDKIT_SYNC_DESIGN.md` rather than
+  folding it into a single "live-verified" claim the way most other sessions' summaries do.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
