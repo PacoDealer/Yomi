@@ -21,7 +21,73 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S104 — 2026-08-07 · piracy/App-Store-compliance audit + first-party catalog fix)
+## Current state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
+
+**S105: worked through all 6 findings from S104's `/code-review` pass over the S102-S103 CloudKit sync
+code** (Known Issues #41-46), per Martin's "fix all 6 findings first" call when asked where to focus.
+
+**#41, remote-apply silently dropping chapter state for uncached manga — the real correctness bug.**
+A true upsert isn't possible: the sync payload only carries read-state fields (isRead/progress/
+lastPageRead/readAt/readingSeconds), not the full chapter row (title/url/chapterNumber only exist
+plugin-side, by design — chapter *lists* are deliberately never synced, see
+`CLOUDKIT_SYNC_DESIGN.md`). Fixed by checking `db.changesCount` after the UPDATE in
+`applyRemote(record:)`: if it's zero, the change is stashed into a new `pending_chapter_state`/
+`pending_novel_chapter_state` table instead of being dropped, and replayed the moment the chapter row
+actually gets inserted locally — new `CloudSyncManager.applyPendingChapterStates`/
+`applyPendingNovelChapterStates`, called inside the same write transaction from
+`ChapterQueries.insertAllIgnoringConflicts`/`insertMangaAndChapters` and
+`NovelQueries.insertAllIgnoringConflicts`.
+
+**#42, category deletion not propagating join-table deletes.** `CategoryQueries.delete(id:)` now
+reads the `manga_category`/`novel_category` rows for that category *before* the SQLite `ON DELETE
+CASCADE` fires, then calls `markCloudDeleted` for each `MangaCategoryLink`/`NovelCategoryLink` —
+matching the treatment the `Category` record itself already got.
+
+**#43, dirty-marking silently no-oping during `enable()`'s async accountStatus window.**
+`markCloudDirty`/`markCloudDeleted` now always persist the recordName→(type,key) mapping and, when no
+engine is running yet, durably stash the mark in a new `cloud_sync_map.pendingChange` column (rather
+than the old silent no-op). `enable()` drains every pending mark into the freshly-created engine's own
+persisted state (`CloudSyncManager.drainPendingMarks`) immediately after `cloudSyncEngine` is assigned,
+before bootstrap or first sync — this closes the window rather than just narrowing it, and survives
+even if the app is killed before the next `enable()` call (the marks are on disk, not in memory).
+
+**#44, `enable()` double-call race.** New `private var isEnabling` flag on `CloudSyncManager`, set
+synchronously before the function's first `await` and cleared via `defer`. Because MainActor serializes
+non-suspended code, a second concurrent caller's guard check (itself synchronous up to its own first
+`await`) reliably observes the flag and returns early instead of constructing a second `CKSyncEngine`
+that would silently clobber the first.
+
+**#45, `try?` regression swallowing 2 bulk mark-read functions' DB-write errors.**
+`ChapterQueries.markAllRead` and `NovelQueries.markAllChapters` reverted from `try? appDatabase.write`
+back to `try appDatabase.write` (both functions already declare `throws` — the `try?` was silently
+defeating S100's toast-on-failure work, Known Issue #26, for these two call sites specifically).
+
+**#46, hardcoded `aps-environment: development` in `Yomi.entitlements`.** Rather than trust
+automatic-signing entitlement rewriting to fix this at archive time (the finding's own worry: manual
+signing or some CI export paths can skip it), added a dedicated `Yomi/Yomi-Release.entitlements`
+(identical except `aps-environment: production`) and repointed the Yomi target's Release build
+configuration's `CODE_SIGN_ENTITLEMENTS` at it directly — Debug still uses the original
+`Yomi.entitlements`. This makes the correct value a build-time file choice, not a runtime signing
+behavior to trust. Verified via both configs' build logs: `ProcessProductPackaging` shows
+`Yomi.entitlements` for Debug, `Yomi-Release.entitlements` for Release.
+
+New migration `v21_cloud_sync_pending` (`cloud_sync_map.pendingChange` column +
+`pending_chapter_state`/`pending_novel_chapter_state` tables) — next must be `v22_`. All fixes
+live-verified: clean **Debug and Release** `build_sim` (zero warnings both), `build_run_sim` launches
+with no crash, and direct `sqlite3` inspection of the dev simulator's `yomi.db` confirming the
+migration applied and the new column/tables exist with the expected schema.
+
+**Still queued, not touched this session** (Martin's call: fix the 6 findings first, real-account
+verification next): the S103 real-iCloud-account verification. This dev simulator still has no iCloud
+account signed in, so an actual CloudKit send/fetch round-trip and real multi-device convergence remain
+unverified — everything fixed this session is code-review-level correctness, not proof the sync
+actually reaches CloudKit and back.
+
+Committed and pushed to `main`.
+
+---
+
+## Prior state (post S104 — 2026-08-07 · piracy/App-Store-compliance audit + first-party catalog fix)
 
 **S104: Martin asked directly whether Yomi complies with App Store regulations around piracy** — a
 genuine compliance question, not a bug hunt. Fetched the live current guideline text from

@@ -79,6 +79,9 @@ enum ChapterQueries {
             for chapter in chapters {
                 try chapter.insert(db, onConflict: .ignore)
             }
+            // Replays any CloudKit chapter-state change that arrived before these chapters existed
+            // locally — see CloudSyncManager's code-review finding #41.
+            try CloudSyncManager.applyPendingChapterStates(chapters, db: db)
         }
     }
 
@@ -91,6 +94,7 @@ enum ChapterQueries {
             for chapter in chapters {
                 try chapter.insert(db, onConflict: .ignore)
             }
+            try CloudSyncManager.applyPendingChapterStates(chapters, db: db)
         }
     }
 
@@ -146,14 +150,14 @@ enum ChapterQueries {
 
     /// Marks all chapters for a manga as read with isRead=true and readAt=now.
     nonisolated static func markAllRead(mangaId: String) throws {
-        let chapterIds: [String]? = try? appDatabase.write { db in
+        let chapterIds: [String] = try appDatabase.write { db in
             try db.execute(
                 sql: "UPDATE chapter SET isRead = 1, readAt = ? WHERE mangaId = ?",
                 arguments: [Date(), mangaId]
             )
             return try String.fetchAll(db, sql: "SELECT id FROM chapter WHERE mangaId = ?", arguments: [mangaId])
         }
-        for chapterId in chapterIds ?? [] {
+        for chapterId in chapterIds {
             markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(chapterId)")
         }
         try? MangaQueries.touchLastRead(mangaId: mangaId)

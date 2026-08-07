@@ -167,6 +167,9 @@ enum NovelQueries {
             for ch in chapters {
                 try ch.insert(db, onConflict: .ignore)
             }
+            // Replays any CloudKit chapter-state change that arrived before these chapters existed
+            // locally — see CloudSyncManager's code-review finding #41.
+            try CloudSyncManager.applyPendingNovelChapterStates(chapters, db: db)
         }
     }
 
@@ -241,14 +244,14 @@ enum NovelQueries {
 
     /// Marks all chapters of a novel as read or unread in a single write
     nonisolated static func markAllChapters(novelId: String, read: Bool) throws {
-        let chapterIds: [String]? = try? appDatabase.write { db in
+        let chapterIds: [String] = try appDatabase.write { db in
             try db.execute(
                 sql: "UPDATE novel_chapter SET isRead = ?, readAt = ? WHERE novelId = ?",
                 arguments: [read, read ? Date() : nil, novelId]
             )
             return try String.fetchAll(db, sql: "SELECT id FROM novel_chapter WHERE novelId = ?", arguments: [novelId])
         }
-        for chapterId in chapterIds ?? [] {
+        for chapterId in chapterIds {
             markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
         }
         if read {

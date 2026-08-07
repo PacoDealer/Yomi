@@ -28,7 +28,31 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S104 — 2026-08-07 · piracy/App-Store-compliance audit + first-party catalog fix)
+## Current state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
+
+**S105: fixed all 6 code-review findings from S104's pass over the S102-S103 CloudKit sync code**
+(Known Issues #41-46 above — full detail there). Two were real sync-correctness bugs: an UPDATE-only
+remote-apply that silently dropped chapter read-state for manga not yet locally cached (fixed with a
+new pending-state stash-and-replay table, since a true upsert isn't possible without the full chapter
+row) and category deletion not propagating join-table deletes to CloudKit (fixed by reading the join
+rows before the CASCADE delete). The other four: a durable dirty-mark queue closing the async window
+during `enable()`'s account-status check (new `cloud_sync_map.pendingChange` column, drained into the
+engine right after it's created), an `isEnabling` guard closing `enable()`'s double-call race, reverting
+a `try?` regression that had silently swallowed 2 bulk mark-read functions' DB-write errors, and a
+Release-only `Yomi-Release.entitlements` file (production `aps-environment`) so the correct APNs
+environment no longer depends on automatic-signing rewrite behavior. New migration
+`v21_cloud_sync_pending` — next must be `v22_`. All fixes live-verified: clean Debug **and** Release
+`build_sim`, `build_run_sim` launch with no crash, direct `sqlite3` inspection confirming the migration
+applied and new tables/column exist, and both entitlements files confirmed picked correctly via each
+config's `ProcessProductPackaging` build-log line. **Still queued, not touched this session**: the
+S103 real-iCloud-account verification (this dev simulator still has no account signed in — an actual
+CloudKit send/fetch round-trip and multi-device convergence remain unverified).
+
+Committed and pushed to `main`.
+
+---
+
+## Prior state (post S104 — 2026-08-07 · piracy/App-Store-compliance audit + first-party catalog fix)
 
 **S104: Martin asked directly whether Yomi complies with App Store piracy regulations.** Fetched the
 live current guideline text from developer.apple.com rather than trusting `RESEARCH.md`'s existing
@@ -236,12 +260,12 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 38 | ~~No-cover placeholder ignored canvas selection~~ | ✅ Fixed S101 — `Core/CoverImage.swift`'s placeholder used `Color.secondary` (system light/dark mode only), not canvas tokens; any manga/novel without cover art rendered a plain gray box regardless of Ink/Midnight/Paper/Sepia. Fixed to `canvas.surface2`. Root-caused a second layer while fixing: Kingfisher's `KFImage.placeholder` snapshots once at mount and doesn't live-repaint on an environment-only change (correct from a fresh launch with the new canvas already active, stale after switching canvas mid-session without relaunching) — added `.id(canvas.name)` to force a clean remount on every canvas switch, verified live both ways. |
 | 39 | ~~Novel indicator badge rendered two different ways~~ | ✅ Fixed S101 (Martin's live catch) — Library grid's `NovelLibraryCoverCell` used a small translucent "NOVEL" text pill (top-trailing); `ContinueReadingRow`'s "Up next" shelf used a chunky solid-accent-filled "N" square (top-leading) for the exact same meaning. Unified the shelf cell to the grid's pill style. |
 | 40 | ~~First-party plugin catalog one-tap-installed unlicensed sources~~ | ✅ Fixed S104 — see current-state entry above. `Catalog (15)` in `PluginsView.swift` let 12 unlicensed scanlation/scrape sources install with one tap, discoverable directly from onboarding — the same review-exposure pattern S96 fixed for the LNReader repo, just never applied here. New `instantInstallSourceIDs` allowlist (MangaDex/Royal Road/Scribble Hub only) gates the rest behind Copy URL + manual add. |
-| 41 | CloudSyncManager: remote apply drops chapter state for uncached manga | Found by `/code-review` S104, **not yet fixed**. `applyRemote(record:)` (`CloudSyncManager.swift:591`) uses an UPDATE-only SQL statement for `MangaChapterState`/`NovelChapterState` records — if the local `chapter` table has zero rows for that manga yet (never opened its detail page), the UPDATE matches nothing and the remote read-state is silently dropped, permanently (CKSyncEngine won't redeliver the same change-token'd record). Needs an upsert path per `CLOUDKIT_SYNC_DESIGN.md`'s original spec. |
-| 42 | CategoryQueries.delete doesn't propagate join-row deletes to CloudKit | Found by `/code-review` S104, **not yet fixed**. `CategoryQueries.delete(id:)` (`CategoryQueries.swift:50`) marks the `Category` CKRecord deleted but the `manga_category`/`novel_category` join rows are removed locally via SQLite `ON DELETE CASCADE` with no code path through `markCloudDeleted` — their `MangaCategoryLink`/`NovelCategoryLink` CKRecords persist in CloudKit indefinitely as orphans. |
-| 43 | CloudSyncManager: dirty-marking no-ops during enable()'s async window | Found by `/code-review` S104, **not yet fixed**. `markCloudDirty`/`markCloudDeleted` (`CloudSyncManager.swift:82`) guard on `cloudSyncEngine != nil` and silently return otherwise — true for the whole duration of `enable()`'s `await container.accountStatus()` call. A local write during that window (e.g. cold-launch auto-enable racing a user's first tap) is dropped from sync with no retry or persisted dirty bit to catch it up later. |
-| 44 | CloudSyncManager.enable() has a double-call race | Found by `/code-review` S104, **not yet fixed**. `enable()`'s `guard cloudSyncEngine == nil else { return }` (`CloudSyncManager.swift:137`) is followed by an `await` before `cloudSyncEngine` is actually assigned — two concurrent callers (cold-launch auto-enable + a fast manual Settings toggle) can both pass the guard and each construct a `CKSyncEngine`, the second silently clobbering the first. |
-| 45 | `try?` swallows DB-write errors in 2 bulk mark-read functions | Found by `/code-review` S104, **not yet fixed**. `ChapterQueries.markAllRead` (line 149) and `NovelQueries.markAllChapters` (line 244) were changed from `_ = try appDatabase.write { ... }` to `try? appDatabase.write { ... }` — both functions are still declared `throws`, so a real GRDB write failure now returns `nil` instead of propagating, silently defeating S100's Known Issue #26 silent-failure-toast work for these two call sites specifically. |
-| 46 | `Yomi.entitlements` hardcodes `aps-environment: development` | Found by `/code-review` S104, **not yet fixed**. Needed for CKSyncEngine's Remote Notifications entitlement (S103). If automatic-signing entitlement rewriting doesn't override this for a Release/TestFlight/App-Store archive (manual signing or some CI export paths can skip it), APNs silent pushes CKSyncEngine relies on for background wake target the wrong APNs environment and never arrive — sync silently degrades to foreground/background-only, which is the designed fallback but not by design in that case. |
+| 41 | ~~CloudSyncManager: remote apply drops chapter state for uncached manga~~ | ✅ Fixed S105. A real upsert isn't possible (the sync payload has no title/url/chapterNumber to construct a valid `chapter` row with — chapter lists are deliberately never synced, see `CLOUDKIT_SYNC_DESIGN.md`). Instead: if the UPDATE in `applyRemote(record:)` affects zero rows (`db.changesCount == 0`), the change is stashed in a new `pending_chapter_state`/`pending_novel_chapter_state` table (migration `v21_cloud_sync_pending`) and replayed the moment the chapter row actually gets inserted locally — hooked into `ChapterQueries.insertAllIgnoringConflicts`/`insertMangaAndChapters` and `NovelQueries.insertAllIgnoringConflicts` via new `CloudSyncManager.applyPendingChapterStates`/`applyPendingNovelChapterStates`, called inside the same write transaction. Verified live: clean migration on the existing dev-simulator DB, new tables present via direct `sqlite3` inspection. |
+| 42 | ~~CategoryQueries.delete doesn't propagate join-row deletes to CloudKit~~ | ✅ Fixed S105. `CategoryQueries.delete(id:)` now reads the `manga_category`/`novel_category` rows for that category *before* the CASCADE delete, then calls `markCloudDeleted(.mangaCategoryLink/.novelCategoryLink, ...)` for each — same treatment the category's own `Category` CKRecord already got. |
+| 43 | ~~CloudSyncManager: dirty-marking no-ops during enable()'s async window~~ | ✅ Fixed S105. `markCloudDirty`/`markCloudDeleted` now always persist the mapping and, when no engine exists yet, stash a durable mark in a new `cloud_sync_map.pendingChange` column (migration `v21_cloud_sync_pending`) instead of silently dropping it. `enable()` drains all pending marks into the freshly-created engine's state (`CloudSyncManager.drainPendingMarks`) right after `cloudSyncEngine` is assigned, before bootstrap/first sync — closing the window instead of just narrowing it. |
+| 44 | ~~CloudSyncManager.enable() has a double-call race~~ | ✅ Fixed S105. New `private var isEnabling` flag, set synchronously before the first `await` and cleared via `defer` — `enable()`'s guard now checks `cloudSyncEngine == nil && !isEnabling`. Since both the flag-set and a concurrent caller's guard-check happen synchronously on MainActor (no suspension point between them), a second concurrent call reliably observes the flag and returns early instead of constructing a second `CKSyncEngine`. |
+| 45 | ~~`try?` swallows DB-write errors in 2 bulk mark-read functions~~ | ✅ Fixed S105. `ChapterQueries.markAllRead` and `NovelQueries.markAllChapters` reverted to `try appDatabase.write { ... }` (both functions already declare `throws`) — a real GRDB write failure now propagates again instead of silently returning `nil`, restoring S100's Known Issue #26 toast-on-failure behavior for these two call sites. |
+| 46 | ~~`Yomi.entitlements` hardcodes `aps-environment: development`~~ | ✅ Fixed S105 — doesn't rely on automatic-signing entitlement rewriting at all anymore. New `Yomi/Yomi-Release.entitlements` (identical except `aps-environment: production`); the Yomi target's Release build configuration's `CODE_SIGN_ENTITLEMENTS` now points at it directly, Debug still points at the original `Yomi.entitlements` (`development`). Verified via both configs' build logs: `ProcessProductPackaging` shows `Yomi.entitlements` for Debug and `Yomi-Release.entitlements` for Release — the correct file is picked at build time regardless of signing style or export path. |
 
 ## MCP tools — use these every session
 
@@ -341,7 +365,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v21_` (v20_cloud_sync_map added in S103 for CloudKit sync)
+- Next migration prefix must be `v22_` (v21_cloud_sync_pending added in S105 — durable dirty-mark queue + pending chapter-state stash, see Known Issues #41/#43)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -384,7 +408,7 @@ Yomi/Core/GlassChip.swift                       # .glassChip() — shared 44×44
 Yomi/Core/UIImage+AverageColor.swift            # UIImage.averageColor() via CIAreaAverage — backs Continue hero's ambient-tint-from-cover background
 Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), historyTimestamp(), etc. `nonisolated enum` (S91) — safe to call from Task.detached.
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v20_cloud_sync_map; next must be v21_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v21_cloud_sync_pending; next must be v22_
 Yomi/Sync/CloudSyncManager.swift               # CKSyncEngine + delegate; CloudRecordType; module-level markCloudDirty()/markCloudDeleted() called from *Queries writes
 Yomi/Features/More/CloudSyncView.swift         # Settings → More → Sync UI (toggle + status row), distinct from BackupView
 Yomi/Database/Queries/MangaQueries.swift

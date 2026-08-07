@@ -1599,6 +1599,37 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   somewhere the reviewer's own build determines, not somewhere a server could differ from what was
   submitted.
 
+## S105 — Technical learnings (2026-08-07)
+
+- **A durable-queue fix beats a narrower-window fix for an async-gap race.** #43's fix could have just
+  moved `cloudSyncEngine = engine` earlier in `enable()` to shrink the no-op window — instead, marks
+  made with no engine running are now persisted to disk (`cloud_sync_map.pendingChange`) and drained
+  once an engine exists. This is strictly stronger: it survives the app being killed mid-window, not
+  just a narrower window. Worth defaulting to "make the gap safe to fall into" over "make the gap
+  smaller" whenever the write side can be made durable cheaply — the class of bug (a write during an
+  async setup window silently not reaching a not-yet-ready subsystem) recurs anywhere an
+  `@Observable`/engine/manager is lazily constructed behind an `await`.
+- **A real upsert isn't always possible even when "just upsert it" is the obvious-sounding fix.**
+  #41's UPDATE-only SQL looked like a textbook missing-upsert bug, but `MangaChapterState`/
+  `NovelChapterState` sync records only carry read-state fields by design (S102's finding: chapter
+  *lists* are re-derived locally, never synced) — an INSERT would need to fabricate `title`/`path`/
+  `chapterNumber` that don't exist in the payload. The correct fix was a stash-and-replay against the
+  *next* real chapter insert, not a same-transaction upsert. Worth checking what fields a payload
+  actually carries before assuming "add ON CONFLICT DO UPDATE" is sufficient — sometimes the missing
+  data literally isn't available at the point of failure and has to be deferred.
+- **Xcode does *not* generally substitute custom build settings (`$(MY_VAR)`) inside `.entitlements`
+  file *content*** — only a few Apple-recognized keys get special-cased substitution (e.g.
+  `$(AppIdentifierPrefix)` in keychain-access-groups). A `$(YOMI_APS_ENVIRONMENT)` value written
+  directly into the plist would very likely codesign as the literal string, not the resolved value —
+  caught before shipping by a `WebSearch` rather than assuming general variable substitution "should"
+  work the way it does in `Info.plist`/build settings. What *is* documented and confirmed working:
+  `CODE_SIGN_ENTITLEMENTS` itself (the build setting naming *which file* to sign with) fully supports
+  build-setting substitution, including custom ones — so per-configuration entitlements differences
+  belong in separate files switched via that setting, not inlined into one file's values. Verified via
+  each config's build log `ProcessProductPackaging` line naming the actual file used, not just "the
+  build succeeded" (a wrong entitlements value can still codesign and launch fine in the simulator,
+  where there's no real provisioning profile enforcing it).
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
