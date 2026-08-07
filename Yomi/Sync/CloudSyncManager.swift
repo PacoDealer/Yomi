@@ -77,21 +77,32 @@ nonisolated(unsafe) private var cloudSyncZoneID = CKRecordZone.ID(
 
 /// Marks a local row dirty for the next CloudKit sync. Safe to call from any context, including
 /// inside any `nonisolated static func` on `MangaQueries`/`ChapterQueries`/`NovelQueries`/
-/// `CategoryQueries`. No-ops silently if sync isn't enabled (no engine running) — every call site
-/// stays correct whether or not the user has sync turned on.
+/// `CategoryQueries`. No-ops (durably, not silently) if sync isn't enabled yet — the mapping is
+/// always persisted, and if no engine is running the mark is stashed in `cloud_sync_map.pendingChange`
+/// instead of the engine's in-memory state, then drained into a real engine the next time
+/// `CloudSyncManager.enable()` runs (closes the async window during its own accountStatus check —
+/// see code-review finding #43).
 nonisolated func markCloudDirty(_ type: CloudRecordType, key: String) {
-    guard let engine = cloudSyncEngine else { return }
     let recordID = CloudSyncManager.recordID(type: type, key: key, zoneID: cloudSyncZoneID)
     CloudSyncManager.rememberMapping(recordName: recordID.recordName, type: type, key: key)
+    guard let engine = cloudSyncEngine else {
+        CloudSyncManager.markPending(recordName: recordID.recordName, change: "save")
+        return
+    }
     engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
 }
 
 /// Marks a local row as deleted for the next CloudKit sync (category deletion, category
 /// unassignment — the only two real per-row delete paths this app has; see
-/// Yomi/CLOUDKIT_SYNC_DESIGN.md's "Deletion" section for why nothing else needs this).
+/// Yomi/CLOUDKIT_SYNC_DESIGN.md's "Deletion" section for why nothing else needs this). See
+/// `markCloudDirty` above for the durable-pending-mark behavior when no engine is running yet.
 nonisolated func markCloudDeleted(_ type: CloudRecordType, key: String) {
-    guard let engine = cloudSyncEngine else { return }
     let recordID = CloudSyncManager.recordID(type: type, key: key, zoneID: cloudSyncZoneID)
+    CloudSyncManager.rememberMapping(recordName: recordID.recordName, type: type, key: key)
+    guard let engine = cloudSyncEngine else {
+        CloudSyncManager.markPending(recordName: recordID.recordName, change: "delete")
+        return
+    }
     engine.state.add(pendingRecordZoneChanges: [.deleteRecord(recordID)])
 }
 
@@ -108,6 +119,13 @@ final class CloudSyncManager: NSObject {
     var status: CloudSyncStatus = .idle
     var lastSyncDate: Date? = UserDefaults.standard.object(forKey: "lastCloudSyncDate") as? Date
     var isAccountAvailable = false
+
+    /// Guards `enable()` against a double-call race (code-review finding #44): cold-launch auto-enable
+    /// and a fast manual Settings toggle can both reach the `await container.accountStatus()` call
+    /// before `cloudSyncEngine` is assigned. Set synchronously before the first `await`, so the second
+    /// caller's guard check (itself synchronous up to its own first `await`, and MainActor-serialized
+    /// against the first) reliably sees it.
+    private var isEnabling = false
 
     // MARK: Config
 
@@ -134,7 +152,9 @@ final class CloudSyncManager: NSObject {
     /// Yomi/CLOUDKIT_SYNC_DESIGN.md's "Bootstrap flow" section for why this needs no special-cased
     /// merge logic against whatever's already in CloudKit.
     func enable() async {
-        guard cloudSyncEngine == nil else { return }
+        guard cloudSyncEngine == nil, !isEnabling else { return }
+        isEnabling = true
+        defer { isEnabling = false }
 
         let accountStatus = (try? await container.accountStatus()) ?? .couldNotDetermine
         guard accountStatus == .available else {
@@ -157,6 +177,10 @@ final class CloudSyncManager: NSObject {
         cloudSyncZoneID = zoneID
 
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
+
+        // Replay any dirty/delete marks that landed while no engine existed yet — the async window
+        // between this function starting and `cloudSyncEngine` being assigned above (finding #43).
+        await Self.drainPendingMarks(engine: engine, zoneID: zoneID)
 
         if isFirstEnable {
             await bootstrapPushAllLocalData()
@@ -198,6 +222,31 @@ final class CloudSyncManager: NSObject {
     func handleRemoteNotification() async {
         guard cloudSyncEngine != nil else { return }
         await syncNow()
+    }
+
+    /// Drains `cloud_sync_map.pendingChange` rows (marks made while no engine was running) into a
+    /// freshly-created engine's own persisted state. See `markCloudDirty`/`markCloudDeleted` above.
+    private static func drainPendingMarks(engine: CKSyncEngine, zoneID: CKRecordZone.ID) async {
+        let rows: [(recordName: String, change: String)] = await Task.detached(priority: .utility) {
+            let fetched: [Row] = (try? appDatabase.read { db in
+                try Row.fetchAll(db, sql: "SELECT recordName, pendingChange FROM cloud_sync_map WHERE pendingChange IS NOT NULL")
+            }) ?? []
+            return fetched.map { ($0["recordName"] as String, $0["pendingChange"] as String) }
+        }.value
+
+        guard !rows.isEmpty else { return }
+
+        let changes: [CKSyncEngine.PendingRecordZoneChange] = rows.map { row in
+            let recordID = CKRecord.ID(recordName: row.recordName, zoneID: zoneID)
+            return row.change == "delete" ? .deleteRecord(recordID) : .saveRecord(recordID)
+        }
+        engine.state.add(pendingRecordZoneChanges: changes)
+
+        await Task.detached(priority: .utility) {
+            _ = try? appDatabase.write { db in
+                try db.execute(sql: "UPDATE cloud_sync_map SET pendingChange = NULL WHERE pendingChange IS NOT NULL")
+            }
+        }.value
     }
 
     // MARK: - Bootstrap
@@ -306,6 +355,18 @@ final class CloudSyncManager: NSObject {
             try db.execute(
                 sql: "INSERT OR REPLACE INTO cloud_sync_map (recordName, recordType, key, recordData) VALUES (?, ?, ?, COALESCE((SELECT recordData FROM cloud_sync_map WHERE recordName = ?), NULL))",
                 arguments: [recordName, type.rawValue, key, recordName]
+            )
+        }
+    }
+
+    /// Durably stashes a dirty/delete mark for a record when no `CKSyncEngine` is running yet — see
+    /// `markCloudDirty`/`markCloudDeleted` above. `rememberMapping` must already have been called for
+    /// this `recordName` (it always is, by both call sites) so the row exists to update.
+    nonisolated static func markPending(recordName: String, change: String) {
+        _ = try? appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE cloud_sync_map SET pendingChange = ? WHERE recordName = ?",
+                arguments: [change, recordName]
             )
         }
     }
@@ -604,7 +665,24 @@ private extension CloudSyncManager {
                         """,
                     arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, chapterId, mangaId]
                 )
-                if isRead {
+                if db.changesCount == 0 {
+                    // The chapter isn't locally cached yet (its detail page has never been opened on
+                    // this device) — a real upsert isn't possible, the sync payload has no title/url/
+                    // chapterNumber to construct a valid chapter row with. CKSyncEngine won't redeliver
+                    // this change once acknowledged, so stash it and replay once the chapter row
+                    // actually gets inserted (see ChapterQueries.insertAllIgnoringConflicts /
+                    // insertMangaAndChapters). Fixes code-review finding #41.
+                    try db.execute(
+                        sql: """
+                            INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(mangaId, chapterId) DO UPDATE SET
+                                isRead = excluded.isRead, progress = excluded.progress, lastPageRead = excluded.lastPageRead,
+                                readAt = excluded.readAt, readingSeconds = excluded.readingSeconds
+                            """,
+                        arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds]
+                    )
+                } else if isRead {
                     try Manga.filter(Column("id") == mangaId).updateAll(db, [Column("lastReadAt").set(to: Date())])
                 }
             }
@@ -624,7 +702,20 @@ private extension CloudSyncManager {
                         """,
                     arguments: [isRead, readAt, readingSeconds, lastScrollPercent, chapterId, novelId]
                 )
-                if isRead {
+                if db.changesCount == 0 {
+                    // Same reasoning as .mangaChapterState above — stash and replay once
+                    // NovelQueries.insertAllIgnoringConflicts brings the chapter row in.
+                    try db.execute(
+                        sql: """
+                            INSERT INTO pending_novel_chapter_state (novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(novelId, chapterId) DO UPDATE SET
+                                isRead = excluded.isRead, readAt = excluded.readAt,
+                                readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent
+                            """,
+                        arguments: [novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent]
+                    )
+                } else if isRead {
                     try Novel.filter(Column("id") == novelId).updateAll(db, [Column("lastReadAt").set(to: Date())])
                 }
             }
@@ -693,6 +784,68 @@ private extension CloudSyncManager {
             let novelId = record["novelId"] as? String ?? ""
             let categoryId = record["categoryId"] as? String ?? ""
             return "\(novelId)|\(categoryId)"
+        }
+    }
+}
+
+// MARK: - Replaying stashed chapter-state changes (finding #41)
+//
+// Called from ChapterQueries.insertAllIgnoringConflicts/insertMangaAndChapters and
+// NovelQueries.insertAllIgnoringConflicts, inside the same write transaction that just inserted the
+// chapter rows — so a remote read-state that arrived before the chapter existed locally gets applied
+// the moment it can be, rather than waiting for the next full sync.
+
+extension CloudSyncManager {
+
+    nonisolated static func applyPendingChapterStates(_ chapters: [Chapter], db: Database) throws {
+        for chapter in chapters {
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT isRead, progress, lastPageRead, readAt, readingSeconds FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
+                arguments: [chapter.mangaId, chapter.id]
+            ) else { continue }
+
+            let isRead = row["isRead"] as Bool
+            try db.execute(
+                sql: "UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ? WHERE id = ?",
+                arguments: [
+                    isRead, row["progress"] as Double, row["lastPageRead"] as Int,
+                    row["readAt"] as Date?, row["readingSeconds"] as Int, chapter.id
+                ]
+            )
+            try db.execute(
+                sql: "DELETE FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
+                arguments: [chapter.mangaId, chapter.id]
+            )
+            if isRead {
+                try Manga.filter(Column("id") == chapter.mangaId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+            }
+        }
+    }
+
+    nonisolated static func applyPendingNovelChapterStates(_ chapters: [NovelChapter], db: Database) throws {
+        for chapter in chapters {
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT isRead, readAt, readingSeconds, lastScrollPercent FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
+                arguments: [chapter.novelId, chapter.id]
+            ) else { continue }
+
+            let isRead = row["isRead"] as Bool
+            try db.execute(
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ? WHERE id = ?",
+                arguments: [
+                    isRead, row["readAt"] as Date?, row["readingSeconds"] as Int,
+                    row["lastScrollPercent"] as Double?, chapter.id
+                ]
+            )
+            try db.execute(
+                sql: "DELETE FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
+                arguments: [chapter.novelId, chapter.id]
+            )
+            if isRead {
+                try Novel.filter(Column("id") == chapter.novelId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+            }
         }
     }
 }

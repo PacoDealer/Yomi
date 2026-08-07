@@ -218,8 +218,12 @@ cloud_sync_map (recordName TEXT PRIMARY KEY,   -- CloudKit sync (S103): hashed C
 - **v18_indexes**: adds `idx_chapter_mangaid`, `idx_chapter_unread` on `chapter`; `idx_novel_chapter_novelid` on `novel_chapter`
 - **v19_source_indexes**: adds `idx_manga_sourceid` on `manga(sourceId)`; `idx_novel_sourceid` on `novel(sourceId)`
 - **v20_cloud_sync_map** (S103): adds `cloud_sync_map` table (CloudKit sync reverse index + cached CKRecord)
+- **v21_cloud_sync_pending** (S105): adds `cloud_sync_map.pendingChange` column (durable dirty/delete
+  mark queue for when no `CKSyncEngine` is running yet) + `pending_chapter_state`/
+  `pending_novel_chapter_state` tables (stashed remote chapter-state changes for chapters not yet
+  locally cached, replayed on next real chapter insert) — see `CLAUDE.md` Known Issues #41/#43.
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v21_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v22_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
