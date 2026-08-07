@@ -1,8 +1,13 @@
 # CloudKit Multi-Device Sync — Architecture Design
 
-Status: **designed, not implemented.** Same treatment S90 gave the Suwayomi-server design before
-any code was written — this doc is the reference for whenever implementation starts. Scoping session:
-S102 (2026-08-06).
+Status: **implemented S103 (2026-08-06), built directly against this doc.** Scoped S102, same
+treatment S90 gave the Suwayomi-server design before any code was written; S103 picked it up the same
+session-day and shipped it. A few real API details below were corrected from the original scoping pass
+once actual Apple documentation (not training-data memory) was checked mid-implementation — marked
+inline as **[as-built]**. Remaining known gap: **no real device/iCloud account has verified an actual
+end-to-end sync round-trip** — this dev simulator has no iCloud account signed in, so verification
+stopped at "the code path runs cleanly and reports `.unavailable` correctly," not a live two-device
+test. See the bottom of this doc for exactly what was and wasn't verified.
 
 ## Goal
 
@@ -15,14 +20,23 @@ and notes should converge across a user's devices without them thinking about it
 the iPad, chapter 12 is read when they pick up the iPhone.
 
 **Decided with Martin (2026-08-06), both defaults accepted:**
-1. **Sync timing: on app foreground/background, not real-time push.** Same trigger points the
-   existing iCloud backup already uses. No `CKSubscription` / Remote Notifications background mode /
-   push entitlement. A second device catches up within seconds of being *opened*, not while both are
-   open side by side — acceptable for a reading app (no two-devices-open-simultaneously use case).
+1. **Sync *behavior* triggers on app foreground/background, not real-time push.** Same trigger points
+   the existing iCloud backup already uses — Yomi never builds any "sync happened live while both
+   devices were open" UI, and a second device catches up within seconds of being *opened*, not
+   instantly side-by-side. **[as-built] The entitlement itself changed mid-implementation**: Apple's
+   own `CKSyncEngine` class documentation states plainly that it "requires the CloudKit and Remote
+   notifications entitlements" — checked directly against developer.apple.com, not assumed. Flagged
+   back to Martin before touching entitlements; his call was to add Remote Notifications (background
+   mode + `registerForRemoteNotifications()`, gated behind the sync toggle so it stays dormant for
+   everyone who leaves sync off) rather than gamble on undocumented behavior. This does **not** change
+   the product decision above — no push-triggered UI was built, no urgency messaging — it's purely
+   satisfying a stated framework requirement so `CKSyncEngine`'s own internal `CKDatabaseSubscription`
+   machinery has somewhere to deliver to, opportunistically, if iOS happens to wake the app.
 2. **Sync scope: metadata + reading state only, no files.** Downloaded chapter images and custom
    cover images stay device-local, matching Tachiyomi/Mihon convention — each device re-fetches
    chapter pages from the source as needed. Keeps every CKRecord tiny (no CKAsset storage/quota
-   concerns) and keeps the whole design table-row-shaped instead of file-shaped.
+   concerns) and keeps the whole design table-row-shaped instead of file-shaped. Implemented exactly
+   as scoped, no changes.
 
 ## Why CKSyncEngine, not the alternatives
 
@@ -243,16 +257,67 @@ precedent).
    cross-device feature. Different failure modes, worth keeping architecturally separate even though
    they'll look adjacent in Settings.
 
-## Effort estimate (rough, for whenever this gets picked up)
+## As-built implementation notes (S103)
 
-Comparable in shape to the Suwayomi bridge work (S89), not the Suwayomi-server hosting project (S90) —
-this is app-code-only, no infrastructure to stand up:
-- `CloudSyncManager.swift` + `CKSyncEngine` setup + delegate (record↔GRDB mapping both directions): the
-  bulk of the work.
-- `*Queries` dirty-marking hook points: mechanical, ~10 call sites, per the write-path list above.
-- Settings UI: small, reuses `BackupView`'s existing status-row pattern.
-- Testing: two-simulator same-sandboxed-Apple-ID setup + CloudKit Dashboard verification.
+A few details were refined during implementation beyond what this doc originally scoped — recorded
+here so the doc stays accurate as the reference, not just as history:
 
-No blockers identified — GRDB's stable, content-derived ids make the two usually-hardest parts of any
-sync design (avoiding duplicate records on first bootstrap, and deletion/tombstone propagation)
-close to non-issues here.
+- **`CKRecord.ID.recordName` is a SHA256 hash of the local key, not the raw id.** This doc originally
+  said "reuse the existing stable string ids directly as `CKRecord.ID.recordName`" — implemented
+  differently once the actual constraint was considered: local ids are often full source URLs (a
+  chapter's path), which risk CloudKit's recordName length limits and have no guaranteed-safe
+  character set. `recordName = "\(typePrefix)_\(sha256Hex(key))"` sidesteps this entirely (fixed
+  length, always-safe characters) at the cost of needing a small reverse-lookup table.
+- **New GRDB table `cloud_sync_map`** (migration `v20_cloud_sync_map`, next migration must be `v21_`):
+  `(recordName TEXT PK, recordType TEXT, key TEXT, recordData BLOB)`. Two jobs: (1) reverse-map a bare
+  `CKRecord.ID` back to "which type, which GRDB row" when `CKSyncEngine` asks for a send batch (it
+  only ever hands back record IDs, not app-level context); (2) cache the last-known-good `CKRecord`
+  (archived via `NSKeyedArchiver`/`NSSecureCoding`) so the next save carries a real server
+  `recordChangeTag` instead of being a "fresh" record with no tag — without this, CloudKit's own
+  conflict detection (`.serverRecordChanged`) would never fire, silently defeating the last-write-wins
+  policy this doc scoped rather than implementing it.
+- **Real `CKSyncEngine` API names differ from the WWDC23 session's own code sample.** Verified against
+  live developer.apple.com docs (not training-data memory) after the transcript's `.save(recordID)` /
+  `.delete(recordID)` failed to compile: the shipped API is `.saveRecord(_:)` / `.deleteRecord(_:)` on
+  `PendingRecordZoneChange`, `.saveZone(_:)` / `.deleteZone(_:)` on `PendingDatabaseChange`, and batch
+  scoping is `context.options.scope.contains(pendingChange)`, not `context.options.zoneIDs.contains(...)`.
+  Likely a beta-to-GA rename between when that talk was recorded and shipping iOS 17. Lesson for any
+  future CloudKit/CKSyncEngine work: treat WWDC transcript code as directionally correct, verify exact
+  symbol names against the live doc site before trusting a compile.
+- **This project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` build setting applies to free-standing
+  `enum`s too, not just classes** — `CloudRecordType`'s computed properties needed an explicit
+  `nonisolated` (on the whole enum declaration, matching the existing `Notation` enum's precedent —
+  see `METODOLOGIA.md`) since they're called from the sync engine's own non-MainActor delegate
+  callbacks.
+- **Deletion propagation stayed exactly as scoped**: only `CategoryQueries.delete` and
+  `unassign`/`unassignNovel` (the manga/novel-category join rows) ever call `markCloudDeleted`.
+  Everything else (`MangaQueries.delete`, `NovelQueries.delete`, `ChapterQueries.delete`) remains
+  genuinely uncalled from `Features/`, exactly as found during scoping.
+
+## What was verified, and what wasn't (S103)
+
+This dev simulator has **no iCloud account signed in** (confirmed via the existing `BackupView`'s own
+"iCloud not available" state, unrelated to this feature). That bounds what live-testing could actually
+prove:
+
+**Verified live**: clean `build_sim` (zero errors/warnings) after fixing the real API names above;
+`build_run_sim` launches without crashing (the new entitlements — CloudKit services, Remote
+Notifications background mode — didn't break code signing for the simulator target); the new Settings
+→ More → Sync screen renders correctly; toggling "Sync across devices" on triggers a real
+`CKContainer(identifier:).accountStatus()` call end-to-end and correctly lands on the `.unavailable`
+UI state (icloud.slash icon, "iCloud account unavailable" text) exactly as designed for a
+signed-out account; toggling back off cleanly calls `disable()` with no crash; normal navigation
+through Library/Manga Detail/Reader after all the `*Queries` hook changes shows no regressions.
+
+**Not verified, and can't be from this environment**: an actual record ever reaching CloudKit's
+servers; the fetch/merge path (`applyRemote(record:)`) against a real remote change; the
+`.serverRecordChanged` conflict path; the bootstrap push against a real account; two-device
+convergence. All of this needs a simulator (or device) signed into a real iCloud account with this
+container's CloudKit schema promoted at least to Development — **the next session that touches this
+feature should start there**, per the testing plan above, before trusting it beyond what's written
+here.
+
+## Effort estimate — superseded, implementation is done
+
+(Original pre-implementation estimate removed — see the As-built section above for what actually
+shipped and the Effort/testing note for what's still unverified.)

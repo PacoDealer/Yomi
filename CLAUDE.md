@@ -28,21 +28,40 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S102 — 2026-08-06 · CloudKit sync architecture scoped, not implemented)
+## Current state (post S103 — 2026-08-06 · CloudKit sync implemented)
 
-**S102: designed the full multi-device CloudKit sync architecture** — the last big item on
-`TACHIMANGA_PARITY.md`'s backlog, scoped (not built) the same way S90 scoped the Suwayomi-server
-design before writing code. Full design doc: `Yomi/CLOUDKIT_SYNC_DESIGN.md`. Headline decisions
-(confirmed with Martin): sync on app foreground/background rather than real-time push (no push
-entitlement needed), and metadata + reading-state only — no downloaded files or custom cover images
-sync. Key finding: `Manga.id`/`Chapter.id` are already content-derived (traced through
-`JSBridge.swift`), not local UUIDs, which means (1) chapter lists never need to sync, only the small
-per-chapter state a user actually touches, and (2) first-sync bootstrap on an existing library needs
-no special merge logic — same content, same id, on any device. `CKSyncEngine` chosen over
-`NSPersistentCloudKitContainer` (Core Data-only, ruled out — Yomi is GRDB) and raw `CKDatabase` calls.
-See `Yomi/ROADMAP.md`'s S102 entry for the full narrative and `Yomi/CLOUDKIT_SYNC_DESIGN.md` for data
-model, write/read paths, bootstrap flow, entitlements, and testing plan. **Next session that picks
-this up starts by implementing against that doc**, not re-scoping.
+**S103: implemented the full multi-device CloudKit sync feature designed in S102**, same session-day.
+New `Yomi/Sync/CloudSyncManager.swift` (`CKSyncEngine` + delegate, `Manga`/`Novel`/`Category`/
+`MangaChapterState`/`NovelChapterState`/`MangaCategoryLink`/`NovelCategoryLink` CKRecord mapping),
+new `cloud_sync_map` GRDB table (migration `v20_cloud_sync_map`, next must be `v21_`) as a reverse
+recordName→(type,key) index plus a cached-CKRecord store for real change-tag conflict detection,
+`markCloudDirty`/`markCloudDeleted` hooked into ~20 call sites across `MangaQueries`/`ChapterQueries`/
+`NovelQueries`/`CategoryQueries`, a new distinct Settings → More → **Sync** screen
+(`CloudSyncView.swift`, separate from the existing iCloud Backup screen on purpose), and
+`AppSettings.cloudSyncEnabled` driving engine enable/disable. **One real deviation from the S102
+design, caught mid-implementation by checking Apple's actual docs rather than assumption**:
+`CKSyncEngine`'s own class documentation states it requires the Remote Notifications entitlement, not
+just CloudKit — added it (background mode + gated `registerForRemoteNotifications()`, only when sync
+is on) rather than gamble on undocumented behavior; this doesn't change the product decision that sync
+only visibly happens on foreground/background, no real-time UI was built. Zero build warnings.
+**Live-verified only as far as this dev simulator allows — it has no iCloud account signed in**: clean
+build, no crash launching with the new entitlements, the Sync toggle correctly drives a real
+`CKContainer.accountStatus()` call and lands on the `.unavailable` state exactly as designed. **Not
+verified**: an actual record reaching CloudKit, the fetch/merge path, or real two-device convergence —
+needs a signed-in account next. Full as-built notes, what was/wasn't verified, and the real
+`CKSyncEngine` API names (several differ from the WWDC23 talk's own code sample) are all in
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`, updated in place rather than duplicated here.
+
+**Prior state (post S102 — 2026-08-06 · CloudKit sync architecture scoped, not implemented)**
+
+S102 designed the full multi-device CloudKit sync architecture (not yet built at the time) — the last
+big item on `TACHIMANGA_PARITY.md`'s backlog, scoped the same way S90 scoped the Suwayomi-server
+design before writing code. Key finding: `Manga.id`/`Chapter.id` are already content-derived (traced
+through `JSBridge.swift`), not local UUIDs — meaning (1) chapter lists never need to sync, only the
+small per-chapter state a user actually touches, and (2) first-sync bootstrap on an existing library
+needs no special merge logic. `CKSyncEngine` chosen over `NSPersistentCloudKitContainer` (Core
+Data-only, ruled out — Yomi is GRDB) and raw `CKDatabase` calls. See `Yomi/ROADMAP.md`'s S102 entry
+for the scoping narrative — superseded by S103's implementation above.
 
 **Prior state (post S101 — 2026-08-06 · rows 31-33 shipped + theme/contrast audit)**
 
@@ -285,7 +304,7 @@ For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answ
 - Never create a file that isn't strictly required.
 
 ### GRDB
-- Next migration prefix must be `v20_` (v19_ used for source indexes in S77)
+- Next migration prefix must be `v21_` (v20_cloud_sync_map added in S103 for CloudKit sync)
 - `nonisolated` on all `*Queries` static methods
 - Use `_ = try appDatabase.write { ... }` to silence unused result warning
 - `appDatabase.read` from `@MainActor` context requires `try await`
@@ -328,7 +347,9 @@ Yomi/Core/GlassChip.swift                       # .glassChip() — shared 44×44
 Yomi/Core/UIImage+AverageColor.swift            # UIImage.averageColor() via CIAreaAverage — backs Continue hero's ambient-tint-from-cover background
 Yomi/Core/Notation.swift                       # Catalog-notation formatters (Space Mono output): chapter(), progress(), readingTime(), status(), novelIndex(), historyTimestamp(), etc. `nonisolated enum` (S91) — safe to call from Task.detached.
 Yomi/Core/NotificationManager.swift
-Yomi/Database/DatabaseManager.swift            # Migrations v1–v19_source_indexes; next must be v20_
+Yomi/Database/DatabaseManager.swift            # Migrations v1–v20_cloud_sync_map; next must be v21_
+Yomi/Sync/CloudSyncManager.swift               # CKSyncEngine + delegate; CloudRecordType; module-level markCloudDirty()/markCloudDeleted() called from *Queries writes
+Yomi/Features/More/CloudSyncView.swift         # Settings → More → Sync UI (toggle + status row), distinct from BackupView
 Yomi/Database/Queries/MangaQueries.swift
 Yomi/Database/Queries/ChapterQueries.swift     # insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist, called from loadChapters)
 Yomi/Database/Queries/CategoryQueries.swift

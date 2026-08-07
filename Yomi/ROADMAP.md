@@ -21,7 +21,65 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S102 — 2026-08-06 · CloudKit sync scoping)
+## Current state (post S103 — 2026-08-06 · CloudKit sync implemented)
+
+**S103: implemented full multi-device CloudKit sync**, built directly against S102's design doc
+(`Yomi/CLOUDKIT_SYNC_DESIGN.md`), same session-day as the scoping pass. This closes the last big item
+on `TACHIMANGA_PARITY.md`'s backlog.
+
+**What shipped**: new `Yomi/Sync/CloudSyncManager.swift` — a `CKSyncEngine`-backed sync engine against
+a custom `LibraryZone` in the private CloudKit database, implementing `CKSyncEngineDelegate`
+(`handleEvent`/`nextRecordZoneChangeBatch`), with bidirectional GRDB↔CKRecord mapping for 7 record
+types (`Manga`, `Novel`, `Category`, `MangaChapterState`, `NovelChapterState`, `MangaCategoryLink`,
+`NovelCategoryLink` — chapter *lists* deliberately excluded, matching S102's key finding). New GRDB
+migration `v20_cloud_sync_map` (next must be `v21_`): a small reverse-index table mapping a
+`CKRecord.ID`'s hashed `recordName` back to `(recordType, key)` plus a cached archived `CKRecord` per
+row (needed so re-saves carry a real server `recordChangeTag` — without it CloudKit's own conflict
+detection never fires). `markCloudDirty`/`markCloudDeleted` — nonisolated module-level functions,
+mirroring the project's own `appDatabase`/`appRouter` pattern rather than adding a MainActor hop to
+every write — hooked into ~20 call sites across `MangaQueries`, `ChapterQueries`, `NovelQueries`,
+`CategoryQueries` (toggleLibrary, setRead/markRead/markAllRead, updateProgress, addReadingTime,
+category CRUD + assign/unassign). New `AppSettings.cloudSyncEnabled` toggle drives
+`CloudSyncManager.enable()`/`.disable()`. New distinct Settings → More → **Sync** screen
+(`CloudSyncView.swift`) — deliberately separate from the existing Backup screen, matching S102's call
+that live sync and point-in-time backup are different mental models. `YomiApp.swift`'s
+`AppDelegate` gained `registerForRemoteNotifications()` (gated behind the sync toggle) and a
+`didReceiveRemoteNotification` passthrough; scenePhase `.active`/`.background` both trigger
+`CloudSyncManager.syncNow()` when enabled, mirroring the existing iCloud-backup trigger pattern.
+
+**One real deviation from the S102 design, caught by checking Apple's actual class docs mid-build
+rather than proceeding on the original assumption**: `CKSyncEngine`'s own documentation states it
+"requires the CloudKit and Remote notifications entitlements" — stronger than S102's "no push
+entitlement needed" framing. Flagged directly to Martin before touching entitlements; his call was to
+add Remote Notifications properly (background mode + gated registration) rather than risk hitting an
+undocumented restriction. This doesn't change the actual product behavior — sync still only visibly
+happens on app foreground/background, nothing push-triggered was built into the UI.
+
+**Real API-verification lesson**: the WWDC23 "Sync to iCloud with CKSyncEngine" talk's own code sample
+uses `.save(recordID)`/`.delete(recordID)` — these don't compile against the shipped SDK. Checked
+developer.apple.com directly once the build failed: the real cases are `.saveRecord(_:)`/
+`.deleteRecord(_:)` (and `.saveZone(_:)`/`.deleteZone(_:)` for database changes), and batch scoping is
+`context.options.scope.contains(pendingChange)`, not the transcript's `.zoneIDs.contains(...)`. Likely
+a beta-to-GA rename. Full list of as-built corrections in `Yomi/CLOUDKIT_SYNC_DESIGN.md`'s "As-built
+implementation notes" section.
+
+**Verification is honestly bounded by this environment**: the dev simulator has no iCloud account
+signed in (same constraint `BackupView` already surfaces as "iCloud not available"). Verified live: a
+clean zero-warning build, `build_run_sim` launching without crashing under the new entitlements,
+Settings → More → Sync rendering correctly, and toggling sync on driving a real
+`CKContainer.accountStatus()` call that correctly lands on the `.unavailable` UI state for a
+signed-out account. **Not verified**: any record actually reaching CloudKit's servers, the remote
+fetch/merge path, conflict resolution, or real two-device convergence — those need a simulator/device
+signed into a real iCloud account, which is exactly where the next session touching this feature
+should start (see `CLOUDKIT_SYNC_DESIGN.md`'s testing-plan section).
+
+Committed and pushed to `main`. **Remaining known work, project-wide**: only App Store Connect
+data-entry (age rating, description, screenshots, ATS review note) — see the App Store checklist —
+and, for this feature specifically, the real-account verification pass above.
+
+---
+
+## Current state (post S102 — 2026-08-06 · CloudKit sync scoping, superseded by S103's implementation above)
 
 **S102: architecture-scoping session for full multi-device sync — designed, not implemented, same
 treatment S90 gave the Suwayomi-server design before any code was written.** Full design at

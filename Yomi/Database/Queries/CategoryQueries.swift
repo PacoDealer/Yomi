@@ -18,7 +18,7 @@ enum CategoryQueries {
     /// Creates a new category with sort = (current max) + 1 and persists it
     @discardableResult
     nonisolated static func insert(name: String) throws -> Category {
-        try appDatabase.write { db in
+        let result = try appDatabase.write { db in
             let maxSort = try Int.fetchOne(
                 db,
                 sql: "SELECT MAX(sort) FROM category"
@@ -31,6 +31,8 @@ enum CategoryQueries {
             try category.insert(db)
             return category
         }
+        markCloudDirty(.category, key: result.id)
+        return result
     }
 
     /// Renames an existing category
@@ -41,6 +43,7 @@ enum CategoryQueries {
                 arguments: [name, id]
             )
         }
+        markCloudDirty(.category, key: id)
     }
 
     /// Deletes a category; manga_category rows are removed by CASCADE
@@ -48,6 +51,7 @@ enum CategoryQueries {
         _ = try appDatabase.write { db in
             _ = try Category.deleteOne(db, key: id)
         }
+        markCloudDeleted(.category, key: id)
     }
 
     /// Updates the sort value of a category
@@ -58,6 +62,7 @@ enum CategoryQueries {
                 arguments: [sort, id]
             )
         }
+        markCloudDirty(.category, key: id)
     }
 
     // MARK: - manga_category join
@@ -70,6 +75,7 @@ enum CategoryQueries {
                 arguments: [mangaId, categoryId]
             )
         }
+        markCloudDirty(.mangaCategoryLink, key: "\(mangaId)|\(categoryId)")
     }
 
     /// Removes the assignment of a manga to a category
@@ -80,6 +86,7 @@ enum CategoryQueries {
                 arguments: [mangaId, categoryId]
             )
         }
+        markCloudDeleted(.mangaCategoryLink, key: "\(mangaId)|\(categoryId)")
     }
 
     /// Returns categories assigned to a manga, ordered by sort ASC
@@ -120,6 +127,7 @@ enum CategoryQueries {
                 arguments: [novelId, categoryId]
             )
         }
+        markCloudDirty(.novelCategoryLink, key: "\(novelId)|\(categoryId)")
     }
 
     /// Removes the assignment of a novel to a category
@@ -130,6 +138,7 @@ enum CategoryQueries {
                 arguments: [novelId, categoryId]
             )
         }
+        markCloudDeleted(.novelCategoryLink, key: "\(novelId)|\(categoryId)")
     }
 
     /// Returns categories assigned to a novel, ordered by sort ASC

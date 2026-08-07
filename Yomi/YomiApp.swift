@@ -41,6 +41,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundRefreshTaskId, using: nil) { task in
             handleBackgroundRefresh(task as! BGAppRefreshTask)
         }
+        // Required by CKSyncEngine (see Yomi/CLOUDKIT_SYNC_DESIGN.md) — only registered when the user
+        // has actually turned sync on, so the capability stays dormant for everyone else. This does
+        // NOT turn sync into a real-time feature: Yomi still only visibly syncs on foreground/
+        // background (see the scenePhase handling below); this just lets CKSyncEngine opportunistically
+        // process a silent push if iOS happens to deliver one while the app is backgrounded.
+        if AppSettings.shared.cloudSyncEnabled {
+            application.registerForRemoteNotifications()
+        }
         application.shortcutItems = [
             UIApplicationShortcutItem(
                 type: "com.yomi.continueReading",
@@ -63,6 +71,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                      completionHandler: @escaping (Bool) -> Void) {
         handleShortcut(shortcutItem)
         completionHandler(true)
+    }
+
+    // MARK: - CloudKit sync push (S102)
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {}
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {}
+
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        Task {
+            await CloudSyncManager.shared.handleRemoteNotification()
+            completionHandler(.newData)
+        }
     }
 
     // Called when user taps a delivered notification.
@@ -140,6 +163,12 @@ struct YomiApp: App {
         kfSessionConfig.httpShouldSetCookies = true
         kfSessionConfig.httpCookieAcceptPolicy = .always
         KingfisherManager.shared.downloader.sessionConfiguration = kfSessionConfig
+
+        // Re-start the sync engine on cold launch if the user already turned it on in a prior
+        // session — AppSettings' didSet only fires on an in-session toggle flip, not on load.
+        if AppSettings.shared.cloudSyncEnabled {
+            Task { await CloudSyncManager.shared.enable() }
+        }
     }
 
     var body: some Scene {
@@ -177,12 +206,18 @@ struct YomiApp: App {
             if phase == .active {
                 Task { await NotificationManager.shared.checkAuthorizationStatus() }
                 NotificationManager.shared.cancelReadingReminder()
+                if settings.cloudSyncEnabled {
+                    Task { await CloudSyncManager.shared.syncNow() }
+                }
             }
             if phase == .background {
                 if settings.appLockEnabled { isLocked = true }
                 if settings.backgroundAutoRefreshEnabled { scheduleBackgroundRefresh() }
                 if settings.iCloudAutoBackup {
                     Task { await BackupManager.shared.uploadToICloud() }
+                }
+                if settings.cloudSyncEnabled {
+                    Task { await CloudSyncManager.shared.syncNow() }
                 }
                 if settings.readingReminderEnabled {
                     let days = settings.readingReminderDays

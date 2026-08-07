@@ -80,6 +80,7 @@ Yomi/
 │   │   ├── InsightsView.swift       # Floating glass back button over canvas.bg (S94 — N.14 spec). 4 borderless stat cards (streak/chapters/time/titles, no icons), 18-week activity heatmap card (real calendarMap data, quartile-bucketed opacity, MAR–JUL-style edge month legend), "Most Read" real-cover list with per-title relative time bars — old native breakdown/by-title List sections replaced
 │   │   ├── BackupManager.swift      # Export/import JSON (manga+chapters+novels+categories); buildBackupData() shared by local export + iCloud upload; uploadToICloud/downloadFromICloud/checkICloudBackup via Task.detached FileManager; ICloudSyncStatus enum; lastICloudUploadDate in UserDefaults
 │   │   ├── BackupView.swift         # UI: iCloud section (top), ShareLink export, fileImporter import, Tachiyomi import
+│   │   ├── CloudSyncView.swift      # Sync toggle + status row (S103) — distinct screen from BackupView on purpose, live sync vs. point-in-time backup
 │   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView
 │   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdateRow. ScrollView+LazyVStack grouped by date bucket (S92 — N.12 spec), one row per title (not per chapter); long-press .contextMenu to mark all read, trailing icon jumps into reader at oldest unread chapter
@@ -95,6 +96,8 @@ Yomi/
 │       ├── SuwayomiBrowseView.swift # Browse/search one Suwayomi source; infinite scroll; uses isPresented: navigation (Manga not Hashable). FeedTab picker (S88) shown when source.supportsLatest, mirrors BrowseView's SourceBrowseView pattern.
 │       ├── OPDSService.swift        # OPDS Atom XML SAX parser (XMLParserDelegate). OPDSFeed/OPDSEntry models. Nav vs acquisition detection via link rel/type. Basic Auth. absoluteURL() resolution.
 │       └── CFBypassView.swift       # Manual CF bypass sheet + CFBypassManager enum (auto-bypass: hidden 1×1pt WKWebView, polls httpCookieStore every 0.5s, copies cf_clearance to HTTPCookieStorage.shared, 10s timeout); opened by shield toolbar button in SourceBrowseView
+├── Sync/
+│   └── CloudSyncManager.swift       # CloudKit multi-device sync (S103, design in CLOUDKIT_SYNC_DESIGN.md). CKSyncEngine + CKSyncEngineDelegate; CloudRecordType enum (7 synced record types); module-level nonisolated markCloudDirty()/markCloudDeleted() called from *Queries writes, mirroring appDatabase/appRouter's nonisolated(unsafe) pattern; recordName is a SHA256 hash of the local key, reverse-mapped via the cloud_sync_map GRDB table
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 40 properties. Covers reader mode/font/theme, canvas (primary appearance axis: Ink/Midnight/Paper/Sepia/""), OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color (#E5473A Vermilion default), alternate icon, libraryDisplayMode, suwayomiURL, opdsURL/opdsUsername/opdsPassword. `canvasColors: YomiTokens.CanvasColors` (added S85) is the single source of truth for the resolved palette — don't re-derive `YomiTokens.Canvas.named(...)` at call sites.
 ├── Core/CanvasEnvironment.swift     # `\.yomiCanvas` EnvironmentKey (S85) — set once in ContentView from `settings.canvasColors`, read via `@Environment(\.yomiCanvas)` anywhere the canvas bg/surface/text colors are needed. This is how the Ink/Midnight/Paper/Sepia canvas actually reaches the chrome — it is NOT derived from `.preferredColorScheme` (that only controls system light/dark, a separate axis).
 ├── Core/GlassChip.swift             # `.glassChip()` view modifier (S85) — shared 44×44 floating Liquid Glass circle for chrome buttons (reader top bars, Detail's glass nav). Factor any new floating icon button through this rather than re-inlining `.frame(44,44).background{Circle().glassEffect()}`. Any Color/Rectangle used as a purely-decorative symmetric spacer next to a glassChip needs an explicit height too (S95 finding — Color is greedy in unconstrained dimensions under .overlay).
@@ -183,6 +186,14 @@ novel_chapter (id, novelId FK→novel, path, name, chapterNumber, isRead,
 novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
                 categoryId TEXT NOT NULL FK→category ON DELETE CASCADE,
                 PRIMARY KEY (novelId, categoryId))
+
+cloud_sync_map (recordName TEXT PRIMARY KEY,   -- CloudKit sync (S103): hashed CKRecord.ID.recordName
+                recordType TEXT NOT NULL,       -- -> (recordType, key) reverse index, so CKSyncEngine's
+                key TEXT NOT NULL,              --    send-batch callback (which only gets a bare
+                recordData BLOB)                --    CKRecord.ID) knows which GRDB row to re-fetch.
+                                                 --    recordData caches the last saved/fetched CKRecord
+                                                 --    (NSSecureCoding-archived) so re-saves carry a real
+                                                 --    server recordChangeTag — see CLOUDKIT_SYNC_DESIGN.md.
 ```
 
 ### Migrations
@@ -206,8 +217,9 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 - **v17_novel_scroll**: `ALTER TABLE novel_chapter ADD COLUMN lastScrollPercent REAL`
 - **v18_indexes**: adds `idx_chapter_mangaid`, `idx_chapter_unread` on `chapter`; `idx_novel_chapter_novelid` on `novel_chapter`
 - **v19_source_indexes**: adds `idx_manga_sourceid` on `manga(sourceId)`; `idx_novel_sourceid` on `novel(sourceId)`
+- **v20_cloud_sync_map** (S103): adds `cloud_sync_map` table (CloudKit sync reverse index + cached CKRecord)
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v20_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v21_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
@@ -705,14 +717,23 @@ Sites using Disqus (Flame Scans, MangaFire) can be queried via Disqus API:
 Returns read-only comments natively — no moderation burden, no UGC risk.
 Plugin declares `disqusShortname` field. Future feature, not S23.
 
-### Full multi-device sync (future — S102, designed not built)
-Today's iCloud Drive backup (`BackupManager.swift`) is a point-in-time JSON snapshot, not live sync.
-Full architecture for real cross-device sync (reading progress, library membership, categories)
-designed S102 — see `Yomi/CLOUDKIT_SYNC_DESIGN.md`. `CKSyncEngine` against a custom private-database
-zone, hooked into the existing `*Queries` write layer via one new `markDirty()` choke point. Key
-enabler found while designing it: `Manga.id`/`Chapter.id` are already content-derived (a plugin's own
-path/id), not local UUIDs, so record identity already matches across devices with zero new ID scheme.
-Not implemented yet — no `CloudSyncManager.swift` exists in the codebase as of S102.
+### Full multi-device sync (S102 designed, S103 implemented)
+Today's iCloud Drive backup (`BackupManager.swift`) is a point-in-time JSON snapshot, not live sync —
+`Yomi/Sync/CloudSyncManager.swift` (new, S103) is the separate live-sync feature: `CKSyncEngine`
+against a custom `LibraryZone` in the private CloudKit database, hooked into the existing `*Queries`
+write layer via module-level `markCloudDirty()`/`markCloudDeleted()` (nonisolated, called from ~20
+write call sites — see `Yomi/CLOUDKIT_SYNC_DESIGN.md`'s ROADMAP.md S103 entry for the full list). Key
+enabler found while designing it (S102): `Manga.id`/`Chapter.id` are already content-derived (a
+plugin's own path/id), not local UUIDs, so record identity already matches across devices with zero
+new ID scheme — chapter *lists* themselves never sync, only the small mutable state a user actually
+touched. New GRDB table `cloud_sync_map` (migration `v20_cloud_sync_map`) is a reverse index from a
+hashed `CKRecord.ID.recordName` back to `(recordType, key)`, plus a cached archived `CKRecord` per row
+so re-saves carry a real server change tag. UI: Settings → More → **Sync** (`CloudSyncView.swift`),
+deliberately distinct from the Backup screen. Full design + as-built corrections (several real
+`CKSyncEngine` API names differ from the WWDC23 talk's own sample code) in
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`. **Not yet verified against a real signed-in iCloud account** — this
+dev simulator has none; see that doc's "What was verified" section before trusting this beyond a
+clean build + correct account-unavailable UI state.
 
 ## Design decisions
 | Decision | Discarded alternative | Reason |

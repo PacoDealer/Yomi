@@ -91,7 +91,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Automatic backup scheduling (frequency picker) | Yes, explicit frequency setting [premium], defaults Off | Yomi's iCloud auto-backup fires on every app background, no frequency picker | 🔷 Yomi ahead in default behavior, 🟡 missing the configurability |
 | iCloud backup toggle + last-synced | Yes [premium] | ✅ `iCloudAutoBackup`, `BackupManager.swift` | ✅ Parity (free) |
 | Dated backup list (multiple retained backups, sizes, per-entry menu) | Yes — shows 3+ dated entries with sizes | Yomi shows only a single "last backup date," no retained history list | ❌ Missing |
-| Full-app data sync across devices (library, history, bookmarks, repos, extensions) with in-app explainer copy | Yes, detailed explainer screen | Not found — Yomi has iCloud *backup*, not live multi-device *sync* | ❌ Missing — bigger feature, real architecture decision (CloudKit sync engine), not a quick add |
+| Full-app data sync across devices (library, history, bookmarks, repos, extensions) with in-app explainer copy | Yes, detailed explainer screen | ✅ Implemented S103 — `CloudSyncManager.swift`/`CloudSyncView.swift`, library+progress+categories sync via CKSyncEngine (repos/extensions intentionally excluded, each device installs its own plugins independently). Not yet verified against a real signed-in iCloud account — see `CLOUDKIT_SYNC_DESIGN.md`. | ✅ Parity (verification pending) |
 
 ## 6. Security / Privacy
 
@@ -143,10 +143,10 @@ Update/Updates Summary/Open random entry (S97, turned out already-implemented). 
 roughly in order of expected value:
 
 1. **Full multi-device sync** (vs today's iCloud backup-on-background) — the biggest lift by far.
-   ✅ Architecture scoped S102 (not yet implemented) — see `Yomi/CLOUDKIT_SYNC_DESIGN.md` and
-   `Yomi/ROADMAP.md`'s S102 entry. `CKSyncEngine`, sync on foreground/background (no push
-   entitlement), metadata + reading-state only (no files). Next session that picks this up implements
-   directly against that doc.
+   ✅ Scoped S102, implemented S103 — see `Yomi/CLOUDKIT_SYNC_DESIGN.md` and `Yomi/ROADMAP.md`'s S103
+   entry. `CKSyncEngine`, sync on foreground/background, metadata + reading-state only (no files).
+   **Not yet verified against a real signed-in iCloud account** (dev simulator has none) — next
+   session touching this feature should do that verification pass first.
 2. **Dated backup list** (multiple retained backups with sizes) — Yomi shows only a single "last
    backup date."
 3. **Tachiyomi-compatible *export*** (for migrating out to Tachiyomi/Mihon/forks) — low priority,

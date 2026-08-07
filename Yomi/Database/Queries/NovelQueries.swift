@@ -64,6 +64,7 @@ enum NovelQueries {
         _ = try appDatabase.write { db in
             try novel.update(db)
         }
+        markCloudDirty(.novel, key: novel.id)
     }
 
     /// Inserts or updates a novel (uses id as key)
@@ -71,6 +72,7 @@ enum NovelQueries {
         _ = try appDatabase.write { db in
             try novel.save(db)
         }
+        markCloudDirty(.novel, key: novel.id)
     }
 
     // MARK: - Novel: Delete
@@ -89,6 +91,7 @@ enum NovelQueries {
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("lastReadAt").set(to: Date())])
         }
+        markCloudDirty(.novel, key: novelId)
     }
 
     /// Clears lastReadAt for a novel (swipe-to-delete in History)
@@ -116,6 +119,7 @@ enum NovelQueries {
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("notes").set(to: notes.isEmpty ? nil : notes)])
         }
+        markCloudDirty(.novel, key: novelId)
     }
 
     /// Updates the user-defined reading status for a novel
@@ -125,6 +129,7 @@ enum NovelQueries {
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("readingStatus").set(to: status.rawValue)])
         }
+        markCloudDirty(.novel, key: novelId)
     }
 
     // MARK: - NovelChapter: Read
@@ -186,6 +191,8 @@ enum NovelQueries {
                     Column("lastReadAt").set(to: Date())
                 ])
         }
+        markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
+        markCloudDirty(.novel, key: novelId)
     }
 
     /// Marks a chapter as read: isRead=true, readAt=now
@@ -198,11 +205,13 @@ enum NovelQueries {
                     Column("readAt").set(to: Date())
                 ])
         }
+        markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
         try? touchLastRead(novelId: novelId)
     }
 
     /// Marks a chapter as unread: isRead=false, readAt=nil
     nonisolated static func markUnread(chapterId: String) throws {
+        var novelId: String?
         _ = try appDatabase.write { db in
             try NovelChapter
                 .filter(Column("id") == chapterId)
@@ -210,26 +219,37 @@ enum NovelQueries {
                     Column("isRead").set(to: false),
                     Column("readAt").set(to: DatabaseValue.null)
                 ])
+            novelId = try String.fetchOne(db, sql: "SELECT novelId FROM novel_chapter WHERE id = ?", arguments: [chapterId])
+        }
+        if let novelId {
+            markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
         }
     }
 
     nonisolated static func updateScrollPercent(chapterId: String, percent: Double) throws {
+        var novelId: String?
         _ = try appDatabase.write { db in
             try NovelChapter
                 .filter(Column("id") == chapterId)
                 .updateAll(db, [Column("lastScrollPercent").set(to: percent)])
+            novelId = try String.fetchOne(db, sql: "SELECT novelId FROM novel_chapter WHERE id = ?", arguments: [chapterId])
+        }
+        if let novelId {
+            markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
         }
     }
 
     /// Marks all chapters of a novel as read or unread in a single write
     nonisolated static func markAllChapters(novelId: String, read: Bool) throws {
-        _ = try appDatabase.write { db in
-            try NovelChapter
-                .filter(Column("novelId") == novelId)
-                .updateAll(db, [
-                    Column("isRead").set(to: read),
-                    Column("readAt").set(to: read ? Date() : DatabaseValue.null)
-                ])
+        let chapterIds: [String]? = try? appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ? WHERE novelId = ?",
+                arguments: [read, read ? Date() : nil, novelId]
+            )
+            return try String.fetchAll(db, sql: "SELECT id FROM novel_chapter WHERE novelId = ?", arguments: [novelId])
+        }
+        for chapterId in chapterIds ?? [] {
+            markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
         }
         if read {
             try? touchLastRead(novelId: novelId)

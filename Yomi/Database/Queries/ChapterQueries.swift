@@ -98,11 +98,16 @@ enum ChapterQueries {
 
     /// Marks a chapter as read with isRead=true, readAt=now, progress=1.0 (direct UPDATE, no prior fetch).
     nonisolated static func markRead(id: String) throws {
+        var mangaId: String?
         _ = try appDatabase.write { db in
             try db.execute(
                 sql: "UPDATE chapter SET isRead = 1, readAt = ?, progress = 1.0 WHERE id = ?",
                 arguments: [Date(), id]
             )
+            mangaId = try String.fetchOne(db, sql: "SELECT mangaId FROM chapter WHERE id = ?", arguments: [id])
+        }
+        if let mangaId {
+            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
         }
     }
 
@@ -114,6 +119,7 @@ enum ChapterQueries {
                 arguments: [Date(), id]
             )
         }
+        markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
@@ -132,6 +138,7 @@ enum ChapterQueries {
                 )
             }
         }
+        markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(chapterId)")
         if isRead {
             try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
@@ -139,32 +146,46 @@ enum ChapterQueries {
 
     /// Marks all chapters for a manga as read with isRead=true and readAt=now.
     nonisolated static func markAllRead(mangaId: String) throws {
-        _ = try appDatabase.write { db in
+        let chapterIds: [String]? = try? appDatabase.write { db in
             try db.execute(
                 sql: "UPDATE chapter SET isRead = 1, readAt = ? WHERE mangaId = ?",
                 arguments: [Date(), mangaId]
             )
+            return try String.fetchAll(db, sql: "SELECT id FROM chapter WHERE mangaId = ?", arguments: [mangaId])
+        }
+        for chapterId in chapterIds ?? [] {
+            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(chapterId)")
         }
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
     /// Updates progress, readingSeconds, and lastPageRead for a chapter (direct UPDATE, no prior fetch).
     nonisolated static func updateProgress(id: String, progress: Double, readingSeconds: Int, lastPageRead: Int = 0) throws {
+        var mangaId: String?
         _ = try appDatabase.write { db in
             try db.execute(
                 sql: "UPDATE chapter SET progress = ?, readingSeconds = ?, lastPageRead = ? WHERE id = ?",
                 arguments: [progress, readingSeconds, lastPageRead, id]
             )
+            mangaId = try String.fetchOne(db, sql: "SELECT mangaId FROM chapter WHERE id = ?", arguments: [id])
+        }
+        if let mangaId {
+            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
         }
     }
 
     /// Accumulates reading seconds into the chapter's readingSeconds total.
     nonisolated static func addReadingTime(id: String, seconds: Int) throws {
         guard seconds > 0 else { return }
+        var mangaId: String?
         _ = try appDatabase.write { db in
             try Chapter
                 .filter(Column("id") == id)
                 .updateAll(db, Column("readingSeconds") += seconds)
+            mangaId = try String.fetchOne(db, sql: "SELECT mangaId FROM chapter WHERE id = ?", arguments: [id])
+        }
+        if let mangaId {
+            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
         }
     }
 
