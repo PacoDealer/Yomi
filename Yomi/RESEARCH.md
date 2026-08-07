@@ -241,7 +241,8 @@ Optional premium (acceptable): advanced color filters, exclusive themes, early b
 ---
 
 ## 5. App Store Regulations (2026)
-✅ RESEARCHED (S23 + S32, updated 2026-04-14)
+✅ RESEARCHED (S23 + S32, updated 2026-04-14; 2.5.2/5.2.2/precedent claims corrected S104 2026-08-07
+against the live current guideline text — see below)
 
 ### Age Rating System — UPDATED 2026
 - **OLD system**: 4+, 9+, 12+, 17+
@@ -256,13 +257,38 @@ Optional premium (acceptable): advanced color filters, exclusive themes, early b
   - App description clearly states this ✅ (in S33 draft)
 - Yomi's NSFW toggle + isNSFW extension flag is compliant.
 
-### Plugin/Extension System (Guideline 2.5.2)
+### Plugin/Extension System (Guideline 2.5.2) — corrected S104
 - Apple does NOT allow third-party plugins that download additional native code.
-- **EXCEPTION**: JavaScriptCore and WebKit are explicitly allowed for remote JS execution.
-- Requirements: scripts must not change app's primary purpose, must not bypass review.
-- **Yomi is compliant**: Uses JavaScriptCore, plugins are JS scripts (not binaries).
-- Legal precedent: Paperback and Aidoku use identical extension model and are approved.
+- **The old "JavaScriptCore/WebKit named exemption" is stale.** Apple rewrote 2.5.2 engine-agnostic in
+  2017 — the current text (fetched live from developer.apple.com, S104) has no named-engine carve-out:
+  "may not download, install, or execute code which introduces or changes features or functionality of
+  the app." The real test is whether downloaded code changes the app's **primary purpose**. Yomi still
+  clears this (reading from sources IS the primary purpose, so JS plugins adding sources are consistent
+  with it) — but cite the primary-purpose test, not a named JS/WebKit exemption, in any review notes.
+- **Legal precedent, corrected**: Aidoku is **not distributed via the App Store at all**
+  (TestFlight/AltStore/IPA sideload only, confirmed via WebSearch S104) — it is not an App Store review
+  precedent in either direction. Paperback is live on the App Store but has faced a real DMCA complaint
+  over this exact content model (Comeso GmbH, referenced 2021 and again 2024) — "tolerated so far,"
+  not "cleared." Treat this whole category as an accepted risk, not a solved compliance question.
 - Do NOT market as "extensible with third-party plugins" — frame as "sources + community scripts."
+
+### Third-Party Content (Guideline 5.2.2) — new section, S104
+- The guideline that actually governs Yomi's source model is **5.2.2**, not 2.5.2: "If your app uses,
+  accesses, monetizes access to, or displays content from a third-party service, ensure that you are
+  specifically permitted to do so under the service's terms of use. Authorization must be provided upon
+  request." (Fetched verbatim from developer.apple.com, S104.)
+- **Live fresh-user audit (S104)**: Yomi's own first-party Plugins catalog (`yomi-plugins.web.app/index.json`,
+  fetched automatically, no user action needed — and directly pointed at from onboarding page 2/3) lists
+  15 sources; ~12 (AquaManga, Asura Scans, BabelNovel, BoxNovel, FreeWebNovel, LightNovelPub, MTLNovel,
+  NovelBin, NovelFire, NovelFull, NovelHall, ReadWN) are unlicensed scanlation/scrape aggregators with
+  no documented permission — the exact case 5.2.2 addresses. Only MangaDex (public API under its own
+  terms) and arguably Royal Road/Scribble Hub (host only originally-authored fan content) are clearly
+  outside that category.
+- **Mitigated S104** (Martin's call, matching the friction S96 already applied to the LNReader repo):
+  the 12 non-allowlisted catalog entries now require an explicit Copy URL + manual add instead of
+  one-tap Install. See `PluginsView.swift`'s `instantInstallSourceIDs` and `ROADMAP.md`'s S104 entry.
+  This reduces how turnkey the app looks to a reviewer; it does not obtain actual permission from those
+  sites and does not eliminate the underlying legal exposure (same category as Tachiyomi/Paperback).
 
 ### Common Rejection Reasons for Reader Apps
 1. Privacy policy missing or broken link (40% of rejections) ✅ Fixed (yomi-plugins.web.app/privacy)

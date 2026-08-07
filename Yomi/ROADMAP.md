@@ -21,7 +21,66 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S103 — 2026-08-06 · CloudKit sync implemented)
+## Current state (post S104 — 2026-08-07 · piracy/App-Store-compliance audit + first-party catalog fix)
+
+**S104: Martin asked directly whether Yomi complies with App Store regulations around piracy** — a
+genuine compliance question, not a bug hunt. Fetched the live current guideline text from
+developer.apple.com rather than relying on training data or `RESEARCH.md`'s existing summary (dated
+S23/S32, last touched S44), then did a full fresh-user walkthrough (S96's `cfprefsd`-clear procedure +
+clean reinstall) to see exactly what a brand-new user — and an App Reviewer — actually encounters.
+
+**The applicable guideline is 5.2.2 (Third-Party Sites/Services), not 2.5.2**: "If your app uses,
+accesses, monetizes access to, or displays content from a third-party service, ensure that you are
+specifically permitted to do so under the service's terms of use. Authorization must be provided upon
+request." **`RESEARCH.md`'s existing 2.5.2 claim was also stale and corrected this session**: it stated
+"JavaScriptCore and WebKit are explicitly allowed" as a named exemption — Apple rewrote that clause
+engine-agnostic in 2017; the current text has no named-engine carve-out, only a "does downloaded code
+change the app's primary purpose" test (Yomi still clears it, but the doc overstated the textual basis).
+Also corrected a factual precedent error: `RESEARCH.md` cited Aidoku as an "approved" App Store
+precedent alongside Paperback — **Aidoku is not distributed via the App Store at all** (TestFlight/IPA
+sideload only), so it's not a review precedent either way. Paperback is live but has faced a real DMCA
+complaint over this exact content model — "tolerated so far," not "cleared."
+
+**Live walkthrough finding, the real headline**: onboarding page 2/3 prints `yomi-plugins.web.app`
+directly on screen ("browse the catalog to install your first one"), and page 3's CTA deep-links
+straight into Plugins. That screen's **first-party Catalog (15)** — Yomi's own Firebase-hosted
+`index.json`, fetched automatically, zero user action to discover — showed one-tap **Install** for all
+15 entries, ~12 of which (AquaManga, Asura Scans, BabelNovel, BoxNovel, FreeWebNovel, LightNovelPub,
+MTLNovel, NovelBin, NovelFire, NovelFull, NovelHall, ReadWN) are unlicensed scanlation/scrape
+aggregators with no documented permission — exactly what 5.2.2 is written for. Only MangaDex (public
+API under its own terms) and arguably Royal Road/Scribble Hub (platforms hosting only originally-authored
+fan fiction) aren't in that category. **This is a bigger reviewer-visible signal than the LNReader repo
+risk S96 already mitigated** (one-tap → "Copy URL" friction, specifically to look less turnkey) — this
+first-party catalog is the developer's *own* onboarding flow pointing at it, not a third-party repo a
+user had to go find.
+
+**Martin's call, asked directly rather than decided unilaterally**: match the LNReader treatment.
+Fixed in `PluginsView.swift` — a new client-side (compiled-into-the-binary, not remote-config-driven,
+deny-by-default) `instantInstallSourceIDs` allowlist (`com.yomi.mangadex`, `com.yomi.royalroad`,
+`com.yomi.scribblehub`); `CatalogGroupRow` now renders "Copy URL" instead of "Install" for every other
+catalog entry, reusing the exact copy-to-pasteboard interaction `FeaturedRepoRow` already established
+for LNReader, plus a new Catalog section footer explaining the distinction. Deliberately kept
+client-side rather than adding a field to the remote `index.json`: a flag a reviewer's build doesn't
+see (compiled binary) is meaningfully different from one a remote server could silently flip, which
+would itself read as review-evasion if ever discovered. Zero build warnings; live-verified via
+`build_run_sim` + mobile-mcp — MangaDex/Royal Road/Scribble Hub show Install, all 12 others show Copy
+URL, footer renders correctly.
+
+**Also ran**, same session, in parallel: a `/code-review` pass on S102-S103's CloudKit sync branch —
+6 findings, not yet triaged/fixed (see below, next session should start here alongside the real-account
+CloudKit verification already queued from S103).
+
+**Not decided, deliberately left for Martin**: whether to also gate the *remaining* borderline entries
+(BabelNovel is a commercial-ish translated-novel platform with what looks like a real JSON API, treated
+conservatively as "requires manual add" here rather than researched further) — and whether the App
+Store Connect review notes (already an open checklist item, see below) should proactively disclose the
+third-party-source model rather than leave it to be discovered.
+
+Committed and pushed to `main`.
+
+---
+
+## Prior state (post S103 — 2026-08-06 · CloudKit sync implemented)
 
 **S103: implemented full multi-device CloudKit sync**, built directly against S102's design doc
 (`Yomi/CLOUDKIT_SYNC_DESIGN.md`), same session-day as the scoping pass. This closes the last big item
