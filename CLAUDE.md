@@ -335,6 +335,32 @@ mcp__apple-docs__get_apple_doc_content  — fetch full doc page
 mcp__apple-docs__search_wwdc_content    — search WWDC session transcripts
 ```
 
+## Claude Code subagents — activate for these specific situations
+
+Installed 2026-08-10 from [agency-agents](https://github.com/msitarzewski/agency-agents), cherry-picked
+for Yomi (not the full repo — most divisions there are irrelevant to a solo iOS project). Live in
+`~/.claude/agents/`, available in any Claude Code session via the `Agent` tool. Not part of the normal
+per-session workflow — reach for them for the specific situations below, not by default.
+
+- **Codebase Archaeologist** (`specialized-codebase-archaeologist.md`) — before a large refactor or
+  when something feels off but no session has flagged it. Yomi is 105+ sessions deep with real prior
+  drift (S86 dropped Extensions tab still referenced in docs until S100, S95's stale simulator state
+  masquerading as a design bug, Known Issue #9's cover-loading fix that turned out incomplete until
+  S100 found the real root cause). Use this agent to sweep for silent doc-vs-code divergence or parallel
+  implementations of the same thing, rather than trusting a single session's read.
+- **Reality Checker** (`testing-reality-checker.md`) — as a second opinion before marking a fix
+  "verified" or "production ready," especially UI/visual claims. Reinforces the discipline already in
+  [[feedback_yomi_visual_qa]] and [[feedback_yomi_mobilemcp_taps]]: default to NEEDS WORK, require
+  screenshot evidence, don't accept a claim `mobile-mcp` tooling flakiness could be masking.
+- **Mobile Release Engineer** (`engineering-mobile-release-engineer.md`) — once S103's real-iCloud
+  verification is done and work moves to actual App Store Connect submission (see App Store checklist
+  below): code signing, TestFlight, phased rollout, submission metadata.
+- **Privacy Engineer** (`engineering-privacy-engineer.md`) — for CloudKit sync data-handling questions
+  (what's synced vs. device-local, retention, deletion propagation — see Known Issues #41-45) and any
+  future App Store privacy-nutrition-label or DSAR-shaped question. Cross-check against
+  [[feedback_yomi_appstore_compliance]] — verify against live source, this agent's prompt is generic
+  privacy engineering, not App Store-specific compliance text.
+
 ## Research rule — never say "impossible" without asking the second question
 
 For 40 sessions, "Keiyoushi extensions are impossible on iOS" was the stock answer. Suwayomi — a self-hosted server that exposes all 1000+ extensions via REST — was always the solution. It shipped in S41.
