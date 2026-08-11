@@ -28,7 +28,29 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
+## Current state (post S106 — 2026-08-11 · CloudKit sync blocked on Apple Developer Program enrollment)
+
+**S106: picked up the S103/S105 real-iCloud-account verification, found the real blocker.** Signed a
+real Apple ID into two simulators (iPhone 17 Pro + iPhone 17 Pro Max, iOS 26.3), built and launched Yomi
+on both. `CKContainer.accountStatus()` now correctly resolves `.available` on both — the account/
+entitlements path works exactly as designed. But enabling sync immediately fails on both:
+`CKSyncEngine.sendChanges()`/`fetchChanges()` throw `CKError "Bad Container" (5/1014)` — **the CloudKit
+container `iCloud.pacodealer.Yomi` has never been provisioned on Apple's servers**, confirmed via
+`xcrun simctl spawn <device> log show` and cross-checked against Apple's own `CKError.Code.badContainer`
+docs + developer-forum precedent (WebSearch). Root cause, confirmed directly with Martin: **the project
+isn't enrolled in the paid Apple Developer Program ($99/yr)** — flagged as an unpurchased cost item back
+in S90, not previously connected to CloudKit specifically. Container creation requires that enrollment
+regardless of entitlements content (a free/personal team can't provision CloudKit containers at all),
+and S103's entitlements were hand-written rather than added through Xcode's Signing & Capabilities UI,
+which is the only thing that actually registers a container server-side. No code changes needed —
+**next session touching this feature starts with**: enroll in the Program, open `Yomi.xcodeproj` →
+Signing & Capabilities → add iCloud/CloudKit → use "+" under Containers to provision
+`iCloud.pacodealer.Yomi`, then re-run this exact two-simulator test. Full detail in
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`'s new "What was verified, and what wasn't (S106)" section.
+
+---
+
+## Prior state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
 
 **S105: fixed all 6 code-review findings from S104's pass over the S102-S103 CloudKit sync code**
 (Known Issues #41-46 above — full detail there). Two were real sync-correctness bugs: an UPDATE-only
@@ -266,6 +288,7 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 44 | ~~CloudSyncManager.enable() has a double-call race~~ | ✅ Fixed S105. New `private var isEnabling` flag, set synchronously before the first `await` and cleared via `defer` — `enable()`'s guard now checks `cloudSyncEngine == nil && !isEnabling`. Since both the flag-set and a concurrent caller's guard-check happen synchronously on MainActor (no suspension point between them), a second concurrent call reliably observes the flag and returns early instead of constructing a second `CKSyncEngine`. |
 | 45 | ~~`try?` swallows DB-write errors in 2 bulk mark-read functions~~ | ✅ Fixed S105. `ChapterQueries.markAllRead` and `NovelQueries.markAllChapters` reverted to `try appDatabase.write { ... }` (both functions already declare `throws`) — a real GRDB write failure now propagates again instead of silently returning `nil`, restoring S100's Known Issue #26 toast-on-failure behavior for these two call sites. |
 | 46 | ~~`Yomi.entitlements` hardcodes `aps-environment: development`~~ | ✅ Fixed S105 — doesn't rely on automatic-signing entitlement rewriting at all anymore. New `Yomi/Yomi-Release.entitlements` (identical except `aps-environment: production`); the Yomi target's Release build configuration's `CODE_SIGN_ENTITLEMENTS` now points at it directly, Debug still points at the original `Yomi.entitlements` (`development`). Verified via both configs' build logs: `ProcessProductPackaging` shows `Yomi.entitlements` for Debug and `Yomi-Release.entitlements` for Release — the correct file is picked at build time regardless of signing style or export path. |
+| 47 | CloudKit container `iCloud.pacodealer.Yomi` never provisioned on Apple's servers | Found S106 — real Apple ID signed into 2 simulators, `accountStatus()` correctly resolves `.available`, but every `CKSyncEngine` send/fetch fails with `CKError "Bad Container" (5/1014)`. Root cause: this project isn't enrolled in the paid Apple Developer Program, which container creation requires regardless of entitlements content (S103's `.entitlements` were hand-written, never routed through Xcode's Signing & Capabilities → iCloud → CloudKit "+" flow that actually registers a container server-side). Not fixable in code. Next session: enroll in the Program, provision the container via Xcode, retest — see `Yomi/CLOUDKIT_SYNC_DESIGN.md`'s S106 section. |
 
 ## MCP tools — use these every session
 

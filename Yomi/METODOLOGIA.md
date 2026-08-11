@@ -1630,6 +1630,32 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   build succeeded" (a wrong entitlements value can still codesign and launch fine in the simulator,
   where there's no real provisioning profile enforcing it).
 
+## S106 — Technical learnings (2026-08-11)
+
+- **Hand-writing a CloudKit container identifier into `.entitlements` is not the same as provisioning
+  it.** `CKContainer.accountStatus()` succeeding (`.available`) only proves the *account* is fine — the
+  container itself still needs to exist server-side, which only happens via Xcode's Signing &
+  Capabilities → iCloud → CloudKit "+" flow (that UI action is what actually calls out to
+  developer.apple.com and registers it). S103 wrote `iCloud.pacodealer.Yomi` directly into
+  `Yomi.entitlements`/`Yomi-Release.entitlements` by hand — compiled, signed, and ran fine in the
+  simulator throughout S103-S105 because nothing about that path checks container existence — but the
+  first real `CKSyncEngine.sendChanges()` call against it failed with `CKError "Bad Container" (5/1014)`.
+  Worth remembering for any future CloudKit (or other Apple-service-backed) entitlement: a clean build +
+  clean launch only proves the *local* configuration is well-formed, never that the referenced
+  server-side resource actually exists.
+- **CloudKit container creation requires the paid Apple Developer Program, independent of everything
+  else being correct.** A free/personal signing team cannot provision CloudKit containers at all — this
+  was the actual root cause here, not a missed Xcode step alone. Worth checking Program enrollment
+  status *before* debugging entitlements/container-identifier mismatches on any "CloudKit doesn't work"
+  report; it's a fast, unambiguous check that rules out an entire class of otherwise-confusing CKErrors.
+- **A `CKError`'s `localizedDescription` can read like a completely different failure than its actual
+  `CKError.Code`.** The in-app UI (via `error.localizedDescription`) showed "Could not determine iCloud
+  account status" — which sounds exactly like the *account* isn't signed in — but the underlying code
+  was `.badContainer (1014)`, an unrelated container-provisioning problem; `accountStatus()` itself had
+  already resolved `.available` moments earlier. Don't pattern-match a CKError off its message string
+  alone; check `(error as? CKError)?.code` or capture the raw log line (`xcrun simctl spawn <device> log
+  show --predicate 'process == "AppName"'`) before concluding what actually failed.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
