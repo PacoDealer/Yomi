@@ -21,7 +21,44 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
+## Current state (post S106 — 2026-08-11 · CloudKit sync blocked on Apple Developer Program enrollment)
+
+**S106: resumed the S103/S105 real-iCloud-account verification, found the real blocker.** Martin's
+call, asked directly, was to prioritize this over App Store submission prep. Booted two simulators
+(iPhone 17 Pro + iPhone 17 Pro Max, both iOS 26.3 — same runtime, so CloudKit's Development environment
+behaves consistently across both), Martin signed a real Apple ID into both, built and launched Yomi on
+each via separate XcodeBuildMCP session profiles.
+
+**Account path now fully verified**: `CKContainer.accountStatus()` correctly resolves `.available` on
+both devices (previously only ever tested against `.unavailable`, signed-out). Enabling "Sync across
+devices" correctly drives a real `CKSyncEngine.sendChanges()`/`fetchChanges()` call — but both fail
+immediately on both simulators with `CKError "Bad Container" (5/1014): "Couldn't get container
+configuration from the server for container "iCloud.pacodealer.Yomi""`, confirmed via `xcrun simctl
+spawn <device> log show` (the in-app "Could not determine iCloud account status" text is CloudKit's own
+`CKError.localizedDescription` for this error, not a real account-status problem — a red herring worth
+remembering if this comes up again).
+
+**Root-caused, not just observed**: WebSearched Apple's own `CKError.Code.badContainer` documentation
+plus developer-forum precedent — this error means the container was never provisioned on Apple's
+servers, which only happens via Xcode's Signing & Capabilities → iCloud → CloudKit "+" flow (S103 hand-
+wrote the entitlements directly instead). Asked Martin directly whether the project is enrolled in the
+paid Apple Developer Program: **not yet** — this was flagged as an unpurchased cost item back in S90
+(`~$111/yr` total project cost, Program membership one of two line items) but never connected to
+CloudKit sync specifically until now. Container creation requires that paid enrollment regardless of
+entitlements content; a free/personal team cannot provision CloudKit containers at all, so no amount of
+app-side code changes would have fixed this.
+
+**Two-device convergence, the `.serverRecordChanged` conflict path, and a real record reaching
+CloudKit remain unverified — genuinely blocked, not just untested.** Next session touching this feature
+starts with: (1) enroll in the Apple Developer Program, (2) open `Yomi.xcodeproj` → Signing &
+Capabilities, sign in with the enrolled account, add iCloud/CloudKit, use "+" under Containers to
+provision `iCloud.pacodealer.Yomi` (confirm via the CloudKit Dashboard afterward), (3) re-run this exact
+two-simulator test — the sync code itself needs no changes. Full detail in
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`'s "What was verified, and what wasn't (S106)" section.
+
+---
+
+## Prior state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
 
 **S105: worked through all 6 findings from S104's `/code-review` pass over the S102-S103 CloudKit sync
 code** (Known Issues #41-46), per Martin's "fix all 6 findings first" call when asked where to focus.
