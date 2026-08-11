@@ -21,7 +21,49 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S106 — 2026-08-11 · CloudKit sync blocked on Apple Developer Program enrollment)
+## Current state (post S107 — 2026-08-11 · Known Issues backlog re-check, no code changes)
+
+**S107: CloudKit sync still can't proceed (Martin hasn't enrolled in the Apple Developer Program yet),
+so Martin asked to work the lower-priority Known Issues backlog instead** — 3 items flagged as
+"re-check next session" but never re-verified: #8 (Suwayomi Latest tab), #12 (duplicate-extension
+self-heal), #21 (novel-source blocked status).
+
+**#21, re-checked live via `curl` with a real iOS Safari UA**: LightNovelPub and BabelNovel are
+unchanged — both still return HTTP 403 with genuine Cloudflare markers ("Just a moment" / "Attention
+Required" present in the response body). **BoxNovel is worse than last recorded, and differently
+broken**: previously catalogued as a JS-only anti-bot shell (still nominally the real site, just
+challenge-gated); now `boxnovel.com` returns a clean HTTP 200 whose body is a domain-parking/ad-redirect
+script posting to `router.parklogic.com` — a classic expired-domain-squatting pattern, not a bot
+challenge. The domain has effectively changed hands; there is no plugin-side fix for a parked domain,
+only removal from the catalog if Martin wants that formalized. NovelBin (`novelarrow.com` backend)
+reconfirmed HTTP 200, unaffected.
+
+**#12, re-checked via direct `sqlite3` against the primary dev simulator's `yomi.db`**:
+`SELECT name, COUNT(*) FROM extension GROUP BY name HAVING COUNT(*) > 1` returned zero rows. No
+duplicates present. A weak test, though — this simulator only has 2 extensions installed (AsuraScans,
+NovelFire), both freshly installed under the current id scheme, so it can't demonstrate the specific
+legacy-duplicate scenario (an install predating the sha256-hash-id → stable-catalog-id migration) the
+original bug required. **The user's real device was never checked and still might have legacy duplicates**
+— genuinely unresolved, still worth a glance at the Plugins screen next time it's in hand.
+
+**#8, no live re-test — no local Suwayomi server was available**, and standing one up from scratch
+(Docker/JVM install, per the S89 setup notes) was judged disproportionate effort for a tab whose risk
+was already rated low relative to the already-verified Popular tab. Did a targeted code read instead:
+`SuwayomiService.fetchLatest(sourceId:page:)` and `fetchPopular(sourceId:page:)`
+(`Yomi/Features/Extensions/SuwayomiService.swift`) both route through the identical generic
+`fetch<T>()` helper — same request construction, same `200...299` status check, same JSON decode —
+differing only in the URL path segment (`/latest/` vs `/popular/`). `SuwayomiBrowseView.swift`'s
+`loadMore()` branch for `selectedFeed == .latest` is structurally identical to the already-verified
+`.popular` branch (same manga-mapping, same pagination state updates). No divergent logic found —
+raises confidence without a live server, but an actual end-to-end fetch against a running server
+remains technically unverified.
+
+**No code changes this session.** Confirmed no build regressions along the way: clean `build_run_sim`
+on both the S106 real-account simulator and the primary dev simulator, zero warnings/errors.
+
+---
+
+## Prior state (post S106 — 2026-08-11 · CloudKit sync blocked on Apple Developer Program enrollment)
 
 **S106: resumed the S103/S105 real-iCloud-account verification, found the real blocker.** Martin's
 call, asked directly, was to prioritize this over App Store submission prep. Booted two simulators
