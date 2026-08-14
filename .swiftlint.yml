@@ -1,0 +1,35 @@
+excluded:
+  - build
+  - node_modules
+  - YomiWidget
+  - Yomi/design
+  - .claude/worktrees
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - redundant_type_annotation
+  - unneeded_parentheses_in_closure_argument
+  - toggle_bool
+
+disabled_rules:
+  - todo # ROADMAP/Known Issues tables are the TODO tracker, not inline comments
+  - line_length # long descriptive Swift 6 concurrency comments in this codebase run long on purpose
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - db
+
+type_body_length:
+  warning: 400
+  error: 600
+
+file_length:
+  warning: 600
+  error: 1000
+
+function_body_length:
+  warning: 80
+  error: 150

@@ -2,3 +2,5 @@ node_modules/
 package-lock.json
 Yomi/Config/AppSecrets.swift
 build/
+fastlane/report.xml
+fastlane/test_output

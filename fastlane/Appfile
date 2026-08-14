@@ -1,0 +1,5 @@
+app_identifier("pacodealer.Yomi")
+
+# apple_id("your-apple-id@example.com")   # TODO: fill in before running any App Store Connect lane
+# team_id("YOUR_TEAM_ID")                 # TODO: from developer.apple.com/account
+# itc_team_id("YOUR_ITC_TEAM_ID")         # TODO: from App Store Connect, if different from team_id

@@ -1,0 +1,38 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Compile-check the app for the simulator — no signing, no credentials needed"
+  lane :build do
+    sh(
+      "xcodebuild -project ../Yomi.xcodeproj -scheme Yomi " \
+      "-destination 'platform=iOS Simulator,name=iPhone 17 Pro' " \
+      "build"
+    )
+  end
+
+  desc "Archive + upload a new build to TestFlight"
+  lane :beta do
+    UI.user_error!(
+      "Not wired up yet. Before running this lane: " \
+      "1) fill in apple_id/team_id in fastlane/Appfile, " \
+      "2) confirm code signing (automatic or a match/fastlane-managed profile) for Release builds, " \
+      "3) enroll in the Apple Developer Program if not already (see Yomi/ROADMAP.md's App Store checklist)."
+    )
+    # build_app(scheme: "Yomi", export_method: "app-store")
+    # upload_to_testflight
+  end
+
+  desc "Submit the current build for App Store review"
+  lane :release do
+    UI.user_error!(
+      "Not wired up yet — same prerequisites as :beta, plus App Store Connect metadata " \
+      "(age rating 18+, description, screenshots) per Yomi/ROADMAP.md's submission checklist."
+    )
+    # build_app(scheme: "Yomi", export_method: "app-store")
+    # upload_to_app_store
+  end
+
+  # Automated App Store screenshots (`capture_screenshots`) need a UI Test target, which this
+  # project doesn't have yet. Add one first, then a `screenshots` lane here — until then,
+  # screenshots are taken manually via XcodeBuildMCP/mobile-mcp, same as every session so far.
+end

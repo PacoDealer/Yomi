@@ -867,7 +867,8 @@ final class JSBridge {
             var result = ""
             var detectedCFURL: String? = nil
             let sem = DispatchSemaphore(value: 0)
-            URLSession.shared.dataTask(with: request) { data, response, _ in
+            URLSession.shared.dataTask(with: request) { data, response, error in
+                yomiLogNetwork(request, response: response, data: data, error: error)
                 if let data = data { result = String(data: data, encoding: .utf8) ?? "" }
                 if let http = response as? HTTPURLResponse {
                     let hasCFRay = http.allHeaderFields["CF-RAY"] != nil

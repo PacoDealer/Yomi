@@ -30,7 +30,7 @@ actor AniListService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = data
-        guard let (responseData, _) = try? await URLSession.shared.data(for: request),
+        guard let (responseData, response) = try? await URLSession.shared.data(for: request),
               let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
               let dataObj = json["data"] as? [String: Any],
               let media = dataObj["Media"] as? [String: Any],
@@ -39,6 +39,7 @@ actor AniListService {
             cache[title] = nil
             return nil
         }
+        yomiLogNetwork(request, response: response, data: responseData)
         cache[title] = score
         return score
     }

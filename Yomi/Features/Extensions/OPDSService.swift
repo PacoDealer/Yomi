@@ -55,6 +55,7 @@ final class OPDSService {
             request.setValue("Basic \(cred)", forHTTPHeaderField: "Authorization")
         }
         let (data, resp) = try await URLSession.shared.data(for: request)
+        yomiLogNetwork(request, response: resp, data: data)
         guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
