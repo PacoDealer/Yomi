@@ -454,6 +454,29 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 Check available simulators: `xcrun simctl list devices available | grep iPhone`
 Clean DerivedData if stale: `rm -rf ~/Library/Developer/Xcode/DerivedData/Yomi-*`
 
+## Dev tooling (added 2026-08-14, commit `2e22ad4`)
+
+- **SwiftLint** (`.swiftlint.yml` at repo root) — CLI-only, not wired into the Xcode build. Run
+  `swiftlint lint` manually or via `/code-review`. Baseline as of 2026-08-14 was 909 findings,
+  unremediated — check current count before assuming it's clean.
+- **fastlane** (`Gemfile` + `fastlane/Fastfile`) — `fastlane build` wraps the documented
+  `xcodebuild` command above and works today. `fastlane beta`/`fastlane release` are stubs that
+  `UI.user_error!` until `fastlane/Appfile`'s `apple_id`/`team_id` are filled in — no credentials
+  exist yet. No UI Test target, so no `screenshots` lane either (add one first).
+- **jscpd** (`.jscpd.json`) — copy-paste detector, report-only (`threshold: 100`, never fails a
+  build). Run via `npx jscpd .`. Baseline 2026-08-14: 5.6% duplication / 104 clones.
+- **Pulse network logging** — `Pulse`/`PulseUI` SPM deps on the main app target (not YomiWidget),
+  DEBUG-only. `Yomi/Core/NetworkLogging.swift` exports `yomiLogNetwork(_:response:data:error:)`,
+  called manually after each real fetch (`JSBridge`'s plugin scraper, MAL/Suwayomi/OPDS/AniList
+  services, extension install, plugin catalog fetch) instead of Pulse's `URLSessionProxy` —
+  that type is `@MainActor`, which would force an actor hop into the `nonisolated`/`Task.detached`/
+  custom-actor call sites this project actually has. View captured traffic live at
+  **Settings → Advanced → Network Console**. Not covered: `DownloadManager`'s concurrent
+  page-download loop (deliberately skipped, high volume/low value) and CloudKit sync traffic
+  (`CKSyncEngine` isn't URLSession-based, needs separate instrumentation if ever wanted).
+- **ccusage**, **git-safety.sh blocking upgrade**, **agnix** — global Claude Code tooling, not
+  Yomi-specific; see `~/.claude` memory (`project_toolbox_audit`) if relevant here.
+
 ## Firebase plugin deploy
 ```bash
 cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting
