@@ -1,5 +1,5 @@
 {
-  "originHash" : "37985e5d3ab7293b6593ba1b71bb11bf4d97ee8bd6032061fea651ad67b274ee",
+  "originHash" : "5ea76d52c60fe56ecee0723f6ede979fdb8ef674af32627913754f0a0f947237",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "cf8be20d07654570554c8a8a4952bc8a5766a8b0",
         "version" : "8.9.0"
+      }
+    },
+    {
+      "identity" : "pulse",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kean/Pulse",
+      "state" : {
+        "revision" : "94b92731d370c129bb771e9c18f69b0a44ccca5c",
+        "version" : "5.2.3"
       }
     }
   ],

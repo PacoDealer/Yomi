@@ -1,6 +1,9 @@
 import SwiftUI
 import WebKit
 import Kingfisher
+#if DEBUG
+import PulseUI
+#endif
 
 // MARK: - AdvancedSettingsView
 
@@ -49,6 +52,9 @@ struct AdvancedSettingsView: View {
                 in: 10...60,
                 step: 5
             )
+            #if DEBUG
+            NavigationLink("Network Console") { ConsoleView() }
+            #endif
         } header: {
             Text("Network")
         } footer: {

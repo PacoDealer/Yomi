@@ -10,6 +10,8 @@
 		0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0E2B3AB12F658FC9006E6D41 /* GRDB */; };
 		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
+		3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */ = {isa = PBXBuildFile; productRef = 0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */; };
+		1EC7FBB55A0FC3E8F1211B76 /* PulseUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61D0474D93CEB0EF171D3949 /* PulseUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -127,6 +129,8 @@
 			files = (
 				0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */,
 				EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */,
+				3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */,
+				1EC7FBB55A0FC3E8F1211B76 /* PulseUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -182,6 +186,8 @@
 			packageProductDependencies = (
 				0E2B3AB12F658FC9006E6D41 /* GRDB */,
 				514D11379D494BB1B5834DDA /* Kingfisher */,
+				0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */,
+				61D0474D93CEB0EF171D3949 /* PulseUI */,
 			);
 			productName = Yomi;
 			productReference = 0EE530CD2F64CF600074B935 /* Yomi.app */;
@@ -239,6 +245,7 @@
 			packageReferences = (
 				0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */,
 				9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0EE530CE2F64CF600074B935 /* Products */;
@@ -574,6 +581,14 @@
 				minimumVersion = 8.0.0;
 			};
 		};
+		30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Pulse";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -586,6 +601,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */;
+			productName = Pulse;
+		};
+		61D0474D93CEB0EF171D3949 /* PulseUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */;
+			productName = PulseUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
