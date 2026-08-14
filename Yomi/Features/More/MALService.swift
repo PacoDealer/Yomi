@@ -73,7 +73,8 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         .joined(separator: "&")
         request.httpBody = body.data(using: .utf8)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        yomiLogNetwork(request, response: response, data: data)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let access = json?["access_token"] as? String else {
             throw NSError(
@@ -94,10 +95,11 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         var request = URLRequest(url: URL(string: "\(baseURL)/users/@me")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard
-            let (data, _) = try? await URLSession.shared.data(for: request),
+            let (data, response) = try? await URLSession.shared.data(for: request),
             let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let name      = json["name"] as? String
         else { return }
+        yomiLogNetwork(request, response: response, data: data)
         username = name
     }
 
@@ -112,13 +114,14 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard
-            let (data, _) = try? await URLSession.shared.data(for: request),
+            let (data, response) = try? await URLSession.shared.data(for: request),
             let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let list      = json["data"]  as? [[String: Any]],
             let first     = list.first,
             let node      = first["node"] as? [String: Any],
             let id        = node["id"]    as? Int
         else { return nil }
+        yomiLogNetwork(request, response: response, data: data)
         return id
     }
 
@@ -132,7 +135,9 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         let status = chaptersRead > 0 ? "reading" : "plan_to_read"
         request.httpBody = "status=\(status)&num_chapters_read=\(chaptersRead)".data(using: .utf8)
-        _ = try? await URLSession.shared.data(for: request)
+        if let (data, response) = try? await URLSession.shared.data(for: request) {
+            yomiLogNetwork(request, response: response, data: data)
+        }
     }
 
     // MARK: - Logout

@@ -126,7 +126,8 @@ final class ExtensionManager {
             // bypass URLCache the same way PluginCatalogService's force refresh does.
             var request = URLRequest(url: ext.sourceListURL)
             request.cachePolicy = .reloadIgnoringLocalCacheData
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            yomiLogNetwork(request, response: response, data: data)
 
             // An existing install under a different id (e.g. from an old sha256-hash ID
             // scheme, now superseded by a stable catalog id like "com.yomi.novelfire") would

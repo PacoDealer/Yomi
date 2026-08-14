@@ -1,0 +1,13 @@
+{
+  "threshold": 100,
+  "reporters": ["consoleFull"],
+  "ignore": [
+    "build/**",
+    "node_modules/**",
+    "YomiWidget/**",
+    "Yomi/design/**",
+    ".claude/worktrees/**"
+  ],
+  "format": ["swift"],
+  "absolute": false
+}
