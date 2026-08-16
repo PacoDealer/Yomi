@@ -117,11 +117,13 @@ nonisolated enum Notation {
 
     // MARK: - History timestamp (adaptive)
 
-    /// "14:20" today, "MON" within the last week, "JUL 28" otherwise — for History rows.
-    static func historyTimestamp(_ date: Date) -> String {
+    /// "14:20"/"2:20 PM" today, "MON" within the last week, "JUL 28"/"28 JUL" otherwise — for
+    /// History rows. `use24Hour`/`dayFirst` default to the app's original hardcoded format
+    /// (24-hour clock, month-before-day) so existing callers are unaffected.
+    static func historyTimestamp(_ date: Date, use24Hour: Bool = true, dayFirst: Bool = false) -> String {
         let cal = Calendar.current
         if cal.isDateInToday(date) {
-            let f = DateFormatter(); f.dateFormat = "HH:mm"
+            let f = DateFormatter(); f.dateFormat = use24Hour ? "HH:mm" : "h:mm a"
             return f.string(from: date)
         }
         let days = cal.dateComponents(
@@ -133,7 +135,7 @@ nonisolated enum Notation {
             let f = DateFormatter(); f.dateFormat = "EEE"
             return f.string(from: date).uppercased()
         }
-        let f = DateFormatter(); f.dateFormat = "MMM d"
+        let f = DateFormatter(); f.dateFormat = dayFirst ? "d MMM" : "MMM d"
         return f.string(from: date).uppercased()
     }
 

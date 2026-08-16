@@ -279,6 +279,7 @@ private struct HistoryRow: View {
     let isNovel: Bool
 
     @Environment(\.yomiCanvas) private var canvas
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -315,7 +316,11 @@ private struct HistoryRow: View {
 
             VStack(alignment: .trailing, spacing: 6) {
                 if let lastReadAt {
-                    Text(Notation.historyTimestamp(lastReadAt))
+                    Text(Notation.historyTimestamp(
+                        lastReadAt,
+                        use24Hour: settings.use24HourClock,
+                        dayFirst: settings.dateOrderDayFirst
+                    ))
                         .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(canvas.textSecondary.opacity(0.6))
                 }

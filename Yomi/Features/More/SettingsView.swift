@@ -179,6 +179,10 @@ struct SettingsView: View {
             toggleRow("Secure screen", isOn: $settings.secureScreenEnabled, subtitle: "Hide content in the App Switcher")
             rowDivider()
             toggleRow("Incognito mode", isOn: $settings.isIncognito, subtitle: "Reading progress and history won't be saved")
+            rowDivider()
+            toggleRow("24-hour clock", isOn: $settings.use24HourClock, subtitle: "14:20 instead of 2:20 PM")
+            rowDivider()
+            toggleRow("Day before month", isOn: $settings.dateOrderDayFirst, subtitle: "28 JUL instead of JUL 28")
         }
     }
 
