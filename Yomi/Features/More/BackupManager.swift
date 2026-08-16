@@ -37,7 +37,16 @@ enum ICloudSyncStatus: Equatable {
     }
 
     private nonisolated static let containerID  = "iCloud.pacodealer.Yomi"
-    private nonisolated static let backupFile   = "YomiBackup.json"
+    private nonisolated static let backupFilePrefix = "YomiBackup-"
+    private nonisolated static let backupFileSuffix = ".json"
+    private nonisolated static let maxRetainedBackups = 8
+
+    struct ICloudBackupEntry: Identifiable, Equatable, Sendable {
+        let url: URL
+        let date: Date
+        let size: Int64
+        var id: String { url.lastPathComponent }
+    }
 
     // MARK: - Tachiyomi Import
 
@@ -128,17 +137,16 @@ enum ICloudSyncStatus: Equatable {
         do {
             let data = try await buildBackupData()
             try await Task.detached {
-                guard let dest = Self.iCloudBackupURL() else {
+                guard let dir = Self.iCloudBackupsDirectory() else {
                     throw CocoaError(.fileNoSuchFile)
                 }
-                let tmp = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("YomiBackup_upload.json")
-                try data.write(to: tmp)
-                if FileManager.default.fileExists(atPath: dest.path) {
-                    _ = try FileManager.default.replaceItemAt(dest, withItemAt: tmp)
-                } else {
-                    try FileManager.default.moveItem(at: tmp, to: dest)
-                }
+                let datePart = Date().formatted(.iso8601)
+                    .replacingOccurrences(of: ":", with: "-")
+                let dest = dir.appendingPathComponent(
+                    "\(Self.backupFilePrefix)\(datePart)\(Self.backupFileSuffix)"
+                )
+                try data.write(to: dest)
+                try Self.pruneOldBackups(in: dir)
             }.value
             let now = Date()
             UserDefaults.standard.set(now, forKey: "lastICloudUploadDate")
@@ -149,14 +157,12 @@ enum ICloudSyncStatus: Equatable {
         }
     }
 
-    func downloadFromICloud() async {
+    func downloadFromICloud(_ entry: ICloudBackupEntry) async {
         guard isICloudAvailable else { iCloudStatus = .unavailable; return }
         iCloudStatus = .downloading
         do {
             let data = try await Task.detached {
-                guard let url = Self.iCloudBackupURL() else {
-                    throw CocoaError(.fileNoSuchFile)
-                }
+                let url = entry.url
                 guard FileManager.default.fileExists(atPath: url.path) else {
                     throw CocoaError(.fileNoSuchFile)
                 }
@@ -184,22 +190,51 @@ enum ICloudSyncStatus: Equatable {
         }
     }
 
-    func checkICloudBackup() async -> (exists: Bool, date: Date?) {
-        return await Task.detached {
-            guard let url = Self.iCloudBackupURL() else { return (false, nil) }
-            guard FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }
-            let vals = try? url.resourceValues(forKeys: [.contentModificationDateKey])
-            return (true, vals?.contentModificationDate)
+    func deleteICloudBackup(_ entry: ICloudBackupEntry) async {
+        await Task.detached {
+            try? FileManager.default.removeItem(at: entry.url)
         }.value
     }
 
-    private nonisolated static func iCloudBackupURL() -> URL? {
+    func listICloudBackups() async -> [ICloudBackupEntry] {
+        guard isICloudAvailable else { return [] }
+        return await Task.detached {
+            guard let dir = Self.iCloudBackupsDirectory() else { return [] }
+            return (try? Self.listBackupFiles(in: dir)) ?? []
+        }.value
+    }
+
+    private nonisolated static func iCloudBackupsDirectory() -> URL? {
         guard let container = FileManager.default.url(
             forUbiquityContainerIdentifier: containerID
         ) else { return nil }
         let docs = container.appendingPathComponent("Documents")
         try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
-        return docs.appendingPathComponent(backupFile)
+        return docs
+    }
+
+    private nonisolated static func listBackupFiles(in dir: URL) throws -> [ICloudBackupEntry] {
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        )
+        let entries: [ICloudBackupEntry] = urls.compactMap { url in
+            guard url.lastPathComponent.hasPrefix(backupFilePrefix) else { return nil }
+            let vals = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+            let date = vals?.contentModificationDate ?? .distantPast
+            let size = Int64(vals?.fileSize ?? 0)
+            return ICloudBackupEntry(url: url, date: date, size: size)
+        }
+        return entries.sorted { $0.date > $1.date }
+    }
+
+    private nonisolated static func pruneOldBackups(in dir: URL) throws {
+        let entries = try listBackupFiles(in: dir)
+        guard entries.count > maxRetainedBackups else { return }
+        for entry in entries.dropFirst(maxRetainedBackups) {
+            try? FileManager.default.removeItem(at: entry.url)
+        }
     }
 
     // MARK: - Import

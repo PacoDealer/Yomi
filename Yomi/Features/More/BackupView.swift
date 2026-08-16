@@ -15,8 +15,8 @@ struct BackupView: View {
     @State private var showTachiyomiPicker = false
     @State private var showTachiyomiSuccess = false
     @State private var showRestoreConfirm = false
-    @State private var iCloudBackupExists = false
-    @State private var iCloudBackupDate: Date? = nil
+    @State private var icloudBackups: [BackupManager.ICloudBackupEntry] = []
+    @State private var restoreTarget: BackupManager.ICloudBackupEntry? = nil
     @State private var settings = AppSettings.shared
 
     // MARK: - Body
@@ -33,9 +33,7 @@ struct BackupView: View {
         .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            let result = await backupManager.checkICloudBackup()
-            iCloudBackupExists = result.exists
-            iCloudBackupDate = result.date
+            icloudBackups = await backupManager.listICloudBackups()
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
@@ -70,11 +68,10 @@ struct BackupView: View {
             titleVisibility: .visible
         ) {
             Button("Restore", role: .destructive) {
+                guard let target = restoreTarget else { return }
                 Task {
-                    await backupManager.downloadFromICloud()
-                    let result = await backupManager.checkICloudBackup()
-                    iCloudBackupExists = result.exists
-                    iCloudBackupDate = result.date
+                    await backupManager.downloadFromICloud(target)
+                    icloudBackups = await backupManager.listICloudBackups()
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -91,6 +88,12 @@ struct BackupView: View {
                 Text(summary)
             }
         }
+    }
+
+    private var byteCountFormatter: ByteCountFormatter {
+        let f = ByteCountFormatter()
+        f.countStyle = .file
+        return f
     }
 
     // MARK: - iCloud Section
@@ -124,35 +127,37 @@ struct BackupView: View {
                     Button {
                         Task {
                             await backupManager.uploadToICloud()
-                            let result = await backupManager.checkICloudBackup()
-                            iCloudBackupExists = result.exists
-                            iCloudBackupDate = result.date
+                            icloudBackups = await backupManager.listICloudBackups()
                         }
                     } label: {
                         Label("Back up to iCloud", systemImage: "icloud.and.arrow.up")
-                    }
-
-                    if let date = iCloudBackupDate {
-                        LabeledContent("Last iCloud backup") {
-                            Text(date.formatted(.relative(presentation: .named)))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if let date = backupManager.lastICloudUploadDate {
-                        LabeledContent("Last iCloud backup") {
-                            Text(date.formatted(.relative(presentation: .named)))
-                                .foregroundStyle(.secondary)
-                        }
                     }
 
                     Toggle(isOn: $settings.iCloudAutoBackup) {
                         Label("Back up automatically", systemImage: "icloud")
                     }
 
-                    if iCloudBackupExists {
+                    ForEach(icloudBackups) { entry in
                         Button {
+                            restoreTarget = entry
                             showRestoreConfirm = true
                         } label: {
-                            Label("Restore from iCloud", systemImage: "icloud.and.arrow.down")
+                            LabeledContent {
+                                Text(byteCountFormatter.string(fromByteCount: entry.size))
+                                    .foregroundStyle(.secondary)
+                            } label: {
+                                Text(entry.date.formatted(.relative(presentation: .named)))
+                            }
+                        }
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                Task {
+                                    await backupManager.deleteICloudBackup(entry)
+                                    icloudBackups = await backupManager.listICloudBackups()
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
