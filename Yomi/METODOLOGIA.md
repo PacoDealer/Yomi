@@ -1656,6 +1656,43 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   alone; check `(error as? CKError)?.code` or capture the raw log line (`xcrun simctl spawn <device> log
   show --predicate 'process == "AppName"'`) before concluding what actually failed.
 
+## S108 — Technical learnings (2026-08-16)
+
+- **A worktree branch with real, un-merged work is easy to leave stranded.** S106/S107 (real
+  CloudKit findings) sat on `worktree-cloudkit-verify-s106` for 5 days while `main` moved ahead
+  with unrelated commits — neither branch had the other's work, and nothing surfaced this until a
+  session explicitly checked `git log` across both. When resuming work after any gap, check
+  `git worktree list` and diff each worktree branch against `main` before trusting `main`'s
+  `CLAUDE.md` header as "the current state" — it can be stale relative to unmerged work sitting
+  right next to it.
+- **`.tabViewCustomization()` needs `.tabViewStyle(.sidebarAdaptable)` to do anything at all**
+  (Apple's own doc line: "only the sidebarAdaptable style supports customization") — a
+  `.customizationID` + `TabViewCustomization` binding with the default tab style is a silent no-op,
+  not a partial feature. Confirmed live: no error, no warning, just nothing happens on long-press.
+- **Reading the WWDC talk transcript, not just the API reference page, caught something the doc
+  text alone didn't make obvious**: `.tabViewCustomization`'s actual editing UI (drag-and-drop
+  reorder/hide) only exists inside the *sidebar*, which itself only renders in regular-width
+  contexts (iPad/Mac/tvOS/visionOS) — an iPhone-only app gets the API surface (bindings, IDs,
+  persistence) but no user-facing way to trigger it at all. The talk's own title ("...in iPadOS")
+  was the tell; the API reference page never says "iPhone gets nothing." When a SwiftUI feature
+  seems to have "a system UI that should just show up," check whether a WWDC talk scopes it to
+  specific platforms/size-classes before assuming compact iPhone gets it too.
+- **A blend/tint feature must go through the same environment key everything else reads, not just
+  a local preview** — same lesson S96 already learned about canvas colors in general (chrome vs.
+  content rendering differently). `blendedCanvasColors` is wired into `ContentView`'s `\.yomiCanvas`
+  specifically so every screen picks it up automatically, rather than each screen needing its own
+  "did you remember to blend" call site.
+- **`mobile-mcp`'s WebDriverAgent can fail to start for several minutes then recover on its own**
+  — 5 consecutive timeouts across ~10 minutes, no configuration change, then it connected normally.
+  Distinct from the previously-documented per-tap flakiness and tab-bar coordinate offset (both
+  still separately real, see below) — this was a total connection failure, not a flaky tap.
+  `XcodeBuildMCP`'s plain `screenshot` tool stayed reliable throughout and is a reasonable fallback
+  for visual-regression checks (build/run/screenshot) when WDA is down, just without tap/navigate.
+- **The tab-bar coordinate-offset quirk (S99) reproduced again, consistently**: tapping a tab's own
+  reported x-coordinate lands one full tab to the left; a +69pt x-compensation on this
+  device/session reliably corrected it. Worth trying before concluding a tab tap is genuinely
+  broken.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy

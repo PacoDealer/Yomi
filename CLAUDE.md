@@ -28,7 +28,44 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S107 — 2026-08-11 · Known Issues backlog re-check, no code changes)
+## Current state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
+
+**S108: reconciled a real branch split first** — `main` had unrelated dev-tooling commits
+(SwiftLint/fastlane/Pulse, 8/14) while S106/S107's CloudKit investigation lived unmerged on
+`worktree-cloudkit-verify-s106` (8/11). Merged cleanly (docs-only, no code conflicts), pushed,
+removed the now-redundant worktree/branch. **CloudKit sync stays out of scope** — still blocked on
+Apple Developer Program enrollment (#47), Martin's call not to enroll yet. Worked the buildable
+half of `TACHIMANGA_PARITY.md`'s backlog instead:
+
+1. **Dated iCloud backup list** — `BackupManager` now writes timestamped files and keeps the last
+   8 instead of overwriting one fixed `YomiBackup.json`; `BackupView.swift` shows a real list
+   (date + size, swipe-to-delete, restore-a-specific-entry). **Not live end-to-end verified** — the
+   dev simulator's iCloud session had lapsed (password re-auth dialog blocking the home screen at
+   session start); code review + clean build only.
+2. **Color-blend slider** — new `AppSettings.colorBlendLevel` + `Color.mix(with:amount:)`, blends
+   `bg`/`surface1`/`surface2` toward the accent app-wide via `blendedCanvasColors`
+   (`\.yomiCanvas`, not just a preview). **Live-verified at 60% on Paper**: tints consistently
+   everywhere, and the pre-existing AA badge correctly drops to "Fail" — surfaces the Paper/Sepia
+   contrast tension from S101 rather than hiding it.
+3. **Date format picker** — new `use24HourClock`/`dateOrderDayFirst` settings, threaded as
+   parameters into `Notation.historyTimestamp(_:use24Hour:dayFirst:)` (kept `Notation`
+   `nonisolated`-safe, no `AppSettings.shared` read inside it). **Live-verified both axes** via a
+   seeded `sqlite3` `lastReadAt`: "20:30"↔"8:30 PM", "JUL 20"↔"20 JUL".
+4. **Customize Tabs — root-caused, not fixed.** `ContentView.swift` had `.customizationID`s +
+   `.tabViewCustomization($customization)` since S43 but was missing
+   `.tabViewStyle(.sidebarAdaptable)` (required per Apple's docs) — added it, no visual regression.
+   But the real finding (from watching WWDC24's actual talk, titled "...**in iPadOS**"): the
+   system's drag/hide editing UI only exists in the sidebar, which only renders in regular-width
+   contexts — **iPhone gets a plain tab bar with zero built-in customization affordance**,
+   confirmed live (long-press just selects, no jiggle/menu). Needs a real custom settings screen to
+   deliver on iPhone at all; logged for a future session rather than built this one.
+
+Zero build warnings throughout. Commits pushed to `main`. Full narrative in `Yomi/ROADMAP.md`'s
+S108 entry.
+
+---
+
+## Prior state (post S107 — 2026-08-11 · Known Issues backlog re-check, no code changes)
 
 **S107: CloudKit sync stays blocked pending Apple Developer Program enrollment (Martin's call — not
 done yet), so this session re-verified 3 lower-priority open Known Issues instead.** (1) **Novel-source
