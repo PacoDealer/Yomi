@@ -21,7 +21,86 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
+## Current state (post S107 — 2026-08-11 · Known Issues backlog re-check, no code changes)
+
+**S107: CloudKit sync still can't proceed (Martin hasn't enrolled in the Apple Developer Program yet),
+so Martin asked to work the lower-priority Known Issues backlog instead** — 3 items flagged as
+"re-check next session" but never re-verified: #8 (Suwayomi Latest tab), #12 (duplicate-extension
+self-heal), #21 (novel-source blocked status).
+
+**#21, re-checked live via `curl` with a real iOS Safari UA**: LightNovelPub and BabelNovel are
+unchanged — both still return HTTP 403 with genuine Cloudflare markers ("Just a moment" / "Attention
+Required" present in the response body). **BoxNovel is worse than last recorded, and differently
+broken**: previously catalogued as a JS-only anti-bot shell (still nominally the real site, just
+challenge-gated); now `boxnovel.com` returns a clean HTTP 200 whose body is a domain-parking/ad-redirect
+script posting to `router.parklogic.com` — a classic expired-domain-squatting pattern, not a bot
+challenge. The domain has effectively changed hands; there is no plugin-side fix for a parked domain,
+only removal from the catalog if Martin wants that formalized. NovelBin (`novelarrow.com` backend)
+reconfirmed HTTP 200, unaffected.
+
+**#12, re-checked via direct `sqlite3` against the primary dev simulator's `yomi.db`**:
+`SELECT name, COUNT(*) FROM extension GROUP BY name HAVING COUNT(*) > 1` returned zero rows. No
+duplicates present. A weak test, though — this simulator only has 2 extensions installed (AsuraScans,
+NovelFire), both freshly installed under the current id scheme, so it can't demonstrate the specific
+legacy-duplicate scenario (an install predating the sha256-hash-id → stable-catalog-id migration) the
+original bug required. **The user's real device was never checked and still might have legacy duplicates**
+— genuinely unresolved, still worth a glance at the Plugins screen next time it's in hand.
+
+**#8, no live re-test — no local Suwayomi server was available**, and standing one up from scratch
+(Docker/JVM install, per the S89 setup notes) was judged disproportionate effort for a tab whose risk
+was already rated low relative to the already-verified Popular tab. Did a targeted code read instead:
+`SuwayomiService.fetchLatest(sourceId:page:)` and `fetchPopular(sourceId:page:)`
+(`Yomi/Features/Extensions/SuwayomiService.swift`) both route through the identical generic
+`fetch<T>()` helper — same request construction, same `200...299` status check, same JSON decode —
+differing only in the URL path segment (`/latest/` vs `/popular/`). `SuwayomiBrowseView.swift`'s
+`loadMore()` branch for `selectedFeed == .latest` is structurally identical to the already-verified
+`.popular` branch (same manga-mapping, same pagination state updates). No divergent logic found —
+raises confidence without a live server, but an actual end-to-end fetch against a running server
+remains technically unverified.
+
+**No code changes this session.** Confirmed no build regressions along the way: clean `build_run_sim`
+on both the S106 real-account simulator and the primary dev simulator, zero warnings/errors.
+
+---
+
+## Prior state (post S106 — 2026-08-11 · CloudKit sync blocked on Apple Developer Program enrollment)
+
+**S106: resumed the S103/S105 real-iCloud-account verification, found the real blocker.** Martin's
+call, asked directly, was to prioritize this over App Store submission prep. Booted two simulators
+(iPhone 17 Pro + iPhone 17 Pro Max, both iOS 26.3 — same runtime, so CloudKit's Development environment
+behaves consistently across both), Martin signed a real Apple ID into both, built and launched Yomi on
+each via separate XcodeBuildMCP session profiles.
+
+**Account path now fully verified**: `CKContainer.accountStatus()` correctly resolves `.available` on
+both devices (previously only ever tested against `.unavailable`, signed-out). Enabling "Sync across
+devices" correctly drives a real `CKSyncEngine.sendChanges()`/`fetchChanges()` call — but both fail
+immediately on both simulators with `CKError "Bad Container" (5/1014): "Couldn't get container
+configuration from the server for container "iCloud.pacodealer.Yomi""`, confirmed via `xcrun simctl
+spawn <device> log show` (the in-app "Could not determine iCloud account status" text is CloudKit's own
+`CKError.localizedDescription` for this error, not a real account-status problem — a red herring worth
+remembering if this comes up again).
+
+**Root-caused, not just observed**: WebSearched Apple's own `CKError.Code.badContainer` documentation
+plus developer-forum precedent — this error means the container was never provisioned on Apple's
+servers, which only happens via Xcode's Signing & Capabilities → iCloud → CloudKit "+" flow (S103 hand-
+wrote the entitlements directly instead). Asked Martin directly whether the project is enrolled in the
+paid Apple Developer Program: **not yet** — this was flagged as an unpurchased cost item back in S90
+(`~$111/yr` total project cost, Program membership one of two line items) but never connected to
+CloudKit sync specifically until now. Container creation requires that paid enrollment regardless of
+entitlements content; a free/personal team cannot provision CloudKit containers at all, so no amount of
+app-side code changes would have fixed this.
+
+**Two-device convergence, the `.serverRecordChanged` conflict path, and a real record reaching
+CloudKit remain unverified — genuinely blocked, not just untested.** Next session touching this feature
+starts with: (1) enroll in the Apple Developer Program, (2) open `Yomi.xcodeproj` → Signing &
+Capabilities, sign in with the enrolled account, add iCloud/CloudKit, use "+" under Containers to
+provision `iCloud.pacodealer.Yomi` (confirm via the CloudKit Dashboard afterward), (3) re-run this exact
+two-simulator test — the sync code itself needs no changes. Full detail in
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`'s "What was verified, and what wasn't (S106)" section.
+
+---
+
+## Prior state (post S105 — 2026-08-07 · CloudKit sync code-review findings fixed)
 
 **S105: worked through all 6 findings from S104's `/code-review` pass over the S102-S103 CloudKit sync
 code** (Known Issues #41-46), per Martin's "fix all 6 findings first" call when asked where to focus.

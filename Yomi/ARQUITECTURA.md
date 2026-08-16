@@ -735,9 +735,12 @@ hashed `CKRecord.ID.recordName` back to `(recordType, key)`, plus a cached archi
 so re-saves carry a real server change tag. UI: Settings → More → **Sync** (`CloudSyncView.swift`),
 deliberately distinct from the Backup screen. Full design + as-built corrections (several real
 `CKSyncEngine` API names differ from the WWDC23 talk's own sample code) in
-`Yomi/CLOUDKIT_SYNC_DESIGN.md`. **Not yet verified against a real signed-in iCloud account** — this
-dev simulator has none; see that doc's "What was verified" section before trusting this beyond a
-clean build + correct account-unavailable UI state.
+`Yomi/CLOUDKIT_SYNC_DESIGN.md`. **Blocked on Apple Developer Program enrollment (found S106)** — a real
+signed-in iCloud account now resolves correctly (`accountStatus() == .available`), but
+`CKSyncEngine.sendChanges()`/`fetchChanges()` fail with `CKError "Bad Container" (5/1014)`: the
+`iCloud.pacodealer.Yomi` container was never provisioned server-side, which requires the paid Program
+(not yet enrolled) plus a one-time Xcode Signing & Capabilities step. See that doc's "What was verified,
+and what wasn't (S106)" section before trusting this beyond account-status resolution.
 
 ## Design decisions
 | Decision | Discarded alternative | Reason |
