@@ -107,6 +107,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 |---|---|---|---|
 | Stylized "Current: Chapter N" splash before the reader loads (art + scanlator credit/links) | Yes | Not found — Yomi opens straight into pages | ❌ Missing — cosmetic flair, arguably adds friction; low priority, judgment call |
 | In-reader header shows source URL + external-link/globe icons | Yes | ✅ Fixed S101 — best-effort (no plugin changes): resolves for ~7 of 15 plugins + Mangayomi-format sources, hides the icon rather than guessing for pure-API sources. See `CLAUDE.md` Known Issue #33. | 🟡 Partial (works for most, not all, sources) |
+| Continuous/webtoon-reader chapter-boundary transition — in-scroll "Finished: Chapter N / Current: Chapter N+1" banner + chapter title card, then flows straight into the next chapter's pages with no tap and without leaving the reader (S108: Martin sent 3 real screenshots of this from Tachimanga/AsuraScans) | Yes | Not found — distinct from the row above (that one's about a single chapter's *opening* splash; this is the transition *between two chapters* mid-scroll). Yomi's `WebtoonReaderView`/continuous reader presumably just ends one chapter's pages and starts the next with no marker at all — not yet confirmed against current code. | ❌ Missing — needs scoping: how does Yomi currently handle a continuous-mode chapter boundary today, and would the banner read from real chapter metadata (title, scanlator) or need new plugin fields |
 
 ## 8. Appearance
 
@@ -153,7 +154,11 @@ roughly in order of expected value:
 4. ~~**Color blend slider**~~ ✅ Fixed S108, live-verified. ~~**Date format picker**~~ ✅ Fixed S108,
    live-verified. **Customize Tabs** — root-caused S108 (needs a real custom settings screen on
    iPhone, not just a SwiftUI modifier — see §9 above), still open, own future session.
-5. Cosmetic/low-priority items scattered through the tables above (AppLockView's pre-S79 styling,
+5. **Continuous-reader chapter-boundary transition** (new S108, see §7) — Martin sent 3 real
+   screenshots of Tachimanga's in-scroll "Finished: Chapter N / Current: Chapter N+1" banner +
+   chapter title card, flowing straight into the next chapter with no tap. Not yet scoped against
+   Yomi's current `WebtoonReaderView`/continuous-mode code — start there next session.
+6. Cosmetic/low-priority items scattered through the tables above (AppLockView's pre-S79 styling,
    reader chapter-open splash screen, crop borders, press-and-hold-to-scroll, scanlator dedup, etc.) —
    pick up opportunistically, not worth a dedicated pass.
 
