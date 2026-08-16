@@ -65,10 +65,46 @@ import Observation
         didSet { defaults.set(accentColor, forKey: "accentColor") }
     }
 
+    /// 24-hour clock ("14:20") vs 12-hour ("2:20 PM") for History's today-timestamp.
+    var use24HourClock: Bool {
+        didSet { defaults.set(use24HourClock, forKey: "use24HourClock") }
+    }
+
+    /// Day-before-month date order ("28 JUL") vs month-before-day ("JUL 28") for History's
+    /// older-than-a-week timestamp.
+    var dateOrderDayFirst: Bool {
+        didSet { defaults.set(dateOrderDayFirst, forKey: "dateOrderDayFirst") }
+    }
+
+    /// How strongly the accent color is blended into canvas surfaces (0 = off, 1 = fully accent).
+    /// Only `bg`/`surface1`/`surface2` shift — text/hairline stay put so legibility isn't a moving
+    /// target. Default 0 preserves the exact existing look for every current user.
+    var colorBlendLevel: Double {
+        didSet { defaults.set(colorBlendLevel, forKey: "colorBlendLevel") }
+    }
+
     /// Resolved canvas palette (bg/surfaces/text) for the current `canvas` preset.
     /// Single source of truth — read this instead of re-deriving `YomiTokens.Canvas.named(...)`.
     var canvasColors: YomiTokens.CanvasColors {
         canvas.isEmpty ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(canvas)
+    }
+
+    /// `canvasColors` with `bg`/`surface1`/`surface2` blended toward `accentColor` by
+    /// `colorBlendLevel`. This is what should actually be threaded through the app (`\.yomiCanvas`,
+    /// Appearance Studio's preview) — `canvasColors` itself stays the pure, unblended preset.
+    var blendedCanvasColors: YomiTokens.CanvasColors {
+        guard colorBlendLevel > 0 else { return canvasColors }
+        let base = canvasColors
+        let accent = Color(hex: accentColor)
+        return YomiTokens.CanvasColors(
+            name:          base.name,
+            bg:            base.bg.mix(with: accent, amount: colorBlendLevel),
+            surface1:      base.surface1.mix(with: accent, amount: colorBlendLevel),
+            surface2:      base.surface2.mix(with: accent, amount: colorBlendLevel),
+            textPrimary:   base.textPrimary,
+            textSecondary: base.textSecondary,
+            hairline:      base.hairline
+        )
     }
 
     /// Legible label/icon color for content rendered on an accent-colored fill (Resume buttons,
@@ -394,6 +430,9 @@ import Observation
             }
         }
         accentColor             = d.string(forKey: "accentColor")            ?? "#E5473A"
+        colorBlendLevel         = d.object(forKey: "colorBlendLevel") as? Double ?? 0.0
+        use24HourClock          = d.object(forKey: "use24HourClock") as? Bool ?? true
+        dateOrderDayFirst       = d.object(forKey: "dateOrderDayFirst") as? Bool ?? false
         useSystemFont           = d.object(forKey: "useSystemFont") as? Bool ?? true
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
