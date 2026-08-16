@@ -12,7 +12,7 @@ struct AppearanceStudioView: View {
 
     // MARK: - Derived
 
-    private var canvas: YomiTokens.CanvasColors { settings.canvasColors }
+    private var canvas: YomiTokens.CanvasColors { settings.blendedCanvasColors }
     private var accent: Color { Color(hex: settings.accentColor) }
     private var accentForeground: Color { settings.accentForeground }
 
@@ -30,6 +30,7 @@ struct AppearanceStudioView: View {
             previewSection
             canvasSection
             accentSection
+            blendSection
             typeSection
             librarySection
             iconSection
@@ -269,6 +270,25 @@ struct AppearanceStudioView: View {
             Text("Accent")
         } footer: {
             Text("Accent appears on active states, progress, and primary actions — never as decoration.")
+        }
+    }
+
+    private var blendSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Blend into surfaces")
+                    Spacer()
+                    Text("\(Int(settings.colorBlendLevel * 100))%")
+                        .font(.custom(YomiTokens.Font.monoRegular, size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $settings.colorBlendLevel, in: 0...1)
+                    .tint(accent)
+            }
+            .padding(.vertical, 2)
+        } footer: {
+            Text("Tints backgrounds and cards toward your accent color. Text stays put — check the AA badge above if you push this high on Paper or Sepia.")
         }
     }
 

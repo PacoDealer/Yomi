@@ -43,6 +43,7 @@ struct ContentView: View {
             }
             .customizationID("com.Yomi.More")
         }
+        .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
         .toolbarBackground(
             settings.pureBlack ? Color.black : Color.clear,
@@ -52,8 +53,8 @@ struct ContentView: View {
             settings.pureBlack ? .visible : .automatic,
             for: .tabBar
         )
-        .environment(\.yomiCanvas, settings.canvasColors)
-        .background(settings.canvasColors.bg.ignoresSafeArea())
+        .environment(\.yomiCanvas, settings.blendedCanvasColors)
+        .background(settings.blendedCanvasColors.bg.ignoresSafeArea())
     }
 }
 

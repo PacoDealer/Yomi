@@ -58,4 +58,21 @@ extension Color {
         let lo = min(c1.relativeLuminance, c2.relativeLuminance)
         return (hi + 0.05) / (lo + 0.05)
     }
+
+    /// Linearly interpolate this color's sRGB components toward `other` by `amount` (0 = self, 1 = other).
+    func mix(with other: Color, amount: Double) -> Color {
+        let t = min(max(amount, 0), 1)
+        let uicA = UIColor(self), uicB = UIColor(other)
+        var ra: CGFloat = 0, ga: CGFloat = 0, ba: CGFloat = 0, aa: CGFloat = 0
+        var rb: CGFloat = 0, gb: CGFloat = 0, bb: CGFloat = 0, ab: CGFloat = 0
+        uicA.getRed(&ra, green: &ga, blue: &ba, alpha: &aa)
+        uicB.getRed(&rb, green: &gb, blue: &bb, alpha: &ab)
+        return Color(
+            .sRGB,
+            red:     Double(ra) + (Double(rb) - Double(ra)) * t,
+            green:   Double(ga) + (Double(gb) - Double(ga)) * t,
+            blue:    Double(ba) + (Double(bb) - Double(ba)) * t,
+            opacity: Double(aa) + (Double(ab) - Double(aa)) * t
+        )
+    }
 }
