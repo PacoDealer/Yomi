@@ -21,6 +21,72 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
+
+**S108 opened by reconciling a real branch split**: `main` had picked up unrelated dev-tooling
+commits (SwiftLint/fastlane/Pulse, 8/14) while S106/S107's CloudKit investigation lived on an
+unmerged worktree branch (`worktree-cloudkit-verify-s106`, cut 8/11) — neither branch had the
+other's work. Merged cleanly (docs-only diff, no code conflicts), pushed, then removed the
+now-redundant worktree/branch (local + remote, confirmed with Martin before the remote delete).
+
+**CloudKit sync stays out of scope this session** — still blocked on Apple Developer Program
+enrollment (#47), Martin's call not to enroll yet. Instead worked the buildable half of
+`TACHIMANGA_PARITY.md`'s backlog: dated iCloud backup list, color-blend slider, date format
+picker, plus a live investigation into Customize Tabs. Known Issues re-checks (#8 needs a local
+Suwayomi server, #12 needs Martin's real device) and App Store Connect prep were deliberately
+**not** attempted — external-resource/input-blocked, scoped for their own future sessions.
+
+1. **Dated iCloud backup list** — `BackupManager.uploadToICloud()` previously overwrote one fixed
+   `YomiBackup.json`; now writes timestamped files (`YomiBackup-<ISO8601>.json`), keeps the last 8,
+   and `BackupView.swift`'s iCloud section is a real list (date + byte size, swipe-to-delete,
+   tap-to-restore-that-specific-entry) instead of a single date row. **Not live end-to-end
+   verified**: the dev simulator's iCloud session had lapsed (an "Apple Account Verification /
+   enter your password" system dialog was blocking the home screen at session start) — code
+   review + zero-warning build only, following the same `FileManager`/ubiquity-container pattern
+   the single-file version already used successfully. Next session touching Backup should
+   re-authenticate iCloud on the sim first and confirm a real multi-entry round-trip.
+2. **Color-blend slider** — new `AppSettings.colorBlendLevel` + `Color.mix(with:amount:)`
+   (`Color+Hex.swift`), blends `bg`/`surface1`/`surface2` toward the accent color; text/hairline
+   deliberately untouched so legibility isn't a moving target. Wired through
+   `AppSettings.blendedCanvasColors` (parallel to, not a mutation of, `canvasColors`) into
+   `ContentView.swift`'s `\.yomiCanvas` environment — applies app-wide, not just a preview toy —
+   and into Appearance Studio's live preview card. **Live-verified at 60% on Paper**: visibly
+   tints the whole app consistently (Library, Settings, tab bar), and the pre-existing AA contrast
+   badge correctly flips to "Fail" — the slider surfaces the Paper/Sepia contrast tension flagged
+   back in S101 instead of hiding it, same judgment-call precedent (expose, don't silently decide).
+3. **Date format picker** — new `AppSettings.use24HourClock`/`dateOrderDayFirst`, threaded as
+   explicit parameters into `Notation.historyTimestamp(_:use24Hour:dayFirst:)` rather than read
+   from `AppSettings.shared` inside the enum (kept `Notation`'s `nonisolated`, detached-context-safe
+   contract from S91 intact). Two toggles in Settings → General. **Live-verified both axes** by
+   seeding a real `lastReadAt` via direct `sqlite3` (today, then >7-days-old) and confirming History
+   rows flip "20:30"↔"8:30 PM" and "JUL 20"↔"20 JUL" after each toggle.
+4. **Customize Tabs — root-caused, not fixed.** `ContentView.swift` already had per-tab
+   `.customizationID`s and an `@AppStorage`-backed `.tabViewCustomization($customization)` since
+   S43 (`HISTORY.md` claimed drag-to-reorder worked) — but was missing
+   `.tabViewStyle(.sidebarAdaptable)`, which Apple's own docs say is required for
+   `.tabViewCustomization` to do anything at all. Added the modifier (harmless, confirmed no
+   visual regression on iPhone via screenshot). But watching WWDC24's actual talk — titled
+   "Elevate your tab and sidebar experience **in iPadOS**", not a coincidence — surfaced the real
+   finding: **the system's drag/hide editing UI only exists inside the sidebar, which only renders
+   in regular-width contexts (iPad/Mac/tvOS/visionOS). iPhone compact width gets a plain tab bar
+   with no built-in customization affordance at all**, confirmed live (long-pressed a tab: it just
+   selected, no jiggle, no menu, identically before and after the fix). Delivering this on an
+   iPhone-only app needs a real custom settings screen (reorder list + hide toggles) — Martin's
+   call was to log this rather than build it this session, scoped for its own future pass.
+
+**Tooling note**: `mobile-mcp`'s WebDriverAgent failed to connect for the first ~10 minutes of the
+session (5 consecutive timeouts across a 20s wait + simulator reopen) — recovered on its own mid-
+session with no intervention beyond retrying periodically. `XcodeBuildMCP`'s plain `screenshot` tool
+kept working throughout, used as the fallback for the Customize Tabs visual-regression check. Also
+reconfirmed the standing tab-bar coordinate-offset quirk (S99): tapping a tab's own reported
+x-coordinate lands one tab to the left; a +69pt compensation reliably lands correctly on this device.
+
+Zero build warnings throughout (Debug, rebuilt after every step). Commits pushed to `main`:
+branch-merge commit, then one commit per feature (backup list, blend slider, date format picker,
+Customize Tabs root-cause + doc updates).
+
+---
+
 ## Current state (post S107 — 2026-08-11 · Known Issues backlog re-check, no code changes)
 
 **S107: CloudKit sync still can't proceed (Martin hasn't enrolled in the Apple Developer Program yet),

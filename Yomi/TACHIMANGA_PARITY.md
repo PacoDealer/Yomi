@@ -90,7 +90,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | **Export/create** a Tachiyomi-compatible backup (for migrating *out* to Tachiyomi/Mihon/forks) | Yes [premium] | Not found — Yomi's export is Yomi-format only, one-way interop | ❌ Missing (low priority — mostly matters for user trust/no-lock-in messaging, not day-to-day use) |
 | Automatic backup scheduling (frequency picker) | Yes, explicit frequency setting [premium], defaults Off | Yomi's iCloud auto-backup fires on every app background, no frequency picker | 🔷 Yomi ahead in default behavior, 🟡 missing the configurability |
 | iCloud backup toggle + last-synced | Yes [premium] | ✅ `iCloudAutoBackup`, `BackupManager.swift` | ✅ Parity (free) |
-| Dated backup list (multiple retained backups, sizes, per-entry menu) | Yes — shows 3+ dated entries with sizes | Yomi shows only a single "last backup date," no retained history list | ❌ Missing |
+| Dated backup list (multiple retained backups, sizes, per-entry menu) | Yes — shows 3+ dated entries with sizes | ✅ Fixed S108 — `BackupManager.swift` now writes timestamped files (`YomiBackup-<ISO8601>.json`) into the iCloud container instead of overwriting one fixed name, keeps the last 8, and `BackupView.swift`'s iCloud section is a real list (date + byte size, swipe-to-delete, tap-to-restore-that-entry) instead of a single date row. **Not live end-to-end verified** — the dev simulator's iCloud session had lapsed (needs password re-auth) this session; code review + zero-warning build only, matches the previously-working single-file pattern. | ✅ Parity (live round-trip unverified) |
 | Full-app data sync across devices (library, history, bookmarks, repos, extensions) with in-app explainer copy | Yes, detailed explainer screen | ✅ Implemented S103 — `CloudSyncManager.swift`/`CloudSyncView.swift`, library+progress+categories sync via CKSyncEngine (repos/extensions intentionally excluded, each device installs its own plugins independently). Not yet verified against a real signed-in iCloud account — see `CLOUDKIT_SYNC_DESIGN.md`. | ✅ Parity (verification pending) |
 
 ## 6. Security / Privacy
@@ -115,17 +115,17 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Theme presets (Default/Green Apple/Lavender/…) | Fixed preset list [some premium] | Canvas (Ink/Midnight/Paper/Sepia) × free-form accent `ColorPicker` — `AppearanceStudioView.swift` | 🔷 Yomi ahead — more flexible (any accent color vs fixed preset palettes) |
 | Liquid glass toggle | Optional toggle | Yomi's Liquid Glass is baked into the design system everywhere, not optional | 🔷 Different by design, not a gap — flag if Martin wants an "off" switch for accessibility/performance |
 | Pure black (OLED) dark mode | Yes [premium] | ✅ `pureBlack` — `SettingsView.swift:231` | ✅ Parity (free) |
-| Color blend level (slider blending accent into surfaces) | Yes | Not found | ❌ Missing, low priority |
+| Color blend level (slider blending accent into surfaces) | Yes | ✅ Fixed S108 — new `AppSettings.colorBlendLevel` + `Color.mix(with:amount:)`, blends `bg`/`surface1`/`surface2` toward the accent (text/hairline untouched). Wired app-wide via `\.yomiCanvas` (`ContentView.swift`'s `blendedCanvasColors`, not the raw preset) and into Appearance Studio's live preview. Live-verified at 60% on Paper: visibly tints the whole app, and the existing AA contrast badge correctly drops to "Fail" — the slider surfaces the tradeoff instead of hiding it, consistent with S101's precedent. | ✅ Parity |
 | App icon picker | Yes [premium] | ✅ `alternateIconName`, Ink/Paper icons | ✅ Parity (free) |
 | Items per row | Stepper | ✅ `libraryColumns` | ✅ Parity |
 | Rotation ("Follow Device") | Setting | Not found | ❌ Missing |
-| Date format picker | Setting | Not found — `Notation.swift` formats are presumably hardcoded | ❌ Missing, low priority |
+| Date format picker | Setting | ✅ Fixed S108 — new `AppSettings.use24HourClock`/`dateOrderDayFirst`, threaded as parameters into `Notation.historyTimestamp(_:use24Hour:dayFirst:)` (kept as parameters, not a direct `AppSettings.shared` read, since `Notation` is `nonisolated` per S91). Settings → General, two toggles. Live-verified both axes via seeded `lastReadAt` rows in History (today + >7-days-old): "20:30"↔"8:30 PM" and "JUL 20"↔"20 JUL". | ✅ Parity |
 
 ## 9. General / Advanced / Storage
 
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
-| Customize Tabs (reorder/hide bottom tabs) | Yes [premium] | Not found — fixed 6-tab `TabView` | ❌ Missing |
+| Customize Tabs (reorder/hide bottom tabs) | Yes [premium] | **Root-caused S108, still missing.** `ContentView.swift` already had `.customizationID`s + an `@AppStorage`-backed `.tabViewCustomization($customization)` since S43 (`HISTORY.md` claimed "drag to reorder" worked) — but `.tabViewStyle(.sidebarAdaptable)` was never applied, so per Apple's own docs ("only the sidebarAdaptable style supports customization") the whole mechanism was a silent no-op; confirmed live, long-press did nothing. Added the missing modifier (harmless, no visual regression on iPhone, live-verified), but watching WWDC24's actual talk ("Elevate your tab and sidebar experience **in iPadOS**") revealed the real blocker: **the system drag/hide editing UI only exists inside the sidebar, which only renders in regular-width contexts (iPad/Mac/tvOS/visionOS) — iPhone compact width gets a plain tab bar with no built-in edit affordance at all**, confirmed live (long-press = select, no jiggle, no menu). Delivering this on an iPhone-only app needs a real custom settings screen (reorder list + hide toggles), not just enabling the SwiftUI API. | ❌ Missing (needs custom UI, not just a modifier — scoped for a future session) |
 | Default tab (which tab opens on launch) | Yes | ✅ Fixed S98 — `defaultTab` setting, wired into `AppRouter.init()`. | ✅ Parity |
 | **Storage composition view** (visual bar: cache/sources/downloads/backups/other, each with size + Manage/Clear) | Yes, detailed | ✅ Fixed S98 — `StorageManager.swift`/`StorageView.swift`, reachable from Advanced → Storage. Real byte-accurate breakdown (Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other) with Manage/Clear actions per category. | ✅ Parity |
 | Network settings: user agent, timeout | Shown, editable, plus CF-bypass toggle + request-dump | ✅ Partially fixed S98 — request timeout (10-60s) now editable in Advanced → Network. User Agent deliberately stays fixed: it's bound to the Cloudflare-bypass WebView's solved-challenge cookie (`CFBypassConstants.userAgent`, shared with `JSBridge`'s fetch) — making it editable would risk silently breaking CF bypass for a control most users would never touch. Request-dump debug log not implemented. | 🟡 Partial (timeout editable, UA intentionally fixed, no request-dump) |
@@ -147,12 +147,12 @@ roughly in order of expected value:
    entry. `CKSyncEngine`, sync on foreground/background, metadata + reading-state only (no files).
    **Not yet verified against a real signed-in iCloud account** (dev simulator has none) — next
    session touching this feature should do that verification pass first.
-2. **Dated backup list** (multiple retained backups with sizes) — Yomi shows only a single "last
-   backup date."
+2. ~~**Dated backup list**~~ ✅ Fixed S108, live round-trip unverified (iCloud session lapsed on dev sim).
 3. **Tachiyomi-compatible *export*** (for migrating out to Tachiyomi/Mihon/forks) — low priority,
    mostly a trust/no-lock-in signal rather than day-to-day utility.
-4. **Customize Tabs** (reorder/hide bottom tabs), **color blend slider**, **date format picker** —
-   smaller, additive, no urgency.
+4. ~~**Color blend slider**~~ ✅ Fixed S108, live-verified. ~~**Date format picker**~~ ✅ Fixed S108,
+   live-verified. **Customize Tabs** — root-caused S108 (needs a real custom settings screen on
+   iPhone, not just a SwiftUI modifier — see §9 above), still open, own future session.
 5. Cosmetic/low-priority items scattered through the tables above (AppLockView's pre-S79 styling,
    reader chapter-open splash screen, crop borders, press-and-hold-to-scroll, scanlator dedup, etc.) —
    pick up opportunistically, not worth a dedicated pass.
