@@ -98,6 +98,34 @@ enum ICloudSyncStatus: Equatable {
         }
     }
 
+    // MARK: - Tachiyomi Export
+
+    /// Migrating *out* to Tachiyomi/Mihon or a fork — one-way interop, the reverse of
+    /// importTachiyomiBackup. Metadata + read-state only, matching TachiyomiBackupExporter's scope.
+    func exportTachiyomiBackup() async -> URL? {
+        isExporting = true
+        errorMessage = nil
+        defer { isExporting = false }
+
+        do {
+            let mangas = try MangaQueries.fetchLibrary()
+            var chaptersByMangaId: [String: [Chapter]] = [:]
+            for manga in mangas {
+                chaptersByMangaId[manga.id] = try ChapterQueries.fetchAll(mangaId: manga.id)
+            }
+            let data = TachiyomiBackupExporter.export(mangas: mangas, chaptersByMangaId: chaptersByMangaId)
+            let datePart = Date().formatted(.iso8601)
+                .replacingOccurrences(of: ":", with: "-")
+            let filename = "yomi-export-\(datePart).tachibk"
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: url)
+            return url
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
     private func buildBackupData() async throws -> Data {
         let mangas         = try MangaQueries.fetchAll()
         let chapters       = try await appDatabase.read { try Chapter.fetchAll($0) }
