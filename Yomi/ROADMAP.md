@@ -21,7 +21,66 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S109 — 2026-08-17 · chapter-boundary transition + Customize Tabs screen shipped)
+## Current state (post S110 — 2026-08-17 · S109 live-verification found + fixed a real chapter-ordering bug; boundary-transition trigger still unconfirmed)
+
+**S110 picked up S109's "re-verify on Martin's own device" note and tried the simulator again anyway**,
+using a `sqlite3`-seeded near-chapter-end read position (since `mobile-mcp`'s swipe still can't reach an
+arbitrary mid-scroll offset) plus Pulse's live Network Console as ground truth for whether the preload's
+background fetch ever actually fires.
+
+1. **Customize Tabs — now fully live-verified.** The Settings row was unreachable by a single fling
+   last session; found that a *short, off-center* swipe (`x/y` near the bottom of the visible list,
+   small `distance`) reliably lands a partial scroll where a full-width fling always overshoots —
+   worth trying before concluding a row is unreachable. Toggled History off: the bottom tab bar
+   rebuilt live (Library/Browse/Updates/More, correctly re-spaced), persisted across a full
+   `stop_app_sim`+`launch_app_sim` relaunch, and re-enabling restored all 5 tabs. "More" stayed locked
+   as designed. Drag-to-reorder itself still isn't exercised (no drag gesture tool available), but the
+   higher-risk half — hide/show state actually persisting and driving the live tab bar — is confirmed.
+2. **Found and fixed a real, pre-existing chapter-ordering bug, independent of S109's feature.**
+   `MangaDetailView.loadChapters()` and both `ContinueReadingRow.swift` reader-launch paths built their
+   `chapters` array directly from the source plugin's `getChapterList()` return order — confirmed via a
+   live `curl` against AsuraScans' real API that this is **newest-first** (`[9,8,7,6,5,4,3,2,1]`), not
+   ascending. `ChapterReaderView`'s `hasNextChapter`/`hasPrevChapter`/`navigateToChapter(index ± 1)` and
+   the new boundary-preload all assume `chapters[index + 1]` means "the next-higher chapter number" —
+   with a descending array this was backwards, so both the "Next Chapter" button and the boundary
+   preload's target chapter would resolve to the previous chapter, not the next one, for any source
+   whose API/scrape returns newest-first (likely most of them). Fixed by sorting `chapters`
+   ascending by `chapterNumber` right after each load, matching `ChapterQueries.fetchAll`'s own
+   `ascNullsLast` convention — `ChapterQueries.fetchAll` and `UpdatesView.swift`'s reader-launch path
+   were already correct (the latter defensively re-sorts even though its source is already ascending).
+   **Live-verified**: the in-reader Chapters sheet for "The Tale of Cultivation and Demon Extermination"
+   now lists Ch.1→Ch.9 in order (was silently reversed before, though never actually screenshotted or
+   flagged in a prior session — this bug likely predates S109 significantly).
+3. **The boundary-preload trigger itself still couldn't be confirmed firing, and this session's evidence
+   points at a tooling gap, not (only) a code bug.** Seeded chapter 6 (21 pages) to resume 2-3 pages
+   from the end, confirmed via Pulse's Network Console + direct inspection of the simulator's Pulse
+   `logs.sqlite` (ground truth, not the reader's own on-screen page counter — see below) that **zero**
+   request for chapter 7's (or, pre-fix, chapter 5's) page list ever fired, across three separate
+   `stop_app_sim`/`launch_app_sim` cycles and both a direct-seek and an organic multi-swipe approach to
+   the threshold. Added temporary `NSLog` instrumentation directly in
+   `WebtoonReaderView`'s `.onChange(of: visibleId)` and `preloadNextChapterIfNeeded()` (removed before
+   committing) and confirmed via `xcrun simctl ... log show` that **the `visibleId`/`.scrollPosition(id:)`
+   binding's `onChange` never fired at all** during `mobile-mcp` swipes in this run, even though the
+   on-screen content visibly scrolled — meaning `currentPage` never updated internally either, and the
+   reader header's own "N/21" text staying constant across many swipes (which an earlier pass in this
+   same session had reasoned was just *stale accessibility-tree caching*) may instead have been literally
+   true. `WebtoonReaderView` mixes the older `ScrollViewReader`/`proxy.scrollTo` API (used for the
+   resume-to-saved-page jump) with the newer `.scrollPosition(id:)` reactive binding (used to detect
+   which page is visible) on the *same* `ScrollView` — Apple doesn't document this combination, and it's
+   a plausible root cause for `scrollPosition` silently not tracking scroll from certain gesture sources
+   even though `UIScrollView`'s own content offset visibly moves. **Not ruled out**: a genuine code bug
+   in the trigger logic itself. **Next session (ideally on Martin's real device, where genuine
+   finger-drag touch events may behave differently from `mobile-mcp`'s synthetic swipe) should**: verify
+   whether the boundary card ever appears under real touch input; if it does, this was a tooling
+   artifact only; if it doesn't, add back similar `NSLog`/breakpoint instrumentation and check whether
+   `visibleId` updates at all outside the simulator-automation path.
+
+Reused the same dev-simulator library data S109 left in place. Zero build warnings across all rebuilds.
+2 commits (chapter-ordering fix + doc updates) pushed to `main`.
+
+---
+
+## Prior state (post S109 — 2026-08-17 · chapter-boundary transition + Customize Tabs screen shipped)
 
 **S109 shipped the two items S108 explicitly deferred**: the continuous/webtoon-reader
 chapter-boundary transition (`TACHIMANGA_PARITY.md` §7, added S108 from 3 real Tachimanga

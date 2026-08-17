@@ -297,6 +297,10 @@ private struct ContinueHeroCard: View {
                 chapters = saved
             } else {
                 let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+                // `fetchedChapters` is in whatever order the source plugin returns (often
+                // newest-first, confirmed for AsuraScans) — ChapterReaderView's prev/next
+                // navigation and boundary-preload both assume `chapters[index ± 1]` means
+                // the numerically adjacent chapter, so this must be canonical ascending.
                 chapters = fetchedChapters.map { ch -> Chapter in
                     guard let persisted = savedMap[ch.id] else { return ch }
                     var merged = ch
@@ -304,7 +308,7 @@ private struct ContinueHeroCard: View {
                     merged.readingSeconds = persisted.readingSeconds
                     merged.progress = persisted.progress
                     return merged
-                }
+                }.sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
             }
 
             let lastTouched = saved
@@ -482,6 +486,7 @@ private struct ContinueReadingCell: View {
             chapters = saved
         } else {
             let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+            // See the manga branch above — `fetchedChapters` isn't guaranteed ascending.
             chapters = fetchedChapters.map { ch -> Chapter in
                 guard let persisted = savedMap[ch.id] else { return ch }
                 var merged = ch
@@ -489,7 +494,7 @@ private struct ContinueReadingCell: View {
                 merged.readingSeconds = persisted.readingSeconds
                 merged.progress = persisted.progress
                 return merged
-            }
+            }.sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
         }
 
         let lastTouched = saved
