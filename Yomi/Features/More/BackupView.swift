@@ -14,6 +14,8 @@ struct BackupView: View {
     @State private var showImportSuccess = false
     @State private var showTachiyomiPicker = false
     @State private var showTachiyomiSuccess = false
+    @State private var exportedTachiyomiURL: URL? = nil
+    @State private var showTachiyomiShareSheet = false
     @State private var showRestoreConfirm = false
     @State private var icloudBackups: [BackupManager.ICloudBackupEntry] = []
     @State private var restoreTarget: BackupManager.ICloudBackupEntry? = nil
@@ -27,6 +29,7 @@ struct BackupView: View {
             exportSection
             importSection
             tachiyomiImportSection
+            tachiyomiExportSection
             errorSection
         }
         .listStyle(.insetGrouped)
@@ -37,6 +40,11 @@ struct BackupView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
+                ActivitySheet(items: [url])
+            }
+        }
+        .sheet(isPresented: $showTachiyomiShareSheet) {
+            if let url = exportedTachiyomiURL {
                 ActivitySheet(items: [url])
             }
         }
@@ -231,6 +239,32 @@ struct BackupView: View {
             } else {
                 Button("Import .tachibk backup") { showTachiyomiPicker = true }
                 Text("Imports your manga library and read history from a Tachiyomi or Mihon backup file. Sources without a matching Yomi plugin are imported with a placeholder.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Tachiyomi Export Section
+
+    private var tachiyomiExportSection: some View {
+        Section("Export to Tachiyomi / Mihon") {
+            if backupManager.isExporting {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Exporting...")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button("Export .tachibk backup") {
+                    Task {
+                        if let url = await backupManager.exportTachiyomiBackup() {
+                            exportedTachiyomiURL = url
+                            showTachiyomiShareSheet = true
+                        }
+                    }
+                }
+                Text("Exports your manga library and read history as a Tachiyomi-compatible backup, for migrating out to Tachiyomi, Mihon, or a fork. Sources without a matching Tachiyomi ID come across as metadata only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
