@@ -225,6 +225,13 @@ import Observation
         didSet { defaults.set(libraryColumns, forKey: "libraryColumns") }
     }
 
+    /// When true (default), the app rotates with the device (portrait + landscape, matching
+    /// Info.plist's declared orientations). When false, locked to portrait only. Read by
+    /// AppDelegate.application(_:supportedInterfaceOrientationsFor:) in YomiApp.swift.
+    var rotationFollowDevice: Bool {
+        didSet { defaults.set(rotationFollowDevice, forKey: "rotationFollowDevice") }
+    }
+
     /// Show unread count badge on manga covers
     var showUnreadBadge: Bool {
         didSet { defaults.set(showUnreadBadge, forKey: "showUnreadBadge") }
@@ -475,6 +482,7 @@ import Observation
             pluginCatalogURLs = [legacy]
         }
         libraryColumns          = d.object(forKey: "libraryColumns") as? Int ?? 3
+        rotationFollowDevice    = d.object(forKey: "rotationFollowDevice") as? Bool ?? true
         keepScreenOn            = d.object(forKey: "keepScreenOn")   as? Bool ?? true
         isIncognito             = d.bool(forKey: "isIncognito")
         showUnreadBadge         = d.object(forKey: "showUnreadBadge") as? Bool ?? true
