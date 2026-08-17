@@ -694,6 +694,10 @@ struct SourceBrowseView: View {
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreContent = true
+
+    /// Hard backstop for sources whose pagination never returns an empty page (e.g. AquaManga,
+    /// Known Issue #9) — paired with the dedup check below, which is the primary termination signal.
+    private let maxPage = 300
     @State private var showCFBypass = false
     @State private var bypassAttempted = false
     @State private var isBypassing = false
@@ -940,6 +944,10 @@ struct SourceBrowseView: View {
 
     private func loadMore() async {
         guard !isLoadingMore, hasMoreContent, let b = bridge else { return }
+        guard currentPage < maxPage else {
+            hasMoreContent = false
+            return
+        }
         isLoadingMore = true
         let nextPage = currentPage + 1
         let sourceId = ext.id
@@ -949,16 +957,22 @@ struct SourceBrowseView: View {
             let items = await Task.detached(priority: .userInitiated) {
                 feed == .latest ? b.latestNovels(page: nextPage) : b.popularNovels(page: nextPage)
             }.value
-            if items.isEmpty {
-                hasMoreContent = false
-            } else {
-                let newNovels = items.map { item in
+            let existingIds = Set(novels.map { $0.id })
+            let newNovels = items
+                .map { item in
                     Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
                           title: item.name, coverURL: URL(string: item.cover ?? ""),
                           summary: nil, author: nil, status: "unknown", genres: [],
                           inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
                           readingSeconds: 0, readingStatus: .none, notes: nil)
                 }
+                .filter { !existingIds.contains($0.id) }
+            // A source is out of new content once a page comes back empty OR every item on it
+            // duplicates what's already loaded — some sources (AquaManga) repeat the last page
+            // forever instead of returning empty, so an empty-only check never terminates.
+            if newNovels.isEmpty {
+                hasMoreContent = false
+            } else {
                 novels.append(contentsOf: newNovels)
                 currentPage = nextPage
             }
@@ -968,10 +982,12 @@ struct SourceBrowseView: View {
                     ? b.getLatestManga(page: nextPage, sourceId: sourceId)
                     : b.getMangaList(page: nextPage, sourceId: sourceId)
             }.value
-            if results.isEmpty {
+            let existingIds = Set(mangas.map { $0.id })
+            let newMangas = results.filter { !existingIds.contains($0.id) }
+            if newMangas.isEmpty {
                 hasMoreContent = false
             } else {
-                mangas.append(contentsOf: results)
+                mangas.append(contentsOf: newMangas)
                 currentPage = nextPage
             }
         }
