@@ -21,6 +21,66 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## Current state (post S112 — 2026-08-17 · full project audit, documentation-only)
+
+**S112 re-ran S99's "audit absolutely everything" methodology, 13 sessions later, as an independent
+re-verification rather than a trust of the old pass.** Split into 7 parallel research dimensions
+(core/database/app-entry/sync, extensions/plugins/browse/reader, library/more/history/onboarding,
+docs-vs-code, App Store compliance, security & privacy, and a live simulator/build-health walkthrough),
+each running its own adversarial verify pass on every finding before it was allowed to surface — every
+row in the new Known Issues entries below was independently re-read against the live file/line before
+being trusted, not carried over from the sub-agents' first-pass claims. **Deliberately no fixes made
+this session**, same as S99 — findings only, catalogued as new Known Issues rows 52-71 for a future
+session to triage and work through.
+
+**Headline: no regressions found in the S99-era fixes.** Every S100-S111 fix spot-checked as part of
+this pass (the S104 instant-install plugin allowlist, S105's CloudKit dirty-marking/pending-state
+fixes, S109-S111's chapter-boundary preload chain, the S101 accent-contrast/no-cover-placeholder work)
+was independently reconfirmed still in place and working as documented — genuinely clean after 111
+sessions of iterative hardening, consistent with S99's own "code quality held up" verdict. **App Store
+compliance stayed clean too**: the S104 `instantInstallSourceIDs` allowlist still gates exactly the 3
+lower-risk sources (MangaDex/Royal Road/Scribble Hub) with the other 12 still behind Copy URL + manual
+add; no new store-policy regression was found. The one plugin-facing bug this session did surface
+(#69, MangaDex's plugin not filtering MangaDex's own licensed/external-only chapters, confirmed live
+against the real MangaDex API) is a UX dead-end, not a compliance issue — MangaDex being on the
+allowlist is unaffected.
+
+**20 new issues found, roughly:** 3 high, 8 medium, 9 low. Two threads worth flagging up front:
+(1) **A new, previously-undocumented privacy gap** — the Home Screen widget (`WidgetDataWriter.swift`)
+writes reading-history titles and cover art to the shared App Group completely unconditionally, with
+no check of `AppSettings.appLockEnabled`/`secureScreenEnabled` anywhere in its call chain (#68) — for
+an app whose content is rated 18+, this is a real (if low-severity, since it needs Home Screen/Today
+View access) gap between what App Lock/Secure Screen promise and what they actually hide. (2) **A
+small cluster of CloudKit sync gaps parallel to the S105 fixes**: `clearLastRead`/`touchLastUpdated`
+across both `MangaQueries` and `NovelQueries` never call `markCloudDirty` (#53, #54) — the exact same
+class of bug S105 fixed at 6 other call sites, just missed at these four. Beyond those two threads,
+findings split fairly evenly between doc drift (6 stale `ARQUITECTURA.md`/`RESEARCH.md`/
+`TACHIMANGA_PARITY.md` citations and facts — #62-67, none of them serious, all citation/line-number or
+single-fact staleness from code moving underneath the doc), small code-quality items (a self-cached
+`JSBridge` reused across concurrent `Task.detached` calls with no mutual exclusion in
+`SourceBrowseView`, #57; two MainActor reads of a JSContext property that should be
+`Task.detached`-only, #58; orphaned downloaded files after a library migration removes the old entry,
+#60; a self-referential no-op fallback when hiding your current default tab via Customize Tabs, #61;
+dead code, #56/#59), and two smaller live-UI findings (missing `accessibilityLabel`s on the reader's
+chapter-nav buttons with backwards default VoiceOver semantics, #70; the Library empty state's
+illustration not matching the design spec's crosshair motif, a known/deliberate simplification per
+its own code comment, #71).
+
+**Next session starts here**: work rows 52-71 in `CLAUDE.md`, roughly in priority order — the silent
+`try?` around `DatabaseManager.setup()` (#52, real crash-risk-at-a-distance) and the MangaDex
+chapter-filtering fix (#69, live user-facing dead end on an allowlisted source) first, then the
+CloudKit dirty-marking gaps (#53/#54, same fix shape as S105's #41-46), then the widget privacy gap
+(#68) and the doc-staleness cleanup (#62-67, all quick). CloudKit sync itself is still separately
+blocked on Apple Developer Program enrollment (#47, unchanged).
+
+**Methodology note**: this audit ran as an explicit multi-agent `Workflow` (7 finder agents → 7
+independent verifier agents → 1 synthesis agent, ~15 agents total, per-dimension pipelining so
+verification of one dimension started while others were still finding). Every confirmed/plausible
+finding above was re-checked by a second agent against the live file before being trusted — none of
+the raw first-pass findings from the 7 finders were taken at face value.
+
+---
+
 ## Current state (post S111 — 2026-08-17 · backlog cleared: boundary-preload root-caused for real, AquaManga pagination fixed, 3 parity features shipped)
 
 **S111 — Martin asked to "fix everything from the backlog."** Triaged first: excluded anything
