@@ -21,7 +21,57 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
+## Current state (post S109 — 2026-08-17 · chapter-boundary transition + Customize Tabs screen shipped)
+
+**S109 shipped the two items S108 explicitly deferred**: the continuous/webtoon-reader
+chapter-boundary transition (`TACHIMANGA_PARITY.md` §7, added S108 from 3 real Tachimanga
+screenshots Martin sent) and the Customize Tabs settings screen S108 root-caused but didn't build
+(iPhone gets zero built-in tab-customization affordance from Apple's own sidebar-only API).
+
+1. **Chapter-boundary transition** (`ChapterReaderView.swift`). As the user nears the end of a
+   chapter in Webtoon/Continuous mode, the next chapter's pages are fetched in the background and,
+   once ready, a `ChapterBoundaryCard` ("Finished: Ch. N" / "Current: Ch. N+1") plus the next
+   chapter's pages are appended directly into the same scroll content — crossing into them
+   triggers a state swap (chapter index, active `pages`, progress bookkeeping) with no reload and
+   no scroll-position jump, matching Tachimanga's reference screenshots. **Found and fixed a real
+   bug while live-testing**: the preload's background fetch goes through `SOURCE._fetchSync`
+   (`JSBridge.swift`), which blocks synchronously on a `DispatchSemaphore` with no timeout — an
+   existing app-wide pattern, fine for a foreground chapter load the user is already waiting on,
+   but my preload fires this silently in the background while the user keeps reading. Against a
+   slow/rate-limited source this pegged the CPU at 99% and froze the UI (confirmed via `ps aux`
+   CPU sampling, reproduced twice). Fixed with a 12s timeout race (`withTaskGroup`) so a stuck
+   fetch can no longer hold up the preload state machine — cancellation can't preempt the
+   underlying blocking call itself, so a truly stuck fetch still burns one background thread until
+   it resolves on its own, but the app no longer hangs waiting on it. **Verified**: CPU stayed in
+   the normal 0–20% range across many repeated scroll/scrub operations post-fix, vs. the prior
+   sustained 99% spike. **Not verified**: the boundary card's actual on-screen appearance and the
+   seamless crossing itself — blocked by two already-documented tooling limits stacking in this
+   environment, not a code issue: `mobile-mcp`'s swipe gesture doesn't respect its `distance`
+   parameter here (every swipe resolves to a full fling to the nearest scroll-view bound,
+   confirmed by testing distances from 30 to 2000 with identical binary results — a new, sharper
+   characterization of the swipe-simulation unreliability already noted since S87), compounded by
+   the standing reader-header tap flakiness (S101, S108). Next session touching this should
+   re-verify the visual crossing directly on Martin's own device.
+2. **Customize Tabs settings screen** (new `YomiTabID.swift`, `CustomizeTabsView.swift`;
+   `AppSettings.tabOrder`/`hiddenTabIDs`; `ContentView.swift` rebuilt). `ContentView`'s `TabView`
+   now constructs its `Tab`s via `ForEach(visibleTabIDs)` instead of 5 static declarations — a
+   sanctioned SwiftUI pattern confirmed against live Apple docs (`TabView`'s own reference page
+   shows `ForEach` producing dynamic `Tab`s). `CustomizeTabsView` is a drag-to-reorder +
+   toggle-to-hide list; "More" can't be hidden since it's the only way back to this screen.
+   Hiding a tab that's currently selected or set as the launch tab resets both to Library.
+   **Verified**: clean zero-warning build, app launches with all 5 tabs correctly ordered in the
+   default configuration (screenshot-confirmed), Settings screen still renders correctly around
+   the new "Customize tabs" row. **Not verified**: the drag/toggle UI itself — blocked by the same
+   swipe-imprecision issue above; couldn't scroll far enough down the Settings screen with
+   available tooling to reach and tap the row this session.
+
+Both features live in `pacodealer.Yomi`'s dev simulator library (a real AsuraScans manga, in
+library, mid-chapter-6 read state) — left in place for the next session's re-verification rather
+than reset. Zero build warnings throughout. Commits pushed to `main`.
+
+---
+
+## Prior state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
 
 **S108 opened by reconciling a real branch split**: `main` had picked up unrelated dev-tooling
 commits (SwiftLint/fastlane/Pulse, 8/14) while S106/S107's CloudKit investigation lived on an

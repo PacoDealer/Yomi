@@ -218,6 +218,8 @@ struct SettingsView: View {
             rowDivider()
             defaultTabRow
             rowDivider()
+            navRow("Customize tabs") { CustomizeTabsView() }
+            rowDivider()
             toggleRow("Delete after reading", isOn: $settings.deleteDownloadAfterReading, subtitle: "Removes downloaded files when you finish a chapter")
             rowDivider()
             HStack {
