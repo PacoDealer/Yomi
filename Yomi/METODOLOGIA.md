@@ -1730,6 +1730,38 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   temporary debug output for `log show`-based diagnosis, reach for `NSLog` first rather than losing
   time on a `print()` attempt that silently produces nothing to grep.
 
+## S111 — Technical learnings (2026-08-17)
+
+- **`.scrollPosition(id:)` requires `.scrollTargetLayout()` on its container — Apple's own docs say
+  so directly, and its absence is silent, not an error.** S110's "mixing `ScrollViewReader.scrollTo`
+  with `.scrollPosition(id:)` is undocumented and plausibly the cause" note (previous entry above)
+  was half right about the symptom but wrong about the mechanism: the real, documented requirement
+  (`developer.apple.com/documentation/swiftui/view/scrollposition(id:anchor:)`) is that the modifier
+  must be paired with `.scrollTargetLayout()` on the `LazyVStack`/`LazyHStack` inside the `ScrollView`
+  for SwiftUI to actually track which view is visible — neither `WebtoonReaderView` nor
+  `ContinuousHorizontalReaderView` had it. No compiler warning, no runtime log, just a binding that
+  quietly never updates. **Before assuming an "undocumented interaction" is at fault for a SwiftUI API
+  behaving unexpectedly, read that API's actual doc page first** — this one had the answer in its
+  second sentence, and a live-in-the-simulator `NSLog` confirmation (matching S110's own
+  instrumentation approach) proved the fix immediately once applied.
+- **VACUUM cannot run inside GRDB's implicit write-transaction wrapper — use
+  `writeWithoutTransaction`.** `appDatabase.write { db in try db.execute(sql: "VACUUM") } }` would
+  throw at the SQLite level (`VACUUM` is documented as illegal inside a transaction). Confirmed via
+  context7's live GRDB docs before writing the Repair Database feature — GRDB has no built-in
+  `.vacuum()` convenience, and `writeWithoutTransaction` is the documented escape hatch for exactly
+  this class of operation (`PRAGMA`s and other statements SQLite itself refuses inside a transaction).
+- **`mobile-mcp`'s `mobile_set_orientation` can leave its internal orientation state desynced from
+  the simulator's actual rendered orientation, and this silently corrupts every subsequent tap
+  coordinate.** After testing the rotation-lock feature (toggling the device to landscape and back a
+  few times), `mobile_get_orientation` kept reporting `landscape` long after screenshots clearly
+  showed portrait content — and every tap issued during that window landed on a plausible-but-wrong
+  element (e.g., a tap aimed at the bottom tab bar's "More" button instead reopened the in-progress
+  reader), with no error or other signal that anything was wrong. Re-issuing `mobile_set_orientation`
+  (portrait, then landscape again) forced a fresh read and fixed it. **When taps start landing on
+  wrong-but-plausible elements with no obvious cause, check `mobile_get_orientation` before assuming
+  the app, the accessibility tree, or the standard tap-flakiness pattern is responsible** — this is a
+  distinct failure mode from the already-documented per-tap flakiness and tab-bar coordinate offset.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
