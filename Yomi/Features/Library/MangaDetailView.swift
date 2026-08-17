@@ -1062,6 +1062,12 @@ struct MangaDetailView: View {
                 merged.readAt = persisted.readAt
                 return merged
             }
+            // `loadedChapters` is in whatever order the source plugin returns (often
+            // newest-first, confirmed for AsuraScans) — ChapterReaderView's prev/next
+            // navigation and boundary-preload both assume `chapters[index ± 1]` means
+            // the numerically adjacent chapter, so this must be canonical ascending,
+            // matching ChapterQueries.fetchAll's ordering.
+            chapters.sort { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
         }
 
         isLoadingChapters = false

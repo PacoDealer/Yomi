@@ -1693,6 +1693,43 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
   device/session reliably corrected it. Worth trying before concluding a tab tap is genuinely
   broken.
 
+## S110 — Technical learnings (2026-08-17)
+
+- **A "next chapter" feature built on `array[index ± 1]` needs the array's sort order verified
+  against the real data source, not assumed.** `chapters` was quietly newest-first for AsuraScans
+  (confirmed via a direct `curl` of its live API) because it was built straight from the plugin's
+  `getChapterList()` return order at 3 of 4 reader-launch call sites — only `UpdatesView.swift`
+  defensively re-sorted. `ChapterQueries.fetchAll` (the DB-backed source) was always correctly
+  ascending, which is exactly what made this easy to miss: most testing paths that touch the DB
+  first look fine, and the bug only bites the plugin's live/merged result. When any code indexes an
+  array by `± 1` to mean "the numerically adjacent item," sort the array explicitly at its
+  construction site and comment why, rather than trusting an upstream source's natural order.
+- **Ground-truth a "did the network call happen" question against the actual traffic log, not the
+  in-app UI text.** The reader's own "N/21" page counter looked like it was incrementing correctly
+  across many swipes; only checking Pulse's `logs.sqlite` directly via `sqlite3` (not just the
+  Network Console screen) proved zero request for the next chapter's page list ever fired. The UI
+  counter turned out to be unreliable in a different way than the accessibility-tree staleness this
+  session had already spent time ruling out — worth remembering there can be more than one
+  simultaneous "looks right but isn't" failure mode layered on top of each other.
+- **Mixing `ScrollViewReader.scrollTo` with `.scrollPosition(id:)` on the same `ScrollView` is
+  undocumented by Apple and a plausible source of the binding silently not tracking real scroll
+  input.** `WebtoonReaderView` uses `scrollTo` to jump to a saved resume page and `scrollPosition(id:
+  $visibleId)` to detect the currently-visible page for the boundary-preload trigger — temporary
+  `NSLog` instrumentation showed `visibleId`'s `onChange` never fired at all during `mobile-mcp`
+  swipes despite the content visibly scrolling. Not confirmed whether this reproduces under real
+  touch input on a device, but worth avoiding this combination (or treating it with suspicion) in any
+  future `ScrollView` that needs both "jump to a specific item" and "know what's currently visible."
+- **A short, off-center swipe (near the bottom of the visible content, small `distance`) can reach a
+  genuine partial scroll where the same swipe centered/full-height always overshoots to the nearest
+  bound.** Confirmed reproducible on the Settings screen (reached "Customize tabs" this way after a
+  full fling had jumped past it both directions) — a usable partial workaround for Known Issue #49,
+  though it did not help scroll precisely within the Webtoon reader's much taller per-page images.
+- **`NSLog` reliably reaches `xcrun simctl spawn <device> log show`; plain Swift `print()` does
+  not** (or at least didn't in this session — `print()` output never appeared even after confirming
+  `log show` genuinely captures other app-emitted events like UIKit gesture dispatch). When adding
+  temporary debug output for `log show`-based diagnosis, reach for `NSLog` first rather than losing
+  time on a `print()` attempt that silently produces nothing to grep.
+
 ## Architecture decisions
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
