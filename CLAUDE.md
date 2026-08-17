@@ -28,7 +28,34 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
+## Current state (post S109 — 2026-08-17 · chapter-boundary transition + Customize Tabs screen shipped)
+
+**S109 shipped the two items S108 explicitly deferred.** (1) **Chapter-boundary transition**
+(`ChapterReaderView.swift`) — Webtoon/Continuous reader now preloads the next chapter in the
+background as the user nears the end and appends a `ChapterBoundaryCard` + its pages directly
+into the same scroll content, crossing with a state swap instead of a reload/jump, matching
+Tachimanga's reference screenshots from S108. **Found + fixed a real bug live**: the preload's
+background fetch (`SOURCE._fetchSync`, `JSBridge.swift`) blocks synchronously on a
+`DispatchSemaphore` with no timeout — an existing app-wide pattern, but firing it silently in the
+background while the user keeps reading meant a slow/rate-limited source could peg the CPU at 99%
+and freeze the UI (confirmed via CPU sampling, reproduced twice). Fixed with a 12s timeout race.
+**Verified**: CPU stayed normal (0–20%) across many repeated scroll/scrub ops post-fix.
+**Not verified**: the boundary card's actual on-screen appearance/crossing — `mobile-mcp`'s swipe
+doesn't respect its `distance` parameter in this environment (every swipe resolves to a full fling
+to the nearest scroll bound, tested 30–2000 with identical results — a sharper characterization of
+the swipe unreliability noted since S87), compounded by the standing reader-header tap flakiness
+(S101/S108). (2) **Customize Tabs settings screen** (new `YomiTabID.swift`,
+`CustomizeTabsView.swift`, `AppSettings.tabOrder`/`hiddenTabIDs`, `ContentView.swift` rebuilt to
+construct `Tab`s via `ForEach` — confirmed against live Apple docs as a sanctioned pattern) —
+drag-to-reorder + toggle-to-hide, "More" locked visible since it's the only way back to Settings.
+**Verified**: clean build, app launches with all 5 tabs correctly ordered. **Not verified**: the
+drag/toggle UI itself — same swipe-imprecision block, couldn't scroll far enough down Settings to
+reach the row. Zero build warnings throughout. Commits pushed to `main`. **Next session touching
+either should re-verify visually on Martin's own device**, not fight this simulator's swipe tooling.
+
+---
+
+## Prior state (post S108 — 2026-08-16 · branch reconciliation + 3 parity items shipped)
 
 **S108: reconciled a real branch split first** — `main` had unrelated dev-tooling commits
 (SwiftLint/fastlane/Pulse, 8/14) while S106/S107's CloudKit investigation lived unmerged on
@@ -355,6 +382,8 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 45 | ~~`try?` swallows DB-write errors in 2 bulk mark-read functions~~ | ✅ Fixed S105. `ChapterQueries.markAllRead` and `NovelQueries.markAllChapters` reverted to `try appDatabase.write { ... }` (both functions already declare `throws`) — a real GRDB write failure now propagates again instead of silently returning `nil`, restoring S100's Known Issue #26 toast-on-failure behavior for these two call sites. |
 | 46 | ~~`Yomi.entitlements` hardcodes `aps-environment: development`~~ | ✅ Fixed S105 — doesn't rely on automatic-signing entitlement rewriting at all anymore. New `Yomi/Yomi-Release.entitlements` (identical except `aps-environment: production`); the Yomi target's Release build configuration's `CODE_SIGN_ENTITLEMENTS` now points at it directly, Debug still points at the original `Yomi.entitlements` (`development`). Verified via both configs' build logs: `ProcessProductPackaging` shows `Yomi.entitlements` for Debug and `Yomi-Release.entitlements` for Release — the correct file is picked at build time regardless of signing style or export path. |
 | 47 | CloudKit container `iCloud.pacodealer.Yomi` never provisioned on Apple's servers | Found S106 — real Apple ID signed into 2 simulators, `accountStatus()` correctly resolves `.available`, but every `CKSyncEngine` send/fetch fails with `CKError "Bad Container" (5/1014)`. Root cause: this project isn't enrolled in the paid Apple Developer Program, which container creation requires regardless of entitlements content (S103's `.entitlements` were hand-written, never routed through Xcode's Signing & Capabilities → iCloud → CloudKit "+" flow that actually registers a container server-side). Not fixable in code. Next session: enroll in the Program, provision the container via Xcode, retest — see `Yomi/CLOUDKIT_SYNC_DESIGN.md`'s S106 section. |
+| 48 | ~~Chapter-boundary preload could peg CPU/hang on a slow source~~ | ✅ Fixed S109. The new chapter-boundary-transition preload (`ChapterReaderView.preloadNextChapterIfNeeded`) calls `bridge.getPageList()` on a background task while the user keeps reading — `SOURCE._fetchSync` (`JSBridge.swift`) blocks synchronously on a `DispatchSemaphore` with no timeout, an existing app-wide pattern that's fine for a foreground load the user is already waiting on, but silently firing it in the background against a slow/rate-limited source pegged the CPU at 99% and froze the UI (confirmed via `ps aux` CPU sampling, reproduced twice live). Fixed with a 12s timeout race (`withTaskGroup`) — cancellation can't preempt the underlying blocking call, so a truly stuck fetch still burns one background thread until it resolves, but the preload state machine no longer waits on it. Verified: CPU stayed normal (0–20%) across many repeated scroll/scrub operations post-fix. |
+| 49 | `mobile-mcp` swipe ignores its `distance` parameter in this environment | Found S109 — every `mobile_swipe_on_screen` call, tested with `distance` from 30 to 2000 on two different `ScrollView`s (the Webtoon reader and a Settings screen), resolved to a full fling to the nearest scroll bound; no intermediate scroll position was reachable. A sharper, more specific characterization of the swipe-simulation unreliability already noted since S87 — previously assumed to be about *whether* a swipe registers, not that its magnitude is entirely ignored. Blocked live pixel-verification of both S109 features (chapter-boundary card, Customize Tabs screen). No fix available client-side; `XcodeBuildMCP`'s `tap`/`swipe`/`batch` UI-automation tools (referenced by `snapshot_ui`'s own `nextSteps` hints) aren't enabled in this session's tool config — enabling them (see xcodebuildmcp.com/docs/configuration) may sidestep this next time. |
 
 ## MCP tools — use these every session
 

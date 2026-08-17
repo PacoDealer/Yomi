@@ -246,6 +246,20 @@ import Observation
         didSet { defaults.set(defaultTab, forKey: "defaultTab") }
     }
 
+    /// Bottom tab bar order, as `YomiTabID` raw values. Always contains all 5 ids — hiding a tab
+    /// only removes it from `hiddenTabIDs`, never from this list, so a re-shown tab keeps its
+    /// last position. iPhone has no built-in tab-customization UI (only the sidebar-only system
+    /// affordance, which never renders in compact width) — see CustomizeTabsView.
+    var tabOrder: [String] {
+        didSet { defaults.set(tabOrder, forKey: "tabOrder") }
+    }
+
+    /// Ids hidden from the tab bar. Never contains "more" — it's the only way back into this
+    /// settings screen, so it can't be hidden.
+    var hiddenTabIDs: [String] {
+        didSet { defaults.set(hiddenTabIDs, forKey: "hiddenTabIDs") }
+    }
+
     /// SOURCE.fetch request timeout, seconds. Mirrored into jsBridgeRequestTimeout (a
     /// nonisolated(unsafe) module var) since JSBridge reads it from Task.detached, where
     /// touching AppSettings.shared directly is unsafe.
@@ -467,6 +481,13 @@ import Observation
         showCategoryItemCounts  = d.object(forKey: "showCategoryItemCounts") as? Bool ?? true
         defaultCategoryId       = d.string(forKey: "defaultCategoryId")
         defaultTab              = d.object(forKey: "defaultTab") as? Int ?? 0
+        // tabOrder: always includes every known tab id, unknown/stale, and missing ids healed
+        // (a saved order can only go stale if a future app version adds/removes a tab).
+        let knownTabIDs = YomiTabID.allCases.map(\.rawValue)
+        let savedOrder = (d.stringArray(forKey: "tabOrder") ?? []).filter { knownTabIDs.contains($0) }
+        let missingFromSaved = knownTabIDs.filter { !savedOrder.contains($0) }
+        tabOrder = savedOrder + missingFromSaved
+        hiddenTabIDs = (d.stringArray(forKey: "hiddenTabIDs") ?? []).filter { $0 != YomiTabID.more.rawValue }
         requestTimeout          = d.object(forKey: "requestTimeout") as? Double ?? 30
         jsBridgeRequestTimeout  = d.object(forKey: "requestTimeout") as? Double ?? 30
         pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false

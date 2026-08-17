@@ -13,35 +13,19 @@ struct ContentView: View {
     @State private var updatesVM = UpdatesViewModel.shared
     @AppStorage("tabViewCustomization") private var customization = TabViewCustomization()
 
+    /// Visible tabs in the user's chosen order — CustomizeTabsView is iPhone's only way to
+    /// reorder/hide tabs, since the system's own sidebar-editing UI never renders in compact
+    /// width (see ROADMAP.md's S108 finding). "more" is never hidden (see AppSettings.hiddenTabIDs).
+    private var visibleTabIDs: [YomiTabID] {
+        settings.tabOrder.compactMap { YomiTabID(rawValue: $0) }
+            .filter { !settings.hiddenTabIDs.contains($0.rawValue) }
+    }
+
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            Tab("Library", systemImage: "books.vertical", value: 0) {
-                LibraryView()
+            ForEach(visibleTabIDs, id: \.self) { id in
+                tabContent(for: id)
             }
-            .customizationID("com.Yomi.Library")
-
-            Tab("Browse", systemImage: "safari", value: 1) {
-                BrowseView()
-            }
-            .customizationID("com.Yomi.Browse")
-
-            Tab("History", systemImage: "clock", value: 2) {
-                HistoryView()
-            }
-            .customizationID("com.Yomi.History")
-
-            Tab("Updates", systemImage: "arrow.clockwise", value: 3) {
-                NavigationStack {
-                    UpdatesView()
-                }
-            }
-            .badge(updatesVM.totalCount)
-            .customizationID("com.Yomi.Updates")
-
-            Tab("More", systemImage: "ellipsis.circle", value: 4) {
-                MoreView()
-            }
-            .customizationID("com.Yomi.More")
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
@@ -55,6 +39,44 @@ struct ContentView: View {
         )
         .environment(\.yomiCanvas, settings.blendedCanvasColors)
         .background(settings.blendedCanvasColors.bg.ignoresSafeArea())
+    }
+
+    @TabContentBuilder<Int>
+    private func tabContent(for id: YomiTabID) -> some TabContent<Int> {
+        switch id {
+        case .library:
+            Tab("Library", systemImage: "books.vertical", value: AppRouter.tabLibrary) {
+                LibraryView()
+            }
+            .customizationID("com.Yomi.Library")
+
+        case .browse:
+            Tab("Browse", systemImage: "safari", value: AppRouter.tabBrowse) {
+                BrowseView()
+            }
+            .customizationID("com.Yomi.Browse")
+
+        case .history:
+            Tab("History", systemImage: "clock", value: AppRouter.tabHistory) {
+                HistoryView()
+            }
+            .customizationID("com.Yomi.History")
+
+        case .updates:
+            Tab("Updates", systemImage: "arrow.clockwise", value: AppRouter.tabUpdates) {
+                NavigationStack {
+                    UpdatesView()
+                }
+            }
+            .badge(updatesVM.totalCount)
+            .customizationID("com.Yomi.Updates")
+
+        case .more:
+            Tab("More", systemImage: "ellipsis.circle", value: AppRouter.tabMore) {
+                MoreView()
+            }
+            .customizationID("com.Yomi.More")
+        }
     }
 }
 

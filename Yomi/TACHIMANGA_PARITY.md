@@ -107,7 +107,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 |---|---|---|---|
 | Stylized "Current: Chapter N" splash before the reader loads (art + scanlator credit/links) | Yes | Not found — Yomi opens straight into pages | ❌ Missing — cosmetic flair, arguably adds friction; low priority, judgment call |
 | In-reader header shows source URL + external-link/globe icons | Yes | ✅ Fixed S101 — best-effort (no plugin changes): resolves for ~7 of 15 plugins + Mangayomi-format sources, hides the icon rather than guessing for pure-API sources. See `CLAUDE.md` Known Issue #33. | 🟡 Partial (works for most, not all, sources) |
-| Continuous/webtoon-reader chapter-boundary transition — in-scroll "Finished: Chapter N / Current: Chapter N+1" banner + chapter title card, then flows straight into the next chapter's pages with no tap and without leaving the reader (S108: Martin sent 3 real screenshots of this from Tachimanga/AsuraScans) | Yes | Not found — distinct from the row above (that one's about a single chapter's *opening* splash; this is the transition *between two chapters* mid-scroll). Yomi's `WebtoonReaderView`/continuous reader presumably just ends one chapter's pages and starts the next with no marker at all — not yet confirmed against current code. | ❌ Missing — needs scoping: how does Yomi currently handle a continuous-mode chapter boundary today, and would the banner read from real chapter metadata (title, scanlator) or need new plugin fields |
+| Continuous/webtoon-reader chapter-boundary transition — in-scroll "Finished: Chapter N / Current: Chapter N+1" banner + chapter title card, then flows straight into the next chapter's pages with no tap and without leaving the reader (S108: Martin sent 3 real screenshots of this from Tachimanga/AsuraScans) | Yes | ✅ Built S109 — `ChapterBoundaryCard` + background next-chapter preload in `ChapterReaderView.swift` (Webtoon + Continuous LTR/RTL only, matches Tachimanga's scope). Found+fixed a real CPU-hang bug in the preload's blocking fetch along the way (12s timeout added). CPU-behavior fix verified live; the card's on-screen appearance/crossing itself blocked from live pixel-verification by this environment's mobile-mcp swipe tooling (see `CLAUDE.md`/`ROADMAP.md` S109) — re-verify on a real device before trusting fully. | 🟡 Built, not yet visually confirmed |
 
 ## 8. Appearance
 
@@ -126,7 +126,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
-| Customize Tabs (reorder/hide bottom tabs) | Yes [premium] | **Root-caused S108, still missing.** `ContentView.swift` already had `.customizationID`s + an `@AppStorage`-backed `.tabViewCustomization($customization)` since S43 (`HISTORY.md` claimed "drag to reorder" worked) — but `.tabViewStyle(.sidebarAdaptable)` was never applied, so per Apple's own docs ("only the sidebarAdaptable style supports customization") the whole mechanism was a silent no-op; confirmed live, long-press did nothing. Added the missing modifier (harmless, no visual regression on iPhone, live-verified), but watching WWDC24's actual talk ("Elevate your tab and sidebar experience **in iPadOS**") revealed the real blocker: **the system drag/hide editing UI only exists inside the sidebar, which only renders in regular-width contexts (iPad/Mac/tvOS/visionOS) — iPhone compact width gets a plain tab bar with no built-in edit affordance at all**, confirmed live (long-press = select, no jiggle, no menu). Delivering this on an iPhone-only app needs a real custom settings screen (reorder list + hide toggles), not just enabling the SwiftUI API. | ❌ Missing (needs custom UI, not just a modifier — scoped for a future session) |
+| Customize Tabs (reorder/hide bottom tabs) | Yes [premium] | ✅ Built S109 — new `CustomizeTabsView.swift` (drag-to-reorder + toggle-to-hide, "More" locked visible), `AppSettings.tabOrder`/`hiddenTabIDs`, `ContentView.swift` rebuilt to construct `Tab`s dynamically via `ForEach` (S108 had root-caused *why* Apple's own sidebar-editing UI never renders on iPhone — see S108 entry below). Reachable from Settings → Library → "Customize tabs". App launch with the default 5-tab order confirmed live; the reorder/toggle UI itself wasn't pixel-verified this session (mobile-mcp swipe tooling couldn't scroll far enough down Settings to reach it — see `CLAUDE.md` S109). | 🟡 Built, not yet visually confirmed |
 | Default tab (which tab opens on launch) | Yes | ✅ Fixed S98 — `defaultTab` setting, wired into `AppRouter.init()`. | ✅ Parity |
 | **Storage composition view** (visual bar: cache/sources/downloads/backups/other, each with size + Manage/Clear) | Yes, detailed | ✅ Fixed S98 — `StorageManager.swift`/`StorageView.swift`, reachable from Advanced → Storage. Real byte-accurate breakdown (Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other) with Manage/Clear actions per category. | ✅ Parity |
 | Network settings: user agent, timeout | Shown, editable, plus CF-bypass toggle + request-dump | ✅ Partially fixed S98 — request timeout (10-60s) now editable in Advanced → Network. User Agent deliberately stays fixed: it's bound to the Cloudflare-bypass WebView's solved-challenge cookie (`CFBypassConstants.userAgent`, shared with `JSBridge`'s fetch) — making it editable would risk silently breaking CF bypass for a control most users would never touch. Request-dump debug log not implemented. | 🟡 Partial (timeout editable, UA intentionally fixed, no request-dump) |
@@ -152,12 +152,11 @@ roughly in order of expected value:
 3. **Tachiyomi-compatible *export*** (for migrating out to Tachiyomi/Mihon/forks) — low priority,
    mostly a trust/no-lock-in signal rather than day-to-day utility.
 4. ~~**Color blend slider**~~ ✅ Fixed S108, live-verified. ~~**Date format picker**~~ ✅ Fixed S108,
-   live-verified. **Customize Tabs** — root-caused S108 (needs a real custom settings screen on
-   iPhone, not just a SwiftUI modifier — see §9 above), still open, own future session.
-5. **Continuous-reader chapter-boundary transition** (new S108, see §7) — Martin sent 3 real
-   screenshots of Tachimanga's in-scroll "Finished: Chapter N / Current: Chapter N+1" banner +
-   chapter title card, flowing straight into the next chapter with no tap. Not yet scoped against
-   Yomi's current `WebtoonReaderView`/continuous-mode code — start there next session.
+   live-verified. ~~**Customize Tabs**~~ ✅ Built S109 (see §9 above) — not yet visually confirmed,
+   mobile-mcp swipe tooling couldn't reach the row this session; re-verify on a real device.
+5. ~~**Continuous-reader chapter-boundary transition**~~ ✅ Built S109 (see §7 above) — CPU-hang bug
+   found+fixed in the preload, that fix verified; the card's on-screen appearance not yet visually
+   confirmed, same mobile-mcp swipe-tooling block; re-verify on a real device.
 6. Cosmetic/low-priority items scattered through the tables above (AppLockView's pre-S79 styling,
    reader chapter-open splash screen, crop borders, press-and-hold-to-scroll, scanlator dedup, etc.) —
    pick up opportunistically, not worth a dedicated pass.
