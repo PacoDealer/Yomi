@@ -73,6 +73,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         completionHandler(true)
     }
 
+    // MARK: - Rotation lock (Settings → Appearance → "Follow device")
+
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        AppSettings.shared.rotationFollowDevice ? .allButUpsideDown : .portrait
+    }
+
     // MARK: - CloudKit sync push (S102)
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {}
