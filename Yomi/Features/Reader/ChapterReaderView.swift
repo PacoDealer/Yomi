@@ -42,6 +42,8 @@ struct ChapterReaderView: View {
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
     @State private var toastMessage: String? = nil
+    @State private var nextPreload: (chapter: Chapter, pages: [String])? = nil
+    @State private var isPreloadingNextChapter = false
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -65,6 +67,15 @@ struct ChapterReaderView: View {
     private var activeChapter: Chapter { chapters[currentChapterIndex] }
     private var hasPrevChapter: Bool { currentChapterIndex > 0 }
     private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
+
+    /// Only continuous-scroll modes get the seamless in-scroll chapter-boundary transition —
+    /// paged modes keep the explicit tap-to-advance flow via the overlay's Next button.
+    private var isContinuousReaderMode: Bool {
+        switch readerMode {
+        case .verticalScroll, .continuousRTL, .continuousLTR: return true
+        default: return false
+        }
+    }
 
     // MARK: - Body
 
@@ -106,7 +117,12 @@ struct ChapterReaderView: View {
                     WebtoonReaderView(
                         pages: pages,
                         currentPage: $currentPage,
-                        showOverlay: $showOverlay
+                        showOverlay: $showOverlay,
+                        nextChapter: nextPreload?.chapter,
+                        nextPages: nextPreload?.pages ?? [],
+                        boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
+                        onNeedsNextChapterPreload: preloadNextChapterIfNeeded,
+                        onCrossedIntoNextChapter: { crossIntoPreloadedChapter(atLocalIndex: $0) }
                     )
                 case .verticalPaged:
                     VerticalPagedReaderView(
@@ -119,14 +135,24 @@ struct ChapterReaderView: View {
                         pages: pages,
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
-                        isRTL: true
+                        isRTL: true,
+                        nextChapter: nextPreload?.chapter,
+                        nextPages: nextPreload?.pages ?? [],
+                        boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
+                        onNeedsNextChapterPreload: preloadNextChapterIfNeeded,
+                        onCrossedIntoNextChapter: { crossIntoPreloadedChapter(atLocalIndex: $0) }
                     )
                 case .continuousLTR:
                     ContinuousHorizontalReaderView(
                         pages: pages,
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
-                        isRTL: false
+                        isRTL: false,
+                        nextChapter: nextPreload?.chapter,
+                        nextPages: nextPreload?.pages ?? [],
+                        boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
+                        onNeedsNextChapterPreload: preloadNextChapterIfNeeded,
+                        onCrossedIntoNextChapter: { crossIntoPreloadedChapter(atLocalIndex: $0) }
                     )
                 }
             }
@@ -320,11 +346,83 @@ struct ChapterReaderView: View {
         }
     }
 
+    // MARK: - Chapter boundary preload (continuous/webtoon modes only)
+    //
+    // Tachimanga-style seamless transition: as the user nears the end of a chapter, fetch the
+    // next chapter's pages in the background and hand them to the reader view, which appends a
+    // boundary card + those pages directly into the same scroll content. When the user scrolls
+    // past the boundary, `crossIntoPreloadedChapter` swaps ChapterReaderView's state (chapter
+    // index, active `pages`, progress bookkeeping) without touching the scroll view at all — the
+    // content the user is already looking at doesn't move, only its meaning changes.
+
+    private func preloadNextChapterIfNeeded() {
+        guard isContinuousReaderMode, hasNextChapter, nextPreload == nil, !isPreloadingNextChapter else { return }
+        isPreloadingNextChapter = true
+        let next = chapters[currentChapterIndex + 1]
+        let path = next.path
+        let b = bridge
+
+        // SOURCE._fetchSync (JSBridge.swift) blocks synchronously on a DispatchSemaphore with no
+        // timeout — fine for a foreground chapter load the user is already waiting on, but this
+        // preload is opportunistic and silent. A slow/rate-limited/Cloudflare-challenged source
+        // must not be allowed to tie things up indefinitely just because the user kept scrolling.
+        // The race below only bounds how long we WAIT for a result — cancelAll() can't preempt the
+        // underlying blocking call itself, so a truly stuck fetch still burns one background thread
+        // until it eventually resolves; it just no longer holds up the preload state machine.
+        Task.detached(priority: .background) {
+            let result: [String]? = await withTaskGroup(of: [String]?.self) { group in
+                group.addTask { b.getPageList(chapterPath: path) }
+                group.addTask {
+                    try? await Task.sleep(for: .seconds(12))
+                    return nil
+                }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
+            }
+            await MainActor.run {
+                guard isPreloadingNextChapter, nextPreload == nil,
+                      hasNextChapter, chapters[currentChapterIndex + 1].id == next.id else { return }
+                if let result, !result.isEmpty {
+                    nextPreload = (next, result)
+                }
+                isPreloadingNextChapter = false
+            }
+        }
+    }
+
+    private func crossIntoPreloadedChapter(atLocalIndex idx: Int) {
+        guard let preload = nextPreload,
+              hasNextChapter, preload.chapter.id == chapters[currentChapterIndex + 1].id else { return }
+
+        // Close out the chapter being left, same bookkeeping navigateToChapter does explicitly.
+        let leavingElapsed = Int(Date().timeIntervalSince(sessionStart))
+        let leavingProgress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
+        let leavingId = activeChapter.id
+        let leavingPage = currentPage
+        if !AppSettings.shared.isIncognito {
+            Task.detached {
+                try? ChapterQueries.updateProgress(id: leavingId, progress: leavingProgress, readingSeconds: leavingElapsed, lastPageRead: leavingPage)
+            }
+        }
+        markChapterRead()
+
+        currentChapterIndex += 1
+        pages = preload.pages
+        currentPage = min(idx, max(pages.count - 1, 0))
+        nextPreload = nil
+        didMarkCurrentChapterRead = false
+        sessionStart = Date()
+        sessionSeconds = 0
+    }
+
     // MARK: - Navigation
 
     private func navigateToChapter(_ index: Int) {
         showFinishedBanner = false
         didMarkCurrentChapterRead = false
+        nextPreload = nil
+        isPreloadingNextChapter = false
         readingTimer?.invalidate()
         readingTimer = nil
 
@@ -725,8 +823,13 @@ struct WebtoonReaderView: View {
     let pages: [String]
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
+    var nextChapter: Chapter? = nil
+    var nextPages: [String] = []
+    var boundaryTitles: (finished: String, next: String)? = nil
+    var onNeedsNextChapterPreload: (() -> Void)? = nil
+    var onCrossedIntoNextChapter: ((Int) -> Void)? = nil
 
-    @State private var visibleId: Int? = nil
+    @State private var visibleId: String? = nil
     @State private var isAutoScrolling = false
     @State private var settings = AppSettings.shared
 
@@ -735,17 +838,16 @@ struct WebtoonReaderView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                        KFImage(URL(string: url))
-                            .placeholder {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.2))
-                                    .aspectRatio(2 / 3, contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                            .id(index)
+                        pageImage(url)
+                            .id("cur:\(index)")
+                    }
+                    if let boundaryTitles {
+                        ChapterBoundaryCard(finishedTitle: boundaryTitles.finished, nextTitle: boundaryTitles.next, axis: .vertical)
+                            .id("boundary")
+                        ForEach(Array(nextPages.enumerated()), id: \.offset) { index, url in
+                            pageImage(url)
+                                .id("next:\(index)")
+                        }
                     }
                 }
                 .padding(.horizontal, CGFloat(settings.webtoonHorizontalPadding))
@@ -753,19 +855,28 @@ struct WebtoonReaderView: View {
             .scrollPosition(id: $visibleId, anchor: .top)
             .onAppear {
                 if currentPage > 0 {
-                    proxy.scrollTo(currentPage, anchor: .top)
+                    proxy.scrollTo("cur:\(currentPage)", anchor: .top)
                 }
             }
             .onChange(of: visibleId) { _, id in
-                if let id { currentPage = id }
+                guard let id else { return }
+                if id.hasPrefix("cur:"), let idx = Int(id.dropFirst(4)) {
+                    currentPage = idx
+                    if nextChapter == nil, pages.count > 0, idx >= pages.count - 3 {
+                        onNeedsNextChapterPreload?()
+                    }
+                } else if id.hasPrefix("next:"), let idx = Int(id.dropFirst(5)) {
+                    onCrossedIntoNextChapter?(idx)
+                }
             }
             .onChange(of: currentPage) { _, new in
                 // Two-way sync with the overlay's progress slider — scrolling
                 // updates currentPage above, this reflects slider drags back
                 // into the scroll position. Guarded so it's a no-op when the
                 // change originated from the scroll itself.
-                guard new != visibleId else { return }
-                withAnimation { proxy.scrollTo(new, anchor: .top) }
+                let newId = "cur:\(new)"
+                guard newId != visibleId else { return }
+                withAnimation { proxy.scrollTo(newId, anchor: .top) }
             }
         }
         .ignoresSafeArea()
@@ -800,12 +911,76 @@ struct WebtoonReaderView: View {
             while !Task.isCancelled && isAutoScrolling {
                 try? await Task.sleep(for: .milliseconds(Int(settings.autoScrollSpeed * 1000)))
                 guard !Task.isCancelled && isAutoScrolling else { break }
-                let next = (visibleId ?? 0) + 1
-                guard next < pages.count else { isAutoScrolling = false; break }
-                visibleId = next
+                guard let cur = visibleId, cur.hasPrefix("cur:"), let idx = Int(cur.dropFirst(4)) else { break }
+                let nextIdx = idx + 1
+                guard nextIdx < pages.count else { isAutoScrolling = false; break }
+                visibleId = "cur:\(nextIdx)"
             }
         }
         .onDisappear { isAutoScrolling = false }
+    }
+
+    @ViewBuilder
+    private func pageImage(_ url: String) -> some View {
+        KFImage(URL(string: url))
+            .placeholder {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .aspectRatio(2 / 3, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+            }
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - ChapterBoundaryCard
+//
+// The Tachimanga-style mid-scroll transition marker: rendered directly inside the reader's
+// scroll content (not a floating overlay) so continuous/webtoon reading flows straight from one
+// chapter into the next with no tap.
+
+struct ChapterBoundaryCard: View {
+    let finishedTitle: String
+    let nextTitle: String
+    enum Axis { case vertical, horizontal }
+    var axis: Axis = .vertical
+
+    var body: some View {
+        Group {
+            switch axis {
+            case .vertical:
+                content.frame(maxWidth: .infinity).padding(.vertical, 40)
+            case .horizontal:
+                content.frame(width: 220).frame(maxHeight: .infinity)
+            }
+        }
+        .background(Color.black)
+    }
+
+    private var content: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text("Finished: \(finishedTitle)")
+                    .font(YomiTokens.Font.mono(12))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .lineLimit(1)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(width: 40, height: 1)
+
+            Text("Current: \(nextTitle)")
+                .font(YomiTokens.Font.grotesk(17, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 24)
     }
 }
 
@@ -816,25 +991,29 @@ struct ContinuousHorizontalReaderView: View {
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
     var isRTL: Bool = false
+    var nextChapter: Chapter? = nil
+    var nextPages: [String] = []
+    var boundaryTitles: (finished: String, next: String)? = nil
+    var onNeedsNextChapterPreload: (() -> Void)? = nil
+    var onCrossedIntoNextChapter: ((Int) -> Void)? = nil
 
-    @State private var visibleId: Int? = nil
+    @State private var visibleId: String? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                        KFImage(URL(string: url))
-                            .placeholder {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.2))
-                                    .aspectRatio(2 / 3, contentMode: .fit)
-                                    .frame(maxHeight: .infinity)
-                            }
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: .infinity)
-                            .id(index)
+                        pageImage(url)
+                            .id("cur:\(index)")
+                    }
+                    if let boundaryTitles {
+                        ChapterBoundaryCard(finishedTitle: boundaryTitles.finished, nextTitle: boundaryTitles.next, axis: .horizontal)
+                            .id("boundary")
+                        ForEach(Array(nextPages.enumerated()), id: \.offset) { index, url in
+                            pageImage(url)
+                                .id("next:\(index)")
+                        }
                     }
                 }
                 .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
@@ -842,15 +1021,24 @@ struct ContinuousHorizontalReaderView: View {
             .scrollPosition(id: $visibleId, anchor: .center)
             .onAppear {
                 if currentPage > 0 {
-                    proxy.scrollTo(currentPage, anchor: .center)
+                    proxy.scrollTo("cur:\(currentPage)", anchor: .center)
                 }
             }
             .onChange(of: visibleId) { _, id in
-                if let id { currentPage = id }
+                guard let id else { return }
+                if id.hasPrefix("cur:"), let idx = Int(id.dropFirst(4)) {
+                    currentPage = idx
+                    if nextChapter == nil, pages.count > 0, idx >= pages.count - 3 {
+                        onNeedsNextChapterPreload?()
+                    }
+                } else if id.hasPrefix("next:"), let idx = Int(id.dropFirst(5)) {
+                    onCrossedIntoNextChapter?(idx)
+                }
             }
             .onChange(of: currentPage) { _, new in
-                guard new != visibleId else { return }
-                withAnimation { proxy.scrollTo(new, anchor: .center) }
+                let newId = "cur:\(new)"
+                guard newId != visibleId else { return }
+                withAnimation { proxy.scrollTo(newId, anchor: .center) }
             }
         }
         .ignoresSafeArea()
@@ -859,6 +1047,20 @@ struct ContinuousHorizontalReaderView: View {
                 showOverlay.toggle()
             }
         }
+    }
+
+    @ViewBuilder
+    private func pageImage(_ url: String) -> some View {
+        KFImage(URL(string: url))
+            .placeholder {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .aspectRatio(2 / 3, contentMode: .fit)
+                    .frame(maxHeight: .infinity)
+            }
+            .resizable()
+            .scaledToFit()
+            .frame(maxHeight: .infinity)
     }
 }
 
