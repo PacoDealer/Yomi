@@ -851,6 +851,7 @@ struct WebtoonReaderView: View {
                     }
                 }
                 .padding(.horizontal, CGFloat(settings.webtoonHorizontalPadding))
+                .scrollTargetLayout()
             }
             .scrollPosition(id: $visibleId, anchor: .top)
             .onAppear {
@@ -1017,6 +1018,7 @@ struct ContinuousHorizontalReaderView: View {
                     }
                 }
                 .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
+                .scrollTargetLayout()
             }
             .scrollPosition(id: $visibleId, anchor: .center)
             .onAppear {
