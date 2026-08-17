@@ -2,6 +2,11 @@ import SwiftUI
 import LocalAuthentication
 
 // MARK: - AppLockView
+//
+// Presented via a fullScreenCover attached to the WindowGroup's ContentView() call site (see
+// YomiApp.swift), so it sits outside ContentView's own `.environment(\.yomiCanvas, ...)` — reads
+// AppSettings.shared / YomiTokens.Canvas.ink directly instead, same as OnboardingView and
+// SecureScreenCover for the identical reason (their doc comments explain it in full).
 
 struct AppLockView: View {
     let onUnlock: () -> Void
@@ -9,23 +14,31 @@ struct AppLockView: View {
     @State private var errorMessage: String? = nil
     @State private var isAuthenticating = false
 
+    private static let canvas = YomiTokens.Canvas.ink
+
     var body: some View {
         ZStack {
-            Color(.systemBackground).ignoresSafeArea()
+            Self.canvas.bg.ignoresSafeArea()
 
             VStack(spacing: 24) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.secondary)
+                RoundedRectangle(cornerRadius: 34)
+                    .fill(Self.canvas.surface1)
+                    .frame(width: 96, height: 96)
+                    .overlay {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Color(hex: AppSettings.shared.accentColor))
+                    }
+                    .shadow(color: .black.opacity(0.55), radius: 27, y: 20)
 
                 Text("Yomi is locked")
-                    .font(.title3)
-                    .fontWeight(.semibold)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.title2, weight: .semibold))
+                    .foregroundStyle(Self.canvas.textPrimary)
 
                 if let error = errorMessage {
                     Text(error)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                        .foregroundStyle(Self.canvas.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -34,11 +47,14 @@ struct AppLockView: View {
                     authenticate()
                 } label: {
                     Label("Unlock", systemImage: biometricIcon)
-                        .fontWeight(.semibold)
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body, weight: .medium))
+                        .frame(width: 200, height: 52)
+                        .background(Color(hex: AppSettings.shared.accentColor))
+                        .foregroundStyle(AppSettings.shared.accentForeground)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .disabled(isAuthenticating)
+                .padding(.top, 8)
             }
         }
         .onAppear { authenticate() }
