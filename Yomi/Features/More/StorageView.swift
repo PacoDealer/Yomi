@@ -24,6 +24,8 @@ struct StorageView: View {
     @State private var showClearWebCacheConfirm = false
     @State private var showDeleteDownloadsConfirm = false
     @State private var barTrackWidth: CGFloat = 0
+    @State private var isRepairing = false
+    @State private var repairResult: String? = nil
 
     private static let formatter: ByteCountFormatter = {
         let f = ByteCountFormatter()
@@ -63,8 +65,21 @@ struct StorageView: View {
                             Text(Self.formatter.string(fromByteCount: breakdown.other))
                                 .foregroundStyle(.secondary)
                         }
+                        Button {
+                            Task { await repairDatabase() }
+                        } label: {
+                            if isRepairing {
+                                HStack {
+                                    ProgressView().controlSize(.small)
+                                    Text("Repairing…")
+                                }
+                            } else {
+                                Text("Repair database")
+                            }
+                        }
+                        .disabled(isRepairing)
                     } footer: {
-                        Text("Database holds your library, history, and settings — it can't be cleared here. \"Other\" covers miscellaneous app files.")
+                        Text("Database holds your library, history, and settings — it can't be cleared here. \"Other\" covers miscellaneous app files. Repair runs a SQLite integrity check and reclaims unused space.")
                             .font(.caption)
                     }
                 } else if isLoading {
@@ -107,6 +122,29 @@ struct StorageView: View {
                 }
             }
         }
+        .alert("Repair Database", isPresented: Binding(
+            get: { repairResult != nil },
+            set: { if !$0 { repairResult = nil } }
+        )) {
+            Button("OK") { repairResult = nil }
+        } message: {
+            Text(repairResult ?? "")
+        }
+    }
+
+    // MARK: - Repair
+
+    private func repairDatabase() async {
+        isRepairing = true
+        // DatabaseManager.shared is MainActor-isolated by default actor isolation — capture it
+        // here before entering Task.detached, matching the ExtensionManager.shared precedent.
+        let manager = DatabaseManager.shared
+        let result = await Task.detached(priority: .userInitiated) {
+            (try? manager.repair()) ?? "Repair failed — could not complete the integrity check."
+        }.value
+        isRepairing = false
+        repairResult = result
+        await reload()
     }
 
     // MARK: - Summary header (plain view, outside the List — avoids GeometryReader-in-List-row instability)
