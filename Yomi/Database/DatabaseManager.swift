@@ -302,6 +302,27 @@ final class DatabaseManager {
 
         try migrator.migrate(db)
     }
+
+    // MARK: - Repair
+
+    /// User-facing "Repair Database" action (Tachimanga parity — Storage screen). Runs SQLite's
+    /// own integrity check, then VACUUMs to reclaim space and defragment. `integrity_check`
+    /// returns a single row "ok" when clean, or one row per problem found — surfaced verbatim to
+    /// the user rather than summarized, since a real corruption report needs the raw detail.
+    nonisolated func repair() throws -> String {
+        let issues: [String] = try appDatabase.read { db in
+            try String.fetchAll(db, sql: "PRAGMA integrity_check")
+        }
+        // VACUUM must run outside a transaction — appDatabase.write wraps its closure in one,
+        // which SQLite rejects VACUUM inside of.
+        try appDatabase.writeWithoutTransaction { db in
+            try db.execute(sql: "VACUUM")
+        }
+        if issues == ["ok"] {
+            return "No issues found. Database optimized."
+        }
+        return "Issues found and left as-is (repair doesn't rewrite data):\n" + issues.joined(separator: "\n")
+    }
 }
 
 // MARK: - GRDB: Manga
