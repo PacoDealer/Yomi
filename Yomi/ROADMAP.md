@@ -21,7 +21,86 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S110 — 2026-08-17 · S109 live-verification found + fixed a real chapter-ordering bug; boundary-transition trigger still unconfirmed)
+## Current state (post S111 — 2026-08-17 · backlog cleared: boundary-preload root-caused for real, AquaManga pagination fixed, 3 parity features shipped)
+
+**S111 — Martin asked to "fix everything from the backlog."** Triaged first: excluded anything
+blocked externally (CloudKit container provisioning needs paid Apple Developer Program enrollment,
+App Store Connect content is data entry not code, dead-repo plugin cleanup is a user action, a couple
+of items need Martin's physical device) and worked through the six that were genuinely code-fixable.
+
+1. **S110's chapter-boundary preload trigger — root-caused for real, not a tooling artifact.** Checked
+   Apple's own docs for `.scrollPosition(id:)` (via apple-docs MCP): it must be paired with
+   `.scrollTargetLayout()` on the scrolled container to actually track the visible view — neither
+   `WebtoonReaderView`'s `LazyVStack` nor `ContinuousHorizontalReaderView`'s `LazyHStack` had it, so
+   `visibleId` never updated regardless of whether the scroll came from a real touch or `mobile-mcp`'s
+   synthetic swipe. S110's "mixing `ScrollViewReader.scrollTo` with `.scrollPosition(id:)`" theory was
+   adjacent but missed the actual missing modifier. Added `.scrollTargetLayout()` to both containers.
+   **Live-verified end-to-end**: temporary `NSLog` instrumentation (added, then removed before
+   committing) confirmed `visibleId` progressed `cur:19 → cur:20 → boundary → next:0` across real
+   swipes in the Webtoon reader, the preload actually started its background fetch, and the reader
+   crossed into Chapter 7 with no tap — the full S109 feature genuinely works now, on this simulator.
+2. **AquaManga runaway pagination (Known Issue #9b), open since S87.** `BrowseView.loadMore()` now
+   dedups each newly-fetched page's ids against everything already loaded — a source that repeats its
+   last page forever instead of returning empty (AquaManga's actual behavior) now correctly reads as
+   "no new content" — plus a `maxPage = 300` hard backstop for any source where dedup alone wouldn't
+   terminate. Clean build; not re-tested against AquaManga's live site this session (pure client-side
+   termination logic, no network dependency in the fix).
+3. **Rotation-follows-device setting** (`TACHIMANGA_PARITY.md` §8, previously missing). New
+   `AppSettings.rotationFollowDevice`, read by a new `AppDelegate.supportedInterfaceOrientationsFor`
+   in `YomiApp.swift` (`.allButUpsideDown` vs `.portrait`), toggle in Settings → Library. **Live-verified
+   the restrictive direction**: toggled off via the real Settings UI, rotated the simulator to
+   landscape, app correctly stayed portrait, confirmed by reading the persisted UserDefaults plist
+   directly (not just a screenshot). The permissive direction (on → device actually rotates) couldn't
+   be confirmed — `mobile-mcp`'s `mobile_set_orientation` never produced a visible rotation once
+   unlocked in this session, a simulator/tooling limitation, not something the code path indicates
+   should fail (see the tooling note below for why taps were unreliable around this test).
+4. **Repair Database action** (`TACHIMANGA_PARITY.md` §9, previously missing). New
+   `DatabaseManager.repair()` — `PRAGMA integrity_check` then `VACUUM`, run via
+   `writeWithoutTransaction` since VACUUM can't execute inside GRDB's implicit write-transaction
+   wrapper (confirmed against context7's live GRDB docs before writing it, no built-in `.vacuum()`
+   convenience exists). New button in `StorageView.swift`'s Database section. **Live-verified**:
+   tapped it in the running app, got the real alert — "No issues found. Database optimized."
+5. **AppLockView restyled** to the Ink/Space-Grotesk design system — was plain
+   `Color(.systemBackground)`/system font/`.borderedProminent`, predating the S79 redesign (flagged as
+   a cosmetic gap in `TACHIMANGA_PARITY.md` §6). Now matches `OnboardingView`/`SecureScreenCover`'s
+   established pattern of reading `YomiTokens.Canvas.ink`/`AppSettings.shared.accentColor` directly
+   rather than via `\.yomiCanvas` — same reason both of those already do: a `fullScreenCover` attached
+   to the WindowGroup's `ContentView()` call site sits outside `ContentView`'s own
+   `.environment(\.yomiCanvas, ...)`. **Live-verified**: enabled `appLockEnabled`, cold-relaunched, and
+   caught the restyled lock screen in the frame before the simulator's system passcode sheet took over
+   (no Face ID enrolled in this sim) — accent-colored icon box, Grotesk title, accent pill button.
+6. **Tachiyomi-compatible backup *export*** (`TACHIMANGA_PARITY.md` §5, previously one-way import
+   only). New `TachiyomiBackupExporter.swift` — the reverse of the existing
+   `TachiyomiBackupParser.swift`, same protobuf3 field layout and gzip-via-libz approach, wired into
+   `BackupManager.exportTachiyomiBackup()` and a new section in `BackupView.swift`. Yomi-native
+   sources export with `source(1) = 0` (no reverse Tachiyomi-source-ID mapping exists beyond the
+   parser's existing MangaDex entry) — Tachiyomi's own restore flow already treats that as a normal
+   "no matching source" case rather than a failure, so library/read-history still comes across.
+   **Verified byte-for-byte, not just "compiles and produces a file"**: hand-decoded the real exported
+   `.tachibk`'s protobuf bytes in a throwaway Python script and confirmed title, url, artist, status,
+   favorite, and all 9 chapters' read-state/lastPageRead/chapterNumber matched the live database
+   exactly (including a real mid-session state: Ch.6 showing `read=1 lastPage=18`, matching hands-on
+   testing earlier in the session).
+
+**New tooling finding, worth carrying forward**: `mobile-mcp`'s `mobile_set_orientation` can leave its
+internal orientation state desynced from the simulator's actual rendered orientation — after the
+rotation-lock testing above, every subsequent tap coordinate silently landed on the wrong element for
+several minutes (taps meant for the Library tab bar kept reopening the reader) until
+`mobile_get_orientation` was checked directly and found stuck reporting `landscape` well after the
+visible UI — and even a screenshot — showed portrait. Calling `mobile_set_orientation` a couple more
+times (portrait, then landscape again) to force a fresh read resolved it. **If taps start landing on
+plausible-looking but wrong elements with no other explanation, check `mobile_get_orientation` before
+assuming the app or a stale accessibility snapshot is at fault** — this is a new, sharper addition to
+the standing `mobile-mcp` flakiness notes in `CLAUDE.md`'s MCP tools section.
+
+Zero build warnings across all six fixes, live-verified everywhere the simulator's own constraints
+allowed. `TACHIMANGA_PARITY.md`'s only remaining real gap is multi-device CloudKit sync, still blocked
+on paid Apple Developer Program enrollment (Known Issue #47) — everything else left in that doc is
+low-priority cosmetic/App-Store-process items not worth a dedicated session.
+
+---
+
+## Prior state (post S110 — 2026-08-17 · S109 live-verification found + fixed a real chapter-ordering bug; boundary-transition trigger still unconfirmed)
 
 **S110 picked up S109's "re-verify on Martin's own device" note and tried the simulator again anyway**,
 using a `sqlite3`-seeded near-chapter-end read position (since `mobile-mcp`'s swipe still can't reach an

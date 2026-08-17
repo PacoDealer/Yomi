@@ -87,7 +87,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 |---|---|---|---|
 | Export/import own-format backup | Yes | ✅ `BackupView.swift` export/import sections | ✅ Parity |
 | **Import** Tachiyomi/Mihon `.tachibk` | Yes | ✅ `TachiyomiBackupParser.swift`, wired in `BackupView.swift` | ✅ Parity |
-| **Export/create** a Tachiyomi-compatible backup (for migrating *out* to Tachiyomi/Mihon/forks) | Yes [premium] | Not found — Yomi's export is Yomi-format only, one-way interop | ❌ Missing (low priority — mostly matters for user trust/no-lock-in messaging, not day-to-day use) |
+| **Export/create** a Tachiyomi-compatible backup (for migrating *out* to Tachiyomi/Mihon/forks) | Yes [premium] | ✅ Fixed S111 — new `TachiyomiBackupExporter.swift`, reverse of the existing import parser (same protobuf3 schema, gzip via libz), wired into `BackupManager.exportTachiyomiBackup()`/`BackupView.swift`. Metadata + read-state only, matching the parser's own scope; Yomi-native sources export with no Tachiyomi source ID (source=0, degrades the same way Tachiyomi's own restore already handles a missing source) except MangaDex, which round-trips via the existing `sourceMap`. Verified byte-for-byte via a Python protobuf decode of a real exported file — title/url/artist/status/favorite and all 9 chapters' read-state/lastPageRead/chapterNumber matched the live DB exactly. | ✅ Parity |
 | Automatic backup scheduling (frequency picker) | Yes, explicit frequency setting [premium], defaults Off | Yomi's iCloud auto-backup fires on every app background, no frequency picker | 🔷 Yomi ahead in default behavior, 🟡 missing the configurability |
 | iCloud backup toggle + last-synced | Yes [premium] | ✅ `iCloudAutoBackup`, `BackupManager.swift` | ✅ Parity (free) |
 | Dated backup list (multiple retained backups, sizes, per-entry menu) | Yes — shows 3+ dated entries with sizes | ✅ Fixed S108 — `BackupManager.swift` now writes timestamped files (`YomiBackup-<ISO8601>.json`) into the iCloud container instead of overwriting one fixed name, keeps the last 8, and `BackupView.swift`'s iCloud section is a real list (date + byte size, swipe-to-delete, tap-to-restore-that-entry) instead of a single date row. **Not live end-to-end verified** — the dev simulator's iCloud session had lapsed (needs password re-auth) this session; code review + zero-warning build only, matches the previously-working single-file pattern. | ✅ Parity (live round-trip unverified) |
@@ -97,7 +97,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
-| App lock (biometric/passcode on foreground) | Yes [premium] | ✅ `AppLockView.swift` + `appLockEnabled`, wired in `YomiApp.swift` via `scenePhase` | ✅ Parity (free, where Tachimanga gates it) — but **cosmetic gap**: `AppLockView.swift` uses plain `Color(.systemBackground)`/system font, never restyled to the Ink/Space-Grotesk design system (predates S79 redesign) |
+| App lock (biometric/passcode on foreground) | Yes [premium] | ✅ `AppLockView.swift` + `appLockEnabled`, wired in `YomiApp.swift` via `scenePhase`. ✅ Restyled S111 to the Ink/Space-Grotesk design system (was plain `Color(.systemBackground)`/system font, predating S79) — live-verified via `appLockEnabled` + cold relaunch, caught the frame before the simulator's system passcode sheet took over. | ✅ Parity (free, where Tachimanga gates it) |
 | Incognito mode (pause history) | Yes [premium] | ✅ `isIncognito` | ✅ Parity (free) |
 | **Secure screen** (hide content in app switcher / on lock) | Yes [premium] | ✅ Fixed S97 — `AppSettings.secureScreenEnabled` + a `SecureScreenCover` overlay in `YomiApp.swift`, shown whenever `scenePhase != .active` (covers the App Switcher snapshot and any other non-active transition). Free, on-brand (Ink canvas + app icon), toggle in Settings next to App Lock. Live-verified: toggle persists, app backgrounds/resumes cleanly with no crash. | ✅ Parity (free, where Tachimanga gates it) |
 
@@ -119,7 +119,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Color blend level (slider blending accent into surfaces) | Yes | ✅ Fixed S108 — new `AppSettings.colorBlendLevel` + `Color.mix(with:amount:)`, blends `bg`/`surface1`/`surface2` toward the accent (text/hairline untouched). Wired app-wide via `\.yomiCanvas` (`ContentView.swift`'s `blendedCanvasColors`, not the raw preset) and into Appearance Studio's live preview. Live-verified at 60% on Paper: visibly tints the whole app, and the existing AA contrast badge correctly drops to "Fail" — the slider surfaces the tradeoff instead of hiding it, consistent with S101's precedent. | ✅ Parity |
 | App icon picker | Yes [premium] | ✅ `alternateIconName`, Ink/Paper icons | ✅ Parity (free) |
 | Items per row | Stepper | ✅ `libraryColumns` | ✅ Parity |
-| Rotation ("Follow Device") | Setting | Not found | ❌ Missing |
+| Rotation ("Follow Device") | Setting | ✅ Fixed S111 — new `AppSettings.rotationFollowDevice`, wired into `AppDelegate.supportedInterfaceOrientationsFor` in `YomiApp.swift`, toggle in Settings → Library. Live-verified the lock direction (off → rotated the simulator to landscape, app correctly stayed portrait); the positive direction (on → device rotates) wasn't confirmable via `mobile_set_orientation` in this session's tooling — code is symmetric with the verified direction, but flag for a real-device check. | ✅ Parity |
 | Date format picker | Setting | ✅ Fixed S108 — new `AppSettings.use24HourClock`/`dateOrderDayFirst`, threaded as parameters into `Notation.historyTimestamp(_:use24Hour:dayFirst:)` (kept as parameters, not a direct `AppSettings.shared` read, since `Notation` is `nonisolated` per S91). Settings → General, two toggles. Live-verified both axes via seeded `lastReadAt` rows in History (today + >7-days-old): "20:30"↔"8:30 PM" and "JUL 20"↔"20 JUL". | ✅ Parity |
 
 ## 9. General / Advanced / Storage
@@ -130,7 +130,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Default tab (which tab opens on launch) | Yes | ✅ Fixed S98 — `defaultTab` setting, wired into `AppRouter.init()`. | ✅ Parity |
 | **Storage composition view** (visual bar: cache/sources/downloads/backups/other, each with size + Manage/Clear) | Yes, detailed | ✅ Fixed S98 — `StorageManager.swift`/`StorageView.swift`, reachable from Advanced → Storage. Real byte-accurate breakdown (Downloads/Image cache/Plugins/Custom covers/Web cache/Database/Other) with Manage/Clear actions per category. | ✅ Parity |
 | Network settings: user agent, timeout | Shown, editable, plus CF-bypass toggle + request-dump | ✅ Partially fixed S98 — request timeout (10-60s) now editable in Advanced → Network. User Agent deliberately stays fixed: it's bound to the Cloudflare-bypass WebView's solved-challenge cookie (`CFBypassConstants.userAgent`, shared with `JSBridge`'s fetch) — making it editable would risk silently breaking CF bypass for a control most users would never touch. Request-dump debug log not implemented. | 🟡 Partial (timeout editable, UA intentionally fixed, no request-dump) |
-| Repair Database | Yes | Not found (Yomi has DB migrations but no user-facing repair action) | ❌ Missing, low priority unless corruption reports come in |
+| Repair Database | Yes | ✅ Fixed S111 — `DatabaseManager.repair()` runs `PRAGMA integrity_check` + `VACUUM` (outside a transaction via `writeWithoutTransaction`, confirmed against context7's GRDB docs — VACUUM can't run inside one), new button in `StorageView.swift`. Live-verified: alert showed "No issues found. Database optimized." | ✅ Parity |
 | Enable log / Export log / HTTP request dump | Yes, toggleable | Yomi has one-shot "Export diagnostic log" only — no persistent logging toggle, no HTTP dump | 🟡 Partial |
 
 ---
@@ -183,3 +183,14 @@ item 1 (multi-device sync).
 **S101 addendum**: all 3 items S100 deferred are now shipped (rows updated above to ✅/🟡; see
 `CLAUDE.md` Known Issues #31-33 and `ROADMAP.md`'s S101 entry for full detail). Item 1 (multi-device
 sync) remains the only big item left in this doc, still needing its own architecture-scoping session.
+
+**S111 addendum**: cleared the rest of this doc's real, code-fixable gaps in one pass (Martin's "fix
+everything from the backlog") — Tachiyomi-compatible export, Rotation follows device, Repair Database,
+and AppLockView's cosmetic restyle are all shipped now (rows updated above). Item 1 (multi-device
+sync) remains the only big item left, still blocked on CloudKit container provisioning (`CLAUDE.md`
+Known Issue #47 — needs paid Apple Developer Program enrollment, Martin's call not to enroll yet).
+What's left after this doc is genuinely just low-priority cosmetic/App-Store-process items scattered
+through the tables above (reader chapter-open splash screen, crop borders, press-and-hold-to-scroll,
+scanlator dedup, App Store Connect screenshots/description) plus real-device verification of a few
+S109-S111 features the simulator couldn't fully confirm (rotation's unlocked direction, the LNReader
+plugin's remaining table gaps if any) — none of it a dedicated-session item.
