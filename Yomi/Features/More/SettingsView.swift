@@ -210,6 +210,8 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             rowDivider()
+            toggleRow("Rotation follows device", isOn: $settings.rotationFollowDevice, subtitle: "Off locks the app to portrait")
+            rowDivider()
             toggleRow("Show unread count badge", isOn: $settings.showUnreadBadge)
             rowDivider()
             toggleRow("Show item count on category tabs", isOn: $settings.showCategoryItemCounts)
