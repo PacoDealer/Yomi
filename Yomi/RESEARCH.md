@@ -21,6 +21,7 @@ This file is the single source of truth for all Yomi research. It replaces all p
 13. [LNReader Plugin Ecosystem — Full Picture](#13-lnreader-plugin-ecosystem--full-picture)
 14. [Full iOS Manga/Novel Reader Landscape (2026)](#14-full-ios-mangannovel-reader-landscape-2026)
 15. [App Store Strategy for Plugin-Based Apps](#15-app-store-strategy-for-plugin-based-apps)
+20. [Competitor Deep-Dive & Architecture Comparison (S114, 2026-08-18)](#20-competitor-deep-dive--architecture-comparison-s114-2026-08-18)
 
 ---
 
@@ -989,4 +990,63 @@ As of S47, all 131 English LNReader v3 plugins should work in Yomi at the JSBrid
 
 ---
 
-*End of RESEARCH.md — last compiled S47, 2026-04-25*
+## 20. Competitor Deep-Dive & Architecture Comparison (S114, 2026-08-18)
+✅ RESEARCHED (S114 — general research conversation, not a Yomi coding session; no code touched, findings compiled and committed here per Martin's explicit close-out ask so the research isn't lost)
+
+Found via a targeted GitHub search for Swift-language manga/novel readers, then real clone-and-read investigation (not marketing claims) of the closest new entrants to Yomi's niche, plus a from-scratch build of Aidoku and Nyora to verify claims hands-on.
+
+### Ito (itoapp/Ito) — closest positioning match to Yomi
+"Anime, manga, and novels in one native iOS app," Swift 6.2, MPL 2.0, WASM plugin system (`.ito` plugins). Very early — 2 stars, ~100 commits. Validates Yomi's "unified iOS manga+novel with a plugin system" market thesis rather than threatening it at this size.
+- **The WASM plugin runtime itself is closed-source** — `ito-runner`/`wasmkit` are private sibling repos; the public repo only has commit-hash pointer files. Can't verify sandboxing claims from code, and **currently cannot even be built** — the private dependency isn't published anywhere, no TestFlight/`.ipa` release either.
+- **Worth stealing the shape of, if Yomi ever adds "import from Aidoku/Paperback"**: `AidokuImporter`/`SourceMatcher`/`JaroWinkler` uses a confidence-tiered fuzzy matcher to remap a foreign backup's plugin IDs onto local ones — exact match auto-confirms, ≥0.80 Jaro-Winkler similarity requires confirmation, and a margin-check against the second-best candidate (<0.08 apart) forces confirmation even on an apparent exact hit, avoiding false auto-matches between similarly-named plugins.
+- Unified `LibraryItem` table (opaque JSON payload per manga/anime/novel) vs. Yomi's typed Manga/Novel tables is a real architectural fork — trades away SQL-level queryability for one shared schema. Not worth Yomi revisiting: no anime ambitions, dual-table model is mature and already wired into `CloudSyncManager`.
+
+### Nyora (Nyora-Manga/nyora-ios) — Aidoku fork, adds cross-platform cloud sync
+Manga/manhwa/manhua only (no novels), sideload-only `.ipa` (v2.7.3, unsigned, AltStore/SideStore, iOS 15+), ~1,386 commits, actively developed. Built on Aidoku's stock WASM runtime (kept intact), layers its own sync/parser additions alongside it.
+- **Sync is NOT CloudKit** — a self-hosted Supabase backend: OAuth2 password grant + JWT, a Postgres-backed Edge Function doing last-write-wins upsert. A genuine alternative to CloudKit's Apple-Dev-Program blocker (Known Issue #47) — but it trades a $99/yr fee for owning/paying for/maintaining a backend, auth, and a signup UI. Not a drop-in win; a real tradeoff only worth taking if CloudKit enrollment stays blocked long-term.
+- Parser engine (`kotatsu-parsers`, AOT-compiled via GraalVM Native Image to arm64, ~960 sources) is real per the client-side C ABI header, but the actual engine source and compiled binary live in separate non-public repos — not a realistic adoption path for Yomi (would need a whole separate Kotlin/GraalVM iOS cross-compile pipeline for a source catalog Yomi has no claim to).
+- **Actionable, low-effort, unrelated to the sync question**: `NyoraCloudflareSolver.swift` reuses the same Safari-derived UA that earned `cf_clearance` on retry — same bug class as Yomi's own S89/S100 Kingfisher/Cloudflare UA-mismatch fixes (Known Issues #9/#34). Worth a targeted look at that one file if Yomi's Cloudflare handling ever regresses again.
+- **Built from source and confirmed a real Simulator blocker, definitively**: `vendor/nyora-engine/NyoraEngine.xcframework`'s `Info.plist` declares only a `LibraryIdentifier: ios-arm64` (device) slice — no `ios-arm64-simulator` variant (a real 69MB `.dylib`, fetched via `git lfs pull`, not a pointer file). Confirmed by resolving the package graph and asking Xcode directly: `xcodebuild -destination` for the "Nyora (iOS)" scheme returns **zero concrete Simulator devices**, only "Any iOS Simulator Device" (a placeholder that never resolves) plus real connected iOS devices. Nyora cannot run on Simulator on any Mac — a genuine constraint baked into the project, not a one-off build issue.
+
+### Plugin architecture — WASM (Aidoku/Wasm3) vs. JSCore (Yomi/JSBridge), settled with real code
+Direct comparison of Yomi's real `JSBridge.swift`/`CFBypassManager` against Aidoku's public `Source.swift`/`WasmNet.swift`/`CloudflareHandler.swift` — the only publicly-readable WASM implementation among the three competitors above, and the one Nyora reuses verbatim.
+- **Startup cost**: architecturally identical — both parse/instantiate once then cache (`JSBridge.init` evaluates JS once; Aidoku's `Source.init` loads WASM once via **Wasm3**, an *interpreter*, not a JIT/AOT compiler — confirmed via `Package.resolved`). WASM's "precompiled bytecode" framing doesn't translate into a real speed edge since Wasm3 interprets that bytecode too.
+- **Per-request execution**: both bridge networking to native Swift synchronously (`URLSession` + `DispatchSemaphore`) and both are network-latency-bound, not CPU-bound — plugin code is trivial HTML/JSON parsing next to a real HTTP round trip.
+- **Sandboxing**: same shape, different mechanism — both expose only an explicit host-function-import allowlist (Yomi: what `JSBridge` injects into the `JSContext`; Aidoku: Wasm3's `linkFunction` imports). No meaningful attack-surface gap either direction.
+- **Verdict**: Aidoku's WASM choice is a developer-ergonomics/typed-language preference (Rust SDK vs. Yomi's plain JS), not a user-perceptible performance or reliability win. **Not worth chasing WASM for Yomi.**
+- **Real, actionable gap found in Yomi's own code, independent of Aidoku's tech choice**: Aidoku auto-retries every Cloudflare-blocked request transparently, wired into its shared network layer everywhere. Yomi's own `CFBypassManager.autoBypass` (off-screen WKWebView solver, same underlying trick as Aidoku/Nyora — solve, copy `cf_clearance`+cookies to `HTTPCookieStorage.shared`, match UA) **is only wired into `BrowseView.swift`** — `MangaDetailView.swift`/`NovelDetailView.swift` (opening a manga / reading a chapter) fall straight to the manual "Bypass Cloudflare" button with no auto-attempt first. **Not fixed this session** — a candidate fix for a future session.
+
+### Yuedu-reader's "Legado-format" source system — hypothesis tested and disproven
+Investigated whether Legado's declarative rule-based source format might carry meaningfully lower App Store review risk than Yomi's/Aidoku's executable JS/WASM plugins (relevant to the current 5.2.2/2.5.2 compliance framing in §5 above). **It doesn't — the hybrid nature of the format undercuts the whole premise:**
+- Yuedu's `RuleEngine` has a real CSS/XPath/JSON-path/regex selector layer, but also a full JavaScriptCore engine (`JSCoreEngine.swift`, 1,331 lines) + `LegadoJSBridge.swift` (1,675 lines) polyfilling Legado's Android/Rhino `java.*` API — network access, DOM parsing via SwiftSoup, cookie access, and **JS-triggered interactive WebView popups** (`startBrowser`/`startBrowserAwait`, for login/Cloudflare flows) that Yomi's own JSBridge doesn't even expose to plugin code. `<js>...</js>`/`@js:...` segments embed inline inside otherwise-declarative rule strings, auto-detected and routed to this engine.
+- Real sources mix both freely — Yomi's simpler API-based sources (MangaDex) would map cleanly to pure selector rules, but anything needing pagination loops, auth, or Cloudflare handling (AsuraScans, AquaManga, the novel sites — i.e. most of Yomi's actual plugin logic) would end up in the `<js>` escape hatch anyway, running through an equivalent JSCore bridge. **Not a review-risk or complexity win** — arguably a larger capability surface than Yomi's own model.
+- Side finding: Yuedu renders novel text via native CoreText (plus Readium's `ReadiumShared` for EPUB), prompting the follow-up below.
+
+### Yomi's `TextReaderView.swift` (WKWebView-based novel reader) re-examined — confirmed correct, not a gap
+Checked whether Yomi should follow Yuedu's native-CoreText approach instead.
+- `TextReaderView.swift` injects a full HTML doc with a live CSS `<style>` block built from `AppSettings` (font/size/line-height/justify/padding/theme colors); settings changes re-inject just that block via a JS `outerHTML` swap — no reload, no lost scroll position. Reimplementing this in native TextKit would mean building an `NSAttributedString`/paragraph-style pipeline from scratch for zero user-facing gain. Zero WKWebView-related bugs anywhere in Yomi's 71-row Known Issues history.
+- **Bonus, de-risks the backlogged Yomitan-style dictionary-lookup feature idea**: Yomitan itself is built entirely on DOM Range/Selection APIs (`caretRangeFromPoint`, `Selection.modify`) — exactly what a WKWebView content script does natively. Adding tap-to-lookup-word would be one more JS listener through the *same* `userContentController` message-handler bridge already wired up for scroll-position/read-complete tracking (see the hands-on Aidoku finding below for a real, shipped reference implementation of this feature — though for image-based manga pages via OCR, a different mechanism than the DOM-based approach that fits Yomi's novel reader).
+- **One real gap, low priority**: no chapter-preload equivalent to the manga reader's S109-111 boundary-crossing feature — each chapter nav fully remounts the WKWebView.
+
+### Keiyoushi-via-Suwayomi (S89/S90) vs. alternatives — re-confirmed with real current numbers
+Martin asked directly whether Keiyoushi (the chosen strategy per §12/§16 and the live-verified Suwayomi-Server bridge, S89/S90) is really the best call, and to check alternatives. Checked two real candidates:
+
+| Catalog | Size (2026-08-18) | Contributors | Format fit for Yomi | Server needed |
+|---|---|---|---|---|
+| **Keiyoushi** (via Suwayomi bridge) | 1,368+ | large, mature | zero — server executes, Yomi just calls REST | yes (already built, S89/S90) |
+| **Aidoku-Community/sources** | 133 | 30 | poor — Rust→WASM, would need Yomi to build+maintain a full host-API shim matching Aidoku's evolving ABI (their SDK repos are actively changing) | no |
+| **inkdex/extensions** (Paperback successor) | 71 | 2 | closest paradigm (JS-ish, Yomi has a partial adapter shim already) but tiny catalog + thin bus factor | no |
+
+**Verdict: Keiyoushi via the existing bridge wins clearly** — ~10x Aidoku-Community's catalog, ~19x Inkdex's, zero new maintenance burden since the bridge is already built and live-verified (S89). The only real argument for either alternative is avoiding server-hosting/legal exposure entirely — but that trade buys an order-of-magnitude smaller catalog, plus for Aidoku specifically a genuinely new, ongoing Rust/WASM host-shim maintenance commitment that doesn't even lower Yomi's own community-contribution bar (Yomi's model is plain-JS plugins; Rust is a much higher bar). Martin's original assessment was correct — no action needed beyond eventually deploying the existing bridge (`~/Desktop/Projects/Yomi/SuwayomiServer-Deploy/DEPLOY.md`).
+
+### Hands-on: built Aidoku and Nyora from source, drove the running app directly
+Confirmed the Nyora Simulator blocker above by attempting a real build. Aidoku built and ran clean on Simulator (`-skipPackagePluginValidation` needed to bypass SwiftLint's interactive plugin-trust prompt in a headless build — otherwise zero issues, pure Swift/WASM, no native binary dependency). Martin then drove the running Aidoku build directly and found:
+- **A shipped, production OCR-based dictionary-lookup feature** (Settings → Dictionaries): OCR runs on manga page *images* (not DOM text — Aidoku's manga pages are images, unlike Yomi's novel reader's HTML), results matched against imported Yomitan dictionaries, single-tap lookup gesture, optional "OCR Text Overlay" showing what was recognized, "Restrict OCR Languages" to scope which chapters get processed. Separate from a plain iOS "Live Text" toggle. **This is the concrete reference design if Yomi ever builds OCR-based dictionary lookup for the manga reader** (as opposed to the DOM-based approach that fits the novel reader, assessed above — two different mechanisms for two different content types).
+- **Suwayomi is a first-class built-in source inside Aidoku itself** (Add Source → Built-in Sources, alongside Komga/Kavita), described in-app as running "extensions built for Mihon (Tachiyomi)." Independently validates Yomi's own S89/S90 bridge strategy — a major competitor uses the identical pattern as a core feature, not a workaround.
+- **Aidoku's own CloudKit sync is still "Experimental... may trigger data loss"** — comparable maturity to Yomi's own CKSyncEngine work (S102-105), just not blocked on Dev Program enrollment the way Yomi's is.
+- **Real feature gap confirmed**: Aidoku has native tracker sync for 5 services (AniList, MyAnimeList, MangaBaka, Shikimori, Bangumi) — "Update After Reading"/"Automatically Sync History" toggles. Yomi has zero tracker integration today.
+- Minor ideas, not adopted: custom library grid layout (configurable portrait/landscape row counts), an experimental native Text Reader mode alongside the image-based readers. Aidoku's Insights streak+stats screen closely parallels what Yomi already shipped in S94 — confirms parity, nothing new there.
+
+---
+
+*End of RESEARCH.md — last compiled S114, 2026-08-18*

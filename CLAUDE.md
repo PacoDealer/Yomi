@@ -28,9 +28,28 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S113 — 2026-08-17 · S112 backlog cleared)
+## Current state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
 
-**S113 worked through the S112 audit backlog** (Martin's "work through the S112 backlog" ask).
+**S114 was a research-only session in a general conversation, not a Yomi coding session — no code
+touched.** Martin asked about Swift-ecosystem competitors, then went deeper on specific architecture
+questions, then asked to commit+push the findings so they're not lost. Full detail in
+`Yomi/RESEARCH.md` §20. Headlines: Ito/Nyora surveyed as new (not-yet-threatening) competitors in
+Yomi's exact niche; a real code-level comparison found Aidoku's WASM plugin model has **no meaningful
+performance edge** over Yomi's JSCore/JSBridge model, but surfaced a real, unrelated, unfixed bug —
+Yomi's `CFBypassManager.autoBypass` only auto-retries Cloudflare blocks in `BrowseView.swift`, not in
+`MangaDetailView.swift`/`NovelDetailView.swift`; Yuedu-reader's "Legado declarative rules" were ruled
+out as a lower-App-Store-review-risk alternative (it's a JS engine underneath); Yomi's WKWebView-based
+novel reader was re-confirmed correct and found to de-risk the backlogged Yomitan-dictionary-lookup
+feature idea; Keiyoushi-via-Suwayomi (S89/S90) was re-confirmed as the right source strategy against
+real current numbers for two alternatives; and hands-on builds confirmed Nyora can never run on
+Simulator (device-only native engine) while Aidoku builds clean, with Aidoku's own UI surfacing a
+shipped OCR dictionary-lookup feature, tracker sync Yomi lacks, and independent validation of the
+Suwayomi-bridge strategy. **No Known Issues added, nothing fixed** — this was research, not a bugfix
+session. Next session touching any of this starts at `RESEARCH.md` §20.
+
+---
+
+**S113 (2026-08-17) — worked through the S112 audit backlog** (Martin's "work through the S112 backlog" ask).
 Scoped down to what's code-fixable in this repo, matching S111's precedent: excluded #47 (CloudKit
 container provisioning — still blocked on paid Apple Developer Program enrollment) and #69 (MangaDex
 plugin bug — source lives in a separate repo not present on this machine). Left #55 as-is (informational
