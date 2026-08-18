@@ -21,7 +21,57 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S113 — 2026-08-17 · S112 backlog cleared)
+## Current state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
+
+**S114 was a general research conversation, not a Yomi coding session — no code touched.** Martin
+asked to investigate the Swift-ecosystem competitor landscape (found via GitHub search, not memory),
+then to go deeper on specific architecture questions that came up along the way, then to commit and
+push the findings so they're not lost. Full detail (code-cited, not just README claims) is in
+`Yomi/RESEARCH.md` §20 — summary:
+
+- **New competitors surveyed**: Ito (`itoapp/Ito` — unified manga+anime+novel, WASM plugins, exact same
+  positioning as Yomi but 2 stars and currently *unbuildable*, its plugin runtime is a private
+  dependency) and Nyora (`Nyora-Manga/nyora-ios` — Aidoku fork adding Supabase-based cloud sync instead
+  of CloudKit). Neither is a real threat yet; both worth a periodic re-check. Ito's fuzzy plugin-ID
+  matcher (Jaro-Winkler + margin-check) is worth stealing the shape of if Yomi ever adds
+  import-from-Aidoku/Paperback.
+- **Plugin architecture question, settled with real code, not assumption**: is Aidoku's WASM/Wasm3
+  approach actually better than Yomi's JSCore/JSBridge model? No — direct comparison of the real source
+  on both sides found no meaningful startup-cost or execution-speed difference (both parse-once-cache,
+  both are network-latency-bound not CPU-bound, both sandbox via an explicit host-function-import
+  allowlist). **Found a real, unrelated bug in Yomi's own code while doing this comparison**: Aidoku
+  auto-retries every Cloudflare-blocked request transparently everywhere; Yomi's
+  `CFBypassManager.autoBypass` is only wired into `BrowseView.swift` — opening a manga or reading a
+  chapter falls straight to the manual "Bypass Cloudflare" button with no auto-attempt first. **Not
+  fixed this session** — a real, scoped candidate for whoever picks this up next.
+- **Yuedu-reader's "Legado-format" declarative source rules** were investigated as a possible
+  lower-App-Store-review-risk alternative to Yomi's JS-plugin model, and ruled out — it's a hybrid with
+  a full 1,331-line JSCore engine underneath for anything beyond trivially-scriptable sources, not
+  actually declarative where it matters. Along the way, Yomi's own `TextReaderView.swift`
+  (WKWebView-based novel rendering) was re-examined against Yuedu's native-CoreText approach and
+  **confirmed correct as-is** — live CSS-based theming is the reason, and it's a genuine advantage (not
+  a cost) for the backlogged Yomitan-style dictionary-lookup feature idea, since Yomitan itself is
+  DOM-Range/Selection-based.
+- **Keiyoushi-via-Suwayomi (S89/S90) re-confirmed as the right call with real current numbers**, after
+  Martin asked whether to look for alternatives: 1,368+ sources vs. Aidoku-Community/sources (133, would
+  cost Yomi an entire new Rust/WASM host-shim to maintain) vs. inkdex/extensions (71, 2-maintainer bus
+  factor). No action needed beyond eventually working through the already-written deployment checklist.
+- **Hands-on**: built real Aidoku and Nyora from source. Aidoku builds and runs clean on Simulator.
+  **Nyora cannot run on Simulator at all** — confirmed definitively by asking Xcode for the scheme's
+  actual destination list (zero concrete simulators offered; its custom parser engine is a device-only
+  compiled binary). Martin then drove the running Aidoku build directly and found a shipped, production
+  OCR-based dictionary-lookup feature (a concrete reference design for Yomi's own backlogged idea,
+  applied to manga page images rather than novel-reader DOM text), Suwayomi as a first-class built-in
+  Aidoku source (independently validates the S89/S90 bridge strategy), Aidoku's own iCloud Sync still
+  labeled experimental/may-lose-data, and a real feature gap — Aidoku has native tracker sync
+  (AniList/MAL/MangaBaka/Shikimori/Bangumi), Yomi has none.
+
+**No code changed, no build run against this repo, no Known Issues added.** Next session picking any
+of this up should start with `Yomi/RESEARCH.md` §20 for full citations.
+
+---
+
+## Prior state (post S113 — 2026-08-17 · S112 backlog cleared)
 
 **S113 worked through the S112 audit backlog end to end**, per Martin's "work through the S112 backlog"
 ask. Scoped down to code-fixable items in this repo up front, same call S111 made: excluded #47
