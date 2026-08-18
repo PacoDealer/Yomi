@@ -396,12 +396,20 @@ import Observation
 
     /// Require biometric/passcode authentication when app enters foreground
     var appLockEnabled: Bool {
-        didSet { defaults.set(appLockEnabled, forKey: "appLockEnabled") }
+        didSet {
+            defaults.set(appLockEnabled, forKey: "appLockEnabled")
+            // Don't wait for the next Library refresh to clear an unauthenticated Home Screen
+            // widget — turning protection on should hide reading history immediately.
+            if appLockEnabled { WidgetDataWriter.write([]) }
+        }
     }
 
     /// Hide app content (behind a cover) in the App Switcher / during app-switch transitions
     var secureScreenEnabled: Bool {
-        didSet { defaults.set(secureScreenEnabled, forKey: "secureScreenEnabled") }
+        didSet {
+            defaults.set(secureScreenEnabled, forKey: "secureScreenEnabled")
+            if secureScreenEnabled { WidgetDataWriter.write([]) }
+        }
     }
 
     // MARK: - TTS

@@ -57,13 +57,6 @@ enum ChapterQueries {
 
     // MARK: - Write
 
-    /// Inserts a new chapter; fails if a record with the same id already exists.
-    nonisolated static func insert(_ chapter: Chapter) throws {
-        _ = try appDatabase.write { db in
-            try chapter.insert(db)
-        }
-    }
-
     /// Inserts or updates a chapter (save = INSERT OR REPLACE).
     nonisolated static func upsert(_ chapter: Chapter) throws {
         _ = try appDatabase.write { db in

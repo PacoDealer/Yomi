@@ -21,7 +21,66 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S112 — 2026-08-17 · full project audit, documentation-only)
+## Current state (post S113 — 2026-08-17 · S112 backlog cleared)
+
+**S113 worked through the S112 audit backlog end to end**, per Martin's "work through the S112 backlog"
+ask. Scoped down to code-fixable items in this repo up front, same call S111 made: excluded #47
+(CloudKit container provisioning — still blocked on paid Apple Developer Program enrollment, not
+fixable in code) and #69 (the MangaDex plugin's licensed/external-chapter bug — the plugin source is
+hosted separately at `yomi-plugins.web.app`, not present in this repo/machine). #55 (duplicate `v4`
+migration prefix) needed no fix — it's informational only, GRDB keys migrations by string name so it's
+harmless, just a note for the next migration.
+
+**Fixed all other 17 items**, roughly by theme:
+- **Correctness/data-loss class**: #52 — `YomiApp.init()`'s `try? DatabaseManager.shared.setup()`
+  replaced with `do/catch` + `fatalError(...)` carrying the real error, so a corrupt-DB/migration
+  failure fails loudly at the actual point of failure instead of a mystifying force-unwrap crash three
+  calls downstream. #53/#54 — `MangaQueries`/`NovelQueries`' `clearLastRead` and `touchLastUpdated` now
+  call `markCloudDirty`, closing the same "sync gap" bug class S105 already fixed at other call sites.
+- **Privacy**: #68 — the Home Screen widget was showing reading history with zero authentication for
+  an 18+ rated app, regardless of App Lock/Secure Screen. Fixed two ways: `LibraryViewModel.writeWidgetData()`
+  now guards on both settings and writes an empty array when either is on, and `AppSettings`'s `didSet`
+  for both now clears any already-written widget data immediately when the setting flips on, rather than
+  waiting for the next Library refresh (which might not happen for a while). Live-verified the guard
+  end-to-end: seeded a manga into the library with `lastReadAt` via direct `sqlite3`, relaunched, confirmed
+  the App Group's `group.pacodealer.Yomi.plist` populated with real `widgetReadingItems` JSON while
+  unprotected. Didn't separately live-tap-verify the `didSet` clear specifically — both `mobile-mcp` and
+  `XcodeBuildMCP`'s `tap` (not enabled this session's tool config) failed to register a tap on the App
+  Lock switch, the same tooling limitation documented since S109. The code path is a 2-line symmetric
+  addition to the already-verified guard and compiled clean.
+- **Concurrency**: #57/#58 — `SourceBrowseView`'s `loadContent()`/`loadMore()` both dispatched their own
+  `Task.detached` against the same cached `JSBridge` with no mutual exclusion (`loadMore()`'s guard now
+  also checks `!isLoading`), and two `isLNReaderPlugin` reads happened on MainActor outside their
+  function's `Task.detached` block (moved inside, alongside the JSContext work they gate — matches
+  `JSBridge`'s own "never call from MainActor" rule and the two call sites that already did this right).
+  Same root file, fixed together.
+- **Correctness, smaller**: #60 — migrating away from a source with "remove old entry" now also deletes
+  the old manga's `Downloads/{id}` directory, matching the app's other two "remove from library" cleanup
+  paths (previously left orphaned files silently enumerated forever). #61 — `CustomizeTabsView`'s
+  "reassign default tab if you just hid it" fallback was a no-op exactly when the hidden tab was Library
+  (`= AppRouter.tabLibrary`, i.e. itself) — fixed to reassign to the first still-visible tab, falling back
+  to `.more`. Caught and fixed the identical bug in the adjacent `router.selectedTab` fallback right next
+  to it, same root cause, not itself in the Known Issues list but obviously the same class.
+- **Code quality**: #56/#59 — removed 5 confirmed-dead functions (`MangaQueries.insert`,
+  `NovelQueries.insert`, `ChapterQueries.insert` single-row variant, `NovelQueries.upsertChapter`,
+  `JSBridge.isPaperbackPlugin`) after re-confirming zero call sites each. #70 — added
+  `"Previous chapter"`/`"Next chapter"` accessibility labels to the reader's chapter-nav buttons.
+- **Docs**: #62-67, all fixed — wrong default accent color, stale DB schema block (now cites
+  `v21_cloud_sync_pending`/S105 and includes `pendingChange` + the two `pending_*_chapter_state` tables),
+  stale `RESEARCH.md` banner date, two stale line-number citations in `TACHIMANGA_PARITY.md`, a stale
+  `YomiApp.swift` file-index entry (still described the pre-S95 unmerged-`fullScreenCover` pattern), and
+  an undercounted `AppSettings` property count (43 → 55).
+
+Clean **zero-warning build** on both the `Yomi` and `YomiWidget` schemes throughout (`YomiWidget` needed
+a rebuild since `AppSettings.swift`/`WidgetDataWriter.swift` are shared code). App launched clean via
+`build_run_sim` with the new fail-loud DB path in place — no regression. 14 files touched, all edits
+scoped tightly to the issue they addressed. **Left deliberately unfixed, matching S112's own framing**:
+#71 (empty-state illustration drift from spec) — the component's own code comment already calls this a
+deliberate simplification, not a bug, so left as-is rather than second-guessing that call unprompted.
+
+---
+
+## Prior state (post S112 — 2026-08-17 · full project audit, documentation-only)
 
 **S112 re-ran S99's "audit absolutely everything" methodology, 13 sessions later, as an independent
 re-verification rather than a trust of the old pass.** Split into 7 parallel research dimensions
@@ -81,7 +140,7 @@ the raw first-pass findings from the 7 finders were taken at face value.
 
 ---
 
-## Current state (post S111 — 2026-08-17 · backlog cleared: boundary-preload root-caused for real, AquaManga pagination fixed, 3 parity features shipped)
+## Prior state (post S111 — 2026-08-17 · backlog cleared: boundary-preload root-caused for real, AquaManga pagination fixed, 3 parity features shipped)
 
 **S111 — Martin asked to "fix everything from the backlog."** Triaged first: excluded anything
 blocked externally (CloudKit container provisioning needs paid Apple Developer Program enrollment,

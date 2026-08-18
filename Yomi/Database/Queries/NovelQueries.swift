@@ -52,13 +52,6 @@ enum NovelQueries {
 
     // MARK: - Novel: Write
 
-    /// Inserts a new novel; throws if a row with the same id already exists
-    nonisolated static func insert(_ novel: Novel) throws {
-        _ = try appDatabase.write { db in
-            try novel.insert(db)
-        }
-    }
-
     /// Updates all fields of an existing novel by id
     nonisolated static func update(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
@@ -101,6 +94,7 @@ enum NovelQueries {
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("lastReadAt").set(to: nil)])
         }
+        markCloudDirty(.novel, key: novelId)
     }
 
     /// Sets lastUpdatedAt to now for the given novel
@@ -110,6 +104,7 @@ enum NovelQueries {
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("lastUpdatedAt").set(to: Date())])
         }
+        markCloudDirty(.novel, key: novelId)
     }
 
     /// Saves the user's personal notes for a novel
@@ -170,13 +165,6 @@ enum NovelQueries {
             // Replays any CloudKit chapter-state change that arrived before these chapters existed
             // locally — see CloudSyncManager's code-review finding #41.
             try CloudSyncManager.applyPendingNovelChapterStates(chapters, db: db)
-        }
-    }
-
-    /// Inserts or updates a chapter (uses id as key)
-    nonisolated static func upsertChapter(_ chapter: NovelChapter) throws {
-        _ = try appDatabase.write { db in
-            try chapter.save(db)
         }
     }
 
