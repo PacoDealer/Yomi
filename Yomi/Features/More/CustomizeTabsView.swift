@@ -60,12 +60,17 @@ struct CustomizeTabsView: View {
                 } else {
                     guard !settings.hiddenTabIDs.contains(id.rawValue) else { return }
                     settings.hiddenTabIDs.append(id.rawValue)
-                    // A hidden tab can't stay selected or be the launch tab.
+                    // A hidden tab can't stay selected or be the launch tab. A plain `= tabLibrary`
+                    // fallback is a no-op exactly when the hidden tab IS Library — reassign to any
+                    // tab still visible instead (hiddenTabIDs already includes `id` at this point).
+                    // "More" can never be hidden, so it's always a safe last resort.
+                    let stillVisible = orderedIDs.first { !settings.hiddenTabIDs.contains($0.rawValue) }
+                    let fallback = (stillVisible ?? .more).routerValue
                     if router.selectedTab == id.routerValue {
-                        router.selectedTab = AppRouter.tabLibrary
+                        router.selectedTab = fallback
                     }
                     if settings.defaultTab == id.routerValue {
-                        settings.defaultTab = AppRouter.tabLibrary
+                        settings.defaultTab = fallback
                     }
                 }
             }
