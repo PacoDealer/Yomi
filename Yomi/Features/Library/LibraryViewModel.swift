@@ -206,6 +206,12 @@ final class LibraryViewModel {
     }
 
     private func writeWidgetData() {
+        // Widgets render on the Home Screen / Lock Screen Today View with no authentication —
+        // never expose reading history there while the user has App Lock or Secure Screen on.
+        guard !AppSettings.shared.appLockEnabled, !AppSettings.shared.secureScreenEnabled else {
+            WidgetDataWriter.write([])
+            return
+        }
         typealias Dated = (id: String, title: String, cover: String?, date: Date)
         let mangaItems: [Dated] = mangas.compactMap {
             guard let d = $0.lastReadAt else { return nil }

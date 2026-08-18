@@ -147,7 +147,13 @@ struct YomiApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        try? DatabaseManager.shared.setup()
+        do {
+            try DatabaseManager.shared.setup()
+        } catch {
+            // appDatabase stays nil on failure, and every *Queries call site force-unwraps it —
+            // fail loudly here, at the real point of failure, instead of downstream with no context.
+            fatalError("Failed to open or migrate the Yomi database: \(error)")
+        }
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
         #endif

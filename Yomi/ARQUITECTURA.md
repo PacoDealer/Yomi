@@ -98,7 +98,7 @@ Yomi/
 │       └── CFBypassView.swift       # Manual CF bypass sheet + CFBypassManager enum (auto-bypass: hidden 1×1pt WKWebView, polls httpCookieStore every 0.5s, copies cf_clearance to HTTPCookieStorage.shared, 10s timeout); opened by shield toolbar button in SourceBrowseView
 ├── Sync/
 │   └── CloudSyncManager.swift       # CloudKit multi-device sync (S103, design in CLOUDKIT_SYNC_DESIGN.md). CKSyncEngine + CKSyncEngineDelegate; CloudRecordType enum (7 synced record types); module-level nonisolated markCloudDirty()/markCloudDeleted() called from *Queries writes, mirroring appDatabase/appRouter's nonisolated(unsafe) pattern; recordName is a SHA256 hash of the local key, reverse-mapped via the cloud_sync_map GRDB table
-├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 43 properties. Covers reader mode/font/theme, canvas (primary appearance axis: Ink/Midnight/Paper/Sepia/""), OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color (#E5473A Vermilion default), colorBlendLevel (S108), alternate icon, libraryDisplayMode, use24HourClock/dateOrderDayFirst (S108), suwayomiURL, opdsURL/opdsUsername/opdsPassword. `canvasColors: YomiTokens.CanvasColors` (added S85) is the pure unblended preset; `blendedCanvasColors` (S108) is `canvasColors` with bg/surface1/surface2 blended toward `accentColor` by `colorBlendLevel` — this is what should actually be threaded through the app, not `canvasColors` directly.
+├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 55 properties. Covers reader mode/font/theme, canvas (primary appearance axis: Ink/Midnight/Paper/Sepia/""), OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color (#E5473A Vermilion default), colorBlendLevel (S108), alternate icon, libraryDisplayMode, use24HourClock/dateOrderDayFirst (S108), suwayomiURL, opdsURL/opdsUsername/opdsPassword. `canvasColors: YomiTokens.CanvasColors` (added S85) is the pure unblended preset; `blendedCanvasColors` (S108) is `canvasColors` with bg/surface1/surface2 blended toward `accentColor` by `colorBlendLevel` — this is what should actually be threaded through the app, not `canvasColors` directly.
 ├── Core/CanvasEnvironment.swift     # `\.yomiCanvas` EnvironmentKey (S85) — set once in ContentView from `settings.blendedCanvasColors` (S108, was `canvasColors`), read via `@Environment(\.yomiCanvas)` anywhere the canvas bg/surface/text colors are needed. This is how the Ink/Midnight/Paper/Sepia canvas actually reaches the chrome — it is NOT derived from `.preferredColorScheme` (that only controls system light/dark, a separate axis).
 ├── Core/GlassChip.swift             # `.glassChip()` view modifier (S85) — shared 44×44 floating Liquid Glass circle for chrome buttons (reader top bars, Detail's glass nav). Factor any new floating icon button through this rather than re-inlining `.frame(44,44).background{Circle().glassEffect()}`. Any Color/Rectangle used as a purely-decorative symmetric spacer next to a glassChip needs an explicit height too (S95 finding — Color is greedy in unconstrained dimensions under .overlay).
 ├── Core/YomiEmptyState.swift        # Reusable empty-state view (S95 — N.09 spec): boxed SF Symbol (s1 card + hairline ring + accent dot), title, message, optional accent-pill action. Replaces 12 native ContentUnavailableView call sites app-wide (Library, Categories, Downloads, Updates, Browse ×4, OPDS ×2, History) — `.search(text:)` call sites stay native (system-provided, no mock equivalent).
@@ -108,7 +108,7 @@ YomiWidget/                          # Widget extension target (bundle ID: pacod
 ├── Info.plist                       # Complete Info.plist (INFOPLIST_FILE, not auto-generated). CFBundlePackageType=XPC!, NSExtension/NSExtensionPointIdentifier=com.apple.widgetkit-extension.
 └── YomiWidget.entitlements          # App Groups: group.pacodealer.Yomi
 ├── ContentView.swift                # Root TabView with AppRouter selection binding
-├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). @State showOnboarding = !AppSettings.shared.hasSeenOnboarding gates .fullScreenCover(OnboardingView) (restored S22).
+├── YomiApp.swift                    # Entry point. DB setup. #if DEBUG seedBundledPlugins(). @State settings drives .preferredColorScheme + .tint on ContentView(). Single merged .fullScreenCover (S95 — chaining two separate ones is unreliable in SwiftUI) driven by `isLocked || showOnboarding`, priority: AppLockView first, then OnboardingView.
 ├── PrivacyInfo.xcprivacy            # ✅ Done (S22). Declares NSPrivacyAccessedAPICategoryUserDefaults, NSPrivacyAccessedAPICategoryFileTimestamp, NSPrivacyAccessedAPICategoryDiskSpace.
 ├── Resources/
 │   └── test-source.js               # Test plugin (Format A) — kept for SwiftUI previews only
@@ -144,7 +144,7 @@ scripts/
 
 ## Database (SQLite via GRDB)
 
-### Current tables (migration v19_source_indexes — last migration as of S77)
+### Current tables (migration v21_cloud_sync_pending — last migration as of S105)
 ```sql
 manga        (id, path, sourceId, title, coverURL, summary, author, artist,
               status TEXT (MangaStatus: unknown/ongoing/completed/hiatus/cancelled),
@@ -190,10 +190,23 @@ novel_category (novelId TEXT NOT NULL FK→novel ON DELETE CASCADE,
 cloud_sync_map (recordName TEXT PRIMARY KEY,   -- CloudKit sync (S103): hashed CKRecord.ID.recordName
                 recordType TEXT NOT NULL,       -- -> (recordType, key) reverse index, so CKSyncEngine's
                 key TEXT NOT NULL,              --    send-batch callback (which only gets a bare
-                recordData BLOB)                --    CKRecord.ID) knows which GRDB row to re-fetch.
+                recordData BLOB,                --    CKRecord.ID) knows which GRDB row to re-fetch.
                                                  --    recordData caches the last saved/fetched CKRecord
                                                  --    (NSSecureCoding-archived) so re-saves carry a real
-                                                 --    server recordChangeTag — see CLOUDKIT_SYNC_DESIGN.md.
+                pendingChange TEXT)              --    server recordChangeTag — see CLOUDKIT_SYNC_DESIGN.md.
+                                                 -- pendingChange (v21, S105): durable dirty/delete mark
+                                                 --    made while no CKSyncEngine is running yet.
+
+pending_chapter_state (mangaId TEXT NOT NULL, chapterId TEXT NOT NULL,  -- v21, S105: remote chapter-state
+                        isRead BOOLEAN NOT NULL, progress REAL NOT NULL, --   change that arrived before the
+                        lastPageRead INTEGER NOT NULL, readAt DATETIME,  --   chapter row was locally cached;
+                        readingSeconds INTEGER NOT NULL,                --   replayed once the chapter is
+                        PRIMARY KEY (mangaId, chapterId))                --   actually inserted locally.
+
+pending_novel_chapter_state (novelId TEXT NOT NULL, chapterId TEXT NOT NULL,  -- v21, S105: same as above,
+                              isRead BOOLEAN NOT NULL, readAt DATETIME,        --   novel side.
+                              readingSeconds INTEGER NOT NULL,
+                              PRIMARY KEY (novelId, chapterId))
 ```
 
 ### Migrations
@@ -245,7 +258,7 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `lineSpacing: Double` — novel reader line spacing multiplier
 - `theme: String` — "System", "Light", or "Dark"
 - `useSystemFont: Bool` — system font vs built-in reader font
-- `accentColor: String` — hex string for app tint color; default `#FF6B6B`; applied via `.tint(Color(hex:))` on ContentView
+- `accentColor: String` — hex string for app tint color; default `#E5473A` (Vermilion); applied via `.tint(Color(hex:))` on ContentView
 - `pureBlack: Bool` — OLED pure-black background in dark mode (S36); key "pureBlack"; default false
 - `autoWebtoonFromTags: Bool` — auto-switch to Webtoon mode if manga genres include "Manhwa"/"Manhua" (S37); default true
 - `tapZoneLayout: String` — reader tap zone config: "default"/"sides"/"disabled" (S39); default "default"

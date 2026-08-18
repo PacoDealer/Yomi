@@ -67,6 +67,13 @@ enum MigrationService {
             var old = oldManga
             old.inLibrary = false
             try MangaQueries.upsert(old)
+            // Match the app's other two "remove from library" paths (LibraryView.removeSelected,
+            // MangaDetailView.toggleLibrary) — without this, downloaded chapter files for the old
+            // source sit orphaned on disk, still enumerated by DownloadsView regardless of inLibrary.
+            let dir = FileManager.default
+                .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Downloads/\(oldManga.id)")
+            try? FileManager.default.removeItem(at: dir)
         }
 
         return Result(matchedChapters: matched, oldReadChapters: readOldChapters.count)

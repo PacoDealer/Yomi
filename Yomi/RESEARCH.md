@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-04-20 (S44 deep audit) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-08-07 (S104 §5 App Store Regulations rewrite) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 

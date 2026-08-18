@@ -25,7 +25,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | Tap zones | 5 presets: L-Shaped, Right-And-Left, Edge, Kindle-ish, Disabled | ✅ Fixed S98 — `tapZoneLayout` now has 6 presets: `default` (thirds, unchanged), `sides` (Edge, unchanged), plus new `lShaped`/`kindle`/`rightLeft`/`disabled`. New layouts are Yomi's own reasonable interpretation of the named behaviors (not pixel-verified against Tachimanga's exact zone geometry) — all share a fixed top-center menu strip for reachability. Still a plain Picker, no visual zone-diagram. | ✅ Parity (6 presets, superset of Tachimanga's 5) |
 | Auto Webtoon detection | Not observed in Tachimanga's Reader settings | `autoWebtoonFromTags` — auto-switches by genre tags — `AppSettings.swift:203` | 🔷 Yomi ahead |
 | Autoscroll | Toggle in in-reader settings sheet | `autoScrollSpeed` (1-10s) exists in `AppSettings.swift:242`, used in `ChapterReaderView.swift` | ✅ Parity |
-| Keep screen on while reading | Listed toggle | `keepScreenOn` → `UIApplication.shared.isIdleTimerDisabled` — `ChapterReaderView.swift:136,143` | ✅ Parity |
+| Keep screen on while reading | Listed toggle | `keepScreenOn` → `UIApplication.shared.isIdleTimerDisabled` — `ChapterReaderView.swift:192,199` | ✅ Parity |
 | Double tap to zoom | Toggle | ✅ Fixed S98 — `MangaPageView`'s double-tap previously always reset to 1x (not a real zoom toggle); now toggles between 1x and 2x. | ✅ Parity |
 | Press and hold to scroll | Toggle (Webtoon/Continuous only) | Not found | ❌ Missing |
 | Long press action menu | Toggle | Not found | ❌ Missing |
@@ -67,7 +67,7 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 | **Open random entry** | Yes | ✅ Already existed — the Shuffle toolbar icon in `LibraryView.swift:310-320` jumps to a random manga. Scoped to manga only (not novels) and unconditional (not filtered to unread) — minor gap vs. Tachimanga's version, not worth a separate fix. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity (manga only) |
 | Multi-select / bulk actions | Long-press → Select | ✅ Fixed S96, works via context menu | ✅ Parity |
 | List-mode multi-select | — | Known gap noted in Known Issue #19 — list mode has no selection entry point yet | ❌ Still open (pre-existing Yomi gap, not Tachimanga-specific) |
-| Per-card reading-status quick-set | Not observed in Tachimanga screenshots | `LibraryView.swift:764` context menu → Reading Status submenu | 🔷 Yomi ahead (unconfirmed Tachimanga doesn't have this — verify before crowing) |
+| Per-card reading-status quick-set | Not observed in Tachimanga screenshots | `LibraryView.swift:127,245,861` context menu → Reading Status submenu | 🔷 Yomi ahead (unconfirmed Tachimanga doesn't have this — verify before crowing) |
 
 ## 4. History / Updates / Downloads
 

@@ -76,13 +76,6 @@ enum MangaQueries {
         return updated
     }
 
-    /// Inserts a new manga; throws if a row with the same id already exists
-    nonisolated static func insert(_ manga: Manga) throws {
-        _ = try appDatabase.write { db in
-            try manga.insert(db)
-        }
-    }
-
     /// Updates all fields of an existing manga by id
     nonisolated static func update(_ manga: Manga) throws {
         _ = try appDatabase.write { db in
@@ -117,6 +110,7 @@ enum MangaQueries {
                 arguments: [mangaId]
             )
         }
+        markCloudDirty(.manga, key: mangaId)
     }
 
     /// Sets lastUpdatedAt to now for the given manga
@@ -126,6 +120,7 @@ enum MangaQueries {
                 .filter(Column("id") == mangaId)
                 .updateAll(db, [Column("lastUpdatedAt").set(to: Date())])
         }
+        markCloudDirty(.manga, key: mangaId)
     }
 
     /// Updates the user-defined reading status for a manga

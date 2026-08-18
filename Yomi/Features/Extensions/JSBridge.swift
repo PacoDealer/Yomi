@@ -83,17 +83,6 @@ final class JSBridge {
         return true
     }
 
-    // MARK: - Paperback format detection
-
-    /// true when the plugin exports a Paperback-format Source class (detected by __pbSourceId global)
-    nonisolated var isPaperbackPlugin: Bool {
-        guard
-            let flag = context.objectForKeyedSubscript("__pbSourceId"),
-            !flag.isUndefined, !flag.isNull
-        else { return false }
-        return true
-    }
-
     /// true when the plugin exposes a Mangayomi-format `source` object (detected by __mangayomiSource global)
     nonisolated var isMangayomiPlugin: Bool {
         guard

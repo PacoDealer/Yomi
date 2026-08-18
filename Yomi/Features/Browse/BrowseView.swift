@@ -459,9 +459,22 @@ private struct PopularSourceCarousel: View {
         guard let b = JSBridge(scriptURL: url) else { loaded = true; return }
         bridge = b
         let sourceId = ext.id
-        if b.isLNReaderPlugin {
+        // isLNReaderPlugin must be read inside the same Task.detached as the JSContext work it
+        // gates — JSContext is only ever safe to touch off the main actor (see JSBridge's own rule).
+        enum PopularResult {
+            case novels([NovelItem])
+            case mangas([Manga])
+        }
+        let result = await Task.detached(priority: .userInitiated) { () -> PopularResult in
+            if b.isLNReaderPlugin {
+                return .novels(b.popularNovels(page: 1))
+            } else {
+                return .mangas(b.getMangaList(page: 1, sourceId: sourceId))
+            }
+        }.value
+        switch result {
+        case .novels(let items):
             isNovel = true
-            let items = await Task.detached(priority: .userInitiated) { b.popularNovels(page: 1) }.value
             novels = items.prefix(10).map { item in
                 Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
                       title: item.name, coverURL: URL(string: item.cover ?? ""),
@@ -469,9 +482,8 @@ private struct PopularSourceCarousel: View {
                       inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
                       readingSeconds: 0, readingStatus: .none, notes: nil)
             }
-        } else {
+        case .mangas(let results):
             isNovel = false
-            let results = await Task.detached(priority: .userInitiated) { b.getMangaList(page: 1, sourceId: sourceId) }.value
             mangas = Array(results.prefix(10))
         }
         loaded = true
@@ -906,24 +918,17 @@ struct SourceBrowseView: View {
             b = newBridge
         }
 
-        if b.isLNReaderPlugin {
-            isNovelSource = true
-            supportsLatest = true
-            let currentFeed = selectedFeed
-            let items = await Task.detached(priority: .userInitiated) {
-                currentFeed == .latest ? b.latestNovels(page: 1) : b.popularNovels(page: 1)
-            }.value
-            novels = items.map { item in
-                Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
-                      title: item.name, coverURL: URL(string: item.cover ?? ""),
-                      summary: nil, author: nil, status: "unknown", genres: [],
-                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
-                      readingSeconds: 0, readingStatus: .none, notes: nil)
-            }
-        } else {
-            isNovelSource = false
-            let currentFeed = selectedFeed
-            let (results, hasLatest) = await Task.detached(priority: .userInitiated) {
+        // isLNReaderPlugin must be read inside the same Task.detached as the JSContext work it
+        // gates — JSContext is only ever safe to touch off the main actor (see JSBridge's own rule).
+        let currentFeed = selectedFeed
+        enum ContentResult {
+            case novels([NovelItem])
+            case mangas([Manga], hasLatest: Bool)
+        }
+        let result = await Task.detached(priority: .userInitiated) { () -> ContentResult in
+            if b.isLNReaderPlugin {
+                return .novels(currentFeed == .latest ? b.latestNovels(page: 1) : b.popularNovels(page: 1))
+            } else {
                 let hasLatest = b.supportsLatest
                 let list: [Manga]
                 if hasLatest && currentFeed == .latest {
@@ -931,8 +936,23 @@ struct SourceBrowseView: View {
                 } else {
                     list = b.getMangaList(page: 1, sourceId: sourceId)
                 }
-                return (list, hasLatest)
-            }.value
+                return .mangas(list, hasLatest: hasLatest)
+            }
+        }.value
+
+        switch result {
+        case .novels(let items):
+            isNovelSource = true
+            supportsLatest = true
+            novels = items.map { item in
+                Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
+                      title: item.name, coverURL: URL(string: item.cover ?? ""),
+                      summary: nil, author: nil, status: "unknown", genres: [],
+                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+                      readingSeconds: 0, readingStatus: .none, notes: nil)
+            }
+        case .mangas(let results, let hasLatest):
+            isNovelSource = false
             supportsLatest = hasLatest
             mangas = results
         }
@@ -943,7 +963,10 @@ struct SourceBrowseView: View {
     // MARK: Load More
 
     private func loadMore() async {
-        guard !isLoadingMore, hasMoreContent, let b = bridge else { return }
+        // Also bail while loadContent() is still in flight — both dispatch their own
+        // Task.detached against the same cached `bridge`'s JSContext, which isn't safe to touch
+        // from two concurrent tasks at once.
+        guard !isLoading, !isLoadingMore, hasMoreContent, let b = bridge else { return }
         guard currentPage < maxPage else {
             hasMoreContent = false
             return

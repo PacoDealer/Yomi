@@ -1273,6 +1273,7 @@ struct ReaderOverlayView: View {
                                 .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
                         }
                         .disabled(!hasPrevChapter)
+                        .accessibilityLabel("Previous chapter")
 
                         Button(action: onNextChapter) {
                             Image(systemName: "forward.end.fill")
@@ -1280,6 +1281,7 @@ struct ReaderOverlayView: View {
                                 .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
                         }
                         .disabled(!hasNextChapter)
+                        .accessibilityLabel("Next chapter")
                     }
                 }
                 .font(YomiTokens.Font.mono(12))
