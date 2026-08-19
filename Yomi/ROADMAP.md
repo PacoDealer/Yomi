@@ -21,7 +21,30 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
+## Current state (post S115 — 2026-08-19 · novel chapter-preload + tracker-sync generalization)
+
+**S115 shipped two items Martin chose from S114's research backlog.** (1) **Novel chapter-preload** —
+`TextReaderView.swift` backgrounds a fetch of the next chapter once scroll passes 70%, cached and
+consumed on nav instead of re-fetching; a jump-to-chapter evicts stale cache entries. (2) **Tracker
+sync — corrected a wrong research premise before building anything**: S114 claimed "Yomi has zero
+tracker integration," but real working MAL sync already existed (`MALService.swift`); the research
+session never checked. Generalized it into a `MangaTracker` protocol and added AniList, Shikimori, and
+Bangumi (Martin's picks) behind it — new `TrackerManager` fans reader chapter-finish events out to
+every logged-in tracker and centralizes OAuth-callback routing; new `TrackersView.swift` (More →
+Trackers) replaces the old single MyAnimeList row; new `AppSettings.trackerAutoUpdate` toggle closes a
+real pre-existing gap (auto-update had no opt-out). Found and fixed a real prerequisite bug along the
+way: `Info.plist` had no `CFBundleURLTypes` entry at all, so `yomi://` callbacks — including MAL's
+existing one — could never have reached the app. Shikimori/Bangumi both require an embedded
+`client_secret` (no PKCE option in either API) — flagged to Martin directly, who confirmed embedding it
+is fine, same as other open-source tracker clients. Full technical detail (API research, the
+`RESEARCH.md` §20 correction, and a build-error red herring worth remembering) is in `CLAUDE.md`'s S115
+current-state entry and `RESEARCH.md` §21. Zero-warning build on `Yomi`+`YomiWidget`, live-verified via
+`build_run_sim`+mobile-mcp. AniList/Shikimori/Bangumi OAuth stays unverified until Martin registers real
+app credentials for each (`AppSecrets.swift` has the registration URLs).
+
+---
+
+## Prior state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
 
 **S114 was a general research conversation, not a Yomi coding session — no code touched.** Martin
 asked to investigate the Swift-ecosystem competitor landscape (found via GitHub search, not memory),

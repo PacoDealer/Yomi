@@ -17,7 +17,6 @@ struct MALView: View {
         List {
             if malService.isLoggedIn {
                 accountSection
-                trackingSection
             } else {
                 loginSection
             }
@@ -31,10 +30,6 @@ struct MALView: View {
                 SafariView(url: url)
             }
         }
-        .onOpenURL { url in
-            guard url.scheme == "yomi" else { return }
-            Task { await malService.handleCallback(url: url) }
-        }
     }
 
     // MARK: - Account Section
@@ -45,16 +40,6 @@ struct MALView: View {
             Button("Disconnect", role: .destructive) {
                 malService.logout()
             }
-        }
-    }
-
-    // MARK: - Tracking Section
-
-    private var trackingSection: some View {
-        Section("Tracking") {
-            Text("Chapters are automatically tracked when you finish reading them.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
         }
     }
 
