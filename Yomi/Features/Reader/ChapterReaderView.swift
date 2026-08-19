@@ -233,12 +233,14 @@ struct ChapterReaderView: View {
             }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage >= pages.count - 2 {
                 markChapterRead()
-                if MALService.shared.isLoggedIn {
+                if AppSettings.shared.trackerAutoUpdate {
+                    let mangaTitle = manga.title
+                    let chapNum = Int(activeChapter.chapterNumber ?? 0)
                     Task {
-                        let mangaTitle = manga.title
-                        let chapNum = Int(activeChapter.chapterNumber ?? 0)
-                        if let malId = await MALService.shared.searchManga(title: mangaTitle) {
-                            await MALService.shared.updateMangaProgress(malId: malId, chaptersRead: chapNum)
+                        for tracker in TrackerManager.loggedInTrackers {
+                            if let trackerId = await tracker.searchManga(title: mangaTitle) {
+                                await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
+                            }
                         }
                     }
                 }

@@ -44,6 +44,11 @@ struct TextReaderView: View {
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
 
+    // Background preload of the next chapter's content — avoids a full network-fetch stall on
+    // every chapter nav, matching the manga reader's S109-111 boundary-preload intent.
+    @State private var chapterContentCache: [String: String] = [:]
+    @State private var isPreloadingNextChapter = false
+
     // Reader settings — initialized from persisted AppSettings
     @State private var fontSize: Double        = AppSettings.shared.fontSize
     @State private var lineSpacing: Double     = AppSettings.shared.lineSpacing
@@ -76,6 +81,7 @@ struct TextReaderView: View {
     private var activeChapter: NovelChapter { chapters[currentChapterIndex] }
     private var hasPrevChapter: Bool { currentChapterIndex > 0 }
     private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
+    private var nextChapterForPreload: NovelChapter? { hasNextChapter ? chapters[currentChapterIndex + 1] : nil }
 
     private var fontFamilyCSS: String {
         fontFamily == "Serif"
@@ -182,12 +188,24 @@ struct TextReaderView: View {
                                     }
                                 }
                             }
+                            if AppSettings.shared.trackerAutoUpdate {
+                                let novelTitle = novel.title
+                                let chapNum = Int(activeChapter.chapterNumber ?? 0)
+                                Task {
+                                    for tracker in TrackerManager.loggedInTrackers {
+                                        if let trackerId = await tracker.searchManga(title: novelTitle) {
+                                            await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
+                                        }
+                                    }
+                                }
+                            }
                         }
                         withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
                     },
                     restoreScrollPercent: activeChapter.lastScrollPercent,
                     onScrollUpdate: { pct in
                         lastKnownScrollPercent = pct
+                        if pct >= 0.7 { preloadNextChapterIfNeeded() }
                         guard !AppSettings.shared.isIncognito else { return }
                         let cid = activeChapter.id
                         Task.detached(priority: .background) {
@@ -353,6 +371,28 @@ struct TextReaderView: View {
         isLoading     = true
         errorMessage  = nil
         currentChapterIndex = index
+        // Evict any preloaded content we're not about to use — a jump-to-chapter can strand a
+        // preload for the chapter that used to be "next".
+        let targetId = chapters[index].id
+        chapterContentCache = chapterContentCache.filter { $0.key == targetId }
+    }
+
+    // MARK: - Preload
+
+    private func preloadNextChapterIfNeeded() {
+        guard let next = nextChapterForPreload,
+              chapterContentCache[next.id] == nil,
+              !isPreloadingNextChapter else { return }
+        isPreloadingNextChapter = true
+        let path = next.path
+        let nextId = next.id
+        Task.detached(priority: .background) {
+            let html = bridge.parseChapter(path: path)
+            await MainActor.run {
+                if !html.isEmpty { chapterContentCache[nextId] = html }
+                isPreloadingNextChapter = false
+            }
+        }
     }
 
     // MARK: - TTS
@@ -400,6 +440,12 @@ struct TextReaderView: View {
         isLoading    = true
         errorMessage = nil
         rawContent   = ""
+        let cid = activeChapter.id
+        if let cached = chapterContentCache.removeValue(forKey: cid) {
+            rawContent = cached
+            isLoading = false
+            return
+        }
         let path = activeChapter.path
         let html = await Task.detached(priority: .userInitiated) {
             bridge.parseChapter(path: path)

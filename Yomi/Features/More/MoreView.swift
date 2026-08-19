@@ -44,7 +44,7 @@ struct MoreView: View {
                     }
 
                     card("TRACKING") {
-                        MoreRow(icon: "person.crop.circle.badge.checkmark", label: "MyAnimeList") { MALView() }
+                        MoreRow(icon: "person.crop.circle.badge.checkmark", label: "Trackers") { TrackersView() }
                     }
 
                     card("DATA") {
