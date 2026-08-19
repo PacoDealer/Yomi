@@ -1044,9 +1044,43 @@ Confirmed the Nyora Simulator blocker above by attempting a real build. Aidoku b
 - **A shipped, production OCR-based dictionary-lookup feature** (Settings → Dictionaries): OCR runs on manga page *images* (not DOM text — Aidoku's manga pages are images, unlike Yomi's novel reader's HTML), results matched against imported Yomitan dictionaries, single-tap lookup gesture, optional "OCR Text Overlay" showing what was recognized, "Restrict OCR Languages" to scope which chapters get processed. Separate from a plain iOS "Live Text" toggle. **This is the concrete reference design if Yomi ever builds OCR-based dictionary lookup for the manga reader** (as opposed to the DOM-based approach that fits the novel reader, assessed above — two different mechanisms for two different content types).
 - **Suwayomi is a first-class built-in source inside Aidoku itself** (Add Source → Built-in Sources, alongside Komga/Kavita), described in-app as running "extensions built for Mihon (Tachiyomi)." Independently validates Yomi's own S89/S90 bridge strategy — a major competitor uses the identical pattern as a core feature, not a workaround.
 - **Aidoku's own CloudKit sync is still "Experimental... may trigger data loss"** — comparable maturity to Yomi's own CKSyncEngine work (S102-105), just not blocked on Dev Program enrollment the way Yomi's is.
-- **Real feature gap confirmed**: Aidoku has native tracker sync for 5 services (AniList, MyAnimeList, MangaBaka, Shikimori, Bangumi) — "Update After Reading"/"Automatically Sync History" toggles. Yomi has zero tracker integration today.
+- **Real feature gap confirmed, but overstated — corrected S115**: Aidoku has native tracker sync for 5 services (AniList, MyAnimeList, MangaBaka, Shikimori, Bangumi) — "Update After Reading"/"Automatically Sync History" toggles. ~~Yomi has zero tracker integration today.~~ **Wrong** — Yomi already had real, working MAL sync (`MALService.swift`, wired into `ChapterReaderView.swift`) at the time this line was written; this session never checked Yomi's own code before making the comparison. See §21 — S115 generalized this into a shared protocol and added AniList/Shikimori/Bangumi, closing the real gap (3 of Aidoku's other 4 services; MangaBaka skipped, deferred).
 - Minor ideas, not adopted: custom library grid layout (configurable portrait/landscape row counts), an experimental native Text Reader mode alongside the image-based readers. Aidoku's Insights streak+stats screen closely parallels what Yomi already shipped in S94 — confirms parity, nothing new there.
 
 ---
 
-*End of RESEARCH.md — last compiled S114, 2026-08-18*
+## 21. Tracker API Shapes — AniList, Shikimori, Bangumi (S115, 2026-08-19)
+✅ RESEARCHED + IMPLEMENTED — verified live against each service's own current docs (not training data),
+then built directly against these findings same session. Full implementation in `Features/More/`
+(`MangaTracker.swift` protocol, `AniListTrackerService.swift`, `ShikimoriService.swift`,
+`BangumiService.swift`); see CLAUDE.md's S115 current-state entry for the fuller narrative.
+
+**AniList** (docs.anilist.co) — the only one of the three with a client_secret-free flow: **Implicit
+Grant** (`response_type=token` on `https://anilist.co/api/v2/oauth/authorize`), token returned in the
+redirect URL's *fragment* (not query), long-lived (~1yr), no refresh token. GraphQL at
+`graphql.anilist.co` — `Page { media(search:, type: MANGA) { id } }` for search, `SaveMediaListEntry`
+mutation for progress, `Viewer { id name }` for the logged-in user.
+
+**Shikimori** (shikimori.io — `.one` now permanently redirects here, don't hardcode the old domain) —
+Authorization Code Grant, **requires client_secret** (no PKCE alternative in this API). Tokens expire in
+1 day. Every request needs a descriptive `User-Agent` or Shikimori may ban the IP (5 req/s / 90 req/min
+limits). Search: `GET /api/mangas?search=`. Progress: v1 `/api/user_rates` is deprecated — use v2
+(`POST`/`PATCH /api/v2/user_rates`), body needs both `user_id` and `target_id`, fetched via
+`GET /api/users/whoami`.
+
+**Bangumi** (bgm.tv for OAuth, **api.bgm.tv** for REST — different hosts, easy to get wrong) —
+Authorization Code Grant, **requires client_secret**, no PKCE either. Search:
+`POST /v0/search/subjects` with `filter.type: [1]` (1 = Book, which covers manga/novels — first-class
+in the schema, just thinner in community tooling). Progress: `PATCH /v0/users/-/collections/{subject_id}`
+with `type`/`ep_status`, or per-chapter via `.../episodes`. Needs a descriptive `User-Agent` too.
+
+**Security tradeoff, flagged to Martin directly rather than decided unilaterally**: Shikimori and Bangumi
+both force embedding a `client_secret` in client-side app code (extractable via static analysis — no
+first-party workaround exists in either API's design). Martin's call: embed it anyway, same as every
+other open-source tracker client (Tachiyomi, Aidoku) does for these same two services — the practical
+risk is limited to abuse of the app's own OAuth identity/rate-limit bucket, not any user's account or
+data, since each user still authenticates directly with the real service.
+
+---
+
+*End of RESEARCH.md — last compiled S115, 2026-08-19*

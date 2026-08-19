@@ -28,7 +28,68 @@ Firebase CDN hosts all 15 production plugins. App binary ships zero plugin files
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
+## Current state (post S115 — 2026-08-19 · novel chapter-preload + full tracker-sync generalization)
+
+**S115 picked up two S114-research items Martin chose directly: novel chapter-preload (small) and
+tracker sync (large), both shipped same session.**
+
+**Novel chapter-preload** — `TextReaderView.swift` now backgrounds a `bridge.parseChapter` fetch for
+the next chapter once scroll progress passes 70%, cached in `chapterContentCache` and consumed by
+`loadContent()` on nav instead of re-fetching; a jump-to-chapter (not just linear next/prev) evicts any
+stale cached entry. Mirrors the manga reader's S109-111 boundary-preload intent without needing the
+seamless in-scroll crossing that feature has (the novel reader is single-document-per-chapter, not
+continuous-scroll).
+
+**Tracker sync — S114's premise was wrong, corrected before building anything.** RESEARCH.md §20 claimed
+"Yomi has zero tracker integration today"; it doesn't — real, working MAL (MyAnimeList) OAuth+auto-update
+already existed (`MALService.swift`, wired into `ChapterReaderView.swift`), the research session just
+never checked Yomi's own code before comparing against Aidoku's tracker list. Flagged this to Martin
+directly rather than building a redundant "first tracker."
+
+**What actually shipped**: a new `MangaTracker` protocol (`Features/More/MangaTracker.swift`) generalizing
+MAL's existing shape (authURL/handleCallback/searchManga/updateProgress/logout/isLoggedIn), `MALService`
+refactored to conform, and three new trackers built against it — **AniList** (`AniListTrackerService.swift`
+— named distinctly from the pre-existing, unrelated `Features/Extensions/AniListService.swift` score-badge
+actor, a real naming collision caught before it shipped), **Shikimori**, and **Bangumi** (Martin's picks,
+research-verified live against each service's real API — see `RESEARCH.md` §21). AniList uses the
+Implicit Grant (no client_secret needed, the only one of the four with that option); Shikimori and Bangumi
+both require a `client_secret` embedded client-side (no PKCE alternative exists in either API) — flagged
+directly to Martin, who confirmed embedding it is fine, same as every other open-source tracker client.
+New `AppSecrets.swift` placeholders (`aniListClientId`/`shikimoriClientId`+`Secret`/`bangumiClientId`+
+`Secret`) need real registered app credentials before any of the 3 new trackers can actually authenticate
+— MAL is unaffected and keeps working as before. New `TrackerManager` (`Features/More/TrackerManager.swift`)
+centralizes both the tracker registry (`loggedInTrackers`, fanned out from both readers on chapter-finish)
+and OAuth-callback routing by host (`ContentView`'s one `.onOpenURL`, replacing MAL's old per-view handler).
+New `TrackersView.swift` (More → Trackers) replaces the old single MyAnimeList row with all 4 trackers plus
+a new `AppSettings.trackerAutoUpdate` toggle — previously always-on with no opt-out (Known Issue #72, now
+fixed same session).
+
+**Real pre-existing bug found and fixed as a prerequisite**: `Info.plist` had no `CFBundleURLTypes` entry
+at all — the `yomi://` custom URL scheme was never registered with iOS, so MAL's own OAuth callback
+(`yomi://mal/callback`) could never have actually reached the app. Likely broken since MAL login was
+first built; every tracker's OAuth depends on this, so it had to be fixed regardless of scope (#73, fixed).
+
+**A confusing red herring during this session, resolved**: after adding the new tracker files, a clean
+build reported a nonsensical error inside `ChapterReaderView.swift` — a 2-argument `.onChange` closure
+"expects 1 argument." Spent real time bisecting file-by-file assuming a whole-module-compilation/batch
+bug (`SWIFT_COMPILATION_MODE=singlefile` didn't change it, which should have been the tell). The error
+was real the whole time: `MALService`'s protocol-conforming signature change
+(`searchManga`'s return type, `updateMangaProgress`'s parameter) broke `ChapterReaderView.swift`'s old
+call site, and Swift's diagnostics for other still-broken files (missing `TrackerManager` etc.) were
+simply suppressing/reordering when that particular error got surfaced. Fixed by updating the call site
+to loop `TrackerManager.loggedInTrackers` (which was the real task-3 work anyway). **Lesson**: when a
+build error looks structurally impossible for an unrelated file, check for a stale call site against a
+signature you just changed before suspecting the toolchain.
+
+Zero-warning clean build on both `Yomi` and `YomiWidget` schemes (AppSettings.swift is shared). Live-
+verified via `build_run_sim` + mobile-mcp: Trackers screen renders all 4 services with correct
+not-connected state, the auto-update toggle is live, and MyAnimeList's own login screen is unchanged.
+Full OAuth round-trips for AniList/Shikimori/Bangumi remain unverified — they need real client
+credentials from Martin first (see `AppSecrets.swift`'s comments for each registration URL).
+
+---
+
+## Prior state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
 
 **S114 was a research-only session in a general conversation, not a Yomi coding session — no code
 touched.** Martin asked about Swift-ecosystem competitors, then went deeper on specific architecture
@@ -533,6 +594,8 @@ Full session-by-session history (S1-S90) lives in `Yomi/ROADMAP.md` (recent) and
 | 69 | MangaDex plugin lists licensed/external chapters as normal ones, which dead-end at "No pages found" | `com.yomi.mangadex.js` (live production plugin, hosted at `yomi-plugins.web.app`, source lives outside this repo)'s `getChapterList` (lines 81-133) pushes every chapter from MangaDex's `/feed` response with no check of `attrs.pages`/`attrs.externalUrl`. Reproduced live via `curl` against MangaDex's real API: 5 of 6 recent One Piece English chapters have `pages: 0` and an `externalUrl` pointing at MangaPlus, and hitting `at-home/server/{chapterId}` for one of those returns HTTP 404. `getPageList` (lines 135-156) returns `[]` on that failure, which `ChapterReaderView.swift:478-481` surfaces as the generic "No pages found for this chapter." MangaDex is one of only 3 sources on the `instantInstallSourceIDs` one-tap-install allowlist (`PluginsView.swift:38-42`), so this is a first-run-friction bug for a source the app actively steers new users toward. **Not fixed S113** — the plugin source lives in a separate repo not present on this machine. |
 | 70 | ~~Reader's prev/next-chapter footer buttons have no `accessibilityLabel`~~ | ✅ Fixed S113 — added `"Previous chapter"`/`"Next chapter"` accessibility labels to both buttons. |
 | 71 | Library's empty-state illustration doesn't match the design spec | The design spec (`YOMI Screens.dc.html`, "Empty state" section) shows a 132×132 box with a radial-gradient screentone-dot background, a crosshair (one horizontal + one vertical line), and a small accent dot near the top. The shipped shared component (`Core/YomiEmptyState.swift:20-38`, used by `LibraryView.swift:37,48-53`) instead renders a plain boxed SF Symbol (`"magnifyingglass"`) + a small accent circle — the component's own code comment acknowledges this is a deliberate simplification ("generalizes it to a boxed SF Symbol"), so it's a known, intentional simplification rather than an accidental bug, but the drift from spec is real. |
+| 72 | ~~Tracker auto-update had no opt-out~~ | ✅ Fixed S115 — `ChapterReaderView.swift`'s MAL auto-update fired unconditionally whenever logged in, with no setting to disable it. New `AppSettings.trackerAutoUpdate` (default `true`, preserving prior behavior) gates both the manga and novel reader's tracker-update calls; toggle lives in the new Trackers screen (More → Trackers). |
+| 73 | ~~`yomi://` custom URL scheme was never registered — MAL OAuth callback could never reach the app~~ | ✅ Fixed S115 — `Info.plist` had no `CFBundleURLTypes` entry at all. Found while adding new trackers' OAuth flows (all depend on the same scheme); likely broken since MAL login was first built, since nothing else exercises this path. Added the missing `CFBundleURLTypes` entry with scheme `yomi`. |
 
 ## MCP tools — use these every session
 
@@ -704,7 +767,14 @@ Yomi/Features/Library/MigrateView.swift        # Migrate tab UI: library picker 
 Yomi/Features/Library/MigrationService.swift   # Migration logic: transfers status/notes/categories/chapter read-state (matched by chapterNumber)
 Yomi/Features/Browse/BrowseView.swift          # SourceBrowseView: FeedTab enum, supportsLatest picker, bridge reuse; Suwayomi section; Migrate segment
 Yomi/Features/Reader/ChapterReaderView.swift   # Auto-mark read, incognito guard, lastPageRead save/resume; MangaReaderView has double-page spread logic
-Yomi/Features/Reader/TextReaderView.swift      # Novel reader; overlay opacity animation; dynamic colorScheme (sepia/dark/light)
+Yomi/Features/Reader/TextReaderView.swift      # Novel reader; overlay opacity animation; dynamic colorScheme (sepia/dark/light); chapterContentCache preload
+Yomi/Features/More/MangaTracker.swift          # Shared protocol every tracker conforms to (authURL/handleCallback/searchManga/updateProgress/logout/isLoggedIn)
+Yomi/Features/More/TrackerManager.swift        # Tracker registry (loggedInTrackers) + OAuth-callback router by host, called from ContentView's one .onOpenURL
+Yomi/Features/More/MALService.swift            # PKCE OAuth, no client_secret needed
+Yomi/Features/More/AniListTrackerService.swift # Implicit Grant OAuth, no client_secret — distinct from the unrelated Extensions/AniListService.swift score actor
+Yomi/Features/More/ShikimoriService.swift      # Authorization Code Grant, requires client_secret; shikimori.io (not .one, which redirects)
+Yomi/Features/More/BangumiService.swift        # Authorization Code Grant, requires client_secret; OAuth on bgm.tv, REST on api.bgm.tv
+Yomi/Features/More/TrackersView.swift          # More → Trackers: auto-update toggle + all 4 tracker connect rows
 Yomi/Features/More/PluginsView.swift
 Yomi/Features/More/SettingsView.swift          # Plugin Repos section, Suwayomi section, Advanced → NavigationLink; Appearance → AppearanceStudioView
 Yomi/Features/More/AppearanceStudioView.swift  # Canvas × Accent × Type studio; live preview card; WCAG contrast badge; app icon tiles; Reset defaults

@@ -7,8 +7,10 @@ private let clientId    = AppSecrets.malClientId
 private let redirectURI = "yomi://mal/callback"
 private let baseURL     = "https://api.myanimelist.net/v2"
 
-@Observable final class MALService {
+@Observable final class MALService: MangaTracker {
     static let shared = MALService()
+    static let displayName = "MyAnimeList"
+    static let callbackHost = "mal"
     private init() { loadToken() }
 
     // MARK: - State
@@ -105,7 +107,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
 
     // MARK: - Search Manga
 
-    func searchManga(title: String) async -> Int? {
+    func searchManga(title: String) async -> String? {
         guard
             let token   = accessToken,
             let encoded = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
@@ -122,13 +124,13 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             let id        = node["id"]    as? Int
         else { return nil }
         yomiLogNetwork(request, response: response, data: data)
-        return id
+        return String(id)
     }
 
     // MARK: - Update Progress
 
-    func updateMangaProgress(malId: Int, chaptersRead: Int) async {
-        guard let token = accessToken else { return }
+    func updateMangaProgress(trackerId: String, chaptersRead: Int) async {
+        guard let token = accessToken, let malId = Int(trackerId) else { return }
         var request = URLRequest(url: URL(string: "\(baseURL)/manga/\(malId)/my_list_status")!)
         request.httpMethod = "PATCH"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

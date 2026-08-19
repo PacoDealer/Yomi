@@ -332,6 +332,12 @@ import Observation
         didSet { defaults.set(backgroundDownloadEnabled, forKey: "backgroundDownloadEnabled") }
     }
 
+    /// Auto-update progress on every connected tracker (MAL/AniList/Shikimori/Bangumi) whenever a
+    /// chapter finishes. Previously always-on with no opt-out — see CLAUDE.md Known Issues.
+    var trackerAutoUpdate: Bool {
+        didSet { defaults.set(trackerAutoUpdate, forKey: "trackerAutoUpdate") }
+    }
+
     // MARK: - Smart updates
 
     /// Skip update check for manga that has unread chapters
@@ -513,6 +519,7 @@ import Observation
         concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 3
         backgroundAutoRefreshEnabled = d.object(forKey: "backgroundAutoRefreshEnabled") as? Bool ?? false
         backgroundDownloadEnabled    = d.object(forKey: "backgroundDownloadEnabled")    as? Bool ?? false
+        trackerAutoUpdate       = d.object(forKey: "trackerAutoUpdate")             as? Bool ?? true
         skipUpdateWithUnread    = d.object(forKey: "skipUpdateWithUnread")         as? Bool ?? false
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false

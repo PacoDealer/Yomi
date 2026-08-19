@@ -81,8 +81,14 @@ Yomi/
 │   │   ├── BackupManager.swift      # Export/import JSON (manga+chapters+novels+categories); buildBackupData() shared by local export + iCloud upload; uploadToICloud writes timestamped YomiBackup-<ISO8601>.json into the iCloud container (keeps last 8, pruneOldBackups), downloadFromICloud(_:)/deleteICloudBackup(_:) take a specific ICloudBackupEntry (S108 — was one fixed-name file); ICloudSyncStatus enum; lastICloudUploadDate in UserDefaults
 │   │   ├── BackupView.swift         # UI: iCloud section is a real list of ICloudBackupEntry rows (date + byte size, swipe-to-delete, tap-to-restore-that-entry, S108), ShareLink export, fileImporter import, Tachiyomi import
 │   │   ├── CloudSyncView.swift      # Sync toggle + status row (S103) — distinct screen from BackupView on purpose, live sync vs. point-in-time backup
-│   │   ├── MALService.swift         # OAuth PKCE plain, searchManga, updateMangaProgress
-│   │   ├── MALView.swift            # Login/disconnect UI + SafariView
+│   │   ├── MangaTracker.swift       # Shared protocol every tracker conforms to (S115) — authURL/handleCallback/searchManga/updateProgress/logout/isLoggedIn
+│   │   ├── TrackerManager.swift     # Tracker registry (loggedInTrackers) + OAuth-callback router by host (S115) — ContentView's one .onOpenURL dispatches here
+│   │   ├── MALService.swift         # OAuth PKCE plain, no client_secret; searchManga/updateMangaProgress return/take String trackerId (S115, was Int malId)
+│   │   ├── AniListTrackerService.swift # GraphQL, Implicit Grant OAuth (no client_secret) — distinct from Extensions/AniListService.swift's unrelated score-badge actor (S115)
+│   │   ├── ShikimoriService.swift   # REST v2, Authorization Code Grant (requires client_secret, no PKCE) — shikimori.io (S115)
+│   │   ├── BangumiService.swift     # REST v0, Authorization Code Grant (requires client_secret, no PKCE) — OAuth on bgm.tv, REST on api.bgm.tv (S115)
+│   │   ├── TrackersView.swift       # More → Trackers: auto-update toggle + all 4 tracker connect rows (S115, replaces the old single MyAnimeList row)
+│   │   ├── MALView.swift            # Login/disconnect UI + SafariView (also reused by AniListView/ShikimoriView/BangumiView)
 │   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdateRow. ScrollView+LazyVStack grouped by date bucket (S92 — N.12 spec), one row per title (not per chapter); long-press .contextMenu to mark all read, trailing icon jumps into reader at oldest unread chapter
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift     # First-launch full-screen card, rebuilt S95 (N.08 spec): one shared OnboardingPage template (150×150 icon box, wordmark/title, description, page dots, accent CTA) reused across 3 pages. Own explicit .tint() (fullScreenCover doesn't inherit YomiApp's). Real app icon via a plain OnboardingIcon.imageset (UIImage(named:) can't load .appiconset entries directly). Gated by AppSettings.hasSeenOnboarding via YomiApp's single merged .fullScreenCover (S95 — was two chained covers, silently broken; see METODOLOGIA S95).
@@ -533,9 +539,11 @@ ChapterReaderView
    → UPDATE chapter SET isRead=true, readAt=now, progress=1.0
    → MangaQueries.touchLastRead(mangaId:)
       → UPDATE manga SET lastReadAt=now
-→ if MALService.isLoggedIn
-   → MALService.searchManga(title:)
-   → MALService.updateMangaProgress(malId:chaptersRead:)
+→ if AppSettings.trackerAutoUpdate (S115 — was unconditional on MALService.isLoggedIn)
+   → for tracker in TrackerManager.loggedInTrackers
+      → tracker.searchManga(title:)
+      → tracker.updateMangaProgress(trackerId:chaptersRead:)
+   (TextReaderView's onReadComplete does the identical fan-out for novels, S115 — was manga-only before)
 
 ### Reading time tracking
 ChapterReaderView.onAppear
@@ -561,16 +569,18 @@ BackupManager.importBackup(from:)
 → decodeManga / decodeChapter
 → MangaQueries.upsert + ChapterQueries.upsert (merge, does not replace)
 
-### MAL OAuth
-MALService.authorizationURL()
-→ generates random code_verifier (plain PKCE)
-→ builds MAL authorize URL
+### Tracker OAuth (S115 — generalized from MAL-only; each tracker's own redirect host routes here)
+<Tracker>Service.authorizationURL()
+→ MAL: PKCE plain code_verifier → yomi://mal/callback
+→ AniList: Implicit Grant (no secret) → yomi://anilist/callback, token in URL *fragment*
+→ Shikimori/Bangumi: Authorization Code Grant (requires client_secret) → yomi://shikimori|bangumi/callback
 
-BackupView / MALView → SFSafariViewController
-→ user authorizes → MAL redirects to yomi://callback?code=...
+<Tracker>View → SFSafariViewController
+→ user authorizes → service redirects to yomi://<host>/callback[?code=... | #access_token=...]
 
-YomiApp / MALView.onOpenURL
-→ MALService.handleCallback(url:)
+ContentView.onOpenURL (S115 — was MALView's own .onOpenURL; now one router for all 4)
+→ TrackerManager.route(url:) → matches url.host against each tracker's callbackHost
+→ <matched tracker>.handleCallback(url:)
 → POST /oauth2/token (code + code_verifier)
 → GET /users/@me (username)
 → saves accessToken in UserDefaults

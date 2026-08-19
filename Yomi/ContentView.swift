@@ -39,6 +39,7 @@ struct ContentView: View {
         )
         .environment(\.yomiCanvas, settings.blendedCanvasColors)
         .background(settings.blendedCanvasColors.bg.ignoresSafeArea())
+        .onOpenURL { url in TrackerManager.route(url: url) }
     }
 
     @TabContentBuilder<Int>
