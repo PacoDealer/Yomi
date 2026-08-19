@@ -15,6 +15,7 @@ struct MALView: View {
 
     var body: some View {
         List {
+            TrackerHeaderLogoSection(name: "TrackerLogoMAL")
             if malService.isLoggedIn {
                 accountSection
             } else {

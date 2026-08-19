@@ -10,6 +10,7 @@ struct ShikimoriView: View {
 
     var body: some View {
         List {
+            TrackerHeaderLogoSection(name: "TrackerLogoShikimori")
             if service.isLoggedIn {
                 Section("Account") {
                     LabeledContent("Logged in as", value: service.username ?? "—")

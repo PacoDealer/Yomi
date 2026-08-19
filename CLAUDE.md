@@ -87,6 +87,23 @@ not-connected state, the auto-update toggle is live, and MyAnimeList's own login
 Full OAuth round-trips for AniList/Shikimori/Bangumi remain unverified — they need real client
 credentials from Martin first (see `AppSecrets.swift`'s comments for each registration URL).
 
+**Follow-up same session — real tracker logos** (Martin's ask, and his call to use real logos over
+a monogram fallback). Each service's own official icon, sourced from: MAL — `cdn.myanimelist.net`'s
+own SVG favicon; AniList — `anilist.co`'s own apple-touch-icon PNG; Shikimori —
+`shikimori.io`'s own apple-touch-icon PNG; Bangumi — no square icon exists anywhere, including their
+own site (`bgm.tv` blocks non-browser requests entirely) — used the wordmark PNG from Wikimedia
+Commons instead, tagged `{{PD-textlogo}}` (public domain — simple text/geometric logos don't clear
+copyright's threshold of originality; still carries a standard trademark notice, which nominative
+fair use for service-identification covers, same basis every "Login with X" button relies on).
+New `Assets.xcassets/TrackerLogo{MAL,AniList,Shikimori,Bangumi}.imageset` entries, wired via a new
+shared `TrackerLogo`/`TrackerHeaderLogoSection` (`TrackersView.swift`). **Real bug caught live,
+not assumed**: Bangumi's wordmark PNG is solid black — invisible against the app's dark-mode row
+background until rendered as `.template` + `.foregroundStyle(.primary)`. Also needed a wider,
+non-square frame (72×28 in the list, 176×64 in its own header) since it's a ~3.6:1 wordmark, not a
+square mark like the other three — flagged to Martin directly as a real tradeoff (his call: keep
+the real wordmark honestly-sized over forcing it into a square that made it unreadable). Live-verified
+all 4 renders via mobile-mcp screenshots. Zero-warning build both schemes.
+
 ---
 
 ## Prior state (post S114 — 2026-08-18 · external competitor/architecture research, no code changes)
