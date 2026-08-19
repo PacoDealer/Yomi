@@ -10,6 +10,7 @@ struct BangumiView: View {
 
     var body: some View {
         List {
+            TrackerHeaderLogoSection(name: "TrackerLogoBangumi", wordmark: true)
             if service.isLoggedIn {
                 Section("Account") {
                     LabeledContent("Logged in as", value: service.username ?? "—")
