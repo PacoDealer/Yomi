@@ -1,11 +1,11 @@
 import Foundation
 
-/// Representa una categoría para organizar la biblioteca del usuario
+/// Represents a category for organizing the user's library
 struct Category: Identifiable, Codable {
-    /// Identificador único local
+    /// Local unique identifier
     let id: String
-    /// Nombre visible de la categoría (ej: "Favoritos", "Leyendo")
+    /// Visible category name (e.g. "Favorites", "Reading")
     var name: String
-    /// Posición de orden entre categorías; menor número aparece primero
+    /// Sort position among categories; lower numbers appear first
     var sort: Int
 }

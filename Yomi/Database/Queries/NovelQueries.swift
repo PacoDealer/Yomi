@@ -52,14 +52,6 @@ enum NovelQueries {
 
     // MARK: - Novel: Write
 
-    /// Updates all fields of an existing novel by id
-    nonisolated static func update(_ novel: Novel) throws {
-        _ = try appDatabase.write { db in
-            try novel.update(db)
-        }
-        markCloudDirty(.novel, key: novel.id)
-    }
-
     /// Inserts or updates a novel (uses id as key)
     nonisolated static func upsert(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
@@ -239,9 +231,7 @@ enum NovelQueries {
             )
             return try String.fetchAll(db, sql: "SELECT id FROM novel_chapter WHERE novelId = ?", arguments: [novelId])
         }
-        for chapterId in chapterIds {
-            markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
-        }
+        markCloudDirtyBatch(.novelChapterState, keys: chapterIds.map { "\(novelId)|\($0)" })
         if read {
             try? touchLastRead(novelId: novelId)
         }

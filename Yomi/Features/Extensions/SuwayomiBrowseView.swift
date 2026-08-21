@@ -20,6 +20,7 @@ struct SuwayomiBrowseView: View {
     @State private var selectedManga: Manga? = nil
     @State private var showMangaDetail = false
     @State private var selectedFeed: FeedTab = .popular
+    @State private var loadGeneration = 0
 
     private let service = SuwayomiService.shared
     private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
@@ -101,6 +102,7 @@ struct SuwayomiBrowseView: View {
 
     private func loadMore() async {
         guard !isLoading, hasNextPage else { return }
+        let generation = loadGeneration
         isLoading = true
         errorMessage = nil
         do {
@@ -114,6 +116,10 @@ struct SuwayomiBrowseView: View {
             }
             let newMangas = page.mangaList.map { service.toManga(item: $0, sourceId: source.id) }
             await MainActor.run {
+                // A reset() (feed switch / search) that happened while this request was in
+                // flight bumped loadGeneration — applying a stale result now would overwrite
+                // the new feed's just-cleared state with the old feed's page. See finding #84.
+                guard generation == loadGeneration else { return }
                 mangas.append(contentsOf: newMangas)
                 hasNextPage = page.hasNextPage
                 currentPage += 1
@@ -121,6 +127,7 @@ struct SuwayomiBrowseView: View {
             }
         } catch {
             await MainActor.run {
+                guard generation == loadGeneration else { return }
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
@@ -136,11 +143,13 @@ struct SuwayomiBrowseView: View {
 
     private func reset(keepQuery: Bool = false) async {
         await MainActor.run {
+            loadGeneration += 1
             mangas = []
             currentPage = 1
             hasNextPage = true
             isSearching = keepQuery
             errorMessage = nil
+            isLoading = false
         }
     }
 }

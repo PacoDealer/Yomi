@@ -54,6 +54,13 @@ final class ExtensionManager {
         installed = valid
     }
 
+    /// MainActor-hopped form of `loadInstalled()` for call sites resuming after an `await` —
+    /// see `install()`/`remove()`. `loadInstalled()` itself stays synchronous for `init()`'s
+    /// call site, which never crosses an actor boundary.
+    private func loadInstalledOnMain() async {
+        await MainActor.run { loadInstalled() }
+    }
+
     // MARK: - Seed Bundled Plugins
 
     /// Copies bundled JS plugins from the app bundle into Documents/Extensions/ and upserts DB records.
@@ -116,9 +123,11 @@ final class ExtensionManager {
 
     /// Downloads the JS file from sourceListURL and registers the extension
     func install(_ ext: Extension) async {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        defer { Task { await MainActor.run { isLoading = false } } }
 
         do {
             // Install/reinstall means "get the current plugin" — a locally cached response
@@ -132,8 +141,14 @@ final class ExtensionManager {
             // An existing install under a different id (e.g. from an old sha256-hash ID
             // scheme, now superseded by a stable catalog id like "com.yomi.novelfire") would
             // otherwise coexist with this new row forever — both name-match the same catalog
-            // entry, so Plugins/Browse show the same source twice. Retire the old one.
-            for stale in installed where stale.name.lowercased() == ext.name.lowercased() && stale.id != ext.id {
+            // entry, so Plugins/Browse show the same source twice. Retire the old one. Gated on
+            // sharing the same sourceListURL host so this never touches a genuinely different
+            // plugin (e.g. a custom "Install from URL" install from an unrelated domain) that
+            // happens to share a display name with a catalog entry — see finding #83.
+            for stale in installed
+            where stale.name.lowercased() == ext.name.lowercased()
+                && stale.id != ext.id
+                && stale.sourceListURL.host == ext.sourceListURL.host {
                 try? FileManager.default.removeItem(
                     at: extensionsDirectory.appendingPathComponent("\(stale.id).js"))
                 try? ExtensionQueries.delete(id: stale.id)
@@ -154,9 +169,9 @@ final class ExtensionManager {
                 sourceIds:     ext.sourceIds
             )
             try ExtensionQueries.upsert(updated)
-            loadInstalled()
+            await loadInstalledOnMain()
         } catch {
-            errorMessage = error.localizedDescription
+            await MainActor.run { errorMessage = error.localizedDescription }
         }
     }
 

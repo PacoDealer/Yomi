@@ -47,7 +47,7 @@ struct TextReaderView: View {
     // Background preload of the next chapter's content — avoids a full network-fetch stall on
     // every chapter nav, matching the manga reader's S109-111 boundary-preload intent.
     @State private var chapterContentCache: [String: String] = [:]
-    @State private var isPreloadingNextChapter = false
+    @State private var preloadingChapterIds: Set<String> = []
 
     // Reader settings — initialized from persisted AppSettings
     @State private var fontSize: Double        = AppSettings.shared.fontSize
@@ -265,7 +265,6 @@ struct TextReaderView: View {
         .onChange(of: fontSize)   { _, v in AppSettings.shared.fontSize = v }
         .onChange(of: novelTheme) { _, v in
             AppSettings.shared.novelTheme  = v.rawValue
-            AppSettings.shared.novelSepia  = (v == .sepia)
         }
         .onChange(of: lineSpacing) { _, v in AppSettings.shared.lineSpacing = v }
         .onChange(of: fontFamily)    { _, v in AppSettings.shared.novelFontFamily = v }
@@ -353,18 +352,28 @@ struct TextReaderView: View {
     // MARK: - Navigate
 
     private func navigateToChapter(_ index: Int) {
-        guard index >= 0, index < chapters.count else { return }
+        // Re-selecting the already-open chapter (e.g. tapping it in the Chapters sheet) must be a
+        // no-op — otherwise currentChapterIndex is reassigned the SAME value, activeChapter.id
+        // never changes, .task(id: activeChapter.id) never re-runs, and isLoading (already false)
+        // never gets cleared, since nothing set it back to true either. Soft-locks the reader on a
+        // permanent spinner. See finding #92.
+        guard index >= 0, index < chapters.count, index != currentChapterIndex else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         showFinishedBanner = false
         stopTTS()
         flushScrollPercent()
+        // Credit the chapter as read if the user was already effectively done (matches the JS
+        // 90%-scroll completion threshold in ReaderWebView) before navigating away — but an
+        // unconditional mark-read here contradicted that intentional mechanism for a barely-
+        // started chapter. See finding #91.
+        let wasNearComplete = (lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0) >= 0.9
         lastKnownScrollPercent = nil
         flushReadingTime()
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
-        let chapterId = activeChapter.id
-        let novelId = novel.id
-        if !AppSettings.shared.isIncognito {
+        if wasNearComplete && !AppSettings.shared.isIncognito {
+            let chapterId = activeChapter.id
+            let novelId = novel.id
             Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
         }
         rawContent    = ""
@@ -382,15 +391,20 @@ struct TextReaderView: View {
     private func preloadNextChapterIfNeeded() {
         guard let next = nextChapterForPreload,
               chapterContentCache[next.id] == nil,
-              !isPreloadingNextChapter else { return }
-        isPreloadingNextChapter = true
+              !preloadingChapterIds.contains(next.id) else { return }
+        preloadingChapterIds.insert(next.id)
         let path = next.path
         let nextId = next.id
         Task.detached(priority: .background) {
             let html = bridge.parseChapter(path: path)
             await MainActor.run {
-                if !html.isEmpty { chapterContentCache[nextId] = html }
-                isPreloadingNextChapter = false
+                preloadingChapterIds.remove(nextId)
+                // Only cache if this chapter is still legitimately "next" — a jump-to-chapter's
+                // cache-eviction filter (navigateToChapter) may have run while this fetch was in
+                // flight, and a late write here would silently re-insert a now-irrelevant chapter
+                // right after that eviction ran. See finding #94.
+                guard !html.isEmpty, nextChapterForPreload?.id == nextId else { return }
+                chapterContentCache[nextId] = html
             }
         }
     }
@@ -501,6 +515,23 @@ struct ReaderWebView: UIViewRepresentable {
                     }
                 }, { passive: true });
 
+                // A chapter short enough to fit the viewport (interludes, teasers, author's-note-
+                // only chapters — common in web-novel sources) never scrolls, so the 'scroll'
+                // listener above never fires at all — mark/progress tracking would otherwise stay
+                // permanently stuck at 0% for it. Treat "nothing to scroll" as fully read. Checked
+                // both immediately and on 'load' since images/fonts can still be resizing the
+                // layout when this script runs (injectionTime: .atDocumentEnd). See finding #93.
+                function checkNoScrollNeeded() {
+                    if (fired) return;
+                    if (document.body.scrollHeight <= window.innerHeight) {
+                        fired = true;
+                        window.webkit.messageHandlers.readComplete.postMessage('done');
+                        window.webkit.messageHandlers.scrollPosition.postMessage(1);
+                    }
+                }
+                checkNoScrollNeeded();
+                window.addEventListener('load', checkNoScrollNeeded, { passive: true });
+
                 // Debounced scroll position save (400 ms)
                 var scrollTimer = null;
                 window.addEventListener('scroll', function() {
@@ -540,9 +571,14 @@ struct ReaderWebView: UIViewRepresentable {
         if let styleStart = html.range(of: "<style>"),
            let styleEnd   = html.range(of: "</style>") {
             let styleContent = String(html[styleStart.lowerBound...styleEnd.upperBound])
+            // Backslash must be escaped first so it doesn't double-escape the backtick/$ escapes
+            // added after it. `$` needs escaping too, not just backtick — this is a JS template
+            // literal, and an unescaped `${...}` inside styleContent would be evaluated as a JS
+            // expression instead of rendered as literal CSS. See finding #107.
             let escaped = styleContent
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "`",  with: "\\`")
+                .replacingOccurrences(of: "$",  with: "\\$")
             let js = """
             (function() {
                 var existing = document.querySelector('style');
@@ -575,6 +611,25 @@ struct ReaderWebView: UIViewRepresentable {
         }
 
         @objc func handleTap() { onTap() }
+
+        // MARK: WKNavigationDelegate — block navigation out of the reader
+        //
+        // rawContent is raw HTML scraped from arbitrary third-party novel sites, inserted
+        // unsanitized into styledHTML and loaded with full JS execution and no CSP. Without this,
+        // any <a href> or JS redirect embedded in that scraped content (ads, promotional links, a
+        // compromised source page) could navigate this WKWebView to an arbitrary URL with zero
+        // interception. Our own loadHTMLString(_:baseURL: nil) call resolves to about:blank with
+        // no request URL — anything else is a real navigation attempt and gets cancelled. See
+        // finding #95.
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            let url = navigationAction.request.url
+            if url == nil || url?.absoluteString == "about:blank" {
+                decisionHandler(.allow)
+            } else {
+                decisionHandler(.cancel)
+            }
+        }
 
         // MARK: WKNavigationDelegate — restore scroll after page load
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

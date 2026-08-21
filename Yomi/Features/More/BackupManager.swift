@@ -444,7 +444,11 @@ enum ICloudSyncStatus: Equatable {
             name:           name,
             chapterNumber:  d["chapterNumber"]  as? Double,
             isRead:         d["isRead"]         as? Bool ?? false,
-            isDownloaded:   d["isDownloaded"]   as? Bool ?? false,
+            // The backup never contains the actual downloaded page files (only on-disk, never
+            // serialized) — trusting a backed-up isDownloaded=true here would leave the chapter
+            // showing as "downloaded" in the UI (filterable/badged) with nothing on disk to back
+            // it up. See finding #102.
+            isDownloaded:   false,
             downloadedAt:   nil,
             readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
             progress:       d["progress"]       as? Double ?? 0,

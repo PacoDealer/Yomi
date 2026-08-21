@@ -62,6 +62,7 @@ enum ChapterQueries {
         _ = try appDatabase.write { db in
             try chapter.save(db)
         }
+        markCloudDirty(.mangaChapterState, key: "\(chapter.mangaId)|\(chapter.id)")
     }
 
     /// Inserts new chapters ignoring conflicts (INSERT OR IGNORE).
@@ -92,21 +93,6 @@ enum ChapterQueries {
     }
 
     // MARK: - Progress
-
-    /// Marks a chapter as read with isRead=true, readAt=now, progress=1.0 (direct UPDATE, no prior fetch).
-    nonisolated static func markRead(id: String) throws {
-        var mangaId: String?
-        _ = try appDatabase.write { db in
-            try db.execute(
-                sql: "UPDATE chapter SET isRead = 1, readAt = ?, progress = 1.0 WHERE id = ?",
-                arguments: [Date(), id]
-            )
-            mangaId = try String.fetchOne(db, sql: "SELECT mangaId FROM chapter WHERE id = ?", arguments: [id])
-        }
-        if let mangaId {
-            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
-        }
-    }
 
     /// Marks a chapter as read with isRead=true and readAt=now (direct UPDATE, no prior fetch).
     nonisolated static func markRead(id: String, mangaId: String) throws {
@@ -150,9 +136,7 @@ enum ChapterQueries {
             )
             return try String.fetchAll(db, sql: "SELECT id FROM chapter WHERE mangaId = ?", arguments: [mangaId])
         }
-        for chapterId in chapterIds {
-            markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(chapterId)")
-        }
+        markCloudDirtyBatch(.mangaChapterState, keys: chapterIds.map { "\(mangaId)|\($0)" })
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 

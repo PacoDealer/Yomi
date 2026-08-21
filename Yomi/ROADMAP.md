@@ -21,7 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S115 — 2026-08-19 · novel chapter-preload + tracker-sync generalization)
+## Current state (post S117 — 2026-08-21 · cleared the S116 full-project-audit backlog)
+
+**S116 ran an "absolutely everything" full-project audit** (23-dimension multi-agent `Workflow`,
+every finding independently re-verified) but was interrupted twice by the account's own session
+limit — 8 of 23 dimensions completed (34 confirmed findings, `CLAUDE.md` Known Issues rows 74-107),
+15 never ran. **S117 fixed 32 of those 34 findings directly** across ~19 files — CloudKit
+dirty-marking gaps on chapter upsert/backup-restore, a novel-reader soft-lock, a missing WKWebView
+navigation-policy check (unsanitized scraped HTML could otherwise navigate the reader out), an
+unguarded tracker auto-update firing redundant API calls, OPDS pagination never being consumed, a
+wrong Tachiyomi-import match-count, plus assorted dead code and stale docs. The 2 left unfixed are
+deliberate calls, not gaps: #78 (iPad's two independent tab-visibility stores need a real product
+decision) and #106 (a `ChapterReaderView.swift` file split, deferred since this session's own fixes
+already touched that file). Full detail in `CLAUDE.md`'s S117 entry and the Known Issues table
+itself. Clean zero-warning build, live-verified via `build_run_sim`+mobile-mcp across Library/
+Browse/Plugins/Sync. The remaining 15 audit dimensions from S116 run next, same session.
+
+---
+
+## Prior state (post S115 — 2026-08-19 · novel chapter-preload + tracker-sync generalization)
 
 **S115 shipped two items Martin chose from S114's research backlog.** (1) **Novel chapter-preload** —
 `TextReaderView.swift` backgrounds a fetch of the next chapter once scroll passes 70%, cached and
