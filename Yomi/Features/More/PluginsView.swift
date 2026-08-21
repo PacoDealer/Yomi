@@ -54,6 +54,7 @@ struct PluginsView: View {
     @State private var installingID: String? = nil
     @State private var isUpdatingAll: Bool = false
     @State private var langPickerGroup: PluginCatalogGroup? = nil
+    @State private var langPickerCopyGroup: PluginCatalogGroup? = nil
 
     private var filteredGroups: [PluginCatalogGroup] {
         var groups = settings.showNSFW
@@ -114,6 +115,20 @@ struct PluginsView: View {
                         if !installed { Task { await installEntry(entry) } }
                     }
                     .disabled(installed)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+        }
+        .confirmationDialog(
+            langPickerCopyGroup.map { "Copy \($0.name) URL" } ?? "",
+            isPresented: Binding(get: { langPickerCopyGroup != nil }, set: { if !$0 { langPickerCopyGroup = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let group = langPickerCopyGroup {
+                ForEach(group.entries) { entry in
+                    Button(entry.language.uppercased()) {
+                        UIPasteboard.general.string = entry.fileURL
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             }
@@ -256,14 +271,22 @@ struct PluginsView: View {
                         group:            group,
                         isInstalled:      catalogService.isGroupInstalled(group),
                         installingID:     installingID,
-                        isInstantInstall: instantInstallSourceIDs.contains(group.primaryEntry.id)
-                    ) {
-                        if group.isMultiLang {
-                            langPickerGroup = group
-                        } else {
-                            Task { await installEntry(group.primaryEntry) }
+                        isInstantInstall: instantInstallSourceIDs.contains(group.primaryEntry.id),
+                        onInstall: {
+                            if group.isMultiLang {
+                                langPickerGroup = group
+                            } else {
+                                Task { await installEntry(group.primaryEntry) }
+                            }
+                        },
+                        onCopyURL: {
+                            if group.isMultiLang {
+                                langPickerCopyGroup = group
+                            } else {
+                                UIPasteboard.general.string = group.primaryEntry.fileURL
+                            }
                         }
-                    }
+                    )
                 }
             }
         } header: {
@@ -539,6 +562,7 @@ struct CatalogGroupRow: View {
     let installingID:     String?
     let isInstantInstall: Bool
     let onInstall:        () -> Void
+    let onCopyURL:        () -> Void
 
     @State private var justCopied = false
 
@@ -612,6 +636,10 @@ struct CatalogGroupRow: View {
                     .controlSize(.small)
             } else {
                 Button(justCopied ? "Copied" : "Copy URL") {
+                    if group.isMultiLang {
+                        onCopyURL()
+                        return
+                    }
                     UIPasteboard.general.string = group.primaryEntry.fileURL
                     withAnimation { justCopied = true }
                     Task {

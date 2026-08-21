@@ -14,7 +14,10 @@ struct BrowseView: View {
     @State private var suwayomiSources: [SuwayomiSource] = []
     @State private var suwayomiLoading  = false
     @State private var opdsRootFeed: OPDSFeed? = nil
+    @State private var opdsRootEntries: [OPDSEntry] = []
+    @State private var opdsNextHref: String? = nil
     @State private var opdsLoading = false
+    @State private var opdsLoadingMore = false
     @State private var showSearch = false
     @State private var showMigrate = false
 
@@ -217,15 +220,29 @@ struct BrowseView: View {
 
             if opdsLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
-            } else if let feed = opdsRootFeed {
+            } else if opdsRootFeed != nil {
                 VStack(spacing: 0) {
-                    ForEach(feed.entries) { entry in
+                    ForEach(opdsRootEntries) { entry in
                         NavigationLink {
                             OPDSBrowseView(title: entry.title, feedHref: entry.navigationHref ?? OPDSService.shared.baseURL)
                         } label: {
                             opdsRow(entry: entry)
                         }
                         .buttonStyle(.plain)
+                    }
+                    // A paginated OPDS root (Calibre-Web/Komga page by default) would otherwise
+                    // silently truncate to page 1 with no indication more exists. See finding #87.
+                    if opdsNextHref != nil {
+                        HStack {
+                            Spacer()
+                            if opdsLoadingMore {
+                                ProgressView()
+                            } else {
+                                Button("Load More") { Task { await loadMoreOPDSRoot() } }
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -285,10 +302,27 @@ struct BrowseView: View {
             let feed = try await OPDSService.shared.fetchFeed(href: OPDSService.shared.baseURL)
             await MainActor.run {
                 opdsRootFeed = feed
+                opdsRootEntries = feed.entries
+                opdsNextHref = feed.nextPageHref
                 opdsLoading  = false
             }
         } catch {
             await MainActor.run { opdsLoading = false }
+        }
+    }
+
+    private func loadMoreOPDSRoot() async {
+        guard !opdsLoadingMore, let href = opdsNextHref else { return }
+        opdsLoadingMore = true
+        do {
+            let feed = try await OPDSService.shared.fetchFeed(href: href)
+            await MainActor.run {
+                opdsRootEntries.append(contentsOf: feed.entries)
+                opdsNextHref = feed.nextPageHref
+                opdsLoadingMore = false
+            }
+        } catch {
+            await MainActor.run { opdsLoadingMore = false }
         }
     }
 }

@@ -1,31 +1,31 @@
 import Foundation
 
-/// Representa un capítulo de una obra
+/// Represents a chapter of a work
 struct Chapter: Identifiable, Codable, Hashable {
-    /// Identificador único local
+    /// Local unique identifier
     let id: String
-    /// ID del manga al que pertenece este capítulo
+    /// ID of the manga this chapter belongs to
     let mangaId: String
-    /// Ruta relativa dentro de la fuente (usada para obtener las páginas)
+    /// Relative path within the source (used to fetch pages)
     let path: String
-    /// Nombre o título del capítulo (ej: "Capítulo 1" o "Prólogo")
+    /// Chapter name or title (e.g. "Chapter 1" or "Prologue")
     var name: String
-    /// Número de capítulo; puede ser nil si la fuente no lo provee
+    /// Chapter number; may be nil if the source doesn't provide one
     var chapterNumber: Double?
-    /// Indica si el usuario ya leyó este capítulo
+    /// Whether the user has already read this chapter
     var isRead: Bool
-    /// Indica si el capítulo está descargado para lectura sin conexión
+    /// Whether the chapter is downloaded for offline reading
     var isDownloaded: Bool
-    /// Fecha y hora en que se completó la descarga del capítulo (nil si no está descargado)
+    /// Date and time the chapter's download completed (nil if not downloaded)
     var downloadedAt: Date?
-    /// Fecha y hora en que el usuario terminó o marcó como leído el capítulo
+    /// Date and time the user finished or marked the chapter as read
     var readAt: Date?
-    /// Progreso de lectura entre 0.0 (sin leer) y 1.0 (completado)
+    /// Reading progress between 0.0 (unread) and 1.0 (completed)
     var progress: Double
-    /// Segundos totales de tiempo de lectura registrado para este capítulo
+    /// Total recorded reading time in seconds for this chapter
     var readingSeconds: Int
-    /// Última página leída (0 = no iniciado); se restaura al abrir el capítulo
+    /// Last page read (0 = not started); restored when the chapter is opened
     var lastPageRead: Int
-    /// Grupo de escaneo que publicó este capítulo (opcional, provisto por el plugin)
+    /// Scanlation group that published this chapter (optional, provided by the plugin)
     var scanlator: String? = nil
 }

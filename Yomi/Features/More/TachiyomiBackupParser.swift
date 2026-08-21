@@ -96,10 +96,13 @@ enum TachiyomiBackupParser {
                    let (manga, chapters) = parseManga(mangaData) {
                     result.mangas.append(manga)
                     result.chapters.append(contentsOf: chapters)
-                    if sourceMap[manga.sourceId.hasPrefix("tachiyomi_") ? 0 : UInt64(manga.sourceId.components(separatedBy: "_").last ?? "") ?? 0] != nil {
-                        result.mappedCount += 1
-                    } else {
+                    // parseManga sets manga.sourceId to sourceMap[tachiyomiSourceId] when a mapping
+                    // exists, falling back to "tachiyomi_<id>" only when it doesn't — so the prefix
+                    // itself is the mapped/unmapped signal, not a re-derivation through sourceMap.
+                    if manga.sourceId.hasPrefix("tachiyomi_") {
                         result.unmappedCount += 1
+                    } else {
+                        result.mappedCount += 1
                     }
                 }
             } else {

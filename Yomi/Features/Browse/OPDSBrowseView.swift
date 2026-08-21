@@ -10,7 +10,10 @@ struct OPDSBrowseView: View {
     let feedHref: String
 
     @State private var feed: OPDSFeed? = nil
+    @State private var allEntries: [OPDSEntry] = []
+    @State private var nextHref: String? = nil
     @State private var isLoading = false
+    @State private var isLoadingMore = false
     @State private var errorMessage: String? = nil
     @State private var selectedEntry: OPDSEntry? = nil
 
@@ -27,8 +30,8 @@ struct OPDSBrowseView: View {
                     title: "Failed to load",
                     message: error
                 )
-            } else if let feed {
-                feedView(feed)
+            } else if feed != nil {
+                feedView(allEntries)
             }
         }
         .navigationTitle(title)
@@ -42,34 +45,52 @@ struct OPDSBrowseView: View {
     // MARK: Feed content
 
     @ViewBuilder
-    private func feedView(_ feed: OPDSFeed) -> some View {
-        if feed.entries.isEmpty {
+    private func feedView(_ entries: [OPDSEntry]) -> some View {
+        if entries.isEmpty {
             YomiEmptyState(systemImage: "tray", title: "No items", message: "This feed has nothing to show yet.")
-        } else if feed.entries.allSatisfy({ $0.isNavigation }) {
+        } else if entries.allSatisfy({ $0.isNavigation }) {
             // All navigation → show as list (can drill deeper)
-            navigationList(entries: feed.entries)
-        } else if feed.entries.allSatisfy({ !$0.isNavigation }) {
+            navigationList(entries: entries)
+        } else if entries.allSatisfy({ !$0.isNavigation }) {
             // All acquisition → show as cover grid
-            acquisitionGrid(entries: feed.entries)
+            acquisitionGrid(entries: entries)
         } else {
             // Mixed — split into two sections
             List {
-                if let navEntries = nonEmptyFilter(feed.entries, isNav: true) {
+                if let navEntries = nonEmptyFilter(entries, isNav: true) {
                     Section("Categories") {
                         ForEach(navEntries) { entry in
                             navRow(entry)
                         }
                     }
                 }
-                if let acqEntries = nonEmptyFilter(feed.entries, isNav: false) {
+                if let acqEntries = nonEmptyFilter(entries, isNav: false) {
                     Section("Books (\(acqEntries.count))") {
                         ForEach(acqEntries) { entry in
                             acqRow(entry)
                         }
                     }
                 }
+                loadMoreRow
             }
             .listStyle(.insetGrouped)
+        }
+    }
+
+    /// Any paginated OPDS catalog (Calibre-Web/Komga page by default) needs this — without it the
+    /// browse view silently truncates to page 1 with no indication more content exists. See #87.
+    @ViewBuilder
+    private var loadMoreRow: some View {
+        if nextHref != nil {
+            HStack {
+                Spacer()
+                if isLoadingMore {
+                    ProgressView()
+                } else {
+                    Button("Load More") { Task { await loadMore() } }
+                }
+                Spacer()
+            }
         }
     }
 
@@ -81,16 +102,19 @@ struct OPDSBrowseView: View {
     // MARK: Navigation list
 
     private func navigationList(entries: [OPDSEntry]) -> some View {
-        List(entries) { entry in
-            if let navHref = entry.navigationHref {
-                NavigationLink {
-                    OPDSBrowseView(title: entry.title, feedHref: navHref)
-                } label: {
+        List {
+            ForEach(entries) { entry in
+                if let navHref = entry.navigationHref {
+                    NavigationLink {
+                        OPDSBrowseView(title: entry.title, feedHref: navHref)
+                    } label: {
+                        navRow(entry)
+                    }
+                } else {
                     navRow(entry)
                 }
-            } else {
-                navRow(entry)
             }
+            loadMoreRow
         }
         .listStyle(.insetGrouped)
     }
@@ -130,6 +154,8 @@ struct OPDSBrowseView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            loadMoreRow
+                .padding(.bottom, 12)
         }
     }
 
@@ -198,6 +224,8 @@ struct OPDSBrowseView: View {
             let result = try await OPDSService.shared.fetchFeed(href: feedHref)
             await MainActor.run {
                 feed = result
+                allEntries = result.entries
+                nextHref = result.nextPageHref
                 isLoading = false
             }
         } catch {
@@ -205,6 +233,21 @@ struct OPDSBrowseView: View {
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
+        }
+    }
+
+    private func loadMore() async {
+        guard !isLoadingMore, let href = nextHref else { return }
+        isLoadingMore = true
+        do {
+            let result = try await OPDSService.shared.fetchFeed(href: href)
+            await MainActor.run {
+                allEntries.append(contentsOf: result.entries)
+                nextHref = result.nextPageHref
+                isLoadingMore = false
+            }
+        } catch {
+            await MainActor.run { isLoadingMore = false }
         }
     }
 }
