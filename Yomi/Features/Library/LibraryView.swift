@@ -428,7 +428,7 @@ struct LibraryView: View {
                 }
             }
             .onAppear { Task { await viewModel.loadLibrary() } }
-            .onChange(of: appRouter.pendingOpenMangaId) { _, id in
+            .onChange(of: appRouter.pendingOpenMangaId, initial: true) { _, id in
                 guard let id else { return }
                 appRouter.pendingOpenMangaId = nil
                 Task.detached {
@@ -439,7 +439,7 @@ struct LibraryView: View {
                     }
                 }
             }
-            .onChange(of: appRouter.pendingOpenNovelId) { _, id in
+            .onChange(of: appRouter.pendingOpenNovelId, initial: true) { _, id in
                 guard let id else { return }
                 appRouter.pendingOpenNovelId = nil
                 Task.detached {

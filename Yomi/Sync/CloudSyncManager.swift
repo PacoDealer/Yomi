@@ -106,6 +106,21 @@ nonisolated func markCloudDeleted(_ type: CloudRecordType, key: String) {
     engine.state.add(pendingRecordZoneChanges: [.deleteRecord(recordID)])
 }
 
+/// Batched form of `markCloudDirty` for bulk writes (e.g. "mark all chapters read") — does the
+/// mapping-remember and pending-stash work for the whole key list in one database transaction each,
+/// instead of the 2 separate transactions `markCloudDirty` performs per call. See code-review
+/// finding #74.
+nonisolated func markCloudDirtyBatch(_ type: CloudRecordType, keys: [String]) {
+    guard !keys.isEmpty else { return }
+    let recordIDs = keys.map { CloudSyncManager.recordID(type: type, key: $0, zoneID: cloudSyncZoneID) }
+    CloudSyncManager.rememberMappingBatch(recordNames: recordIDs.map(\.recordName), type: type, keys: keys)
+    guard let engine = cloudSyncEngine else {
+        CloudSyncManager.markPendingBatch(recordNames: recordIDs.map(\.recordName), change: "save")
+        return
+    }
+    engine.state.add(pendingRecordZoneChanges: recordIDs.map { .saveRecord($0) })
+}
+
 // MARK: - CloudSyncManager
 
 @MainActor
@@ -368,6 +383,30 @@ final class CloudSyncManager: NSObject {
                 sql: "UPDATE cloud_sync_map SET pendingChange = ? WHERE recordName = ?",
                 arguments: [change, recordName]
             )
+        }
+    }
+
+    /// Batched form of `rememberMapping` — one transaction for the whole list. See finding #74.
+    nonisolated static func rememberMappingBatch(recordNames: [String], type: CloudRecordType, keys: [String]) {
+        _ = try? appDatabase.write { db in
+            for (recordName, key) in zip(recordNames, keys) {
+                try db.execute(
+                    sql: "INSERT OR REPLACE INTO cloud_sync_map (recordName, recordType, key, recordData) VALUES (?, ?, ?, COALESCE((SELECT recordData FROM cloud_sync_map WHERE recordName = ?), NULL))",
+                    arguments: [recordName, type.rawValue, key, recordName]
+                )
+            }
+        }
+    }
+
+    /// Batched form of `markPending` — one transaction for the whole list. See finding #74.
+    nonisolated static func markPendingBatch(recordNames: [String], change: String) {
+        _ = try? appDatabase.write { db in
+            for recordName in recordNames {
+                try db.execute(
+                    sql: "UPDATE cloud_sync_map SET pendingChange = ? WHERE recordName = ?",
+                    arguments: [change, recordName]
+                )
+            }
         }
     }
 

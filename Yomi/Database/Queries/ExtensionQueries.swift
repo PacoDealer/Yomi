@@ -15,13 +15,6 @@ enum ExtensionQueries {
         }
     }
 
-    /// Returns all extensions (installed or not)
-    nonisolated static func fetchAll() throws -> [Extension] {
-        try appDatabase.read { db in
-            try Extension.fetchAll(db)
-        }
-    }
-
     // MARK: - Write
 
     /// Inserts or updates an extension record

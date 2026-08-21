@@ -74,7 +74,7 @@ struct MangaCoverCell: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundStyle(isSelected ? .white : .white)
+                    .foregroundStyle(isSelected ? AppSettings.shared.accentForeground : .white)
                     .background(
                         Circle()
                             .fill(isSelected ? Color.accentColor : Color.black.opacity(0.35))

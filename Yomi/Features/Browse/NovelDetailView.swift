@@ -23,6 +23,9 @@ struct NovelDetailView: View {
     @State private var showNotesSheet = false
     @State private var notesText: String = ""
     @State private var showCFBypass = false
+    @State private var isBypassing = false
+    @State private var autoBypassFailed = false
+    @State private var bypassAttempted = false
     @State private var showCoverPicker = false
     @State private var selectedCoverItem: PhotosPickerItem? = nil
     @State private var isSelectingChapters = false
@@ -186,10 +189,45 @@ struct NovelDetailView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .task { await loadChapters() }
+        .task { await loadChaptersWithBypass() }
         .task { await loadCategories() }
         .task { aniListScore = await AniListService.shared.fetchScore(title: novel.title, isManga: false) }
         .task { notesText = novel.notes ?? "" }
+        .overlay {
+            if isBypassing {
+                ZStack {
+                    Color.black.opacity(0.35).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView().tint(.white)
+                        Text("Bypassing Cloudflare…")
+                            .font(.subheadline)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(24)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if autoBypassFailed {
+                HStack(spacing: 10) {
+                    Image(systemName: "shield.slash").foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-bypass failed")
+                            .font(.subheadline).fontWeight(.medium)
+                        Text("Tap the shield button to bypass manually.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { autoBypassFailed = false } label: {
+                        Image(systemName: "xmark").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.bar)
+            }
+        }
         .sheet(isPresented: $showNotesSheet) {
             NotesEditorSheet(mangaTitle: novel.title, text: $notesText) {
                 let saved = notesText.isEmpty ? nil : notesText
@@ -630,16 +668,6 @@ struct NovelDetailView: View {
 
     // MARK: - Formatting
 
-    private func formatReadingTime(_ seconds: Int) -> String {
-        if seconds >= 3600 {
-            let h = seconds / 3600
-            let m = (seconds % 3600) / 60
-            return "\(h)h \(m)m"
-        }
-        if seconds >= 60 { return "\(seconds / 60)m" }
-        return "\(seconds)s"
-    }
-
     // MARK: - Toggle Library
 
     private func toggleLibrary() async {
@@ -748,6 +776,28 @@ struct NovelDetailView: View {
         chapters = refreshed
     }
 
+    /// Auto-retries a background Cloudflare bypass before ever showing the user a blocked state,
+    /// matching SourceBrowseView.loadWithBypass() — see finding #86. Falls back to the manual
+    /// "Bypass Cloudflare" button (chaptersSection) only if the automatic attempt fails.
+    private func loadChaptersWithBypass() async {
+        bypassAttempted = false
+        autoBypassFailed = false
+        await loadChapters()
+        guard chapters.isEmpty, !bypassAttempted,
+              let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty,
+              let url = URL(string: cfURL) else { return }
+        bypassAttempted = true
+        isBypassing = true
+        let success = await CFBypassManager.autoBypass(url: url)
+        bridge?.clearCFBlock()
+        isBypassing = false
+        if success {
+            await loadChapters()
+        } else {
+            autoBypassFailed = true
+        }
+    }
+
     private func loadChapters() async {
         isLoadingChapters = true
         let novelId = novel.id
@@ -823,8 +873,19 @@ struct NovelDetailView: View {
             }.value
             chapters = merged
         } else {
-            // Browse-only (not in library) — no DB row exists, use remote data directly
-            chapters = fetched
+            // Browse-only (not in library) — no DB row exists, use remote data directly.
+            // Sorted ascending (nulls last) since TextReaderView navigates purely by array
+            // index and assumes ascending order — a source returning newest-first would
+            // otherwise make Next/Prev go backward. Same bug class as Known Issue #50 for
+            // manga; see finding #85.
+            chapters = fetched.sorted { lhs, rhs in
+                switch (lhs.chapterNumber, rhs.chapterNumber) {
+                case let (l?, r?): return l < r
+                case (nil, _?):    return false
+                case (_?, nil):    return true
+                case (nil, nil):   return false
+                }
+            }
         }
         isLoadingChapters = false
     }

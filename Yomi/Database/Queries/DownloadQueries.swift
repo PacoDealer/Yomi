@@ -43,15 +43,4 @@ enum DownloadQueries {
                 .fetchAll(db)
         }
     }
-
-    /// Clears isDownloaded and downloadedAt for the given chapter.
-    /// Does not delete the local file — file deletion is the caller's responsibility.
-    nonisolated static func deleteDownloadRecord(chapterId: String) throws {
-        _ = try appDatabase.write { db in
-            try db.execute(
-                sql: "UPDATE chapter SET isDownloaded = 0, downloadedAt = NULL WHERE id = ?",
-                arguments: [chapterId]
-            )
-        }
-    }
 }

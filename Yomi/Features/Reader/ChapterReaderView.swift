@@ -33,8 +33,6 @@ struct ChapterReaderView: View {
     @State private var showOverlay = true
     @State private var currentPage = 0
     @State private var sessionStart: Date = Date()
-    @State private var readingTimer: Timer? = nil
-    @State private var sessionSeconds: Int = 0
     @State private var discussURL: URL? = nil
     @State private var showDiscussSheet = false
     @State private var sourceURL: URL? = nil
@@ -44,6 +42,7 @@ struct ChapterReaderView: View {
     @State private var toastMessage: String? = nil
     @State private var nextPreload: (chapter: Chapter, pages: [String])? = nil
     @State private var isPreloadingNextChapter = false
+    @State private var didUpdateTrackerForCurrentChapter = false
 
     init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -191,14 +190,9 @@ struct ChapterReaderView: View {
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
             sessionStart = Date()
-            readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-                sessionSeconds += 1
-            }
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
-            readingTimer?.invalidate()
-            readingTimer = nil
 
             let incognito = AppSettings.shared.isIncognito
 
@@ -233,7 +227,8 @@ struct ChapterReaderView: View {
             }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage >= pages.count - 2 {
                 markChapterRead()
-                if AppSettings.shared.trackerAutoUpdate {
+                if AppSettings.shared.trackerAutoUpdate && !didUpdateTrackerForCurrentChapter {
+                    didUpdateTrackerForCurrentChapter = true
                     let mangaTitle = manga.title
                     let chapNum = Int(activeChapter.chapterNumber ?? 0)
                     Task {
@@ -359,8 +354,18 @@ struct ChapterReaderView: View {
 
     private func preloadNextChapterIfNeeded() {
         guard isContinuousReaderMode, hasNextChapter, nextPreload == nil, !isPreloadingNextChapter else { return }
-        isPreloadingNextChapter = true
         let next = chapters[currentChapterIndex + 1]
+
+        // Prefer local files first, exactly like loadPages() does — otherwise every
+        // chapter-boundary preload for a downloaded (offline-read) chapter burns the full
+        // network timeout below trying and failing to reach the network, silently degrading
+        // the seamless-crossing feature for the offline case it matters most in. See #90.
+        if next.isDownloaded, let localURLs = DownloadManager.shared.localURLs(for: next) {
+            nextPreload = (next, localURLs.map { $0.absoluteString })
+            return
+        }
+
+        isPreloadingNextChapter = true
         let path = next.path
         let b = bridge
 
@@ -414,8 +419,8 @@ struct ChapterReaderView: View {
         currentPage = min(idx, max(pages.count - 1, 0))
         nextPreload = nil
         didMarkCurrentChapterRead = false
+        didUpdateTrackerForCurrentChapter = false
         sessionStart = Date()
-        sessionSeconds = 0
     }
 
     // MARK: - Navigation
@@ -423,10 +428,9 @@ struct ChapterReaderView: View {
     private func navigateToChapter(_ index: Int) {
         showFinishedBanner = false
         didMarkCurrentChapterRead = false
+        didUpdateTrackerForCurrentChapter = false
         nextPreload = nil
         isPreloadingNextChapter = false
-        readingTimer?.invalidate()
-        readingTimer = nil
 
         let elapsed = Int(Date().timeIntervalSince(sessionStart))
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
@@ -443,17 +447,18 @@ struct ChapterReaderView: View {
         isLoading = true
         errorMessage = nil
         currentPage = 0
-        sessionSeconds = 0
         sessionStart = Date()
-        readingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            sessionSeconds += 1
-        }
 
         let path = chapters[index].path
         let b = bridge
         Task.detached(priority: .userInitiated) {
             let result = b.getPageList(chapterPath: path)
             await MainActor.run {
+                // A second, faster navigateToChapter() call (rapid double-tap, or two picks from
+                // the Chapters sheet in quick succession) may have already moved past `index` by
+                // the time this resolves — applying it now would overwrite the newer chapter's
+                // pages with a stale result. See finding #88.
+                guard currentChapterIndex == index else { return }
                 pages = result
                 isLoading = false
                 if result.isEmpty { errorMessage = "No pages found." }
