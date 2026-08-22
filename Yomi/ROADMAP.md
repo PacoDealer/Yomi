@@ -21,7 +21,7 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S117 — 2026-08-21 · cleared the S116 full-project-audit backlog)
+## Current state (post S117 — 2026-08-22 · S116 backlog fixed + remaining 15-dimension audit, 30 new findings)
 
 **S116 ran an "absolutely everything" full-project audit** (23-dimension multi-agent `Workflow`,
 every finding independently re-verified) but was interrupted twice by the account's own session
@@ -35,7 +35,20 @@ deliberate calls, not gaps: #78 (iPad's two independent tab-visibility stores ne
 decision) and #106 (a `ChapterReaderView.swift` file split, deferred since this session's own fixes
 already touched that file). Full detail in `CLAUDE.md`'s S117 entry and the Known Issues table
 itself. Clean zero-warning build, live-verified via `build_run_sim`+mobile-mcp across Library/
-Browse/Plugins/Sync. The remaining 15 audit dimensions from S116 run next, same session.
+Browse/Plugins/Sync.
+
+**Then ran the remaining 15 audit dimensions** as a leaner single-pass `Workflow` (no
+high-severity-recheck/completeness-critic stages). **Hit the account's rate limit twice more** —
+resumed once via `resumeFromRunId`, then stopped on Martin's call after the second hit rather than
+risk a third. 14 of 15 dimensions got their finder agent to run (Performance, Docs-vs-code, Error
+handling, and Backend/Firebase never did). **30 new findings, `CLAUDE.md` Known Issues rows
+108-137**: 15 independently verified, 15 found but never re-verified before the limit hit again
+(marked UNVERIFIED in the table — treat as leads, not settled). Headline verified item: tracker
+OAuth refresh tokens are saved but never used, silently killing MAL/Shikimori/Bangumi sync forever
+once the access token expires (#108). Headline unverified item, highest priority to confirm: a
+claim that all 15 production plugins ship bundled inside the binary, contradicting this repo's own
+"zero plugin files in the binary" App Store compliance claim (#130). No fixes applied — audit only.
+Full detail in `CLAUDE.md`'s S117 entry.
 
 ---
 
