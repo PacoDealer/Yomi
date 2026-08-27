@@ -11,6 +11,16 @@ struct MangaDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var bridge: JSBridge? = nil
     @State private var isLoadingChapters = false
+    /// Set only by the Suwayomi path, which — unlike the JS-plugin path — has a real `throw` to
+    /// surface instead of a silent empty list.
+    @State private var chapterLoadError: String? = nil
+
+    /// A plugin-backed manga needs its `JSBridge` to fetch pages; a Suwayomi one has no plugin at
+    /// all and resolves pages over REST instead, so `bridge != nil` alone must not gate the reader
+    /// (Known Issue #131).
+    private var canOpenReader: Bool {
+        bridge != nil || SuwayomiService.isSuwayomiSourceId(manga.sourceId)
+    }
     @State private var showCFBypass = false
     @State private var downloadManager = DownloadManager.shared
 
@@ -238,7 +248,7 @@ struct MangaDetailView: View {
                     }
 
                     // Start / Resume reading button
-                    if !isLoadingChapters && !chapters.isEmpty && bridge != nil {
+                    if !isLoadingChapters && !chapters.isEmpty && canOpenReader {
                         Button {
                             if let ch = resumeChapter {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -309,7 +319,10 @@ struct MangaDetailView: View {
                     }
                     .padding(.vertical, 4)
                 } else if chapters.isEmpty {
-                    if bridge == nil {
+                    if let chapterLoadError {
+                        Text(chapterLoadError)
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId) {
                         Text("No source available for this manga.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
@@ -387,7 +400,7 @@ struct MangaDetailView: View {
                                             selectedChapterIds.insert(chapter.id)
                                         }
                                     }
-                                } else if bridge != nil {
+                                } else if canOpenReader {
                                     chapterForNav = chapter
                                 }
                             },
@@ -519,10 +532,12 @@ struct MangaDetailView: View {
             }
         }
         .navigationDestination(item: $chapterForNav) { chapter in
-            if let b = bridge {
+            // A Suwayomi chapter has no bridge — the reader resolves its pages over REST instead,
+            // so this must not be gated on a non-nil bridge (Known Issue #131).
+            if canOpenReader {
                 ChapterReaderView(
                     manga: manga,
-                    bridge: b,
+                    bridge: bridge,
                     chapters: chapters,
                     chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
                 )
@@ -1002,6 +1017,14 @@ struct MangaDetailView: View {
         let mangaPath = manga.path
         let mangaId = manga.id
 
+        // A Suwayomi-sourced manga has no JS plugin at all — its `sourceId` ("suwayomi_{id}") can
+        // never match an `ExtensionManager.installed` entry, so it used to fall into the
+        // extension-not-installed branch below and show no chapters, ever (Known Issue #131).
+        if SuwayomiService.isSuwayomiSourceId(sourceId) {
+            await loadSuwayomiChapters()
+            return
+        }
+
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
             // Extension not installed — show whatever chapters are already in DB
             let saved = await Task.detached(priority: .userInitiated) {
@@ -1078,6 +1101,103 @@ struct MangaDetailView: View {
         }
 
         isLoadingChapters = false
+    }
+
+    // MARK: - Load Chapters (Suwayomi)
+
+    /// Chapter loading for a manga browsed from a self-hosted Suwayomi server. Talks to the REST
+    /// API directly — there is no JS plugin and no `JSBridge` in this path — then persists and
+    /// merges local read/download state exactly like the plugin path above.
+    private func loadSuwayomiChapters() async {
+        let mangaId = manga.id
+        chapterLoadError = nil
+
+        guard SuwayomiService.shared.isEnabled else {
+            chapters = await savedChapters(mangaId: mangaId)
+            chapterLoadError = chapters.isEmpty
+                ? "No Suwayomi server configured. Add one in Settings → Suwayomi."
+                : nil
+            isLoadingChapters = false
+            return
+        }
+        guard let remoteId = SuwayomiService.shared.suwayomiMangaId(from: mangaId) else {
+            chapters = await savedChapters(mangaId: mangaId)
+            chapterLoadError = chapters.isEmpty ? "Unrecognized Suwayomi manga id." : nil
+            isLoadingChapters = false
+            return
+        }
+
+        isLoadingChapters = true
+
+        // Detail first: a browse-only manga carries only title + cover, so summary/author/status
+        // would otherwise stay blank on this screen forever. A failure here is not fatal.
+        if let detail = try? await SuwayomiService.shared.fetchMangaDetail(mangaId: remoteId) {
+            if let summary = detail.description, !summary.isEmpty,
+               manga.summary == nil || manga.summary!.isEmpty {
+                manga.summary = summary
+            }
+            if let author = detail.author, !author.isEmpty, manga.author == nil {
+                manga.author = author
+            }
+            if let genre = detail.genre, !genre.isEmpty, manga.genres.isEmpty {
+                manga.genres = genre
+            }
+            if let status = detail.status,
+               let mapped = MangaStatus(rawValue: status.lowercased()), mapped != .unknown {
+                manga.status = mapped
+            }
+        }
+
+        let fetched: [Chapter]
+        do {
+            let items = try await SuwayomiService.shared.fetchChapters(mangaId: remoteId)
+            fetched = items.map {
+                SuwayomiService.shared.toChapter(item: $0, mangaId: mangaId, remoteMangaId: remoteId)
+            }
+        } catch {
+            chapters = await savedChapters(mangaId: mangaId)
+            chapterLoadError = "Could not reach the Suwayomi server — \(error.localizedDescription)"
+            isLoadingChapters = false
+            return
+        }
+
+        let mangaSnapshot = manga
+        await Task.detached(priority: .userInitiated) {
+            try? MangaQueries.update(mangaSnapshot)
+            try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
+        }.value
+
+        let saved = await savedChapters(mangaId: mangaId)
+        if fetched.isEmpty {
+            chapters = saved
+            if saved.isEmpty { chapterLoadError = "No chapters found on the Suwayomi server." }
+        } else {
+            let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+            chapters = fetched.map { ch in
+                guard let persisted = savedMap[ch.id] else { return ch }
+                var merged = ch
+                merged.isRead = persisted.isRead
+                merged.isDownloaded = persisted.isDownloaded
+                merged.readingSeconds = persisted.readingSeconds
+                merged.progress = persisted.progress
+                merged.lastPageRead = persisted.lastPageRead
+                merged.readAt = persisted.readAt
+                return merged
+            }
+            // Suwayomi returns chapters newest-first; the reader's prev/next navigation assumes
+            // ascending order (see #50).
+            chapters.sort {
+                ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude)
+            }
+        }
+
+        isLoadingChapters = false
+    }
+
+    private func savedChapters(mangaId: String) async -> [Chapter] {
+        await Task.detached(priority: .userInitiated) {
+            (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+        }.value
     }
 
     // MARK: - Mark Selected Read/Unread

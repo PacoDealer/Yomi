@@ -26,6 +26,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
     var isLoggedIn: Bool = false
     var username: String? = nil
     var errorMessage: String? = nil
+    var pendingAuthState: String? = nil
 
     private(set) var accessToken: String? = nil
     private var refreshToken: String? = nil
@@ -39,7 +40,8 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             .init(name: "client_id",     value: clientId),
             .init(name: "redirect_uri",  value: redirectURI),
             .init(name: "response_type", value: "code"),
-            .init(name: "scope",         value: "user_rates")
+            .init(name: "scope",         value: "user_rates"),
+            .init(name: "state",         value: makeAuthState())
         ]
         return components.url
     }
@@ -51,6 +53,10 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             let code = components.queryItems?.first(where: { $0.name == "code" })?.value
         else { return }
+        guard verifyAuthState(url: url, requireEcho: true) else {
+            errorMessage = "Shikimori: ignored a login callback this app didn't start."
+            return
+        }
         do {
             try await exchangeCode(code: code)
             await fetchUserInfo()
