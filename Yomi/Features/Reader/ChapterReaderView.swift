@@ -17,7 +17,9 @@ enum ReaderMode: String, CaseIterable {
 
 struct ChapterReaderView: View {
     let manga: Manga
-    let bridge: JSBridge
+    /// `nil` for a Suwayomi-sourced manga: that backend has no JS plugin, so pages are resolved
+    /// over REST from the chapter's own `suwayomi://` path instead (Known Issue #131).
+    let bridge: JSBridge?
     let chapters: [Chapter]
 
     @Environment(\.dismiss) private var dismiss
@@ -44,7 +46,7 @@ struct ChapterReaderView: View {
     @State private var isPreloadingNextChapter = false
     @State private var didUpdateTrackerForCurrentChapter = false
 
-    init(manga: Manga, bridge: JSBridge, chapters: [Chapter], chapterIndex: Int) {
+    init(manga: Manga, bridge: JSBridge?, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
         self.bridge = bridge
         self.chapters = chapters
@@ -244,7 +246,13 @@ struct ChapterReaderView: View {
         .task { await loadPages() }
         .task(id: activeChapter.id) {
             let path = activeChapter.path
-            let b = bridge
+            // No bridge means a Suwayomi-sourced chapter: neither a discussion URL nor a plugin
+            // BASE_URL exists to resolve, so both icons stay hidden.
+            guard let b = bridge else {
+                discussURL = nil
+                sourceURL = nil
+                return
+            }
             discussURL = await Task.detached(priority: .background) {
                 b.getDiscussionURL(chapterPath: path)
             }.value
@@ -376,9 +384,9 @@ struct ChapterReaderView: View {
         // The race below only bounds how long we WAIT for a result — cancelAll() can't preempt the
         // underlying blocking call itself, so a truly stuck fetch still burns one background thread
         // until it eventually resolves; it just no longer holds up the preload state machine.
-        Task.detached(priority: .background) {
+        Task {
             let result: [String]? = await withTaskGroup(of: [String]?.self) { group in
-                group.addTask { b.getPageList(chapterPath: path) }
+                group.addTask { await Self.fetchPages(bridge: b, path: path) }
                 group.addTask {
                     try? await Task.sleep(for: .seconds(12))
                     return nil
@@ -387,14 +395,12 @@ struct ChapterReaderView: View {
                 group.cancelAll()
                 return first
             }
-            await MainActor.run {
-                guard isPreloadingNextChapter, nextPreload == nil,
-                      hasNextChapter, chapters[currentChapterIndex + 1].id == next.id else { return }
-                if let result, !result.isEmpty {
-                    nextPreload = (next, result)
-                }
-                isPreloadingNextChapter = false
+            guard isPreloadingNextChapter, nextPreload == nil,
+                  hasNextChapter, chapters[currentChapterIndex + 1].id == next.id else { return }
+            if let result, !result.isEmpty {
+                nextPreload = (next, result)
             }
+            isPreloadingNextChapter = false
         }
     }
 
@@ -451,19 +457,34 @@ struct ChapterReaderView: View {
 
         let path = chapters[index].path
         let b = bridge
-        Task.detached(priority: .userInitiated) {
-            let result = b.getPageList(chapterPath: path)
-            await MainActor.run {
-                // A second, faster navigateToChapter() call (rapid double-tap, or two picks from
-                // the Chapters sheet in quick succession) may have already moved past `index` by
-                // the time this resolves — applying it now would overwrite the newer chapter's
-                // pages with a stale result. See finding #88.
-                guard currentChapterIndex == index else { return }
-                pages = result
-                isLoading = false
-                if result.isEmpty { errorMessage = "No pages found." }
-            }
+        Task {
+            let result = await Self.fetchPages(bridge: b, path: path)
+            // A second, faster navigateToChapter() call (rapid double-tap, or two picks from
+            // the Chapters sheet in quick succession) may have already moved past `index` by
+            // the time this resolves — applying it now would overwrite the newer chapter's
+            // pages with a stale result. See finding #88.
+            guard currentChapterIndex == index else { return }
+            pages = result
+            isLoading = false
+            if result.isEmpty { errorMessage = "No pages found." }
         }
+    }
+
+    // MARK: - Page Source
+
+    /// Resolves a chapter's page URLs from whichever backend the manga came from.
+    ///
+    /// The JS-plugin path stays on a detached task — `SOURCE._fetchSync` blocks its thread on a
+    /// `DispatchSemaphore` and must never run on MainActor. The Suwayomi path is ordinary async
+    /// `URLSession` work and needs no hop.
+    private static func fetchPages(bridge: JSBridge?, path: String) async -> [String] {
+        if SuwayomiService.chapterRef(from: path) != nil {
+            return (try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? []
+        }
+        guard let bridge else { return [] }
+        return await Task.detached(priority: .userInitiated) {
+            bridge.getPageList(chapterPath: path)
+        }.value
     }
 
     // MARK: - Load Pages
@@ -479,9 +500,7 @@ struct ChapterReaderView: View {
         }
 
         let path = activeChapter.path
-        let result = await Task.detached(priority: .userInitiated) {
-            bridge.getPageList(chapterPath: path)
-        }.value
+        let result = await Self.fetchPages(bridge: bridge, path: path)
         pages = result
         isLoading = false
         if result.isEmpty {

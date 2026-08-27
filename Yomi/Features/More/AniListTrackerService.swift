@@ -27,16 +27,22 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
     var isLoggedIn: Bool = false
     var username: String? = nil
     var errorMessage: String? = nil
+    var pendingAuthState: String? = nil
 
     private(set) var accessToken: String? = nil
 
     // MARK: - Auth URL
 
+    /// `redirect_uri` is sent explicitly (it must match the one registered for this client on
+    /// anilist.co) and `state` is included for CSRF protection — see `handleCallback` for what
+    /// this flow can and can't verify.
     func authorizationURL() -> URL? {
         var components = URLComponents(string: "https://anilist.co/api/v2/oauth/authorize")!
         components.queryItems = [
             .init(name: "client_id",     value: clientId),
-            .init(name: "response_type", value: "token")
+            .init(name: "response_type", value: "token"),
+            .init(name: "redirect_uri",  value: redirectURI),
+            .init(name: "state",         value: makeAuthState())
         ]
         return components.url
     }
@@ -45,11 +51,21 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
 
     /// The implicit-grant token arrives in the URL *fragment* — `URLComponents` only parses the
     /// query, so the fragment is parsed by hand as its own query-string.
+    ///
+    /// Implicit Grant has no code-exchange step, so there's no PKCE-style check available even in
+    /// principle: `state` is the flow's only defense (Known Issue #124). AniList's docs don't
+    /// promise the fragment echoes `state` back, so a missing value isn't treated as an attack —
+    /// but a callback arriving with no login pending on this device is rejected outright, which is
+    /// the actual attack shape (attacker's token delivered via a `yomi://anilist/callback#...` link).
     func handleCallback(url: URL) async {
         guard
             let fragment = url.fragment,
             let token = URLComponents(string: "?\(fragment)")?.queryItems?.first(where: { $0.name == "access_token" })?.value
         else { return }
+        guard verifyAuthState(url: url, requireEcho: false) else {
+            errorMessage = "AniList: ignored a login callback this app didn't start."
+            return
+        }
         accessToken = token
         isLoggedIn  = true
         saveToken()

@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 // MARK: - MangaTracker
 
@@ -15,6 +16,11 @@ protocol MangaTracker: AnyObject {
     var isLoggedIn: Bool { get }
     var username: String? { get }
     var errorMessage: String? { get set }
+    /// Single-use CSRF `state` for the login flow currently in progress — written by
+    /// `makeAuthState()` when this app itself builds the authorization URL, consumed (and cleared)
+    /// by `verifyAuthState(url:requireEcho:)` when the redirect comes back. `nil` means no login
+    /// was started from this device, so any callback arriving is unsolicited.
+    var pendingAuthState: String? { get set }
 
     func authorizationURL() -> URL?
     func handleCallback(url: URL) async
@@ -27,6 +33,64 @@ protocol MangaTracker: AnyObject {
 }
 
 extension MangaTracker {
+
+    // MARK: - OAuth CSRF state
+
+    /// Generates a fresh 256-bit `state` value, stores it as this login attempt's pending state,
+    /// and returns it for inclusion in the authorization URL.
+    ///
+    /// Without this, `handleCallback` had no way to tell a redirect it solicited from one an
+    /// attacker delivered (`yomi://<host>/callback?code=<attacker's code>`) — the app would happily
+    /// log the victim's device into the attacker's tracker account and push their real reading
+    /// history into it. Known Issues #123/#124.
+    func makeAuthState() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        // A failed SecRandomCopyBytes would leave an all-zero state; UUID is a weaker but still
+        // unguessable-by-a-remote-attacker fallback rather than shipping a constant.
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            let fallback = UUID().uuidString + UUID().uuidString
+            pendingAuthState = fallback
+            return fallback
+        }
+        let state = Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        pendingAuthState = state
+        return state
+    }
+
+    /// Verifies an OAuth redirect belongs to a login *this app* started, and consumes the pending
+    /// state so the same callback can never be replayed.
+    ///
+    /// - Parameter requireEcho: `true` for the three Authorization Code Grant services, whose
+    ///   servers are spec-compliant and always echo `state` back. AniList's Implicit Grant passes
+    ///   `false`: its docs don't guarantee the fragment carries `state`, so a missing value is
+    ///   accepted, but only while a login this app started is genuinely pending — which still
+    ///   blocks the cold "open this link and get silently logged in" attack.
+    func verifyAuthState(url: URL, requireEcho: Bool) -> Bool {
+        guard let expected = pendingAuthState else { return false }
+        pendingAuthState = nil
+        if let returned = Self.stateValue(in: url) { return returned == expected }
+        return !requireEcho
+    }
+
+    /// Reads `state` from either the query (Authorization Code Grant) or the fragment (AniList's
+    /// Implicit Grant, which returns everything after `#`).
+    static func stateValue(in url: URL) -> String? {
+        if let value = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "state" })?.value {
+            return value
+        }
+        if let fragment = url.fragment,
+           let value = URLComponents(string: "?\(fragment)")?
+            .queryItems?.first(where: { $0.name == "state" })?.value {
+            return value
+        }
+        return nil
+    }
+
+    // MARK: - Progress sync
 
     /// Sends a progress-write request and records the outcome in `errorMessage`.
     ///

@@ -18,6 +18,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
     var isLoggedIn: Bool = false
     var username: String? = nil
     var errorMessage: String? = nil
+    var pendingAuthState: String? = nil
 
     private(set) var accessToken: String? = nil
     private var refreshToken: String? = nil
@@ -36,7 +37,8 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             .init(name: "redirect_uri",          value: redirectURI),
             .init(name: "code_challenge",        value: challenge),
             .init(name: "code_challenge_method", value: "plain"),
-            .init(name: "state",                 value: "yomi")
+            // Was the constant "yomi" — an unguessable per-attempt value is the point of `state`.
+            .init(name: "state",                 value: makeAuthState())
         ]
         return components.url
     }
@@ -49,6 +51,10 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
             let verifier = codeVerifier
         else { return }
+        guard verifyAuthState(url: url, requireEcho: true) else {
+            errorMessage = "MyAnimeList: ignored a login callback this app didn't start."
+            return
+        }
 
         do {
             try await exchangeCode(code: code, verifier: verifier)
