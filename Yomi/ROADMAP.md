@@ -21,7 +21,7 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S120 — 2026-08-27 · Suwayomi detail/reader fixed, tracker CSRF + token refresh, History gap closed)
+## Current state (post S120 — 2026-08-27 · 11 backlog findings fixed: Suwayomi reader, tracker CSRF + token refresh, History, error surfacing, dead code)
 
 **S120 took the two items S119's handoff named as highest-value.** **#131**: a Suwayomi-sourced
 manga's detail screen showed no chapters, ever — its `sourceId` can never match an installed JS
@@ -42,7 +42,11 @@ a real OAuth round-trip still needs the client credentials #115 notes are missin
 manga or novel read but never finished now reaches History — `ChapterQueries.updateProgress` and
 `NovelQueries.updateScrollPercent` touch `lastReadAt` (the novel side throttled to once a minute
 inside its own transaction, since it fires every ~400ms), live-verified via a partial read showing
-up as "CH. 001 · read to 33%". Full detail in `CLAUDE.md`'s S120 entry and the Known Issues table.
+up as "CH. 001 · read to 33%". **#150**: a failed library read now says so ("Couldn't load your
+library" + the real error + Try again) instead of rendering as an ordinary empty library —
+live-verified by renaming the `manga` table out from under the app. **#125**: notification titles
+are withheld while App Lock/Secure Screen is on, matching #68's widget guard. **#132-137**: six
+confirmed-dead symbols removed. Full detail in `CLAUDE.md`'s S120 entry and the Known Issues table.
 
 ---
 

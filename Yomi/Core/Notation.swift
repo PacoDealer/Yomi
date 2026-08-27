@@ -21,11 +21,6 @@ nonisolated enum Notation {
         }
     }
 
-    /// "VOL. 03 / CH. 027"
-    static func volumeChapter(volume: Int, chapter: Double) -> String {
-        "VOL. \(String(format: "%02d", volume)) / \(Notation.chapter(chapter))"
-    }
-
     /// "CH. 042 · read to 68%" — in-progress chapter, for History rows.
     static func chapterReadTo(chapter: Double, fraction: Double) -> String {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
@@ -98,21 +93,9 @@ nonisolated enum Notation {
 
     // MARK: - Catalog index
 
-    /// "N.07" — novel catalog index.
-    static func novelIndex(_ n: Int) -> String {
-        String(format: "N.%02d", n)
-    }
-
     /// "07" — manga catalog index (plain zero-padded number).
     static func catalogIndex(_ n: Int) -> String {
         String(format: "%02d", n)
-    }
-
-    // MARK: - Chapter + page footer (novel reader)
-
-    /// "CH. 027 · 64%"
-    static func novelFooter(chapter: Double, fraction: Double) -> String {
-        "\(Notation.chapter(chapter)) · \(Notation.progress(fraction))"
     }
 
     // MARK: - History timestamp (adaptive)

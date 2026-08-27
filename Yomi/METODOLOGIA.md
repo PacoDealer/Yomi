@@ -149,6 +149,13 @@ path (browse → detail → chapters → reader pages) in minutes. It deliberate
 real server — the JSON shapes are assumed correct, not re-verified — and that limit belongs in the
 writeup. But "the backend is unavailable" is a reason to shrink the claim, not to skip the test.
 
+**"Unused state implying a missing feature" is a question, not a bug report.** #136 flagged an
+unused `showClearConfirm` and framed the button it named as firing "with no confirmation dialog at
+all." Both halves are true; only one is a defect. Clearing the plugin catalog cache destroys
+nothing a refetch doesn't restore, so the fix was deleting the vestigial state, not building the
+dialog it hints at — adding friction to a harmless instant action would have made the app worse
+while closing the row. Read what the code *does* before honouring what its leftovers imply.
+
 **A fix on a hot path has to carry its own cost budget.** #114's fix is one line on the manga side
 (`updateProgress` runs a handful of times per session) and deliberately not one line on the novel
 side: `updateScrollPercent` fires on every ~400ms scroll-autosave tick, and #142 already flags that

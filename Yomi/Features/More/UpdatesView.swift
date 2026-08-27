@@ -50,27 +50,11 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
     var totalCount: Int { groups.count + novelGroups.count }
 
-    func markMangaChapterRead(chapterId: String, mangaId: String) {
-        Task.detached { try? ChapterQueries.setRead(chapterId: chapterId, mangaId: mangaId, isRead: true) }
-        if let i = groups.firstIndex(where: { $0.manga.id == mangaId }) {
-            groups[i].chapters.removeAll { $0.id == chapterId }
-            if groups[i].chapters.isEmpty { groups.remove(at: i) }
-        }
-    }
-
     func markAllMangaChaptersRead(mangaId: String) {
         guard let i = groups.firstIndex(where: { $0.manga.id == mangaId }) else { return }
         let ids = groups[i].chapters.map { $0.id }
         groups.remove(at: i)
         Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, mangaId: mangaId, isRead: true) } }
-    }
-
-    func markNovelChapterRead(chapterId: String, novelId: String) {
-        Task.detached { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
-        if let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) {
-            novelGroups[i].chapters.removeAll { $0.id == chapterId }
-            if novelGroups[i].chapters.isEmpty { novelGroups.remove(at: i) }
-        }
     }
 
     func markAllNovelChaptersRead(novelId: String) {

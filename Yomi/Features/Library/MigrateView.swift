@@ -66,7 +66,6 @@ private struct MigrateSourcePickerView: View {
     @State private var sections: [MatchSection] = []
     @State private var pendingCount = 0
     @State private var isSearching = false
-    @State private var debounceTask: Task<Void, Never>? = nil
 
     @State private var migrationTarget: (manga: Manga, bridge: JSBridge)? = nil
     @State private var isMigrating = false
