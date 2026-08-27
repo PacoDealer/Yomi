@@ -44,6 +44,10 @@ private struct NovelReaderDest: Identifiable, Hashable {
     var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
     var isRefreshing = false
 
+    /// How many titles' chapter-list fetches failed outright during the last `refresh()`, as
+    /// opposed to genuinely having nothing new. Reported in the refresh summary banner.
+    var failedSourceChecks = 0
+
     var totalCount: Int { groups.count + novelGroups.count }
 
     func markMangaChapterRead(chapterId: String, mangaId: String) {
@@ -127,14 +131,20 @@ private struct NovelReaderDest: Identifiable, Hashable {
             return (manga, novels)
         }.value
 
-        await withTaskGroup(of: Void.self) { group in
+        // A plugin swallows its own JS exceptions and returns an empty chapter list on failure,
+        // which is indistinguishable from "nothing new" at the call site — so each check reports
+        // whether its fetch actually failed, and the count is surfaced in the refresh summary.
+        var failures = 0
+        await withTaskGroup(of: Bool.self) { group in
             for manga in library {
                 group.addTask { await self.checkUpdates(for: manga) }
             }
             for novel in novelLibrary {
                 group.addTask { await self.checkNovelUpdates(for: novel) }
             }
+            for await didFail in group where didFail { failures += 1 }
         }
+        failedSourceChecks = failures
 
         await loadFromDB()
         isRefreshing = false
@@ -145,7 +155,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
             + newNovelChapterIds.subtracting(oldNovelChapterIds).count
     }
 
-    private func checkUpdates(for manga: Manga) async {
+    /// Returns `true` if the source's chapter-list fetch failed (as opposed to simply finding
+    /// nothing new, or the title being skipped by the user's own update-skip settings).
+    private func checkUpdates(for manga: Manga) async -> Bool {
         let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications, autoDownload) =
             await MainActor.run {
                 (AppSettings.shared.skipUpdateNotStarted,
@@ -156,15 +168,15 @@ private struct NovelReaderDest: Identifiable, Hashable {
                  AppSettings.shared.backgroundDownloadEnabled)
             }
 
-        if skipNotStarted && manga.lastReadAt == nil { return }
-        if skipCompleted && manga.status == .completed { return }
+        if skipNotStarted && manga.lastReadAt == nil { return false }
+        if skipCompleted && manga.status == .completed { return false }
         if skipWithUnread {
             let unread = (try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []
-            if !unread.isEmpty { return }
+            if !unread.isEmpty { return false }
         }
         if !excludedIds.isEmpty {
             let assigned = (try? CategoryQueries.categoriesForManga(mangaId: manga.id)) ?? []
-            if assigned.contains(where: { excludedIds.contains($0.id) }) { return }
+            if assigned.contains(where: { excludedIds.contains($0.id) }) { return false }
         }
 
         let sourceId  = manga.sourceId
@@ -173,20 +185,24 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let allInstalled = await MainActor.run { ExtensionManager.shared.installed }
         let ext = allInstalled.first(where: { $0.id == sourceId })
-        guard let ext else { return }
+        // Source no longer installed — the check can't run, but that's a user-made state, not a
+        // fetch failure, so it isn't reported as one.
+        guard let ext else { return false }
 
         let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
         let remoteChapters = await Task.detached(priority: .background) {
             return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
 
-        guard !remoteChapters.isEmpty else { return }
+        // A library title always has at least one chapter upstream, so an empty list here means
+        // the fetch itself failed (Cloudflare block, rate-limit, network error, plugin exception).
+        guard !remoteChapters.isEmpty else { return true }
 
         let localChapters = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         let localIds = Set(localChapters.map { $0.id })
         let newChapters = remoteChapters.filter { !localIds.contains($0.id) }
 
-        guard !newChapters.isEmpty else { return }
+        guard !newChapters.isEmpty else { return false }
 
         try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: newChapters)
         try? MangaQueries.touchLastUpdated(mangaId: mangaId)
@@ -209,9 +225,11 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 )
             }
         }
+        return false
     }
 
-    private func checkNovelUpdates(for novel: Novel) async {
+    /// Returns `true` if the source's chapter-list fetch failed — see `checkUpdates(for:)`.
+    private func checkNovelUpdates(for novel: Novel) async -> Bool {
         let (skipNotStarted, skipCompleted, skipWithUnread, excludedIds, sendNotifications) =
             await MainActor.run {
                 (AppSettings.shared.skipUpdateNotStarted,
@@ -221,16 +239,16 @@ private struct NovelReaderDest: Identifiable, Hashable {
                  AppSettings.shared.sendUpdateNotifications)
             }
 
-        if skipNotStarted && novel.lastReadAt == nil { return }
-        if skipCompleted && novel.status.lowercased().contains("completed") { return }
+        if skipNotStarted && novel.lastReadAt == nil { return false }
+        if skipCompleted && novel.status.lowercased().contains("completed") { return false }
         if skipWithUnread {
             let all    = (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
             let unread = all.filter { !$0.isRead }
-            if !unread.isEmpty { return }
+            if !unread.isEmpty { return false }
         }
         if !excludedIds.isEmpty {
             let assigned = (try? CategoryQueries.categoriesForNovel(novelId: novel.id)) ?? []
-            if assigned.contains(where: { excludedIds.contains($0.id) }) { return }
+            if assigned.contains(where: { excludedIds.contains($0.id) }) { return false }
         }
 
         let sourceId  = novel.sourceId
@@ -239,14 +257,16 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let allInstalled = await MainActor.run { ExtensionManager.shared.installed }
         let ext = allInstalled.first(where: { $0.id == sourceId })
-        guard let ext else { return }
+        guard let ext else { return false }
 
         let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
         let source = await Task.detached(priority: .background) {
             bridge?.parseNovel(path: novelPath)
         }.value
 
-        guard let source, !source.chapters.isEmpty else { return }
+        // Same reasoning as the manga path: no chapters back for a library title means the fetch
+        // failed, not that the novel genuinely has none.
+        guard let source, !source.chapters.isEmpty else { return true }
 
         let localChapters = (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
         let localPaths = Set(localChapters.map { $0.path })
@@ -269,7 +289,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 )
             }
 
-        guard !newChapters.isEmpty else { return }
+        guard !newChapters.isEmpty else { return false }
 
         try? NovelQueries.insertAllIgnoringConflicts(newChapters)
         try? NovelQueries.touchLastUpdated(novelId: novelId)
@@ -284,6 +304,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 )
             }
         }
+        return false
     }
 }
 
@@ -515,9 +536,15 @@ struct UpdatesView: View {
 
     private func runRefresh() async {
         let newCount = await vm.refresh()
-        let summary = newCount == 0
+        let failed = vm.failedSourceChecks
+        // "No new chapters" used to be shown identically whether nothing was new or every source
+        // failed — always say when a check couldn't actually complete.
+        var summary = newCount == 0
             ? "No new chapters"
             : "\(newCount) new chapter\(newCount == 1 ? "" : "s") found"
+        if failed > 0 {
+            summary += " · \(failed) source\(failed == 1 ? "" : "s") failed"
+        }
         refreshSummary = summary
         try? await Task.sleep(for: .seconds(2))
         if refreshSummary == summary { refreshSummary = nil }

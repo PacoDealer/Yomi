@@ -137,9 +137,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         let status = chaptersRead > 0 ? "reading" : "plan_to_read"
         request.httpBody = "status=\(status)&num_chapters_read=\(chaptersRead)".data(using: .utf8)
-        if let (data, response) = try? await URLSession.shared.data(for: request) {
-            yomiLogNetwork(request, response: response, data: data)
-        }
+        await sendProgressUpdate(request)
     }
 
     // MARK: - Logout

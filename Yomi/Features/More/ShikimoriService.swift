@@ -149,9 +149,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             ]
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        if let (data, response) = try? await URLSession.shared.data(for: request) {
-            yomiLogNetwork(request, response: response, data: data)
-        }
+        await sendProgressUpdate(request)
     }
 
     // MARK: - Logout

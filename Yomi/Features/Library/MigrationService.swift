@@ -12,6 +12,19 @@ enum MigrationService {
     struct Result {
         let matchedChapters: Int
         let oldReadChapters: Int
+        let newChapterCount: Int
+    }
+
+    enum MigrationError: LocalizedError {
+        case noChaptersFromNewSource
+
+        var errorDescription: String? {
+            switch self {
+            case .noChaptersFromNewSource:
+                return "The new source returned no chapters. Nothing was changed — your original "
+                     + "entry is untouched. The source may be temporarily blocked or unreachable."
+            }
+        }
     }
 
     /// Runs entirely off MainActor — safe to call from Task.detached.
@@ -21,7 +34,15 @@ enum MigrationService {
         bridge: JSBridge,
         removeOld: Bool
     ) throws -> Result {
-        // 1. Persist the new manga as a library entry, carrying over user-owned state.
+        // 1. Fetch the new source's chapters FIRST. A plugin swallows its own JS exceptions and
+        // returns [] on failure, indistinguishable from "this title genuinely has no chapters" —
+        // either way there is nothing to migrate to, so bail before touching the library. Doing
+        // this before the writes below is what keeps a failed migration from deleting the old
+        // entry (and its downloads) and stranding the user with a chapterless manga.
+        let newChapters = bridge.getChapterList(mangaPath: newManga.path, mangaId: newManga.id)
+        guard !newChapters.isEmpty else { throw MigrationError.noChaptersFromNewSource }
+
+        // 2. Persist the new manga as a library entry, carrying over user-owned state.
         var toSave = newManga
         toSave.inLibrary = true
         toSave.readingStatus = oldManga.readingStatus
@@ -30,8 +51,6 @@ enum MigrationService {
         toSave.readingSeconds = oldManga.readingSeconds
         try MangaQueries.upsert(toSave)
 
-        // 2. Fetch + persist chapters for the new source.
-        let newChapters = bridge.getChapterList(mangaPath: newManga.path, mangaId: newManga.id)
         try ChapterQueries.insertAllIgnoringConflicts(newChapters)
         let freshNewChapters = try ChapterQueries.fetchAll(mangaId: newManga.id)
 
@@ -76,6 +95,10 @@ enum MigrationService {
             try? FileManager.default.removeItem(at: dir)
         }
 
-        return Result(matchedChapters: matched, oldReadChapters: readOldChapters.count)
+        return Result(
+            matchedChapters: matched,
+            oldReadChapters: readOldChapters.count,
+            newChapterCount: freshNewChapters.count
+        )
     }
 }
