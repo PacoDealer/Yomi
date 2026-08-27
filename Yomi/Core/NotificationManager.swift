@@ -27,6 +27,19 @@ final class NotificationManager {
         }
     }
 
+    // MARK: - Privacy
+
+    /// True while the user has App Lock or Secure Screen on.
+    ///
+    /// Both settings exist to keep what they read off an unattended screen, and a notification
+    /// preview is exactly that — shown on the lock screen with no authentication, the same threat
+    /// model Known Issue #68 already fixed for the Home Screen widget. Titles are replaced with a
+    /// neutral string rather than suppressing the notification entirely, so the user still learns
+    /// there's something new (and the tap-through still deep-links correctly, behind App Lock).
+    private var shouldHideTitles: Bool {
+        AppSettings.shared.appLockEnabled || AppSettings.shared.secureScreenEnabled
+    }
+
     // MARK: - Schedule
 
     func checkAuthorizationStatus() async {
@@ -42,7 +55,7 @@ final class NotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = "Time to read"
-        if let title = lastReadTitle {
+        if let title = lastReadTitle, !shouldHideTitles {
             content.body = "Continue \(title)?"
         } else {
             content.body = "Your reading list is waiting."
@@ -76,7 +89,7 @@ final class NotificationManager {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = mangaTitle
+        content.title = shouldHideTitles ? "Yomi" : mangaTitle
         content.body  = "\(newCount) new chapter\(newCount == 1 ? "" : "s") available"
         content.sound = .default
         if let id = mediaId {

@@ -188,7 +188,11 @@ final class LibraryViewModel {
         let result = await Task.detached(priority: .userInitiated) {
             do {
                 let m = try MangaQueries.fetchLibrary()
-                let n = (try? NovelQueries.fetchLibrary()) ?? []
+                // The novel half is fetched with the same do/catch rather than `try?`: half a
+                // library rendering as the whole one is the same silent failure #150 named for
+                // manga. Unread counts stay best-effort — a missing badge isn't a lie about
+                // what's in the library.
+                let n = try NovelQueries.fetchLibrary()
                 let uc = (try? ChapterQueries.fetchUnreadCountsByManga()) ?? [:]
                 let nuc = (try? NovelQueries.fetchUnreadCountsByNovel()) ?? [:]
                 return (m, n, uc, nuc, nil as String?)

@@ -988,18 +988,6 @@ struct MangaDetailView: View {
         }
     }
 
-    // MARK: - Formatting
-
-    private func formatReadingTime(_ seconds: Int) -> String {
-        if seconds >= 3600 {
-            let h = seconds / 3600
-            let m = (seconds % 3600) / 60
-            return "\(h)h \(m)m"
-        }
-        if seconds >= 60 { return "\(seconds / 60)m" }
-        return "\(seconds)s"
-    }
-
     // MARK: - Touch Last Read
 
     private func touchLastRead() async {

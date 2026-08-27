@@ -33,7 +33,21 @@ struct LibraryView: View {
             Group {
                 let hasAnyContent = !viewModel.displayedManga.isEmpty || !viewModel.displayedNovels.isEmpty
                 if !hasAnyContent && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
-                    if extensionManager.installed.isEmpty {
+                    if let error = viewModel.errorMessage {
+                        // A failed library read (DB corruption, disk I/O) used to render as the
+                        // ordinary "you haven't added anything yet" empty state — indistinguishable
+                        // from a genuinely empty library, with the real error written to a property
+                        // nothing displayed (Known Issue #150).
+                        YomiEmptyState(
+                            systemImage: "exclamationmark.triangle",
+                            title: "Couldn't load your library",
+                            message: error,
+                            actionLabel: "Try again",
+                            actionIcon: "arrow.clockwise"
+                        ) {
+                            Task { await viewModel.loadLibrary() }
+                        }
+                    } else if extensionManager.installed.isEmpty {
                         YomiEmptyState(
                             systemImage: "puzzlepiece.extension",
                             title: "No plugins installed",
