@@ -129,6 +129,35 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S120
+
+**When a finding says "these methods have zero call sites," check what else the missing call site
+was gating.** #131 was filed (and verified twice) as "`SuwayomiService`'s detail/chapters methods
+are never called, so chapters never load." Wiring them up was necessary and not sufficient: two
+*other* `bridge != nil` conditions in `MangaDetailView` — the Start-reading button's visibility and
+the chapter row's `onTap` — silently gated the whole reading path on a JS plugin existing. The
+chapter list rendered correctly and every tap did nothing, which looks exactly like this project's
+long-documented mobile-mcp tap flakiness. The tell was the S98 rule already written here: don't
+attribute a dead-looking button to tooling before grepping the condition behind it. Generalized:
+**a "nil object" used as an implicit capability flag will have accumulated more gates than the one
+the bug report names — grep every use of it, not just the one cited.**
+
+**An unverifiable dependency doesn't have to mean an unverified fix.** Live-testing #131 needed a
+Suwayomi-Server: no Docker, no Java 21, and the deploy stack assumes a VM. Instead, ~120 lines of
+`http.server` speaking the exact endpoints `SuwayomiService` calls proved out the entire client
+path (browse → detail → chapters → reader pages) in minutes. It deliberately proves less than a
+real server — the JSON shapes are assumed correct, not re-verified — and that limit belongs in the
+writeup. But "the backend is unavailable" is a reason to shrink the claim, not to skip the test.
+
+**`state` is not optional just because PKCE is present, and a constant `state` is not `state`.**
+MAL sent `state: "yomi"` and was cited in the audit as the *working* counterexample because its
+PKCE `code_verifier` genuinely blocks the attack. Both are true, and the constant still had to go:
+a fixed value verifies nothing, and the next service added by copying that shape inherits a check
+that only looks like one. Where a spec's own defense is optional-by-omission (AniList's implicit
+grant doesn't promise to echo `state`), the fallback is to require that a login is *pending on this
+device* — which still closes the cold-link attack — rather than to fail closed against a live
+server no test can reach.
+
 ## Technical learnings — S119
 
 **An empty result from a plugin is a failure signal, not a neutral one — and the call site is the

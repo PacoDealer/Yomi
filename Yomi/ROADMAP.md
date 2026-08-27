@@ -21,7 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S119 — 2026-08-27 · all 5 HIGH audit findings fixed)
+## Current state (post S120 — 2026-08-27 · Suwayomi detail/reader fixed, tracker login-CSRF closed)
+
+**S120 took the two items S119's handoff named as highest-value.** **#131**: a Suwayomi-sourced
+manga's detail screen showed no chapters, ever — its `sourceId` can never match an installed JS
+plugin, so `MangaDetailView` fell into the extension-not-installed branch and the service's own
+REST detail/chapters/page methods had zero call sites. Added a Suwayomi branch to `loadChapters()`,
+made `ChapterReaderView.bridge` optional with a `fetchPages(bridge:path:)` router, and — found by
+live-testing, not reading — removed two further `bridge != nil` gates that hid the Start-reading
+button and made every chapter row's tap a no-op. Verified end to end against a local stand-in
+server (no Docker/JDK 21 on this machine): detail metadata + all 5 chapters + reader pages.
+**#123/#124/#135**: all 4 trackers now send an unguessable per-attempt OAuth `state` and verify it
+single-use on callback, so an attacker-delivered `yomi://<host>/callback` can no longer silently
+log a victim's device into the attacker's tracker account. Compile + review only — a real OAuth
+round-trip still needs the client credentials #108/#115 note are missing. Full detail in
+`CLAUDE.md`'s S120 entry and the Known Issues table.
+
+---
+
+## Prior state (post S119 — 2026-08-27 · all 5 HIGH audit findings fixed)
 
 **S118 finished the 23-dimension audit** (verified S117's 15 unverified rows — 11 confirmed, 4
 refuted — then ran the last 4 dimensions, 25 more confirmed findings, `CLAUDE.md` rows 138-162;
