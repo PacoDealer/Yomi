@@ -211,15 +211,36 @@ enum NovelQueries {
 
     nonisolated static func updateScrollPercent(chapterId: String, percent: Double) throws {
         var novelId: String?
+        var touchedNovel = false
         _ = try appDatabase.write { db in
             try NovelChapter
                 .filter(Column("id") == chapterId)
                 .updateAll(db, [Column("lastScrollPercent").set(to: percent)])
             novelId = try String.fetchOne(db, sql: "SELECT novelId FROM novel_chapter WHERE id = ?", arguments: [chapterId])
+            // A novel read but never finished used to keep lastReadAt NULL forever, so it never
+            // showed up in History (Known Issue #114) — the ≥90% completion path was the only
+            // thing that ever set it. Throttled to once a minute and folded into this same
+            // transaction because the reader autosaves scroll position every ~400ms (#142).
+            if let novelId {
+                touchedNovel = try touchLastReadIfStale(db, novelId: novelId)
+            }
         }
         if let novelId {
             markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
+            if touchedNovel { markCloudDirty(.novel, key: novelId) }
         }
+    }
+
+    /// Bumps a novel's `lastReadAt` only when it is more than a minute stale, inside the caller's
+    /// own transaction. Returns whether a row actually changed, so the caller can skip the
+    /// CloudKit dirty-mark (itself 1-2 further write transactions) when nothing did.
+    nonisolated private static func touchLastReadIfStale(_ db: Database, novelId: String) throws -> Bool {
+        let now = Date()
+        try db.execute(
+            sql: "UPDATE novel SET lastReadAt = ? WHERE id = ? AND (lastReadAt IS NULL OR lastReadAt < ?)",
+            arguments: [now, novelId, now.addingTimeInterval(-60)]
+        )
+        return db.changesCount > 0
     }
 
     /// Marks all chapters of a novel as read or unread in a single write

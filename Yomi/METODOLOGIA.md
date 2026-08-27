@@ -149,6 +149,16 @@ path (browse → detail → chapters → reader pages) in minutes. It deliberate
 real server — the JSON shapes are assumed correct, not re-verified — and that limit belongs in the
 writeup. But "the backend is unavailable" is a reason to shrink the claim, not to skip the test.
 
+**A fix on a hot path has to carry its own cost budget.** #114's fix is one line on the manga side
+(`updateProgress` runs a handful of times per session) and deliberately not one line on the novel
+side: `updateScrollPercent` fires on every ~400ms scroll-autosave tick, and #142 already flags that
+path as issuing 2-3 write transactions per tick. An unconditional `touchLastRead` there would have
+closed one finding by worsening another. The shape that works: fold the extra write into the
+transaction the caller already opened, gate it on staleness in SQL
+(`WHERE lastReadAt IS NULL OR lastReadAt < ?`), and return `changesCount > 0` so the expensive
+follow-up (the CloudKit dirty-mark, itself 1-2 more transactions) only runs when something actually
+changed. Worth checking the open findings for the path you're about to touch before adding to it.
+
 **`state` is not optional just because PKCE is present, and a constant `state` is not `state`.**
 MAL sent `state: "yomi"` and was cited in the audit as the *working* counterexample because its
 PKCE `code_verifier` genuinely blocks the attack. Both are true, and the constant still had to go:
