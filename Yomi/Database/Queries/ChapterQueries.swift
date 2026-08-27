@@ -152,6 +152,11 @@ enum ChapterQueries {
         }
         if let mangaId {
             markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
+            // This is the only write on the ordinary "closed the reader partway through" path — the
+            // ≥80% markChapterRead() path never runs for it. Without this touch, a manga genuinely
+            // being read but never finished keeps lastReadAt NULL and never appears in History or
+            // the Continue shelf at all (Known Issue #114).
+            try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
     }
 
