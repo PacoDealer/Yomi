@@ -96,6 +96,36 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         saveToken()
     }
 
+    // MARK: - Token Refresh
+
+    /// MAL's access token is short-lived (~31 days); the refresh token was saved at login and never
+    /// used until S120, so sync silently died forever once it expired (Known Issue #108).
+    func refreshAccessToken() async -> Bool {
+        guard let refresh = refreshToken else { return false }
+        let outcome = await performTokenRefresh(
+            url: URL(string: "https://myanimelist.net/v1/oauth2/token")!,
+            form: [
+                "client_id":     clientId,
+                "grant_type":    "refresh_token",
+                "refresh_token": refresh
+            ]
+        )
+        switch outcome {
+        case .refreshed(let access, let newRefresh):
+            accessToken = access
+            if let newRefresh { refreshToken = newRefresh }
+            saveToken()
+            errorMessage = nil
+            return true
+        case .rejected:
+            logout()
+            errorMessage = "MyAnimeList: session expired — please log in again."
+            return false
+        case .failed:
+            return false
+        }
+    }
+
     // MARK: - User Info
 
     func fetchUserInfo() async {
@@ -103,11 +133,10 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         var request = URLRequest(url: URL(string: "\(baseURL)/users/@me")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let name      = json["name"] as? String
         else { return }
-        yomiLogNetwork(request, response: response, data: data)
         username = name
     }
 
@@ -122,14 +151,13 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let list      = json["data"]  as? [[String: Any]],
             let first     = list.first,
             let node      = first["node"] as? [String: Any],
             let id        = node["id"]    as? Int
         else { return nil }
-        yomiLogNetwork(request, response: response, data: data)
         return String(id)
     }
 

@@ -95,6 +95,38 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
         saveToken()
     }
 
+    // MARK: - Token Refresh
+
+    /// Shikimori access tokens expire in 24h — the saved refresh token was never used before S120,
+    /// so sync died a day after login and the screen still said "Connected" (Known Issue #108).
+    func refreshAccessToken() async -> Bool {
+        guard let refresh = refreshToken else { return false }
+        let outcome = await performTokenRefresh(
+            url: URL(string: "\(baseURL)/oauth/token")!,
+            form: [
+                "grant_type":    "refresh_token",
+                "client_id":     clientId,
+                "client_secret": clientSecret,
+                "refresh_token": refresh
+            ],
+            userAgent: userAgent
+        )
+        switch outcome {
+        case .refreshed(let access, let newRefresh):
+            accessToken = access
+            if let newRefresh { refreshToken = newRefresh }
+            saveToken()
+            errorMessage = nil
+            return true
+        case .rejected:
+            logout()
+            errorMessage = "Shikimori: session expired — please log in again."
+            return false
+        case .failed:
+            return false
+        }
+    }
+
     // MARK: - User Info
 
     func fetchUserInfo() async {
@@ -103,12 +135,11 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let id   = json["id"] as? Int,
             let nick = json["nickname"] as? String
         else { return }
-        yomiLogNetwork(request, response: response, data: data)
         userId   = String(id)
         username = nick
         saveToken()
@@ -126,12 +157,11 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let list  = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
             let first = list.first,
             let id    = first["id"] as? Int
         else { return nil }
-        yomiLogNetwork(request, response: response, data: data)
         return String(id)
     }
 

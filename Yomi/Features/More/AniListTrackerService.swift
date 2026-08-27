@@ -92,13 +92,12 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
         let query = "query { Viewer { id name } }"
         let request = graphQLRequest(query: query, variables: [:])
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let json    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let dataObj = json["data"]   as? [String: Any],
             let viewer  = dataObj["Viewer"] as? [String: Any],
             let name    = viewer["name"] as? String
         else { return }
-        yomiLogNetwork(request, response: response, data: data)
         username = name
     }
 
@@ -115,7 +114,7 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
         """
         let request = graphQLRequest(query: query, variables: ["search": title])
         guard
-            let (data, response) = try? await URLSession.shared.data(for: request),
+            let (data, _) = await sendAuthorized(request),
             let json    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let dataObj = json["data"] as? [String: Any],
             let page    = dataObj["Page"] as? [String: Any],
@@ -123,7 +122,6 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
             let first   = list.first,
             let id      = first["id"] as? Int
         else { return nil }
-        yomiLogNetwork(request, response: response, data: data)
         return String(id)
     }
 
