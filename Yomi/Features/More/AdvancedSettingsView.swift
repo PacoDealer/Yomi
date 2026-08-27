@@ -8,7 +8,6 @@ import PulseUI
 // MARK: - AdvancedSettingsView
 
 struct AdvancedSettingsView: View {
-    @State private var showClearConfirm = false
     @State private var settings = AppSettings.shared
 
     var body: some View {
