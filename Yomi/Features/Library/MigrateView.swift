@@ -215,6 +215,13 @@ private struct MigrateSourcePickerView: View {
                 .foregroundStyle(Color.accentColor)
             Text("Migrated")
                 .font(YomiTokens.Font.grotesk(20, weight: .medium))
+            // Always state the new source's real chapter count — a migration that "succeeded"
+            // with far fewer chapters than expected is the user's only signal something is off.
+            Text("\(result.newChapterCount) chapter\(result.newChapterCount == 1 ? "" : "s") from the new source.")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
             Text(result.oldReadChapters > 0
                  ? "Carried over \(result.matchedChapters) of \(result.oldReadChapters) read chapters, matched by chapter number."
                  : "No prior reading progress to carry over.")

@@ -21,7 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S117 — 2026-08-22 · S116 backlog fixed + remaining 15-dimension audit, 30 new findings)
+## Current state (post S119 — 2026-08-27 · all 5 HIGH audit findings fixed)
+
+**S118 finished the 23-dimension audit** (verified S117's 15 unverified rows — 11 confirmed, 4
+refuted — then ran the last 4 dimensions, 25 more confirmed findings, `CLAUDE.md` rows 138-162;
+89 findings total across the whole audit, audit-only, no fixes).
+
+**S119 started the fix backlog with the 5 HIGH findings S118's handoff named first — all fixed:**
+`BackupManager.importBackup` no longer restores a library on the main thread with a transaction per
+row (#138); a chapter-update check now distinguishes a failed fetch from "nothing new" and says so
+in the refresh banner (#145); all 4 tracker services now surface a failed progress sync instead of
+swallowing it, via one shared `MangaTracker.sendProgressUpdate` helper (#147); a migration whose
+new-source fetch fails now throws before touching the library rather than deleting the working
+original (#148); and a partially-failed or cancelled download no longer marks itself "Downloaded"
+(#149, also closing #111). Clean zero-warning build; #145 live-verified end-to-end against a
+genuinely dead source. Full detail in `CLAUDE.md`'s S119 entry and the Known Issues table.
+
+---
+
+## Prior state (post S117 — 2026-08-22 · S116 backlog fixed + remaining 15-dimension audit, 30 new findings)
 
 **S116 ran an "absolutely everything" full-project audit** (23-dimension multi-agent `Workflow`,
 every finding independently re-verified) but was interrupted twice by the account's own session

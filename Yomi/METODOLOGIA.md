@@ -129,6 +129,36 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S119
+
+**An empty result from a plugin is a failure signal, not a neutral one — and the call site is the
+only place that can tell.** Every JS plugin swallows its own exceptions (`catch(e) { return []; }`)
+and `JSBridge`'s `context.exceptionHandler` only `print()`s, so a Cloudflare block, a rate-limit and
+a genuinely empty chapter list are byte-identical by the time Swift sees them: `[]`. Three of this
+session's five fixes (#145 update checks, #148 migration, #149 downloads) were the same bug wearing
+different clothes — code treating that `[]` as "nothing to do" when the surrounding context made it
+provably a failure. The rule that resolves it: **ask whether an empty result is even reachable for
+valid input at this call site.** A title already in the library always has ≥1 chapter upstream; a
+migration target the user just picked out of a search result always has chapters; a chapter being
+downloaded always has pages. Wherever the answer is "empty is impossible if this worked," `[]` means
+failure and should be reported as one. This doesn't require fixing the exception-swallowing in the
+plugins at all.
+
+**Under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, a nested type inherits the enclosing type's
+isolation — including its synthesized memberwise/default init.** Declaring a plain `struct
+DecodedBackup: Sendable` inside `@Observable final class BackupManager` and constructing it from a
+`nonisolated static` helper produced "call to main actor-isolated initializer 'init()' in a
+synchronous nonisolated context." `Sendable` conformance does not opt the type out of that — the
+type declaration itself needs `nonisolated`. Worth knowing before reaching for the usual suspects
+(the property types, the closure, the `Task.detached`), none of which were the cause.
+
+**Reordering fetch-before-write is a stronger fix than adding an error path.** #148's failure mode
+was that a migration wrote the new entry, fetched chapters (silently getting none), then deleted the
+old entry and its downloads. Adding rollback would have meant undoing three separate writes
+correctly; moving the fetch to the top and throwing before the first write made the failure
+inherently atomic — nothing to undo. Prefer "validate everything that can fail before mutating
+anything" over "mutate, then compensate," especially where the compensation path is itself untested.
+
 ## Technical learnings — S96 (part 2, same session — Martin's live visual review)
 
 **`.glassEffect()` called with no arguments does not reliably clip to the shape it's placed on —

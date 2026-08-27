@@ -126,9 +126,7 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
             "progress": chaptersRead,
             "status":   status
         ])
-        if let (data, response) = try? await URLSession.shared.data(for: request) {
-            yomiLogNetwork(request, response: response, data: data)
-        }
+        await sendProgressUpdate(request, graphQL: true)
     }
 
     // MARK: - Logout

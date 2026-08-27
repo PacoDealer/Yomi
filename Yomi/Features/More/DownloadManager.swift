@@ -25,6 +25,10 @@ import SwiftUI
     /// Increments each time a download finishes — views observe this to refresh chapter state
     var completedDownloadCount: Int = 0
 
+    /// Set when a chapter download completes with missing pages (network/disk failure) instead of
+    /// being silently marked "Downloaded". Views surface it via `.yomiToast($...)` and clear it.
+    var failureMessage: String? = nil
+
     // MARK: - Private
 
     private struct QueueItem {
@@ -155,6 +159,10 @@ import SwiftUI
         }.value
 
         guard !urls.isEmpty else {
+            // An empty page list means the plugin fetch failed (JS exceptions are swallowed and
+            // return []) — surface it instead of dropping the chapter out of the queue silently.
+            failureMessage = "\(item.chapter.name): could not load pages"
+            YomiHaptics.error()
             activeChapter = nil
             activeChapterId = nil
             isRunning = false
@@ -167,6 +175,7 @@ import SwiftUI
 
         let total = urls.count
         var completed = 0
+        var failed = 0
 
         // 3. Download pages — concurrent via sliding-window withTaskGroup
         let concurrentLimit = AppSettings.shared.concurrentDownloads
@@ -190,9 +199,17 @@ import SwiftUI
             for await (idx, data) in group {
                 completed += 1
 
+                // A page counts as landed only if its bytes actually reached disk — both the
+                // fetch and the write can fail silently, and neither must be mistaken for success.
                 if let data {
                     let fileURL = dir.appendingPathComponent("\(idx).dat")
-                    try? data.write(to: fileURL)
+                    do {
+                        try data.write(to: fileURL)
+                    } catch {
+                        failed += 1
+                    }
+                } else {
+                    failed += 1
                 }
 
                 // 4. Update progress (already on MainActor — direct assignment)
@@ -212,8 +229,19 @@ import SwiftUI
             }
         }
 
-        // 5. Persist download state in DB
-        try? DownloadQueries.markDownloaded(chapterId: chapterId)
+        // 5. Persist download state in DB — only when the chapter is genuinely complete.
+        //    A cancelled or partially-failed download must never show the "Downloaded" badge,
+        //    or offline reading silently serves fewer pages than the chapter actually has.
+        if Task.isCancelled {
+            try? FileManager.default.removeItem(at: dir)
+            try? DownloadQueries.markNotDownloaded(chapterId: chapterId)
+        } else if failed == 0 {
+            try? DownloadQueries.markDownloaded(chapterId: chapterId)
+        } else {
+            try? DownloadQueries.markNotDownloaded(chapterId: chapterId)
+            failureMessage = "\(item.chapter.name): \(failed) of \(total) pages failed to download"
+            YomiHaptics.error()
+        }
 
         // 6. Signal completion so MangaDetailView can refresh chapter state
         completedDownloadCount += 1
