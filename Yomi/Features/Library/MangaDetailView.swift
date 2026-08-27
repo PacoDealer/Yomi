@@ -593,6 +593,13 @@ struct MangaDetailView: View {
             .presentationDetents([.medium, .large])
         }
         .yomiToast($toastMessage)
+        // A partially-failed download no longer marks itself "Downloaded" silently (#149) —
+        // surface the failure here too, since this is where downloads are usually started.
+        .onChange(of: DownloadManager.shared.failureMessage) { _, message in
+            guard let message else { return }
+            toastMessage = message
+            DownloadManager.shared.failureMessage = nil
+        }
     }
 
     // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)

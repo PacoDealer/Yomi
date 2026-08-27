@@ -18,10 +18,10 @@ struct TrackersView: View {
             }
 
             Section("Connect") {
-                row("TrackerLogoMAL", MALService.displayName, isLoggedIn: mal.isLoggedIn, username: mal.username) { MALView() }
-                row("TrackerLogoAniList", AniListTrackerService.displayName, isLoggedIn: aniList.isLoggedIn, username: aniList.username) { AniListView() }
-                row("TrackerLogoShikimori", ShikimoriService.displayName, isLoggedIn: shikimori.isLoggedIn, username: shikimori.username) { ShikimoriView() }
-                row("TrackerLogoBangumi", BangumiService.displayName, wordmark: true, isLoggedIn: bangumi.isLoggedIn, username: bangumi.username) { BangumiView() }
+                row("TrackerLogoMAL", MALService.displayName, isLoggedIn: mal.isLoggedIn, username: mal.username, error: mal.errorMessage) { MALView() }
+                row("TrackerLogoAniList", AniListTrackerService.displayName, isLoggedIn: aniList.isLoggedIn, username: aniList.username, error: aniList.errorMessage) { AniListView() }
+                row("TrackerLogoShikimori", ShikimoriService.displayName, isLoggedIn: shikimori.isLoggedIn, username: shikimori.username, error: shikimori.errorMessage) { ShikimoriView() }
+                row("TrackerLogoBangumi", BangumiService.displayName, wordmark: true, isLoggedIn: bangumi.isLoggedIn, username: bangumi.username, error: bangumi.errorMessage) { BangumiView() }
             }
         }
         .listStyle(.insetGrouped)
@@ -32,16 +32,26 @@ struct TrackersView: View {
     @ViewBuilder
     private func row<Destination: View>(
         _ logo: String, _ name: String, wordmark: Bool = false, isLoggedIn: Bool, username: String?,
+        error: String? = nil,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
         NavigationLink(destination: destination) {
-            HStack(spacing: 12) {
-                TrackerLogo(name: logo, width: wordmark ? 72 : 28, height: 28)
-                Text(name)
-                Spacer()
-                Text(isLoggedIn ? (username ?? "Connected") : "Not connected")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    TrackerLogo(name: logo, width: wordmark ? 72 : 28, height: 28)
+                    Text(name)
+                    Spacer()
+                    Text(isLoggedIn ? (username ?? "Connected") : "Not connected")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                }
+                // A failed progress sync is otherwise invisible — "Connected" alone used to be
+                // shown even when every write to the service had been failing for months.
+                if isLoggedIn, let error {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
         }
     }

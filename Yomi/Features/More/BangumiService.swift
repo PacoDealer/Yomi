@@ -140,9 +140,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             "type":      collectionType,
             "ep_status": chaptersRead
         ])
-        if let (data, response) = try? await URLSession.shared.data(for: request) {
-            yomiLogNetwork(request, response: response, data: data)
-        }
+        await sendProgressUpdate(request)
     }
 
     // MARK: - Logout

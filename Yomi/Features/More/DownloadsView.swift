@@ -155,6 +155,10 @@ struct DownloadsView: View {
         .onChange(of: dm.completedDownloadCount) { _, _ in
             Task { await vm.load() }
         }
+        .yomiToast(Binding(
+            get: { DownloadManager.shared.failureMessage },
+            set: { DownloadManager.shared.failureMessage = $0 }
+        ))
         .confirmationDialog("Delete all downloads?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
             Button("Delete all", role: .destructive) { Task { await vm.deleteEverything() } }
             Button("Cancel", role: .cancel) {}

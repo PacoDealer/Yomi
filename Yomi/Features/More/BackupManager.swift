@@ -273,70 +273,42 @@ enum ICloudSyncStatus: Equatable {
         defer { isImporting = false }
 
         do {
-            let data = try Data(contentsOf: url)
-            guard
-                let payload      = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let mangaDicts   = payload["mangas"]   as? [[String: Any]],
-                let chapterDicts = payload["chapters"] as? [[String: Any]]
-            else {
-                throw NSError(
-                    domain: "Yomi", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Invalid backup file"]
-                )
-            }
+            // File read + JSON parse + model decoding all run off MainActor; the writes below go
+            // through GRDB's own writer queue in bulk transactions rather than one per row. This
+            // used to be entirely main-thread with a separate transaction (plus its own
+            // markCloudDirty write) per manga/chapter — 24,000+ sequential transactions for a
+            // realistic library, which froze the UI for the whole restore.
+            let decoded = try await Task.detached(priority: .userInitiated) {
+                try Self.decodeBackup(at: url)
+            }.value
 
-            for dict in mangaDicts {
-                if let manga = decodeManga(dict) {
-                    try MangaQueries.upsert(manga)
-                }
-            }
-            for dict in chapterDicts {
-                if let chapter = decodeChapter(dict) {
-                    try ChapterQueries.upsert(chapter)
-                }
-            }
-
-            // Categories (v3 backup) — must restore before assignment pairs
-            let categoryDicts = payload["categories"] as? [[String: Any]] ?? []
             _ = try await appDatabase.write { db in
-                for dict in categoryDicts {
-                    guard
-                        let id   = dict["id"]   as? String,
-                        let name = dict["name"] as? String,
-                        let sort = dict["sort"] as? Int
-                    else { continue }
+                for manga in decoded.mangas { try manga.save(db) }
+                for chapter in decoded.chapters { try chapter.save(db) }
+
+                // Categories (v3 backup) — must restore before assignment pairs
+                for category in decoded.categories {
                     try db.execute(
                         sql: "INSERT OR IGNORE INTO category (id, name, sort) VALUES (?, ?, ?)",
-                        arguments: [id, name, sort]
+                        arguments: [category.id, category.name, category.sort]
                     )
                 }
-            }
 
-            // Novels (v2 backup)
-            let novelDicts        = payload["novels"]          as? [[String: Any]] ?? []
-            let novelChapterDicts = payload["novelChapters"]   as? [[String: Any]] ?? []
-            let novelCatPairs     = payload["novelCategories"] as? [[String: String]] ?? []
-            let mangaCatPairs     = payload["mangaCategories"] as? [[String: String]] ?? []
+                // Novels (v2 backup)
+                for novel in decoded.novels { try novel.save(db) }
+                // INSERT OR IGNORE, matching NovelQueries.insertAllIgnoringConflicts — never
+                // overwrites existing read/progress state for a chapter already present locally.
+                for chapter in decoded.novelChapters { try chapter.insert(db, onConflict: .ignore) }
+                try CloudSyncManager.applyPendingNovelChapterStates(decoded.novelChapters, db: db)
 
-            for dict in novelDicts {
-                if let novel = decodeNovel(dict) {
-                    try NovelQueries.upsert(novel)
-                }
-            }
-            for dict in novelChapterDicts {
-                if let chapter = decodeNovelChapter(dict) {
-                    try NovelQueries.insertAllIgnoringConflicts([chapter])
-                }
-            }
-            _ = try await appDatabase.write { db in
-                for pair in novelCatPairs {
+                for pair in decoded.novelCatPairs {
                     guard let novelId = pair["novelId"], let catId = pair["categoryId"] else { continue }
                     try db.execute(
                         sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
                         arguments: [novelId, catId]
                     )
                 }
-                for pair in mangaCatPairs {
+                for pair in decoded.mangaCatPairs {
                     guard let mangaId = pair["mangaId"], let catId = pair["categoryId"] else { continue }
                     try db.execute(
                         sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
@@ -344,9 +316,68 @@ enum ICloudSyncStatus: Equatable {
                     )
                 }
             }
+
+            // One batched dirty-mark per record type instead of one write per restored row.
+            markCloudDirtyBatch(.manga, keys: decoded.mangas.map(\.id))
+            markCloudDirtyBatch(
+                .mangaChapterState,
+                keys: decoded.chapters.map { "\($0.mangaId)|\($0.id)" }
+            )
+            markCloudDirtyBatch(.novel, keys: decoded.novels.map(\.id))
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Everything a Yomi JSON backup restores, already decoded into models.
+    private nonisolated struct DecodedBackup: Sendable {
+        nonisolated struct CategoryRow: Sendable {
+            let id: String
+            let name: String
+            let sort: Int
+        }
+        var mangas: [Manga] = []
+        var chapters: [Chapter] = []
+        var categories: [CategoryRow] = []
+        var novels: [Novel] = []
+        var novelChapters: [NovelChapter] = []
+        var novelCatPairs: [[String: String]] = []
+        var mangaCatPairs: [[String: String]] = []
+    }
+
+    /// Reads and fully decodes a backup file. Pure I/O + parsing, no DB access and no observable
+    /// state — safe to call from `Task.detached`.
+    private nonisolated static func decodeBackup(at url: URL) throws -> DecodedBackup {
+        let data = try Data(contentsOf: url)
+        guard
+            let payload      = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let mangaDicts   = payload["mangas"]   as? [[String: Any]],
+            let chapterDicts = payload["chapters"] as? [[String: Any]]
+        else {
+            throw NSError(
+                domain: "Yomi", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid backup file"]
+            )
+        }
+
+        var result = DecodedBackup()
+        result.mangas   = mangaDicts.compactMap   { decodeManga($0) }
+        result.chapters = chapterDicts.compactMap { decodeChapter($0) }
+        result.categories = (payload["categories"] as? [[String: Any]] ?? []).compactMap { dict in
+            guard
+                let id   = dict["id"]   as? String,
+                let name = dict["name"] as? String,
+                let sort = dict["sort"] as? Int
+            else { return nil }
+            return DecodedBackup.CategoryRow(id: id, name: name, sort: sort)
+        }
+        result.novels = (payload["novels"] as? [[String: Any]] ?? [])
+            .compactMap { decodeNovel($0) }
+        result.novelChapters = (payload["novelChapters"] as? [[String: Any]] ?? [])
+            .compactMap { decodeNovelChapter($0) }
+        result.novelCatPairs = payload["novelCategories"] as? [[String: String]] ?? []
+        result.mangaCatPairs = payload["mangaCategories"] as? [[String: String]] ?? []
+        return result
     }
 
     // MARK: - Encode Helpers
@@ -399,7 +430,7 @@ enum ICloudSyncStatus: Equatable {
 
     // MARK: - Decode Helpers
 
-    private func decodeManga(_ d: [String: Any]) -> Manga? {
+    private nonisolated static func decodeManga(_ d: [String: Any]) -> Manga? {
         guard
             let id       = d["id"]       as? String,
             let path     = d["path"]     as? String,
@@ -429,7 +460,7 @@ enum ICloudSyncStatus: Equatable {
         )
     }
 
-    private func decodeChapter(_ d: [String: Any]) -> Chapter? {
+    private nonisolated static func decodeChapter(_ d: [String: Any]) -> Chapter? {
         guard
             let id      = d["id"]      as? String,
             let mangaId = d["mangaId"] as? String,
@@ -496,7 +527,7 @@ enum ICloudSyncStatus: Equatable {
         return d
     }
 
-    private func decodeNovel(_ d: [String: Any]) -> Novel? {
+    private nonisolated static func decodeNovel(_ d: [String: Any]) -> Novel? {
         guard
             let id       = d["id"]       as? String,
             let path     = d["path"]     as? String,
@@ -524,7 +555,7 @@ enum ICloudSyncStatus: Equatable {
         )
     }
 
-    private func decodeNovelChapter(_ d: [String: Any]) -> NovelChapter? {
+    private nonisolated static func decodeNovelChapter(_ d: [String: Any]) -> NovelChapter? {
         guard
             let id      = d["id"]      as? String,
             let novelId = d["novelId"] as? String,
