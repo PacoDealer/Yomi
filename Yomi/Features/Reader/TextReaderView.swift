@@ -732,6 +732,7 @@ struct TextReaderOverlayView: View {
                         .contentShape(Circle())
                 }
                 .glassEffect(.regular, in: Circle())
+                .accessibilityLabel("Close reader")
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(novel.title)
@@ -753,6 +754,7 @@ struct TextReaderOverlayView: View {
                             .contentShape(Circle())
                     }
                     .glassEffect(.regular, in: Circle())
+                    .accessibilityLabel("Chapters")
                 }
 
                 if sourceURL != nil {
@@ -765,6 +767,7 @@ struct TextReaderOverlayView: View {
                             .contentShape(Circle())
                     }
                     .glassEffect(.regular, in: Circle())
+                    .accessibilityLabel("Open on source website")
                 }
             }
             .padding(.horizontal, 12)
@@ -832,7 +835,12 @@ struct TextReaderOverlayView: View {
                 // Row 1: Font size slider
                 HStack(spacing: 10) {
                     Text("A").font(.caption).foregroundStyle(.secondary)
-                    YomiScrubber(value: $fontSize, range: 14...28)
+                    YomiScrubber(
+                        value: $fontSize,
+                        range: 14...28,
+                        accessibilityLabelText: "Font size",
+                        accessibilityValueText: { "\(Int($0.rounded())) points" }
+                    )
                     Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 20)
@@ -852,6 +860,11 @@ struct TextReaderOverlayView: View {
                             .background(Color.primary.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
                             .clipShape(Capsule())
                     }
+                    // "Aa" reads as nothing useful to VoiceOver, and neither state is announced
+                    // without an explicit trait (Known Issue #121).
+                    .accessibilityLabel("Serif font")
+                    .accessibilityValue(fontFamily == "Serif" ? "On" : "Off")
+                    .accessibilityAddTraits(fontFamily == "Serif" ? .isSelected : [])
 
                     Button { justifyText.toggle() } label: {
                         Image(systemName: "text.justify")
@@ -861,6 +874,9 @@ struct TextReaderOverlayView: View {
                             .background(Color.primary.opacity(justifyText ? 0.18 : 0.06))
                             .clipShape(Circle())
                     }
+                    .accessibilityLabel("Justify text")
+                    .accessibilityValue(justifyText ? "On" : "Off")
+                    .accessibilityAddTraits(justifyText ? .isSelected : [])
 
                     Spacer()
 
@@ -877,6 +893,9 @@ struct TextReaderOverlayView: View {
                                     .padding(.vertical, 5)
                                     .background(hPadding == opt.value ? Color.white : Color.clear)
                             }
+                            // "Narrow" alone doesn't say narrow *what* (Known Issue #121).
+                            .accessibilityLabel("Margins: \(opt.label)")
+                            .accessibilityAddTraits(hPadding == opt.value ? .isSelected : [])
                         }
                     }
                     .background(Color.primary.opacity(0.12))
@@ -905,6 +924,8 @@ struct TextReaderOverlayView: View {
                                     .padding(.vertical, 5)
                                     .background(abs(lineSpacing - opt.value) < 0.05 ? Color.white : Color.clear)
                             }
+                            .accessibilityLabel("Line spacing: \(opt.label)")
+                            .accessibilityAddTraits(abs(lineSpacing - opt.value) < 0.05 ? .isSelected : [])
                         }
                     }
                     .background(Color.primary.opacity(0.12))
@@ -934,6 +955,10 @@ struct TextReaderOverlayView: View {
                                 }
                             }
                         }
+                        // Selection here is conveyed by colour + a checkmark glyph only — neither
+                        // reaches VoiceOver without this (Known Issue #121).
+                        .accessibilityLabel("\(theme.rawValue) reading theme")
+                        .accessibilityAddTraits(novelTheme == theme ? .isSelected : [])
                     }
                     Spacer()
                 }
@@ -947,6 +972,7 @@ struct TextReaderOverlayView: View {
                             .frame(width: 56, height: 40)
                     }
                     .disabled(!hasPrevChapter)
+                    .accessibilityLabel("Previous chapter")
 
                     Spacer()
 
@@ -955,6 +981,8 @@ struct TextReaderOverlayView: View {
                             .font(.title2)
                             .foregroundStyle(isSpeaking ? Color.accentColor : .secondary)
                     }
+                    // The glyph is the only indication of speaking state (Known Issue #121).
+                    .accessibilityLabel(isSpeaking ? "Stop reading aloud" : "Read aloud")
 
                     Spacer()
 
@@ -965,6 +993,7 @@ struct TextReaderOverlayView: View {
                             .frame(width: 56, height: 40)
                     }
                     .disabled(!hasNextChapter)
+                    .accessibilityLabel("Next chapter")
                 }
                 .padding(.horizontal, 8)
 
