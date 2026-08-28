@@ -7,6 +7,7 @@ struct MALView: View {
 
     // MARK: - State
 
+    @Environment(\.yomiCanvas) private var canvas
     @State private var malService = MALService.shared
     @State private var showSafari = false
     @State private var authURL: URL? = nil
@@ -24,6 +25,7 @@ struct MALView: View {
             errorSection
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
         .navigationTitle("MyAnimeList")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {
@@ -50,8 +52,8 @@ struct MALView: View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Connect your MyAnimeList account to automatically track chapters you read.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                    .foregroundStyle(canvas.textSecondary)
                 Button("Login with MyAnimeList") {
                     authURL = malService.authorizationURL()
                     showSafari = true

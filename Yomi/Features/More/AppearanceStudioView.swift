@@ -388,12 +388,15 @@ struct AppearanceStudioView: View {
                     Button { applyAlternateIcon(option.key) } label: {
                         VStack(spacing: 5) {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemGray5))
+                                // Canvas token, not `Color(.systemGray5)` — a fixed light-gray tile
+                                // clashed with every other surface on the one screen whose whole job
+                                // is demonstrating the app's own palette (Known Issue #117).
+                                .fill(canvas.surface2)
                                 .frame(width: 52, height: 52)
                                 .overlay(
                                     Text(option.label.prefix(1))
                                         .font(.title2.bold())
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(canvas.textSecondary)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)

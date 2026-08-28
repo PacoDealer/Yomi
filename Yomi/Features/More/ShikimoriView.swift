@@ -4,6 +4,7 @@ import SafariServices
 // MARK: - ShikimoriView
 
 struct ShikimoriView: View {
+    @Environment(\.yomiCanvas) private var canvas
     @State private var service = ShikimoriService.shared
     @State private var showSafari = false
     @State private var authURL: URL? = nil
@@ -20,8 +21,8 @@ struct ShikimoriView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Connect your Shikimori account to automatically track chapters you read.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                            .foregroundStyle(canvas.textSecondary)
                         Button("Login with Shikimori") {
                             authURL = service.authorizationURL()
                             showSafari = true
@@ -39,6 +40,7 @@ struct ShikimoriView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
         .navigationTitle("Shikimori")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {

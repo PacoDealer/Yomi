@@ -6,6 +6,7 @@ import Kingfisher
 // Navigation entries drill down; acquisition entries open a detail sheet.
 
 struct OPDSBrowseView: View {
+    @Environment(\.yomiCanvas) private var canvas
     let title: String
     let feedHref: String
 
@@ -32,8 +33,20 @@ struct OPDSBrowseView: View {
                 )
             } else if feed != nil {
                 feedView(allEntries)
+            } else {
+                // MUST stay non-empty. A `Group` distributes its modifiers to its children, so
+                // when every branch above was false — which is exactly the initial state, since
+                // `isLoading` starts false and `feed` starts nil — the Group had *zero* children
+                // and `.task`/`.navigationTitle` below attached to nothing. `load()` therefore
+                // never ran, nothing ever set `isLoading`, and the view stayed empty forever:
+                // drilling into any OPDS navigation entry showed a permanently blank screen with
+                // no title and no network request at all (Known Issue #163).
+                Color.clear
             }
         }
+        // Covers the loading/error/grid paths; the two List paths paint their own via
+        // `.yomiListCanvas()` (Known Issue #116).
+        .background(canvas.bg.ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -74,6 +87,7 @@ struct OPDSBrowseView: View {
                 loadMoreRow
             }
             .listStyle(.insetGrouped)
+        .yomiListCanvas()
         }
     }
 
@@ -117,13 +131,14 @@ struct OPDSBrowseView: View {
             loadMoreRow
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
     }
 
     private func navRow(_ entry: OPDSEntry) -> some View {
         HStack(spacing: 12) {
             if let coverURL = OPDSService.shared.coverURL(for: entry) {
                 KFImage(coverURL)
-                    .placeholder { Image(systemName: "folder").foregroundStyle(.secondary) }
+                    .placeholder { Image(systemName: "folder").foregroundStyle(canvas.textSecondary) }
                     .fade(duration: 0.2)
                     .resizable()
                     .scaledToFill()
@@ -132,7 +147,7 @@ struct OPDSBrowseView: View {
             } else {
                 Image(systemName: "folder")
                     .frame(width: 40, height: 40)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(canvas.textSecondary)
             }
             Text(entry.title).font(.body)
         }
@@ -165,7 +180,7 @@ struct OPDSBrowseView: View {
                 if let coverURL = OPDSService.shared.coverURL(for: entry) {
                     CoverImage(url: coverURL)
                 } else {
-                    Color.secondary.opacity(0.3).aspectRatio(2 / 3, contentMode: .fit)
+                    canvas.surface2.aspectRatio(2 / 3, contentMode: .fit)
                 }
             }
             .cornerRadius(8)
@@ -174,12 +189,12 @@ struct OPDSBrowseView: View {
             Text(entry.title)
                 .font(.caption)
                 .lineLimit(2)
-                .foregroundStyle(.primary)
+                .foregroundStyle(canvas.textPrimary)
 
             if let author = entry.author {
                 Text(author)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(canvas.textSecondary)
                     .lineLimit(1)
             }
         }
@@ -192,25 +207,25 @@ struct OPDSBrowseView: View {
             HStack(spacing: 12) {
                 if let coverURL = OPDSService.shared.coverURL(for: entry) {
                     KFImage(coverURL)
-                        .placeholder { Color.secondary.opacity(0.3) }
+                        .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 40, height: 55)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
-                    Color.secondary.opacity(0.3)
+                    canvas.surface2
                         .frame(width: 40, height: 55)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.title).font(.body)
                     if let author = entry.author {
-                        Text(author).font(.caption).foregroundStyle(.secondary)
+                        Text(author).font(.caption).foregroundStyle(canvas.textSecondary)
                     }
                 }
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(canvas.textPrimary)
         }
         .buttonStyle(.plain)
     }
@@ -255,6 +270,7 @@ struct OPDSBrowseView: View {
 // MARK: - OPDSItemDetailView
 
 struct OPDSItemDetailView: View {
+    @Environment(\.yomiCanvas) private var canvas
     let entry: OPDSEntry
     @Environment(\.dismiss) private var dismiss
 
@@ -266,7 +282,7 @@ struct OPDSItemDetailView: View {
                     HStack(alignment: .top, spacing: 16) {
                         if let coverURL = OPDSService.shared.coverURL(for: entry) {
                             KFImage(coverURL)
-                                .placeholder { Color.secondary.opacity(0.3) }
+                                .placeholder { canvas.surface2 }
                                 .fade(duration: 0.2)
                                 .resizable()
                                 .aspectRatio(2 / 3, contentMode: .fill)
@@ -281,7 +297,7 @@ struct OPDSItemDetailView: View {
                             if let author = entry.author {
                                 Text(author)
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(canvas.textSecondary)
                             }
                             if let href = entry.acquisitionHref {
                                 let fullURL = OPDSService.shared.absoluteURL(href: href)
@@ -301,12 +317,13 @@ struct OPDSItemDetailView: View {
                         Divider()
                         Text(summary)
                             .font(.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(canvas.textSecondary)
                             .padding(.horizontal)
                     }
                 }
                 .padding(.vertical)
             }
+            .background(canvas.bg.ignoresSafeArea())
             .navigationTitle("Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
