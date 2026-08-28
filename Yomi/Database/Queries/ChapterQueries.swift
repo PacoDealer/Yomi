@@ -44,6 +44,42 @@ enum ChapterQueries {
         }
     }
 
+    /// Most recently read-or-started chapter name per manga, in ONE query.
+    ///
+    /// Backs the Home Screen widget's per-title subtitle, which was a hardcoded "Continue reading"
+    /// literal for every entry (Known Issue #129). Bulk rather than per-title on purpose — the
+    /// widget writes on every library load, and an N+1 here is the same shape as #140.
+    nonisolated static func fetchLastTouchedChapterNames(mangaIds: [String]) throws -> [String: String] {
+        guard !mangaIds.isEmpty else { return [:] }
+        let placeholders = Array(repeating: "?", count: mangaIds.count).joined(separator: ",")
+        return try appDatabase.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT mangaId, name FROM (
+                    SELECT mangaId, name, ROW_NUMBER() OVER (
+                        PARTITION BY mangaId
+                        ORDER BY readAt DESC NULLS LAST, chapterNumber DESC
+                    ) AS rn
+                    FROM chapter
+                    WHERE mangaId IN (\(placeholders)) AND (isRead = 1 OR progress > 0)
+                ) WHERE rn = 1
+                """, arguments: StatementArguments(mangaIds))
+            return Dictionary(uniqueKeysWithValues: rows.map { (($0["mangaId"] as String), ($0["name"] as String)) })
+        }
+    }
+
+    /// All chapters for many manga in ONE query, grouped by mangaId — the bulk form of
+    /// `fetchAll(mangaId:)` for callers that would otherwise loop it (Known Issue #140).
+    nonisolated static func fetchAllGrouped(mangaIds: [String]) throws -> [String: [Chapter]] {
+        guard !mangaIds.isEmpty else { return [:] }
+        let chapters: [Chapter] = try appDatabase.read { db in
+            try Chapter
+                .filter(mangaIds.contains(Column("mangaId")))
+                .order(Column("chapterNumber").ascNullsLast)
+                .fetchAll(db)
+        }
+        return Dictionary(grouping: chapters, by: { $0.mangaId })
+    }
+
     /// Returns unread chapters for a manga ordered by chapterNumber ASC, nulls last.
     nonisolated static func fetchUnread(mangaId: String) throws -> [Chapter] {
         try appDatabase.read { db in
@@ -125,6 +161,48 @@ enum ChapterQueries {
         if isRead {
             try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
+    }
+
+    /// Marks a specific set of chapters read/unread in ONE transaction.
+    ///
+    /// The per-chapter `setRead` costs 4 write transactions each (UPDATE + dirty-mark +
+    /// touchLastRead + its own dirty-mark); callers with a whole list — Updates' "mark all read",
+    /// a source migration — were paying that per chapter (Known Issues #141/#143).
+    nonisolated static func setReadBatch(chapterIds: [String], mangaId: String, isRead: Bool) throws {
+        guard !chapterIds.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: chapterIds.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE chapter SET isRead = ?, readAt = ? WHERE id IN (\(placeholders))",
+                arguments: StatementArguments([isRead, isRead ? Date() : nil] as [DatabaseValueConvertible?])
+                    + StatementArguments(chapterIds)
+            )
+        }
+        markCloudDirtyBatch(.mangaChapterState, keys: chapterIds.map { "\(mangaId)|\($0)" })
+        if isRead { try? MangaQueries.touchLastRead(mangaId: mangaId) }
+    }
+
+    /// One chapter's resume/progress state, for `updateProgressBatch`.
+    struct ProgressUpdate: Sendable {
+        let id: String
+        let progress: Double
+        let readingSeconds: Int
+        let lastPageRead: Int
+    }
+
+    /// Applies many chapters' progress in ONE transaction (see `setReadBatch` for why).
+    nonisolated static func updateProgressBatch(_ updates: [ProgressUpdate], mangaId: String) throws {
+        guard !updates.isEmpty else { return }
+        _ = try appDatabase.write { db in
+            for u in updates {
+                try db.execute(
+                    sql: "UPDATE chapter SET progress = ?, readingSeconds = ?, lastPageRead = ? WHERE id = ?",
+                    arguments: [u.progress, u.readingSeconds, u.lastPageRead, u.id]
+                )
+            }
+        }
+        markCloudDirtyBatch(.mangaChapterState, keys: updates.map { "\(mangaId)|\($0.id)" })
+        try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
     /// Marks all chapters for a manga as read with isRead=true and readAt=now.

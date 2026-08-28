@@ -300,6 +300,14 @@ final class DatabaseManager {
             }
         }
 
+        // `NovelQueries.fetchUnreadCountsByNovel()` runs `WHERE isRead = 0 GROUP BY novelId` on
+        // every Library load; `chapter` had `idx_chapter_unread` for the identical query since
+        // v18, `novel_chapter` never got its counterpart (Known Issue #144).
+        migrator.registerMigration("v22_novel_chapter_unread_index") { db in
+            try db.create(index: "idx_novel_chapter_unread",
+                          on: "novel_chapter", columns: ["novelId", "isRead"], ifNotExists: true)
+        }
+
         try migrator.migrate(db)
     }
 
