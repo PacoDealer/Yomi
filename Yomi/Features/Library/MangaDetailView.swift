@@ -830,17 +830,19 @@ struct MangaDetailView: View {
         if available.count > 1 {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
+                    // `canvas` is already in scope on this view — the unselected tint was a
+                    // hardcoded `Color.gray` regardless of canvas (Known Issue #119).
                     Button("All") { scanlatorFilter = nil }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .tint(scanlatorFilter == nil ? Color.accentColor : Color.gray)
+                        .tint(scanlatorFilter == nil ? Color.accentColor : canvas.textSecondary)
                     ForEach(available, id: \.self) { s in
                         Button(s) {
                             scanlatorFilter = scanlatorFilter == s ? nil : s
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .tint(scanlatorFilter == s ? Color.accentColor : Color.gray)
+                        .tint(scanlatorFilter == s ? Color.accentColor : canvas.textSecondary)
                     }
                 }
                 .padding(.vertical, 2)
@@ -1336,6 +1338,9 @@ struct MangaDetailView: View {
 // MARK: - ChapterRow
 
 private struct ChapterRow: View {
+    // Ink and Midnight define deliberately different `textSecondary` (warm vs. cool) and both force
+    // a dark colorScheme, so system `Color.secondary` erases that distinction (Known Issue #118).
+    @Environment(\.yomiCanvas) private var canvas
     let chapter: Chapter
     let manga: Manga
     let bridge: JSBridge?
@@ -1353,7 +1358,7 @@ private struct ChapterRow: View {
             // Selection circle / unread dot
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                     .font(.title3)
             } else {
                 Circle()
@@ -1465,6 +1470,8 @@ private struct ChapterRow: View {
 // MARK: - ReadingStatusMenu
 
 struct ReadingStatusMenu: View {
+    // Same canvas-vs-system-color gap as `ChapterRow` above (Known Issue #118).
+    @Environment(\.yomiCanvas) private var canvas
     let readingStatus: ReadingStatus
     let onSelect: (ReadingStatus) -> Void
 
@@ -1493,9 +1500,9 @@ struct ReadingStatusMenu: View {
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.secondary.opacity(0.12))
+            .background(canvas.surface2)
             .clipShape(Capsule())
-            .foregroundStyle(readingStatus == .none ? Color.secondary : Color.accentColor)
+            .foregroundStyle(readingStatus == .none ? canvas.textSecondary : Color.accentColor)
         }
         .buttonStyle(.plain)
     }

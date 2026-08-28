@@ -4,6 +4,7 @@ import SafariServices
 // MARK: - AniListView
 
 struct AniListView: View {
+    @Environment(\.yomiCanvas) private var canvas
     @State private var service = AniListTrackerService.shared
     @State private var showSafari = false
     @State private var authURL: URL? = nil
@@ -20,8 +21,8 @@ struct AniListView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Connect your AniList account to automatically track chapters you read.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                            .foregroundStyle(canvas.textSecondary)
                         Button("Login with AniList") {
                             authURL = service.authorizationURL()
                             showSafari = true
@@ -39,6 +40,7 @@ struct AniListView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
         .navigationTitle("AniList")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {

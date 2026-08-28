@@ -617,7 +617,8 @@ struct NovelDetailView: View {
                 if isSelectingChapters {
                     let isSelected = selectedChapterIds.contains(chapter.id)
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                        // `canvas` was already in scope here and still bypassed (Known Issue #118).
+                        .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                         .font(.title3)
                 } else {
                     Circle()
