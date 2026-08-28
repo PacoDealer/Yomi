@@ -4,6 +4,7 @@ import SafariServices
 // MARK: - BangumiView
 
 struct BangumiView: View {
+    @Environment(\.yomiCanvas) private var canvas
     @State private var service = BangumiService.shared
     @State private var showSafari = false
     @State private var authURL: URL? = nil
@@ -20,8 +21,8 @@ struct BangumiView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Connect your Bangumi account to automatically track chapters you read.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                            .foregroundStyle(canvas.textSecondary)
                         Button("Login with Bangumi") {
                             authURL = service.authorizationURL()
                             showSafari = true
@@ -39,6 +40,7 @@ struct BangumiView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
         .navigationTitle("Bangumi")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {

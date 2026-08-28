@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - TrackersView
 
 struct TrackersView: View {
+    @Environment(\.yomiCanvas) private var canvas
     @State private var settings  = AppSettings.shared
     @State private var mal       = MALService.shared
     @State private var aniList   = AniListTrackerService.shared
@@ -25,6 +26,7 @@ struct TrackersView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .yomiListCanvas()
         .navigationTitle("Trackers")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -40,10 +42,12 @@ struct TrackersView: View {
                 HStack(spacing: 12) {
                     TrackerLogo(name: logo, width: wordmark ? 72 : 28, height: 28)
                     Text(name)
+                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                        .foregroundStyle(canvas.textPrimary)
                     Spacer()
                     Text(isLoggedIn ? (username ?? "Connected") : "Not connected")
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline)
+                        .foregroundStyle(canvas.textSecondary)
+                        .font(YomiTokens.Font.mono(12))
                 }
                 // A failed progress sync is otherwise invisible — "Connected" alone used to be
                 // shown even when every write to the service had been failing for months.
