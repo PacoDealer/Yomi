@@ -62,6 +62,9 @@ struct TextReaderView: View {
     @State private var sessionStart: Date = Date()
     @State private var readingTimer: Timer? = nil
     @State private var lastKnownScrollPercent: Double? = nil
+    /// Last value actually written to the DB — the autosave skips ticks that haven't moved a
+    /// meaningful distance from it (Known Issue #142).
+    @State private var lastPersistedScrollPercent: Double = -1
     @State private var sourceURL: URL? = nil
     @State private var showSourceSheet = false
 
@@ -207,6 +210,13 @@ struct TextReaderView: View {
                         lastKnownScrollPercent = pct
                         if pct >= 0.7 { preloadNextChapterIfNeeded() }
                         guard !AppSettings.shared.isIncognito else { return }
+                        // The JS side already debounces to ~400ms, but each persist is still 2-3
+                        // write transactions, and a resume position is worthless below its own
+                        // rounding error — so only write when the position actually moved ≥1%
+                        // (Known Issue #142). `.onDisappear` below always writes the final value,
+                        // so nothing is lost by skipping the ticks in between.
+                        guard abs(pct - lastPersistedScrollPercent) >= 0.01 else { return }
+                        lastPersistedScrollPercent = pct
                         let cid = activeChapter.id
                         Task.detached(priority: .background) {
                             try? NovelQueries.updateScrollPercent(chapterId: cid, percent: pct)
@@ -368,6 +378,7 @@ struct TextReaderView: View {
         // started chapter. See finding #91.
         let wasNearComplete = (lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0) >= 0.9
         lastKnownScrollPercent = nil
+        lastPersistedScrollPercent = -1
         flushReadingTime()
         sessionStart  = Date()
         readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }

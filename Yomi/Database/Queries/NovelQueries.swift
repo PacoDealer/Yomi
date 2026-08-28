@@ -192,6 +192,22 @@ enum NovelQueries {
         try? touchLastRead(novelId: novelId)
     }
 
+    /// Marks a specific set of novel chapters read in ONE transaction — the batched form of
+    /// `markRead(chapterId:novelId:)` for callers with a whole list (Known Issue #141).
+    nonisolated static func markReadBatch(chapterIds: [String], novelId: String) throws {
+        guard !chapterIds.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: chapterIds.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(
+                sql: "UPDATE novel_chapter SET isRead = 1, readAt = ? WHERE id IN (\(placeholders))",
+                arguments: StatementArguments([Date()] as [DatabaseValueConvertible?])
+                    + StatementArguments(chapterIds)
+            )
+        }
+        markCloudDirtyBatch(.novelChapterState, keys: chapterIds.map { "\(novelId)|\($0)" })
+        try? touchLastRead(novelId: novelId)
+    }
+
     /// Marks a chapter as unread: isRead=false, readAt=nil
     nonisolated static func markUnread(chapterId: String) throws {
         var novelId: String?
@@ -206,6 +222,27 @@ enum NovelQueries {
         }
         if let novelId {
             markCloudDirty(.novelChapterState, key: "\(novelId)|\(chapterId)")
+        }
+    }
+
+    /// Most recently read-or-started chapter name per novel, in ONE query — the novel half of
+    /// `ChapterQueries.fetchLastTouchedChapterNames` (Known Issue #129).
+    nonisolated static func fetchLastTouchedChapterNames(novelIds: [String]) throws -> [String: String] {
+        guard !novelIds.isEmpty else { return [:] }
+        let placeholders = Array(repeating: "?", count: novelIds.count).joined(separator: ",")
+        return try appDatabase.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT novelId, name FROM (
+                    SELECT novelId, name, ROW_NUMBER() OVER (
+                        PARTITION BY novelId
+                        ORDER BY readAt DESC NULLS LAST, chapterNumber DESC
+                    ) AS rn
+                    FROM novel_chapter
+                    WHERE novelId IN (\(placeholders))
+                      AND (isRead = 1 OR COALESCE(lastScrollPercent, 0) > 0)
+                ) WHERE rn = 1
+                """, arguments: StatementArguments(novelIds))
+            return Dictionary(uniqueKeysWithValues: rows.map { (($0["novelId"] as String), ($0["name"] as String)) })
         }
     }
 

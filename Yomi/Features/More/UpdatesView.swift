@@ -54,14 +54,15 @@ private struct NovelReaderDest: Identifiable, Hashable {
         guard let i = groups.firstIndex(where: { $0.manga.id == mangaId }) else { return }
         let ids = groups[i].chapters.map { $0.id }
         groups.remove(at: i)
-        Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, mangaId: mangaId, isRead: true) } }
+        // One transaction for the whole list instead of 4 per chapter (Known Issue #141).
+        Task.detached { try? ChapterQueries.setReadBatch(chapterIds: ids, mangaId: mangaId, isRead: true) }
     }
 
     func markAllNovelChaptersRead(novelId: String) {
         guard let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) else { return }
         let ids = novelGroups[i].chapters.map { $0.id }
         novelGroups.remove(at: i)
-        Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0, novelId: novelId) } }
+        Task.detached { try? NovelQueries.markReadBatch(chapterIds: ids, novelId: novelId) }
     }
 
     func loadFromDB() async {

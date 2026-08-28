@@ -63,22 +63,31 @@ enum MigrationService {
         // 4. Transfer chapter read-state by matching chapterNumber.
         let oldChapters = try ChapterQueries.fetchAll(mangaId: oldManga.id)
         let readOldChapters = oldChapters.filter { $0.isRead || $0.progress > 0 }
+        // Index once instead of re-scanning `freshNewChapters` per old chapter, and collect the
+        // writes so they go out as two batched transactions rather than up to two per matched
+        // chapter — a fully-read 1000-chapter series was issuing thousands (Known Issue #143).
+        var newByNumber: [Double: Chapter] = [:]
+        for ch in freshNewChapters {
+            // `keys.contains` rather than `newByNumber[num] == nil`: the latter needs Chapter's
+            // Equatable, whose conformance is MainActor-isolated and unusable here.
+            if let num = ch.chapterNumber, !newByNumber.keys.contains(num) { newByNumber[num] = ch }
+        }
+        var readIds: [String] = []
+        var progressUpdates: [ChapterQueries.ProgressUpdate] = []
         var matched = 0
         for oldCh in readOldChapters {
-            guard let oldNum = oldCh.chapterNumber,
-                  let newCh = freshNewChapters.first(where: { $0.chapterNumber == oldNum })
-            else { continue }
-            if oldCh.isRead {
-                try ChapterQueries.setRead(chapterId: newCh.id, mangaId: newManga.id, isRead: true)
-            }
-            try ChapterQueries.updateProgress(
+            guard let oldNum = oldCh.chapterNumber, let newCh = newByNumber[oldNum] else { continue }
+            if oldCh.isRead { readIds.append(newCh.id) }
+            progressUpdates.append(.init(
                 id: newCh.id,
                 progress: oldCh.progress,
                 readingSeconds: oldCh.readingSeconds,
                 lastPageRead: oldCh.lastPageRead
-            )
+            ))
             matched += 1
         }
+        try ChapterQueries.setReadBatch(chapterIds: readIds, mangaId: newManga.id, isRead: true)
+        try ChapterQueries.updateProgressBatch(progressUpdates, mangaId: newManga.id)
 
         // 5. Remove the old entry from the library if requested (default — matches Tachiyomi's
         // "replace" convention). Keeping it just leaves both inLibrary.
