@@ -108,11 +108,13 @@ enum ICloudSyncStatus: Equatable {
         defer { isExporting = false }
 
         do {
-            let mangas = try MangaQueries.fetchLibrary()
-            var chaptersByMangaId: [String: [Chapter]] = [:]
-            for manga in mangas {
-                chaptersByMangaId[manga.id] = try ChapterQueries.fetchAll(mangaId: manga.id)
-            }
+            // One bulk query grouped client-side, off MainActor — was one synchronous DB round-trip
+            // per library manga, on the main thread (Known Issue #140).
+            let (mangas, chaptersByMangaId) = try await Task.detached(priority: .userInitiated) {
+                let mangas = try MangaQueries.fetchLibrary()
+                let grouped = try ChapterQueries.fetchAllGrouped(mangaIds: mangas.map { $0.id })
+                return (mangas, grouped)
+            }.value
             let data = TachiyomiBackupExporter.export(mangas: mangas, chaptersByMangaId: chaptersByMangaId)
             let datePart = Date().formatted(.iso8601)
                 .replacingOccurrences(of: ":", with: "-")
@@ -143,18 +145,24 @@ enum ICloudSyncStatus: Equatable {
         }
         let categories = try CategoryQueries.fetchAll()
 
-        let payload: [String: Any] = [
-            "version":         3,
-            "exportedAt":      ISO8601DateFormatter().string(from: Date()),
-            "categories":      categories.map     { encodeCategory($0) },
-            "mangas":          mangas.map         { encodeManga($0) },
-            "chapters":        chapters.map       { encodeChapter($0) },
-            "novels":          novels.map         { encodeNovel($0) },
-            "novelChapters":   novelChapters.map  { encodeNovelChapter($0) },
-            "novelCategories": novelCatPairs,
-            "mangaCategories": mangaCatPairs
-        ]
-        return try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
+        // Encoding + serializing a whole library is pure CPU work and used to run on MainActor,
+        // freezing "Export Backup"/"Upload to iCloud" for a large library (Known Issue #139).
+        // `.prettyPrinted` is gone too — this format is only ever read back by `decodeBackup`.
+        let exportedAt = ISO8601DateFormatter().string(from: Date())
+        return try await Task.detached(priority: .userInitiated) {
+            let payload: [String: Any] = [
+                "version":         3,
+                "exportedAt":      exportedAt,
+                "categories":      categories.map     { Self.encodeCategory($0) },
+                "mangas":          mangas.map         { Self.encodeManga($0) },
+                "chapters":        chapters.map       { Self.encodeChapter($0) },
+                "novels":          novels.map         { Self.encodeNovel($0) },
+                "novelChapters":   novelChapters.map  { Self.encodeNovelChapter($0) },
+                "novelCategories": novelCatPairs,
+                "mangaCategories": mangaCatPairs
+            ]
+            return try JSONSerialization.data(withJSONObject: payload)
+        }.value
     }
 
     // MARK: - iCloud upload / download
@@ -382,11 +390,11 @@ enum ICloudSyncStatus: Equatable {
 
     // MARK: - Encode Helpers
 
-    private func encodeCategory(_ c: Category) -> [String: Any] {
+    private nonisolated static func encodeCategory(_ c: Category) -> [String: Any] {
         ["id": c.id, "name": c.name, "sort": c.sort]
     }
 
-    private func encodeManga(_ m: Manga) -> [String: Any] {
+    private nonisolated static func encodeManga(_ m: Manga) -> [String: Any] {
         var d: [String: Any] = [
             "id":             m.id,
             "path":           m.path,
@@ -410,7 +418,7 @@ enum ICloudSyncStatus: Equatable {
         return d
     }
 
-    private func encodeChapter(_ c: Chapter) -> [String: Any] {
+    private nonisolated static func encodeChapter(_ c: Chapter) -> [String: Any] {
         var d: [String: Any] = [
             "id":             c.id,
             "mangaId":        c.mangaId,
@@ -489,7 +497,7 @@ enum ICloudSyncStatus: Equatable {
         )
     }
 
-    private func encodeNovel(_ n: Novel) -> [String: Any] {
+    private nonisolated static func encodeNovel(_ n: Novel) -> [String: Any] {
         var d: [String: Any] = [
             "id":             n.id,
             "path":           n.path,
@@ -511,7 +519,7 @@ enum ICloudSyncStatus: Equatable {
         return d
     }
 
-    private func encodeNovelChapter(_ c: NovelChapter) -> [String: Any] {
+    private nonisolated static func encodeNovelChapter(_ c: NovelChapter) -> [String: Any] {
         var d: [String: Any] = [
             "id":             c.id,
             "novelId":        c.novelId,

@@ -205,11 +205,11 @@ final class LibraryViewModel {
         unreadCounts = result.2
         novelUnreadCounts = result.3
         if let err = result.4 { errorMessage = err }
-        writeWidgetData()
+        await writeWidgetData()
         isLoading = false
     }
 
-    private func writeWidgetData() {
+    private func writeWidgetData() async {
         // Widgets render on the Home Screen / Lock Screen Today View with no authentication —
         // never expose reading history there while the user has App Lock or Secure Screen on.
         guard !AppSettings.shared.appLockEnabled, !AppSettings.shared.secureScreenEnabled else {
@@ -225,10 +225,31 @@ final class LibraryViewModel {
             guard let d = $0.lastReadAt else { return nil }
             return (id: $0.id, title: $0.title, cover: $0.coverURL?.absoluteString, date: d)
         }
-        let merged = (mangaItems + novelItems)
+        let top = (mangaItems + novelItems)
             .sorted { $0.date > $1.date }
             .prefix(5)
-            .map { WidgetReadingItem(id: $0.id, title: $0.title, coverURLString: $0.cover, lastChapter: "Continue reading") }
+
+        // The widget's per-title subtitle used to be the literal "Continue reading" for every
+        // entry (Known Issue #129). Two bulk queries — one per media type, only for the ≤5 ids
+        // actually shown — resolve the real last-read chapter name.
+        let mangaIds = top.map { $0.id }.filter { id in mangaItems.contains { $0.id == id } }
+        let novelIds = top.map { $0.id }.filter { id in novelItems.contains { $0.id == id } }
+        let names = await Task.detached(priority: .utility) {
+            let m = (try? ChapterQueries.fetchLastTouchedChapterNames(mangaIds: mangaIds)) ?? [:]
+            let n = (try? NovelQueries.fetchLastTouchedChapterNames(novelIds: novelIds)) ?? [:]
+            return m.merging(n) { a, _ in a }
+        }.value
+
+        let merged = top.map {
+            WidgetReadingItem(
+                id: $0.id,
+                title: $0.title,
+                coverURLString: $0.cover,
+                // Falls back to the old literal only when nothing has been read yet — which for a
+                // lastReadAt-sorted list means a title whose read state predates chapter records.
+                lastChapter: names[$0.id] ?? "Continue reading"
+            )
+        }
         WidgetDataWriter.write(merged)
     }
 }

@@ -13,6 +13,10 @@ struct BrowseView: View {
     @Environment(\.yomiCanvas) private var canvas
     @State private var suwayomiSources: [SuwayomiSource] = []
     @State private var suwayomiLoading  = false
+    /// A load that genuinely failed, kept distinct from "never loaded" — otherwise an unreachable
+    /// self-hosted server looks identical to a feature the user simply hasn't opened yet (#146).
+    @State private var suwayomiError: String? = nil
+    @State private var opdsError: String? = nil
     @State private var opdsRootFeed: OPDSFeed? = nil
     @State private var opdsRootEntries: [OPDSEntry] = []
     @State private var opdsNextHref: String? = nil
@@ -163,9 +167,18 @@ struct BrowseView: View {
             if suwayomiLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
             } else if suwayomiSources.isEmpty {
-                Button("Load sources") { Task { await loadSuwayomiSources() } }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                VStack(alignment: .leading, spacing: 6) {
+                    if let suwayomiError {
+                        Text("Couldn't reach the Suwayomi server — \(suwayomiError)")
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                    Button(suwayomiError == nil ? "Load sources" : "Try again") {
+                        Task { await loadSuwayomiSources() }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             } else {
                 VStack(spacing: 0) {
                     ForEach(suwayomiSources) { src in
@@ -247,9 +260,18 @@ struct BrowseView: View {
                 }
                 .padding(.horizontal, 16)
             } else {
-                Button("Load library") { Task { await loadOPDSRoot() } }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                VStack(alignment: .leading, spacing: 6) {
+                    if let opdsError {
+                        Text("Couldn't reach the OPDS server — \(opdsError)")
+                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                    Button(opdsError == nil ? "Load library" : "Try again") {
+                        Task { await loadOPDSRoot() }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
         }
         .padding(.top, 22)
@@ -285,6 +307,7 @@ struct BrowseView: View {
 
     private func loadSuwayomiSources() async {
         suwayomiLoading = true
+        suwayomiError = nil
         do {
             let sources = try await SuwayomiService.shared.fetchSources()
             await MainActor.run {
@@ -292,12 +315,16 @@ struct BrowseView: View {
                 suwayomiLoading = false
             }
         } catch {
-            await MainActor.run { suwayomiLoading = false }
+            await MainActor.run {
+                suwayomiError = error.localizedDescription
+                suwayomiLoading = false
+            }
         }
     }
 
     private func loadOPDSRoot() async {
         opdsLoading = true
+        opdsError = nil
         do {
             let feed = try await OPDSService.shared.fetchFeed(href: OPDSService.shared.baseURL)
             await MainActor.run {
@@ -307,7 +334,10 @@ struct BrowseView: View {
                 opdsLoading  = false
             }
         } catch {
-            await MainActor.run { opdsLoading = false }
+            await MainActor.run {
+                opdsError = error.localizedDescription
+                opdsLoading = false
+            }
         }
     }
 
@@ -322,7 +352,12 @@ struct BrowseView: View {
                 opdsLoadingMore = false
             }
         } catch {
-            await MainActor.run { opdsLoadingMore = false }
+            // A failed "Load More" keeps the already-loaded page 1 on screen, so the error goes in
+            // the same slot the empty state uses rather than replacing working content.
+            await MainActor.run {
+                opdsError = error.localizedDescription
+                opdsLoadingMore = false
+            }
         }
     }
 }
