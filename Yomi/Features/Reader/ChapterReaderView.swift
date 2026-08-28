@@ -1159,6 +1159,7 @@ struct ReaderOverlayView: View {
                         .font(.system(size: 15, weight: .semibold))
                 }
                 .glassChip()
+                .accessibilityLabel("Close reader")
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(manga.title)
@@ -1180,6 +1181,7 @@ struct ReaderOverlayView: View {
                             .font(.system(size: 17))
                     }
                     .glassChip()
+                    .accessibilityLabel("Chapters")
                 }
 
                 if sourceURL != nil {
@@ -1188,6 +1190,7 @@ struct ReaderOverlayView: View {
                             .font(.system(size: 17))
                     }
                     .glassChip()
+                    .accessibilityLabel("Open on source website")
                 }
 
                 Button {
@@ -1197,6 +1200,7 @@ struct ReaderOverlayView: View {
                         .font(.system(size: 17))
                 }
                 .glassChip()
+                .accessibilityLabel("Reader settings")
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
@@ -1324,7 +1328,9 @@ struct ReaderOverlayView: View {
                                 get: { Double(currentPage) },
                                 set: { currentPage = Int($0.rounded()) }
                             ),
-                            range: 0...Double(totalPages - 1)
+                            range: 0...Double(totalPages - 1),
+                            accessibilityLabelText: "Page",
+                            accessibilityValueText: { "Page \(Int($0.rounded()) + 1) of \(totalPages)" }
                         )
 
                         Text("\(totalPages)")
