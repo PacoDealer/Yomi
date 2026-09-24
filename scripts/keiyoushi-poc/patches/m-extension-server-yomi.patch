@@ -51,3 +51,56 @@ index 0000000..204cd1d
 +        return chain.proceed(builder.build())
 +    }
 +}
+diff --git a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
+index c9c373a..98ed5c8 100644
+--- a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
++++ b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
+@@ -24,6 +24,17 @@ object MExtensionServerLoader {
+     private val logger = KotlinLogging.logger {}
+     private val tempDir = Files.createTempDirectory("mextensionserver").toFile()
+ 
++    /**
++     * Yomi patch: converted JARs persist across launches under the app directory, keyed by the APK's
++     * SHA-256 (the same key as the in-memory cache). dex2jar is the slow part of a first call and ran on every
++     * launch; on the iPhone's interpreter-only JVM that is seconds per extension. The directory name carries the
++     * server revision so a changed converter never reuses stale output.
++     */
++    private val jarCacheDir: File by lazy {
++        val root = System.getProperty("ts.server.rootDir")?.let(::File) ?: tempDir
++        File(root, "extension-jars/${mextensionserver.BuildConfig.REVISION}").apply { mkdirs() }
++    }
++
+     // Extensions retain pagination iterators and other request state. Keep one
+     // instance per APK for the server lifetime instead of decoding it per call.
+     private val loadedExtensions =
+@@ -145,13 +156,23 @@ object MExtensionServerLoader {
+                 }
+             logger.debug { "Main class for extension is $className" }
+ 
+-            // Convert to JAR
+-            val dexFile = File(tempApkFile.absolutePath)
+-
+-            dex2jar(dexFile, jarFile)
+-
+-            // Extract assets and resources from APK
+-            Extension.extractAssetsFromApk(tempApkFile, jarFile)
++            // Convert to JAR, or reuse the JAR converted on an earlier launch (Yomi patch, see jarCacheDir).
++            // The loaded copy stays a temp file because LoadedExtension.close() deletes it.
++            val cachedJar = File(jarCacheDir, "${sha256(apkData)}.jar")
++            if (cachedJar.isFile) {
++                cachedJar.copyTo(jarFile, overwrite = true)
++            } else {
++                dex2jar(File(tempApkFile.absolutePath), jarFile)
++                // Extract assets and resources from APK
++                Extension.extractAssetsFromApk(tempApkFile, jarFile)
++                try {
++                    val partial = File(jarCacheDir, "${cachedJar.name}.${UUID.randomUUID()}.tmp")
++                    jarFile.copyTo(partial, overwrite = true)
++                    if (!partial.renameTo(cachedJar)) partial.delete()
++                } catch (e: Exception) {
++                    logger.warn(e) { "Could not persist converted JAR ${cachedJar.name}" }
++                }
++            }
+ 
+             // Load extension sources
+             val loadedSource = loadExtensionSources(jarFile, className, tempApkFile)
