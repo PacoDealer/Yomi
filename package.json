@@ -12,5 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "esbuild": "^0.28.0"
+  },
+  "devDependencies": {
+    "cheerio": "1.2.0",
+    "core-js": "3.50.0",
+    "dayjs": "1.11.23"
   }
 }

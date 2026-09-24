@@ -1465,6 +1465,12 @@ Build our own bundle from npm `cheerio` with the repo's existing esbuild setup (
 rather than copying Tsundoku's minified file. Same for `dayjs` (stub today). Then measure: run every LNReader
 plugin's popular + one chapter parse in-app and count passes, instead of assuming.
 
+**Result (same session, S125):** shipped the bundle — measured English LNReader plugins working end to end
+(popular → novel → chapter) went from **7/157 to 67/157**. The shim was only part of it: Yomi's URL/URLSearchParams
+dropped query strings, fetchApi faked `status: 200` with no `url`, and paged chapter lists (`parsePage`) were never
+called. Of the remaining 90, ~43 are upstream plugins whose site changed layout (200 page, 0 items parsed), ~21 are
+Cloudflare/captcha (need the in-app bypass), ~13 unreachable. Details in CLAUDE.md "Current state" item 5.
+
 Other things worth borrowing from Tsundoku later: LNReader backup import (`LNReaderBackupImporter.kt`), NovelUpdates
 tracker, a per-plugin site resolver.
 
