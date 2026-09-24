@@ -23,8 +23,8 @@ final class AppRouter {
 
     var selectedTab: Int
 
-    /// When true, MoreView will push PluginsView and reset this flag.
-    var openMorePlugins: Bool = false
+    /// When true, Browse switches to its Extensions tab and resets this flag.
+    var openBrowseExtensions: Bool = false
 
     /// Set by AppDelegate when a chapter-update notification is tapped; LibraryView observes and navigates.
     var pendingOpenMangaId: String? = nil

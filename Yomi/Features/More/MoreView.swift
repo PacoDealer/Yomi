@@ -5,17 +5,7 @@ import SwiftUI
 // Design spec: YOMI Screens.dc.html N.10 (More).
 
 struct MoreView: View {
-    @State private var catalogService   = PluginCatalogService.shared
-    @State private var extensionManager = ExtensionManager.shared
-    @State private var showPlugins      = false
     @Environment(\.yomiCanvas) private var canvas
-
-    private var pluginUpdateCount: Int {
-        let keiyoushi = KeiyoushiRepository.shared
-        return extensionManager.installed.filter {
-            catalogService.availableUpdate(for: $0) != nil
-        }.count + keiyoushi.installed.filter { keiyoushi.availableUpdate(for: $0) != nil }.count
-    }
 
     var body: some View {
         NavigationStack {
@@ -32,12 +22,6 @@ struct MoreView: View {
 
                     card("LIBRARY") {
                         MoreRow(icon: "folder", label: "Categories") { CategoryView() }
-                    }
-
-                    card("SOURCES") {
-                        MoreRow(icon: "puzzlepiece.extension", label: "Extensions", badge: pluginUpdateCount > 0 ? "\(pluginUpdateCount)" : nil) {
-                            PluginsView()
-                        }
                     }
 
                     card("READING") {
@@ -65,14 +49,6 @@ struct MoreView: View {
             }
             .background(canvas.bg.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $showPlugins) { PluginsView() }
-        }
-        .task { await catalogService.fetchCatalog() }
-        .onChange(of: appRouter.openMorePlugins, initial: true) { _, open in
-            if open {
-                showPlugins = true
-                appRouter.openMorePlugins = false
-            }
         }
     }
 
