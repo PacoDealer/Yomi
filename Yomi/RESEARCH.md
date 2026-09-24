@@ -1424,6 +1424,19 @@ Plan + results live in **`Yomi/KEIYOUSHI_POC.md`**; scripts in `scripts/keiyoush
   the free Personal Team `F9R33MN82P`; Yomi's entitlements (push, iCloud/CloudKit) can't be signed by it → PoC in a
   separate lab app.
 
+### 22.13 Keiyoushi on-device PoC — Phase 1 (iPhone) PASSED (S124, 2026-09-24)
+
+Real Keiyoushi extensions ran **on Martin's iPhone 17 (iOS 26.6.1), inside a free-Personal-Team-signed app, no
+server**: `Labs/YomiBridgeLab` = our clean-room ObjC++ host (`JVMHost.mm`: one VM on a dedicated 16 MiB-stack
+`NSThread`, `JNI_CreateJavaVM` → `EmbeddedBridge.start`) + a SwiftUI driver. Asura Scans and MangaFire both passed
+popular → search → details → chapters → pages → first image (decoded), cold and warm, no crash. JVM create 45 ms,
+bridge start 366 ms, first extension call 4.3–7.4 s (incl. dex2jar), later calls mostly network-bound; footprint
+62 MB after start, peak 164 MB. Full table + the four things that broke: `KEIYOUSHI_POC.md` Phase 1.
+Key new fact: **on iOS HotSpot ignores `-Djava.home`** and uses `<dir of JVM binary>/lib` — an embedding app must
+put the Java home there (verified in `openjdk/mobile` `fc10224` `os_bsd.cpp` + ios-tools' sample app layout).
+The only runtime error seen was the already-known zstd filter-cache JNI failure (`com.squareup.zstd.JniZstdKt`:
+"Unsupported OS: darwin"), harmless to requests. Zero's speed is **not** the bottleneck at this scale.
+
 ---
 
-*End of RESEARCH.md — last compiled S123, 2026-09-24 (§22.11–22.12)*
+*End of RESEARCH.md — last compiled S124, 2026-09-24 (§22.11–22.13)*
