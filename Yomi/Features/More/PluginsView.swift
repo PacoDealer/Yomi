@@ -55,6 +55,14 @@ struct PluginsView: View {
     @State private var isUpdatingAll: Bool = false
     @State private var langPickerGroup: PluginCatalogGroup? = nil
     @State private var langPickerCopyGroup: PluginCatalogGroup? = nil
+    @State private var keiyoushi = KeiyoushiRepository.shared
+    @State private var keiyoushiBusy: Set<String> = []
+    /// A multi-language Keiyoushi extension waiting for its languages to be picked before install.
+    @State private var keiyoushiInstallPick: KeiyoushiExtension? = nil
+    @State private var keiyoushiLanguageEdit: InstalledKeiyoushiExtension? = nil
+    @State private var errorToast: String? = nil
+    /// Base language code the Available list is filtered to ("" = every language).
+    @AppStorage("extensionsLanguageFilter") private var languageFilter = "en"
 
     private var filteredGroups: [PluginCatalogGroup] {
         var groups = settings.showNSFW
@@ -63,16 +71,65 @@ struct PluginsView: View {
         if !searchText.isEmpty {
             groups = groups.filter { $0.name.localizedStandardContains(searchText) }
         }
+        if !languageFilter.isEmpty {
+            groups = groups.filter { group in
+                group.entries.contains {
+                    let code = SourceLanguage.baseCode(for: $0.language)
+                    return code == languageFilter || code == "all"
+                }
+            }
+        }
         return groups
+    }
+
+    /// Keiyoushi extensions not installed yet, under the same search / NSFW / language filters as the plugins.
+    private var filteredKeiyoushi: [KeiyoushiExtension] {
+        let installedIds = Set(keiyoushi.installed.map(\.id))
+        return keiyoushi.available.filter { ext in
+            !installedIds.contains(ext.id)
+                && (settings.showNSFW || !ext.isNSFW)
+                && (searchText.isEmpty || ext.name.localizedStandardContains(searchText))
+                && (languageFilter.isEmpty
+                    || ext.sources.contains { SourceLanguage.baseCode(for: $0.lang) == languageFilter })
+        }
+    }
+
+    /// Every language any repository offers, for the Available filter.
+    private var catalogLanguages: [String] {
+        let codes = catalogService.entries.map { SourceLanguage.baseCode(for: $0.language) }
+            + keiyoushi.available.flatMap { $0.sources.map { SourceLanguage.baseCode(for: $0.lang) } }
+        return Set(codes).subtracting(["all", ""]).sorted {
+            SourceLanguage.displayName(for: $0).localizedCaseInsensitiveCompare(SourceLanguage.displayName(for: $1))
+                == .orderedAscending
+        }
+    }
+
+    /// Available plugins and Keiyoushi extensions merged into one alphabetical list.
+    private var availableItems: [AvailableItem] {
+        (filteredGroups.map(AvailableItem.plugin) + filteredKeiyoushi.map(AvailableItem.keiyoushi))
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Installed plugins and Keiyoushi extensions merged into one alphabetical list.
+    private var installedItems: [InstalledItem] {
+        (extensionManager.installed.map(InstalledItem.plugin) + keiyoushi.installed.map(InstalledItem.keiyoushi))
+            .filter { searchText.isEmpty || $0.name.localizedStandardContains(searchText) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var updateCount: Int {
+        extensionManager.installed.filter { catalogService.availableUpdate(for: $0) != nil }.count
+            + keiyoushi.installed.filter { keiyoushi.availableUpdate(for: $0) != nil }.count
     }
 
     var body: some View {
         List {
             installedSection
+            repositoriesSection
             catalogSection
         }
-        .navigationTitle("Plugins")
-        .searchable(text: $searchText, prompt: "Search catalog")
+        .navigationTitle("Extensions")
+        .searchable(text: $searchText, prompt: "Search extensions")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { settings.showNSFW.toggle() } label: {
@@ -133,15 +190,36 @@ struct PluginsView: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
-        .onAppear { Task { await catalogService.fetchCatalog() } }
-        .refreshable { await catalogService.fetchCatalog(force: true) }
+        .sheet(item: $keiyoushiInstallPick) { ext in
+            KeiyoushiLanguageSheet(ext: ext, initial: KeiyoushiLanguageSheet.defaultSelection(for: ext),
+                                   confirmTitle: "Install") { langs in
+                Task { await installKeiyoushi(ext, langs: langs) }
+            }
+        }
+        .sheet(item: $keiyoushiLanguageEdit) { installed in
+            KeiyoushiLanguageSheet(ext: installed.info, initial: Set(installed.enabledSources.map(\.lang)),
+                                   confirmTitle: "Done") { langs in
+                keiyoushi.setEnabledLangs(langs, for: installed.id)
+            }
+        }
+        .yomiToast($errorToast)
+        .onAppear {
+            Task { await catalogService.fetchCatalog() }
+            if keiyoushi.available.isEmpty, !settings.keiyoushiRepoURL.isEmpty {
+                Task { await keiyoushi.refresh() }
+            }
+        }
+        .refreshable {
+            await catalogService.fetchCatalog(force: true)
+            await keiyoushi.refresh()
+        }
     }
 
     // MARK: Installed section
 
     private var installedSection: some View {
         Section {
-            if extensionManager.installed.isEmpty {
+            if extensionManager.installed.isEmpty && keiyoushi.installed.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("No plugins installed")
@@ -177,30 +255,47 @@ struct PluginsView: View {
                 }
                 .padding(.vertical, 6)
             } else {
-                ForEach(extensionManager.installed) { ext in
-                    InstalledExtensionRow(
-                        ext: ext,
-                        updateEntry: catalogService.availableUpdate(for: ext),
-                        isUpdating: installingID == ext.id,
-                        isUpdateAllRunning: isUpdatingAll
-                    ) {
-                        if let entry = catalogService.availableUpdate(for: ext) {
-                            Task { await installEntry(entry) }
+                ForEach(installedItems) { item in
+                    switch item {
+                    case .plugin(let ext):
+                        InstalledExtensionRow(
+                            ext: ext,
+                            updateEntry: catalogService.availableUpdate(for: ext),
+                            isUpdating: installingID == ext.id,
+                            isUpdateAllRunning: isUpdatingAll
+                        ) {
+                            if let entry = catalogService.availableUpdate(for: ext) {
+                                Task { await installEntry(entry) }
+                            }
                         }
-                    }
-                }
-                .onDelete { indexSet in
-                    indexSet.forEach { i in
-                        extensionManager.remove(extensionManager.installed[i])
+                        .swipeActions {
+                            Button("Uninstall", role: .destructive) { extensionManager.remove(ext) }
+                        }
+                    case .keiyoushi(let installed):
+                        KeiyoushiExtensionRow(
+                            ext: installed.info,
+                            installed: installed,
+                            update: keiyoushi.availableUpdate(for: installed),
+                            isBusy: keiyoushiBusy.contains(installed.id) || isUpdatingAll,
+                            onInstall: {},
+                            onUpdate: {
+                                if let update = keiyoushi.availableUpdate(for: installed) {
+                                    Task { await installKeiyoushi(update, langs: nil) }
+                                }
+                            },
+                            onLanguages: { keiyoushiLanguageEdit = installed }
+                        )
+                        .swipeActions {
+                            Button("Uninstall", role: .destructive) {
+                                Task { await keiyoushi.uninstall(installed) }
+                            }
+                        }
                     }
                 }
             }
         } header: {
             HStack {
                 Text("Installed")
-                let updateCount = extensionManager.installed.filter {
-                    catalogService.availableUpdate(for: $0) != nil
-                }.count
                 if updateCount > 0 {
                     Text("\(updateCount) update\(updateCount == 1 ? "" : "s") available")
                         .font(.caption)
@@ -220,12 +315,71 @@ struct PluginsView: View {
         }
     }
 
+    // MARK: Repositories section
+
+    /// Every repository in one place: Yomi / LNReader plugin catalogs and the Keiyoushi (Mihon) index.
+    @ViewBuilder
+    private var repositoriesSection: some View {
+        Section {
+            ForEach(settings.pluginCatalogURLs, id: \.self) { url in
+                repositoryRow(url: url, label: PluginCatalogService.repoLabel(from: url), detail: "Plugins")
+                    .swipeActions {
+                        Button("Remove", role: .destructive) {
+                            settings.pluginCatalogURLs.removeAll { $0 == url }
+                            PluginCatalogService.shared.invalidateCache()
+                            Task { await catalogService.fetchCatalog(force: true) }
+                        }
+                    }
+            }
+            if !settings.keiyoushiRepoURL.isEmpty {
+                repositoryRow(url: settings.keiyoushiRepoURL,
+                              label: keiyoushi.repoName ?? "Mihon repository",
+                              detail: keiyoushi.available.isEmpty ? "Keiyoushi"
+                                  : "Keiyoushi · \(keiyoushi.available.count) extensions")
+                    .swipeActions {
+                        Button("Remove", role: .destructive) {
+                            settings.keiyoushiRepoURL = ""
+                            Task { await keiyoushi.refresh() }
+                        }
+                    }
+                if let error = keiyoushi.errorMessage {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+            }
+            Button {
+                showAddRepoSheet = true
+            } label: {
+                Label("Add repository", systemImage: "plus")
+            }
+        } header: {
+            Text("Repositories")
+        } footer: {
+            if !KeiyoushiJVMHost.isAvailable && !settings.keiyoushiRepoURL.isEmpty {
+                Text("This build doesn't include the on-device runtime, so Keiyoushi extensions can't run here.")
+            }
+        }
+    }
+
+    private func repositoryRow(url: String, label: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label.isEmpty ? url : label).font(.subheadline).fontWeight(.medium)
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
     // MARK: Catalog section
 
     @ViewBuilder
     private var catalogSection: some View {
         Section {
-            if catalogService.isLoading {
+            Picker("Language", selection: $languageFilter) {
+                Text("All languages").tag("")
+                ForEach(catalogLanguages, id: \.self) { code in
+                    Text(SourceLanguage.displayName(for: code)).tag(code)
+                }
+            }
+            if catalogService.isLoading || keiyoushi.isLoading {
                 HStack {
                     Spacer()
                     ProgressView()
@@ -244,7 +398,7 @@ struct PluginsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-            } else if filteredGroups.isEmpty {
+            } else if availableItems.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "puzzlepiece.extension")
                         .font(.largeTitle)
@@ -266,7 +420,22 @@ struct PluginsView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
             } else {
-                ForEach(filteredGroups) { group in
+                ForEach(availableItems) { item in
+                    switch item {
+                    case .keiyoushi(let ext):
+                        KeiyoushiExtensionRow(
+                            ext: ext, installed: nil, update: nil,
+                            isBusy: keiyoushiBusy.contains(ext.id),
+                            onInstall: {
+                                if Set(ext.sources.map(\.lang)).count > 1 {
+                                    keiyoushiInstallPick = ext
+                                } else {
+                                    Task { await installKeiyoushi(ext, langs: nil) }
+                                }
+                            },
+                            onUpdate: {}, onLanguages: {}
+                        )
+                    case .plugin(let group):
                     CatalogGroupRow(
                         group:            group,
                         isInstalled:      catalogService.isGroupInstalled(group),
@@ -287,10 +456,11 @@ struct PluginsView: View {
                             }
                         }
                     )
+                    }
                 }
             }
         } header: {
-            Text("Catalog (\(filteredGroups.count))")
+            Text("Available (\(availableItems.count))")
         } footer: {
             if filteredGroups.contains(where: { !instantInstallSourceIDs.contains($0.primaryEntry.id) }) {
                 Text("Sources marked \"Copy URL\" are third-party — paste the URL via + → Install from URL to add them.")
@@ -319,6 +489,16 @@ struct PluginsView: View {
         installingID = nil
     }
 
+    private func installKeiyoushi(_ ext: KeiyoushiExtension, langs: [String]?) async {
+        keiyoushiBusy.insert(ext.id)
+        defer { keiyoushiBusy.remove(ext.id) }
+        do {
+            try await keiyoushi.install(ext, langs: langs)
+        } catch {
+            errorToast = error.localizedDescription
+        }
+    }
+
     private func updateAll() async {
         guard !isUpdatingAll else { return }
         isUpdatingAll = true
@@ -326,7 +506,51 @@ struct PluginsView: View {
         for entry in pending {
             await installEntry(entry)
         }
+        let keiyoushiPending = keiyoushi.installed.compactMap { keiyoushi.availableUpdate(for: $0) }
+        for ext in keiyoushiPending {
+            await installKeiyoushi(ext, langs: nil)
+        }
         isUpdatingAll = false
+    }
+}
+
+// MARK: - Extensions list items
+
+private enum InstalledItem: Identifiable {
+    case plugin(Extension)
+    case keiyoushi(InstalledKeiyoushiExtension)
+
+    var id: String {
+        switch self {
+        case .plugin(let ext): return "js:\(ext.id)"
+        case .keiyoushi(let ext): return "kei:\(ext.id)"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .plugin(let ext): return ext.name
+        case .keiyoushi(let ext): return ext.info.name
+        }
+    }
+}
+
+private enum AvailableItem: Identifiable {
+    case plugin(PluginCatalogGroup)
+    case keiyoushi(KeiyoushiExtension)
+
+    var id: String {
+        switch self {
+        case .plugin(let group): return "js:\(group.id)"
+        case .keiyoushi(let ext): return "kei:\(ext.id)"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .plugin(let group): return group.name
+        case .keiyoushi(let ext): return ext.name
+        }
     }
 }
 
@@ -392,7 +616,7 @@ private struct AddRepoSheet: View {
                 }
 
                 Section {
-                    TextField("https://example.com/index.json", text: $customURL)
+                    TextField("https://example.com/index.json or index.pb", text: $customURL)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -402,6 +626,8 @@ private struct AddRepoSheet: View {
                     .disabled(customURL.trimmingCharacters(in: .whitespaces).isEmpty)
                 } header: {
                     Text("Custom URL")
+                } footer: {
+                    Text("A Yomi or LNReader catalog (.json), or a Mihon extension repository like Keiyoushi (index.pb).")
                 }
 
                 Section {
@@ -431,7 +657,16 @@ private struct AddRepoSheet: View {
 
     private func addCustomURL() {
         let trimmed = customURL.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) else { return }
+        guard !trimmed.isEmpty else { return }
+        // A Mihon/Keiyoushi repository is a protobuf index, not a JSON catalog — it goes to the Keiyoushi runtime.
+        if trimmed.lowercased().hasSuffix(".pb") {
+            settings.keiyoushiRepoURL = trimmed
+            Task { await KeiyoushiRepository.shared.refresh() }
+            customURL = ""
+            dismiss()
+            return
+        }
+        guard !settings.pluginCatalogURLs.contains(trimmed) else { return }
         settings.pluginCatalogURLs.append(trimmed)
         PluginCatalogService.shared.invalidateCache()
         Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
@@ -762,7 +997,9 @@ private struct InstallFromURLSheet: View {
 struct LanguageBadge: View {
     let language: String
     var body: some View {
-        Text(language.uppercased())
+        // LNReader catalogs label languages by native name ("English", "Español") — show the short code instead.
+        let code = SourceLanguage.baseCode(for: language)
+        Text(code == "all" ? "MULTI" : code.uppercased())
             .font(.caption2).fontWeight(.semibold)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Color.accentColor.opacity(0.15))

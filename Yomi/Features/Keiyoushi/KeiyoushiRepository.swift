@@ -39,8 +39,18 @@ nonisolated struct InstalledKeiyoushiExtension: Codable, Hashable, Identifiable,
     /// File name under `KeiyoushiRepository.apkDirectory`.
     var apkFileName: String
     var installedAt: Date
+    /// Languages the user chose to show for a multi-language extension (MangaFire lists ~10). `nil` = all of
+    /// them, which is also what installs saved before this field existed decode to.
+    var enabledLangs: [String]? = nil
 
     var id: String { info.packageName }
+
+    /// The sources Browse lists: the chosen languages, or every source when nothing was chosen.
+    var enabledSources: [KeiyoushiSource] {
+        guard let enabledLangs, !enabledLangs.isEmpty else { return info.sources }
+        let chosen = info.sources.filter { enabledLangs.contains($0.lang) }
+        return chosen.isEmpty ? info.sources : chosen
+    }
 }
 
 enum KeiyoushiError: LocalizedError {
@@ -102,9 +112,17 @@ final class KeiyoushiRepository {
         }
     }
 
-    /// Every installed source across all installed extensions, for Browse.
+    /// Every enabled source across all installed extensions (languages the user turned off are left out).
     var installedSources: [(ext: InstalledKeiyoushiExtension, source: KeiyoushiSource)] {
-        installed.flatMap { ext in ext.info.sources.map { (ext, $0) } }
+        installed.flatMap { ext in ext.enabledSources.map { (ext, $0) } }
+    }
+
+    /// Chooses which languages of a multi-language extension Browse shows.
+    func setEnabledLangs(_ langs: [String], for packageName: String) {
+        guard let i = installed.firstIndex(where: { $0.id == packageName }) else { return }
+        let all = Set(installed[i].info.sources.map(\.lang))
+        installed[i].enabledLangs = Set(langs) == all ? nil : langs.sorted()
+        saveInstalled()
     }
 
     func installedExtension(forSourceId sourceId: String) -> InstalledKeiyoushiExtension? {
@@ -155,7 +173,9 @@ final class KeiyoushiRepository {
 
     // MARK: Install / uninstall
 
-    func install(_ ext: KeiyoushiExtension) async throws {
+    /// `langs` limits a multi-language extension to the languages the user picked; `nil` keeps what a previous
+    /// install chose (an update shouldn't reset it).
+    func install(_ ext: KeiyoushiExtension, langs: [String]? = nil) async throws {
         guard let url = URL(string: ext.apkURL) else { throw KeiyoushiError.badRepoURL }
         let (data, response) = try await URLSession.shared.data(from: url)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
@@ -167,7 +187,11 @@ final class KeiyoushiRepository {
         }
         let fileName = "\(ext.packageName).apk"
         try data.write(to: Self.apkDirectory.appendingPathComponent(fileName), options: .atomic)
-        let entry = InstalledKeiyoushiExtension(info: ext, apkFileName: fileName, installedAt: Date())
+        let previousLangs = installed.first { $0.id == ext.packageName }?.enabledLangs
+        let allLangs = Set(ext.sources.map(\.lang))
+        let chosen = langs.map { Set($0) == allLangs ? nil : $0.sorted() } ?? previousLangs
+        let entry = InstalledKeiyoushiExtension(info: ext, apkFileName: fileName, installedAt: Date(),
+                                                enabledLangs: chosen)
         installed.removeAll { $0.id == ext.packageName }
         installed.append(entry)
         installed.sort { $0.info.name.localizedCaseInsensitiveCompare($1.info.name) == .orderedAscending }

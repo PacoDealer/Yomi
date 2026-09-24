@@ -115,6 +115,7 @@ struct KeiyoushiBrowseView: View {
                 Task { await reset(keepQuery: isSearching); await loadMore() }
             }
         }
+        .onAppear { AppSettings.shared.noteSourceOpened(BrowseSourceKey.keiyoushi(source.id)) }
         .task {
             await loadMore()
             supportsLatest = await bridge.supportsLatest(sourceId: source.id)

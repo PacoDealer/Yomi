@@ -24,11 +24,22 @@ struct BrowseView: View {
     @State private var opdsLoadingMore = false
     @State private var showSearch = false
     @State private var showMigrate = false
+    @State private var keiyoushi = KeiyoushiRepository.shared
+    /// Plugin id → is it a novel plugin. Seeded from the in-memory cache so a revisit sorts instantly.
+    @State private var pluginIsNovel: [String: Bool] = PluginKindCache.isNovel
 
     var body: some View {
         NavigationStack {
             sourcesTab
                 .navigationTitle("Browse")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showMigrate = true } label: {
+                            Image(systemName: "arrow.triangle.swap")
+                        }
+                        .accessibilityLabel("Migrate a title to another source")
+                    }
+                }
                 .navigationDestination(isPresented: $showSearch) { SearchScreen() }
                 .navigationDestination(isPresented: $showMigrate) { MigrateView() }
         }
@@ -40,20 +51,18 @@ struct BrowseView: View {
     private var sourcesTab: some View {
         let hasSuwayomi = SuwayomiService.shared.isEnabled
         let hasOPDS     = OPDSService.shared.isEnabled
-        let hasKeiyoushi = !KeiyoushiRepository.shared.installed.isEmpty
+        let hasKeiyoushi = !keiyoushi.installed.isEmpty
         if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS && !hasKeiyoushi {
             emptyState
         } else {
             ScrollView {
                 VStack(spacing: 0) {
-                    searchPillAndSegmented
-                    installedSection
-                    if hasKeiyoushi { keiyoushiSection }
+                    searchPill
+                    if !recentItems.isEmpty { sourceSection("LAST USED", recentItems) }
+                    if !mangaItems.isEmpty { sourceSection("MANGA · \(mangaItems.count)", mangaItems) }
+                    if !novelItems.isEmpty { sourceSection("NOVELS · \(novelItems.count)", novelItems) }
                     if hasSuwayomi { suwayomiSection }
                     if hasOPDS { opdsSection }
-                    if let firstExt = extensionManager.installed.first {
-                        PopularSourceCarousel(ext: firstExt)
-                    }
                     Color.clear.frame(height: 24)
                 }
             }
@@ -61,7 +70,131 @@ struct BrowseView: View {
                 if hasSuwayomi && suwayomiSources.isEmpty { await loadSuwayomiSources() }
                 if hasOPDS && opdsRootFeed == nil { await loadOPDSRoot() }
             }
+            .task(id: extensionManager.installed.map(\.id)) { await classifyPlugins() }
         }
+    }
+
+    // MARK: Source items
+
+    /// Plugins and Keiyoushi extensions in one list. Keiyoushi extensions are always manga; a plugin is a novel
+    /// source when its script is an LNReader plugin. Until a new plugin is classified it counts as manga.
+    private var allItems: [BrowseSourceItem] {
+        extensionManager.installed.map { .plugin($0, isNovel: pluginIsNovel[$0.id] ?? false) }
+            + keiyoushi.installed.map { .keiyoushi($0) }
+    }
+
+    private func sorted(_ items: [BrowseSourceItem]) -> [BrowseSourceItem] {
+        items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var mangaItems: [BrowseSourceItem] { sorted(allItems.filter { !$0.isNovel }) }
+    private var novelItems: [BrowseSourceItem] { sorted(allItems.filter(\.isNovel)) }
+
+    /// The last 3 sources opened, most recent first. A Keiyoushi entry is one language of an extension, so it opens
+    /// that language directly.
+    private var recentItems: [BrowseSourceItem] {
+        let items: [BrowseSourceItem] = settings.recentSourceKeys.compactMap { key in
+            if let id = BrowseSourceKey.pluginId(key),
+               let ext = extensionManager.installed.first(where: { $0.id == id }) {
+                return .plugin(ext, isNovel: pluginIsNovel[id] ?? false)
+            }
+            if let sourceId = BrowseSourceKey.keiyoushiSourceId(key),
+               let ext = keiyoushi.installedExtension(forSourceId: sourceId),
+               let source = ext.info.sources.first(where: { $0.id == sourceId }) {
+                return .keiyoushiSource(ext, source)
+            }
+            return nil
+        }
+        return Array(items.prefix(3))
+    }
+
+    private func sourceSection(_ title: String, _ items: [BrowseSourceItem]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 16)
+
+            VStack(spacing: 0) {
+                ForEach(items) { item in
+                    sourceLink(item)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.top, 22)
+    }
+
+    /// Names more than one installed source shares (e.g. Asura Scans as a plugin and as a Keiyoushi extension) —
+    /// those rows also say where they come from, or they'd be indistinguishable.
+    private var duplicateNames: Set<String> {
+        let names = allItems.map { $0.name.lowercased() }
+        return Set(names.filter { name in names.filter { $0 == name }.count > 1 })
+    }
+
+    @ViewBuilder
+    private func sourceLink(_ item: BrowseSourceItem) -> some View {
+        let origin = duplicateNames.contains(item.name.lowercased()) ? item.origin : ""
+        switch item {
+        case .plugin(let ext, let isNovel):
+            NavigationLink {
+                SourceBrowseView(ext: ext)
+            } label: {
+                SourceRow(name: ext.name, iconURL: ext.iconURL,
+                          subtitle: "\(ext.language.uppercased()) · \(isNovel ? "NOVELS" : "MANGA")\(origin)",
+                          isNSFW: ext.isNSFW)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button(role: .destructive) {
+                    extensionManager.remove(ext)
+                } label: {
+                    Label("Uninstall", systemImage: "trash")
+                }
+            }
+        case .keiyoushi(let ext):
+            let sources = ext.enabledSources
+            NavigationLink {
+                if sources.count == 1, let only = sources.first {
+                    KeiyoushiBrowseView(source: only)
+                } else {
+                    KeiyoushiLanguagesView(packageName: ext.id)
+                }
+            } label: {
+                SourceRow(name: ext.info.name, iconURL: URL(string: ext.info.iconURL),
+                          subtitle: sources.count == 1
+                              ? "\(sources[0].lang.uppercased()) · MANGA\(origin)"
+                              : "\(sources.count) LANGUAGES · MANGA\(origin)",
+                          isNSFW: ext.info.isNSFW)
+            }
+            .buttonStyle(.plain)
+        case .keiyoushiSource(let ext, let source):
+            NavigationLink {
+                KeiyoushiBrowseView(source: source)
+            } label: {
+                SourceRow(name: ext.info.name, iconURL: URL(string: ext.info.iconURL),
+                          subtitle: "\(source.lang.uppercased()) · MANGA\(origin)", isNSFW: ext.info.isNSFW)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Reads each installed plugin's script once, off the main actor, to tell novel plugins from manga ones.
+    private func classifyPlugins() async {
+        let unknown = extensionManager.installed.map(\.id).filter { pluginIsNovel[$0] == nil }
+        guard !unknown.isEmpty else { return }
+        let found = await Task.detached(priority: .userInitiated) { () -> [String: Bool] in
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            var result: [String: Bool] = [:]
+            for id in unknown {
+                let url = docs.appendingPathComponent("Extensions/\(id).js")
+                result[id] = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
+            }
+            return result
+        }.value
+        pluginIsNovel.merge(found) { _, new in new }
+        PluginKindCache.isNovel = pluginIsNovel
     }
 
     private var emptyState: some View {
@@ -77,82 +210,25 @@ struct BrowseView: View {
         }
     }
 
-    // MARK: Search pill + segmented control (N.06)
+    // MARK: Search pill (N.06)
 
-    private var searchPillAndSegmented: some View {
-        VStack(spacing: 14) {
-            Button { showSearch = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
-                    Text("Search all sources")
-                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
-                    Spacer()
-                }
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 12)
-                .frame(height: 38)
-                .background(canvas.surface2, in: Capsule())
+    private var searchPill: some View {
+        Button { showSearch = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15))
+                Text("Search all sources")
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                Spacer()
             }
-            .buttonStyle(.plain)
-
-            HStack(spacing: 6) {
-                segmentButton(title: "Sources", isSelected: true) {}
-                segmentButton(title: "Global search", isSelected: false) { showSearch = true }
-                segmentButton(title: "Migrate", isSelected: false) { showMigrate = true }
-            }
-            .padding(3)
+            .foregroundStyle(canvas.textSecondary)
+            .padding(.horizontal, 12)
+            .frame(height: 38)
             .background(canvas.surface2, in: Capsule())
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .padding(.top, 8)
-    }
-
-    private func segmentButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .foregroundStyle(isSelected ? .white : canvas.textSecondary)
-                .background(isSelected ? Color.accentColor : Color.clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: Installed section
-
-    @ViewBuilder
-    private var installedSection: some View {
-        if !extensionManager.installed.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("INSTALLED · \(extensionManager.installed.count)")
-                    .font(YomiTokens.Font.mono(11))
-                    .tracking(0.6)
-                    .foregroundStyle(canvas.textSecondary)
-                    .padding(.horizontal, 16)
-
-                VStack(spacing: 0) {
-                    ForEach(extensionManager.installed) { ext in
-                        NavigationLink {
-                            SourceBrowseView(ext: ext)
-                        } label: {
-                            SourceRow(ext: ext)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                extensionManager.remove(ext)
-                            } label: {
-                                Label("Uninstall", systemImage: "trash")
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            .padding(.top, 22)
-        }
     }
 
     // MARK: Suwayomi section
@@ -218,58 +294,6 @@ struct BrowseView: View {
                 }
                 .padding(.horizontal, 16)
             }
-        }
-        .padding(.top, 22)
-    }
-
-    // MARK: Keiyoushi section
-
-    /// Installed Keiyoushi (Mihon) sources, run on-device by the embedded JVM. One row per source, so a
-    /// multi-language extension (e.g. MangaFire) lists each language it serves.
-    @ViewBuilder
-    private var keiyoushiSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("KEIYOUSHI")
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 16)
-
-            VStack(spacing: 0) {
-                ForEach(KeiyoushiRepository.shared.installedSources, id: \.source.id) { entry in
-                    NavigationLink {
-                        KeiyoushiBrowseView(source: entry.source)
-                    } label: {
-                        HStack(spacing: 12) {
-                            KFImage(URL(string: entry.ext.info.iconURL))
-                                .placeholder { Image(systemName: "puzzlepiece.extension").foregroundStyle(canvas.textSecondary) }
-                                .fade(duration: 0.2)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 36, height: 36)
-                                .clipShape(RoundedRectangle(cornerRadius: 9))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.source.name)
-                                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                                    .foregroundStyle(canvas.textPrimary)
-                                Text(entry.source.lang.uppercased())
-                                    .font(YomiTokens.Font.mono(11))
-                                    .foregroundStyle(canvas.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(canvas.textSecondary.opacity(0.6))
-                        }
-                        .padding(.vertical, 11)
-                        .contentShape(Rectangle())
-                        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 16)
         }
         .padding(.top, 22)
     }
@@ -472,31 +496,25 @@ private struct SourceIconBadge: View {
 // MARK: - SourceRow
 
 private struct SourceRow: View {
-    let ext: Extension
-    @State private var isNovelPlugin: Bool? = nil
+    let name: String
+    let iconURL: URL?
+    let subtitle: String
+    let isNSFW: Bool
     @Environment(\.yomiCanvas) private var canvas
-
-    private var subtitle: String {
-        var parts = [ext.language.uppercased()]
-        if let isNovel = isNovelPlugin {
-            parts.append(isNovel ? "NOVELS" : "MANGA")
-        }
-        return parts.joined(separator: " · ")
-    }
 
     var body: some View {
         HStack(spacing: 12) {
-            SourceIconBadge(name: ext.name, iconURL: ext.iconURL)
+            SourceIconBadge(name: name, iconURL: iconURL)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(ext.name)
+                Text(name)
                     .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
                     .foregroundStyle(canvas.textPrimary)
                 HStack(spacing: 6) {
                     Text(subtitle)
                         .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(canvas.textSecondary)
-                    if ext.isNSFW {
+                    if isNSFW {
                         Text("18+")
                             .font(YomiTokens.Font.mono(10, bold: true))
                             .foregroundStyle(.red)
@@ -511,106 +529,57 @@ private struct SourceRow: View {
         .padding(.vertical, 11)
         .contentShape(Rectangle())
         .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
-        .task(id: ext.id) {
-            let id = ext.id
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let url = docs.appendingPathComponent("Extensions/\(id).js")
-            isNovelPlugin = (try? String(contentsOf: url, encoding: .utf8))?.contains("popularNovels") ?? false
-        }
     }
 }
 
-// MARK: - PopularSourceCarousel
+// MARK: - Browse source items
 
-private struct PopularSourceCarousel: View {
-    let ext: Extension
-    @Environment(\.yomiCanvas) private var canvas
-    @State private var mangas: [Manga] = []
-    @State private var novels: [Novel] = []
-    @State private var isNovel = false
-    @State private var bridge: JSBridge? = nil
-    @State private var loaded = false
+/// One row in Browse's source list.
+private enum BrowseSourceItem: Identifiable {
+    case plugin(Extension, isNovel: Bool)
+    /// A whole Keiyoushi extension — one row even when it serves many languages.
+    case keiyoushi(InstalledKeiyoushiExtension)
+    /// One language of a Keiyoushi extension (Last used remembers the exact language opened).
+    case keiyoushiSource(InstalledKeiyoushiExtension, KeiyoushiSource)
 
-    private var hasContent: Bool {
-        loaded && (isNovel ? !novels.isEmpty : !mangas.isEmpty)
+    var id: String {
+        switch self {
+        case .plugin(let ext, _): return BrowseSourceKey.plugin(ext.id)
+        case .keiyoushi(let ext): return "keiext:\(ext.id)"
+        case .keiyoushiSource(_, let source): return BrowseSourceKey.keiyoushi(source.id)
+        }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if hasContent {
-                HStack(alignment: .lastTextBaseline) {
-                    Text("Popular on \(ext.name)")
-                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.title2, weight: .medium))
-                        .foregroundStyle(canvas.textPrimary)
-                    Spacer()
-                    NavigationLink {
-                        SourceBrowseView(ext: ext)
-                    } label: {
-                        Text("See all")
-                            .font(YomiTokens.Font.mono(12))
-                            .foregroundStyle(canvas.textSecondary)
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        if isNovel, let b = bridge {
-                            ForEach(novels) { novel in
-                                NovelCoverCell(novel: novel, bridge: b)
-                                    .frame(width: 104)
-                            }
-                        } else {
-                            ForEach(mangas) { manga in
-                                MangaCoverCell(manga: manga)
-                                    .frame(width: 104)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-            }
+    var name: String {
+        switch self {
+        case .plugin(let ext, _): return ext.name
+        case .keiyoushi(let ext), .keiyoushiSource(let ext, _): return ext.info.name
         }
-        .padding(.top, hasContent ? 22 : 0)
-        .task(id: ext.id) { await load() }
     }
 
-    private func load() async {
-        loaded = false
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = docs.appendingPathComponent("Extensions/\(ext.id).js")
-        guard let b = JSBridge(scriptURL: url) else { loaded = true; return }
-        bridge = b
-        let sourceId = ext.id
-        // isLNReaderPlugin must be read inside the same Task.detached as the JSContext work it
-        // gates — JSContext is only ever safe to touch off the main actor (see JSBridge's own rule).
-        enum PopularResult {
-            case novels([NovelItem])
-            case mangas([Manga])
-        }
-        let result = await Task.detached(priority: .userInitiated) { () -> PopularResult in
-            if b.isLNReaderPlugin {
-                return .novels(b.popularNovels(page: 1))
-            } else {
-                return .mangas(b.getMangaList(page: 1, sourceId: sourceId))
-            }
-        }.value
-        switch result {
-        case .novels(let items):
-            isNovel = true
-            novels = items.prefix(10).map { item in
-                Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
-                      title: item.name, coverURL: URL(string: item.cover ?? ""),
-                      summary: nil, author: nil, status: "unknown", genres: [],
-                      inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
-                      readingSeconds: 0, readingStatus: .none, notes: nil)
-            }
-        case .mangas(let results):
-            isNovel = false
-            mangas = Array(results.prefix(10))
-        }
-        loaded = true
+    var isNovel: Bool {
+        if case .plugin(_, let isNovel) = self { return isNovel }
+        return false
     }
+
+    /// Subtitle suffix naming where the source comes from, shown only when two sources share a name.
+    var origin: String {
+        if case .plugin = self { return " · YOMI PLUGIN" }
+        return " · KEIYOUSHI"
+    }
+}
+
+/// Keys stored in `AppSettings.recentSourceKeys`.
+enum BrowseSourceKey {
+    static func plugin(_ id: String) -> String { "js:\(id)" }
+    static func keiyoushi(_ sourceId: String) -> String { "kei:\(sourceId)" }
+    static func pluginId(_ key: String) -> String? { key.hasPrefix("js:") ? String(key.dropFirst(3)) : nil }
+    static func keiyoushiSourceId(_ key: String) -> String? { key.hasPrefix("kei:") ? String(key.dropFirst(4)) : nil }
+}
+
+/// Which installed plugins are novel plugins, kept for the app session so Browse doesn't re-read every script.
+private enum PluginKindCache {
+    static var isNovel: [String: Bool] = [:]
 }
 
 // MARK: - SearchScreen
@@ -937,6 +906,7 @@ struct SourceBrowseView: View {
         .onChange(of: selectedFeed) { _, _ in
             Task { await loadContent() }
         }
+        .onAppear { AppSettings.shared.noteSourceOpened(BrowseSourceKey.plugin(ext.id)) }
         .task { await loadWithBypass() }
         .overlay {
             if isBypassing {
