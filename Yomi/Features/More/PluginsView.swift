@@ -44,6 +44,8 @@ private let instantInstallSourceIDs: Set<String> = [
 // MARK: - PluginsView
 
 struct PluginsView: View {
+    /// Shown as Browse's Extensions tab (Browse owns the title) rather than pushed as its own screen.
+    var embedded = false
     @State private var extensionManager = ExtensionManager.shared
     @State private var catalogService   = PluginCatalogService.shared
     @State private var settings         = AppSettings.shared
@@ -124,12 +126,30 @@ struct PluginsView: View {
 
     var body: some View {
         List {
+            if embedded {
+                // Inside Browse a nav-bar search field would sit above the tab strip and push it down.
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        TextField("Search extensions", text: $searchText)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        if !searchText.isEmpty {
+                            Button { searchText = "" } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Clear search")
+                        }
+                    }
+                }
+            }
             installedSection
             repositoriesSection
             catalogSection
         }
-        .navigationTitle("Extensions")
-        .searchable(text: $searchText, prompt: "Search extensions")
+        .navigationTitle(embedded ? "Browse" : "Extensions")
+        .modifier(NavBarSearch(enabled: !embedded, text: $searchText, prompt: "Search extensions"))
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { settings.showNSFW.toggle() } label: {
@@ -511,6 +531,23 @@ struct PluginsView: View {
             await installKeiyoushi(ext, langs: nil)
         }
         isUpdatingAll = false
+    }
+}
+
+// MARK: - NavBarSearch
+
+/// `.searchable` only when the screen owns its navigation bar.
+private struct NavBarSearch: ViewModifier {
+    let enabled: Bool
+    @Binding var text: String
+    let prompt: String
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.searchable(text: $text, prompt: prompt)
+        } else {
+            content
+        }
     }
 }
 

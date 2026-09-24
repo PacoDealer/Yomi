@@ -47,16 +47,13 @@ struct OnboardingView: View {
                     title: "You're all set",
                     description: "Go to More → Plugins to install your first source and start reading.",
                     caption: nil,
-                    buttonLabel: "Open Plugins",
+                    buttonLabel: "Open Extensions",
                     pageIndex: 2,
                     onAction: {
                         AppSettings.shared.hasSeenOnboarding = true
-                        appRouter.selectedTab = AppRouter.tabMore
+                        appRouter.openBrowseExtensions = true
+                        appRouter.selectedTab = AppRouter.tabBrowse
                         dismiss()
-                        // Delay so MoreView's NavigationStack is rendered before the push fires.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            appRouter.openMorePlugins = true
-                        }
                     }
                 )
                 .tag(2)

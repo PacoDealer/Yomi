@@ -3,10 +3,23 @@ import SwiftUI
 // MARK: - MigrateView
 //
 // Tachimanga parity: pick a library manga, then find it on another installed source and move
-// it over — preserving reading progress/categories/status. Reachable from Browse's segmented
-// control ("Sources" / "Global search" / "Migrate").
+// it over — preserving reading progress/categories/status. Browse's Migrate tab.
 
 struct MigrateView: View {
+    /// Shown as Browse's Migrate tab (Browse owns the title).
+    var embedded = false
+
+    /// The installed source's display name for a stored source id (a plugin id or `keiyoushi_<id>`).
+    private func sourceName(_ sourceId: String) -> String {
+        if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) { return ext.name }
+        let keiyoushiId = String(sourceId.dropFirst(KeiyoushiMapping.sourcePrefix.count))
+        if sourceId.hasPrefix(KeiyoushiMapping.sourcePrefix),
+           let ext = KeiyoushiRepository.shared.installedExtension(forSourceId: keiyoushiId),
+           let source = ext.info.sources.first(where: { $0.id == keiyoushiId }) {
+            return ext.info.sources.count > 1 ? "\(source.name) · \(source.lang.uppercased())" : source.name
+        }
+        return sourceId
+    }
     @Environment(\.yomiCanvas) private var canvas
     @State private var library: [Manga] = []
     @State private var isLoading = true
@@ -34,18 +47,21 @@ struct MigrateView: View {
                                 Text(manga.title)
                                     .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
                                     .lineLimit(1)
-                                Text(manga.sourceId)
+                                Text(sourceName(manga.sourceId))
                                     .font(YomiTokens.Font.mono(11))
                                     .foregroundStyle(canvas.textSecondary)
                             }
                         }
                         .padding(.vertical, 2)
                     }
+                    .listRowBackground(canvas.bg)
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .navigationTitle("Migrate")
+        .background(canvas.bg.ignoresSafeArea())
+        .navigationTitle(embedded ? "Browse" : "Migrate")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             library = (try? MangaQueries.fetchLibrary()) ?? []
