@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-09-23 (S122 §22 direction reset — corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-09-24 (S125 §22.14 novel source ecosystems; S122 §22 direction reset corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 
@@ -1437,6 +1437,37 @@ put the Java home there (verified in `openjdk/mobile` `fc10224` `os_bsd.cpp` + i
 The only runtime error seen was the already-known zstd filter-cache JNI failure (`com.squareup.zstd.JniZstdKt`:
 "Unsupported OS: darwin"), harmless to requests. Zero's speed is **not** the bottleneck at this scale.
 
+### 22.14 "Keiyoushi for novels" — which novel repos exist, and the fix for LNReader (S125, 2026-09-24)
+
+Martin's question: is there a Keiyoushi-style repo for novels, or should Yomi make one? Measured via GitHub/GitLab
+APIs + the repos' published indexes, same day:
+
+| Ecosystem | Sources | Format | Licence | Last push | Runs in Yomi? |
+|---|---|---|---|---|---|
+| **LNReader plugins** (`lnreader/lnreader-plugins`) | **280** (154 en) | JS/TS | MIT | 2026-09-24 | Yes — JSCore, but the cheerio shim breaks ~half (§22.4) |
+| IReader (`IReaderorg/IReader-extensions`, branch `repov2`) | 143 (98 en) | Kotlin, IReader's own source API | MPL-2.0 | 2026-09-14 | No — not Mihon's API, the Keiyoushi runtime can't load it as-is |
+| Shosetsu (`gitlab.com/shosetsuorg/extensions`) | 58 (40 en) | Lua | — | 2026-09-23 | No — needs a Lua runtime |
+| Mangayomi (`m2k3a/mangayomi-extensions`, original `kodjodevf` archived 2025-10) | 9 novel | Dart/JS | Apache-2.0 | 2026-09-03 | Not worth it |
+| ArcReader | "200+" | server-side recipes, closed | — | — | No — its developer maintains them (§22.11) |
+
+**Tsundoku** (`tsundoku-otaku/tsundoku`, Apache-2.0, ★98, pushed 2026-09-13) is a Mihon fork for novels on Android.
+Its novels come from **LNReader plugins** run in QuickJS (`app/.../jsplugin/`: `JsPluginManager`, `JsSource`,
+`JSLibraryProvider` 2,525 lines), plus a GPLv3 compat extension for Shosetsu/IReader (`wasu-code/novel-compat-shosetsu`).
+Its own `tsundoku-otaku/extensions` repo is 404. So the Android novel ecosystem converged on the same repo Yomi
+already uses: **LNReader is the Keiyoushi of novels.** Making a Yomi repo would mean maintaining sources — ruled out.
+
+**The fix, verified:** Tsundoku ships a real cheerio bundle (`app/src/main/assets/js/vendor/cheerio.bundle.js`,
+343 KB, exposes `globalThis.__realCheerio.load`; experimental behind a pref, default is a Jsoup-backed wrapper).
+Loaded into macOS `jsc` (the JavaScriptCore Yomi uses), it passed every case the Yomi shim fails: `.x.y` → 1,
+`p:nth-child(2)` → "World", `.remove()` works, `.contents()` 2, `.get()` 2, `[class^=x]` 2, `.closest('div')` → c.
+→ Replacing `JSBridge.injectCheerio` with a real cheerio bundle is feasible in JSCore, no new engine needed.
+Build our own bundle from npm `cheerio` with the repo's existing esbuild setup (known version and provenance, MIT)
+rather than copying Tsundoku's minified file. Same for `dayjs` (stub today). Then measure: run every LNReader
+plugin's popular + one chapter parse in-app and count passes, instead of assuming.
+
+Other things worth borrowing from Tsundoku later: LNReader backup import (`LNReaderBackupImporter.kt`), NovelUpdates
+tracker, a per-plugin site resolver.
+
 ---
 
-*End of RESEARCH.md — last compiled S124, 2026-09-24 (§22.11–22.13)*
+*End of RESEARCH.md — last compiled S125, 2026-09-24 (§22.14)*
