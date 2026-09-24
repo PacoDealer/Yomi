@@ -156,6 +156,7 @@ struct YomiApp: App {
         }
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
+        LNReaderHarness.startIfRequested()
         #endif
         // Covers and reader pages on Cloudflare-protected sources (e.g. AquaManga) 403 without this.
         // Two separate things are both required, not just the UA:

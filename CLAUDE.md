@@ -61,6 +61,22 @@ appears after opening a source, MangaFire install → language sheet → saved `
    (Android Mihon fork for novels) uses it too; IReader 143 / Shosetsu 58 / Mangayomi 9 aren't worth it. **Real
    cheerio (Tsundoku's bundle) runs in JavaScriptCore and passes every case the Yomi shim fails.** Recommended next:
    replace `JSBridge.injectCheerio` with an esbuild bundle of npm cheerio + real dayjs, then measure plugin pass rate.
+5. **Real JS libraries for plugins** (Martin: "do the cheerio thing"). `scripts/build-js-libs.mjs` bundles npm cheerio
+   1.2.0 + htmlparser2 + dayjs 1.11.23 (+customParseFormat/relativeTime/utc) + core-js 3.50.0 URL/URLSearchParams +
+   atob/btoa/TextEncoder/setTimeout polyfills into `Resources/yomi-js-libs.js` (~450 KB, pinned devDependencies; rerun
+   the script after bumping). `JSBridge.injectCheerio` evaluates it (replacing ~330 lines of hand-written cheerio +
+   dayjs/htmlparser2/URL stubs); `global.cheerio.load` returns a Proxy that turns selector errors into an empty
+   selection, and DOM nodes get `find/text/attr/…` forwarding methods because **12 of Yomi's 15 own Firebase plugins
+   call `el.find()` inside each()** (the old shim passed wrapped elements). Also fixed: fetchApi now returns the real
+   `status`/`ok`/`url` (after redirects)/`headers` via new `SOURCE._fetchResponse` (Madara plugins compare `res.url` to
+   detect captcha); URLSearchParams POST bodies were JSON-stringified to "{}"; `@libs/fetch.fetchText`; `isUrlAbsolute`
+   export; paged chapter lists (`totalPages` → `parsePage`, capped 150 pages); Mangayomi `Document.select`/children
+   passed raw nodes to `_mkEl`. **Measured** with the DEBUG harness `LNReaderHarness` (launch arg `-lnreaderHarness`,
+   options `-lnreaderHarnessOnly "A,B"`, `-lnreaderHarnessInstalled`, `-lnreaderHarnessLogFetches`; popular → novel →
+   one chapter ≥200 chars): English LNReader plugins **7/157 → 67/157** end to end, no plugin that passed before fails
+   now. Remaining: ~43 plugins parse 0 items from a 200 page (site layout changed upstream — e.g. Re:Library, Divine
+   Dao), ~21 Cloudflare/captcha/403 (the harness doesn't run the in-app bypass), ~13 unreachable, a few one-offs
+   (`Headers`, `fetchProto`). `JSBridge.lastPluginError`/`lastResultSummary` expose why a call returned nothing.
 Translation (ArcReader's pull for Martin) is noted in §22.11 — Apple's Translation framework is the free candidate.
 
 ## Prior state (post S124 — 2026-09-24 · Keiyoushi (Mihon) extensions run inside Yomi on the iPhone)

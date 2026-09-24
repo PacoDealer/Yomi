@@ -358,8 +358,8 @@ final class JSBridge {
                     isNotEmpty:  { get: function() { return jq.length > 0;  } },
                     children: {
                         get: function() {
-                            var r = [];
-                            jq.children().each(function(i, child) { r.push(_mkEl(child)); });
+                            var r = [], kids = jq.children();
+                            for (var i = 0; i < kids.length; i++) r.push(_mkEl(kids.eq(i)));
                             return r;
                         }
                     },
@@ -370,8 +370,8 @@ final class JSBridge {
                 el.attr       = function(name) { return jq.attr(name) || ''; };
                 el.hasClass   = function(cls)  { return jq.hasClass(cls); };
                 el.select     = function(sel)  {
-                    var r = [];
-                    jq.find(sel).each(function(i, child) { r.push(_mkEl(child)); });
+                    var r = [], found = jq.find(sel);
+                    for (var i = 0; i < found.length; i++) r.push(_mkEl(found.eq(i)));
                     return r;
                 };
                 el.selectFirst = function(sel) { return _mkEl(jq.find(sel).first()); };
@@ -383,8 +383,9 @@ final class JSBridge {
                 this._$ = cheerio.load(html || '');
             }
             Document.prototype.select = function(sel) {
-                var r = [];
-                this._$(sel).each(function(i, el) { r.push(_mkEl(el)); });
+                // .eq(i), not each()'s raw DOM node — _mkEl needs a cheerio selection (.text(), .attr()…).
+                var r = [], found = this._$(sel);
+                for (var i = 0; i < found.length; i++) r.push(_mkEl(found.eq(i)));
                 return r;
             };
             Document.prototype.selectFirst = function(sel) {
@@ -507,8 +508,8 @@ final class JSBridge {
         injectConsole(into: ctx)
         injectStorage(into: ctx)
         injectSourceFetch(into: ctx)
-        injectWebAPIs(into: ctx)       // URL, URLSearchParams — required by LNReader plugins
-        injectCheerio(into: ctx)
+        injectCheerio(into: ctx)       // Bundled libs: cheerio, dayjs, htmlparser2 + URL/atob/TextEncoder/setTimeout polyfills
+        injectWebAPIs(into: ctx)       // FormData (+ URL fallback if the bundle is missing)
         injectRequireShim(into: ctx)
         injectMangayomiShims(into: ctx)
     }
@@ -517,7 +518,9 @@ final class JSBridge {
     nonisolated private static func injectWebAPIs(into ctx: JSContext) {
         ctx.evaluateScript(#"""
         (function(global) {
-            if (typeof global.URL === 'function') return;
+            // The bundled core-js URL/URLSearchParams (yomi-js-libs.js) normally exist already; this hand-written
+            // pair is only a fallback. FormData is always installed here.
+            var hasURL = typeof global.URL === 'function';
 
             function URL(input, base) {
                 var str = String(input);
@@ -622,9 +625,11 @@ final class JSBridge {
                 }).join('&');
             };
 
-            global.URL             = URL;
-            global.URLSearchParams = URLSearchParams;
-            global.FormData        = FormData;
+            if (!hasURL) {
+                global.URL             = URL;
+                global.URLSearchParams = URLSearchParams;
+            }
+            if (typeof global.FormData !== 'function') global.FormData = FormData;
         })(this);
         """#)
     }
@@ -831,10 +836,18 @@ final class JSBridge {
 
     /// SOURCE.fetch(url, options?) — synchronous HTTP via DispatchSemaphore (GET and POST).
     /// JS wrapper routes through SOURCE._fetchSync(url, method, body, headersJSON).
+    #if DEBUG
+    /// Set by `LNReaderHarness` to print every plugin request.
+    nonisolated(unsafe) static var debugLogFetches = false
+    #endif
+
     nonisolated private static func injectSourceFetch(into ctx: JSContext) {
         let ctxID = ObjectIdentifier(ctx)
-        let fetchSync: @convention(block) (String, String, String?, String?) -> String = { urlString, method, body, headersJSON in
-            guard let url = URL(string: urlString) else { return "" }
+        /// One blocking request. Returns the body plus what a fetch() Response needs: status, final URL after
+        /// redirects (Madara plugins compare it to the requested host to spot captcha redirects) and headers.
+        func perform(_ urlString: String, _ method: String, _ body: String?, _ headersJSON: String?)
+            -> (body: String, status: Int, url: String, headers: [String: String]) {
+            guard let url = URL(string: urlString) else { return ("", 0, urlString, [:]) }
             var request = URLRequest(url: url, timeoutInterval: jsBridgeRequestTimeout)
             // Default headers — prevents Cloudflare/CDN blocks
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
@@ -854,12 +867,22 @@ final class JSBridge {
                 request.httpBody = bodyStr.data(using: .utf8)
             }
             var result = ""
+            var status = 0
+            var finalURL = urlString
+            var responseHeaders: [String: String] = [:]
             var detectedCFURL: String? = nil
             let sem = DispatchSemaphore(value: 0)
             URLSession.shared.dataTask(with: request) { data, response, error in
                 yomiLogNetwork(request, response: response, data: data, error: error)
-                if let data = data { result = String(data: data, encoding: .utf8) ?? "" }
+                if let data = data {
+                    result = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+                }
                 if let http = response as? HTTPURLResponse {
+                    status = http.statusCode
+                    finalURL = http.url?.absoluteString ?? urlString
+                    for (key, value) in http.allHeaderFields {
+                        responseHeaders[String(describing: key).lowercased()] = String(describing: value)
+                    }
                     let hasCFRay = http.allHeaderFields["CF-RAY"] != nil
                     let isErrorStatus = http.statusCode >= 400
                     let bodyHasCF = result.contains("Just a moment")
@@ -878,10 +901,25 @@ final class JSBridge {
                 _cfBlockedByContext[ctxID] = blocked
                 _cfLock.unlock()
             }
-            return result
+            #if DEBUG
+            if debugLogFetches {
+                print("[JSBridge fetch] \(status) \(method) \(urlString)\(finalURL != urlString ? " -> \(finalURL)" : "") "
+                      + "\(result.count) chars title=\(result.range(of: "<title>[^<]*", options: .regularExpression).map { String(result[$0].dropFirst(7).prefix(60)) } ?? "-")")
+            }
+            #endif
+            return (result, status, finalURL, responseHeaders)
+        }
+        let fetchSync: @convention(block) (String, String, String?, String?) -> String = { url, method, body, headers in
+            perform(url, method, body, headers).body
+        }
+        let fetchResponse: @convention(block) (String, String, String?, String?) -> [String: Any] = {
+            url, method, body, headers in
+            let r = perform(url, method, body, headers)
+            return ["body": r.body, "status": r.status, "url": r.url, "headers": r.headers]
         }
         let source = JSValue(newObjectIn: ctx)
         source?.setObject(fetchSync, forKeyedSubscript: "_fetchSync" as NSString)
+        source?.setObject(fetchResponse, forKeyedSubscript: "_fetchResponse" as NSString)
         ctx.setObject(source, forKeyedSubscript: "SOURCE" as NSString)
         // JS wrapper: reads options, delegates to Swift _fetchSync
         ctx.evaluateScript("""
@@ -901,7 +939,13 @@ final class JSBridge {
             var rawBody  = options.body;
             var origHdrs = options.headers || {};
             var headers, bodyStr;
-            if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
+            if (typeof URLSearchParams === 'function' && rawBody instanceof URLSearchParams) {
+                // URLSearchParams body — sent as a form, like fetch() does (was JSON-stringified to "{}").
+                bodyStr = rawBody.toString();
+                headers = {}; for (var uk in origHdrs) headers[uk] = origHdrs[uk];
+                if (!headers['Content-Type'] && !headers['content-type'])
+                    headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+            } else if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
                 // FormData — serialize as application/x-www-form-urlencoded
                 bodyStr = rawBody._entries.map(function(e) {
                     return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
@@ -913,16 +957,31 @@ final class JSBridge {
                 bodyStr = rawBody ? (typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)) : null;
                 headers = origHdrs;
             }
-            var responseText = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(headers));
-            return Promise.resolve({
-                ok:     true,
-                status: 200,
-                text:   function() { return Promise.resolve(responseText); },
-                json:   function() {
-                    try { return Promise.resolve(JSON.parse(responseText)); }
+            return Promise.resolve(SOURCE._makeResponse(
+                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(headers)), url));
+        };
+
+        // A fetch()-style Response: real status/ok, final URL after redirects, headers.get().
+        SOURCE._makeResponse = function(r, requestedURL) {
+            var text = (r && r.body) || '';
+            var hdrs = (r && r.headers) || {};
+            var status = (r && r.status) || 0;
+            return {
+                ok:         status >= 200 && status < 300,
+                status:     status,
+                statusText: '',
+                url:        (r && r.url) || requestedURL,
+                redirected: !!(r && r.url && r.url !== requestedURL),
+                headers: {
+                    get: function(k) { var v = hdrs[String(k).toLowerCase()]; return v === undefined ? null : v; },
+                    has: function(k) { return hdrs[String(k).toLowerCase()] !== undefined; }
+                },
+                text: function() { return Promise.resolve(text); },
+                json: function() {
+                    try { return Promise.resolve(JSON.parse(text)); }
                     catch(e) { return Promise.reject(e); }
                 }
-            });
+            };
         };
 
         // Plugin namespace — satisfies TypeScript `implements Plugin.PluginBase`
@@ -930,354 +989,57 @@ final class JSBridge {
         """)
     }
 
-    /// Full cheerio shim — hand-written recursive descent HTML parser + CSS selector engine.
-    /// Supports: tag, .class, #id, tag.class, tag[attr], tag[attr=val], descendant combinator, comma lists.
-    /// Methods: text(), html(), attr(), find(), each(), map(), first(), last(), eq(), length, toArray(),
-    ///          parent(), children(), is(), hasClass(), filter(), next(), prev()
+    /// The real JS libraries LNReader plugins are written against — cheerio 1.2.0, htmlparser2, dayjs — bundled by
+    /// `scripts/build-js-libs.mjs` into `Resources/yomi-js-libs.js` (~400 KB). They replaced a hand-written cheerio
+    /// that threw on `.remove()`/`.contents()`/`.get()` and ignored compound selectors, breaking ~half of LNReader's
+    /// plugins (RESEARCH.md §22.4, §22.14). Read once per process; evaluated into every JSContext.
+    nonisolated private static let jsLibsSource: String? = {
+        guard let url = Bundle.main.url(forResource: "yomi-js-libs", withExtension: "js") else { return nil }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }()
+
     nonisolated private static func injectCheerio(into ctx: JSContext) {
-        // Raw string literal: backslashes pass through unchanged — no double-escaping needed for JS regex.
+        guard let source = jsLibsSource else {
+            print("[JSBridge] yomi-js-libs.js missing from the app bundle — cheerio unavailable")
+            return
+        }
+        ctx.evaluateScript(source)
+        // `global.cheerio.load` keeps the old stand-in's leniency: a selector the real parser rejects returns an
+        // empty selection instead of throwing, which Yomi's own plugins were written against.
         ctx.evaluateScript(#"""
         (function(global) {
-            'use strict';
-
-            // ── Void elements (never push onto stack) ───────────────────────────────
-            var VOID = {area:1,base:1,br:1,col:1,embed:1,hr:1,img:1,input:1,
-                        link:1,meta:1,param:1,source:1,track:1,wbr:1};
-
-            // ── Node constructors ────────────────────────────────────────────────────
-            function El(tag) { return {type:'el',tag:tag,attrs:{},children:[],parent:null}; }
-            function Tx(t)   { return {type:'tx',text:t,children:[],parent:null}; }
-
-            // ── HTML parser ──────────────────────────────────────────────────────────
-            // Tokenises with indexOf + regex; builds a node tree; resilient to malformed HTML.
-            function parse(html) {
-                html = html || '';
-                var root = El('#root');
-                var stack = [root];
-                var i = 0, n = html.length;
-
-                function top() { return stack[stack.length - 1]; }
-
-                function skipTo(str) {
-                    var idx = html.indexOf(str, i);
-                    i = (idx === -1) ? n : idx + str.length;
+            var libs = global.__yomiLibs;
+            if (!libs) return;
+            // Yomi's own catalog plugins were written against the old stand-in, whose each()/map() handed the
+            // callback a wrapped element (`el.find(...)`); real cheerio hands over the raw DOM node (what LNReader
+            // plugins expect — they call $(el) or read el.attribs). Give raw nodes the few cheerio methods those
+            // plugins call, forwarding to a real selection. Names that DOM nodes already have (children, parent,
+            // next, prev, data…) are left alone, so LNReader plugins see exactly the nodes they expect.
+            if (!libs.__nodeCompat) {
+                libs.__nodeCompat = true;
+                var wrap$ = libs.cheerio.load('');
+                var proto = Object.getPrototypeOf(libs.cheerio.load('<p>x</p>')('p')[0]);
+                while (Object.getPrototypeOf(proto) && Object.getPrototypeOf(proto) !== Object.prototype) {
+                    proto = Object.getPrototypeOf(proto);
                 }
-
-                function appendChild(node) {
-                    node.parent = top();
-                    top().children.push(node);
-                }
-
-                while (i < n) {
-                    var lt = html.indexOf('<', i);
-                    if (lt === -1) {
-                        var rem = html.slice(i);
-                        if (rem) appendChild(Tx(rem));
-                        break;
-                    }
-                    if (lt > i) appendChild(Tx(html.slice(i, lt)));
-                    i = lt + 1;
-                    if (i >= n) break;
-
-                    // Comment
-                    if (html.substr(i, 3) === '!--') { skipTo('-->'); continue; }
-                    // Doctype / processing instruction
-                    if (html[i] === '!') { skipTo('>'); continue; }
-
-                    // Closing tag
-                    if (html[i] === '/') {
-                        var gt0 = html.indexOf('>', i);
-                        var raw0 = html.slice(i + 1, gt0 === -1 ? n : gt0).trim().toLowerCase().split(/\s/)[0];
-                        i = gt0 === -1 ? n : gt0 + 1;
-                        for (var s0 = stack.length - 1; s0 > 0; s0--) {
-                            if (stack[s0].tag === raw0) { stack.length = s0; break; }
-                        }
-                        continue;
-                    }
-
-                    // Opening tag — scan to '>' respecting quoted attribute values
-                    var end = i;
-                    var inQ = null;
-                    while (end < n) {
-                        var ch = html[end];
-                        if (inQ) { if (ch === inQ) inQ = null; }
-                        else if (ch === '"' || ch === "'") { inQ = ch; }
-                        else if (ch === '>') break;
-                        end++;
-                    }
-                    var rawTag = html.slice(i, end);
-                    i = end + 1;
-
-                    var selfClose = rawTag.slice(-1) === '/';
-                    if (selfClose) rawTag = rawTag.slice(0, -1);
-
-                    var nm = rawTag.match(/^([a-zA-Z][a-zA-Z0-9:_-]*)/);
-                    if (!nm) continue;
-                    var tag = nm[1].toLowerCase();
-
-                    // Parse attributes
-                    var attrs = {};
-                    var rest = rawTag.slice(nm[0].length);
-                    var aRe = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*)))?/g;
-                    var am;
-                    while ((am = aRe.exec(rest)) !== null) {
-                        var av = am[2] !== undefined ? am[2]
-                               : am[3] !== undefined ? am[3]
-                               : (am[4] || '');
-                        attrs[am[1].toLowerCase()] = av;
-                    }
-
-                    var el = El(tag);
-                    el.attrs = attrs;
-                    appendChild(el);
-
-                    if (!selfClose && !VOID[tag]) {
-                        stack.push(el);
-                        // Raw text elements: consume verbatim until the matching close tag
-                        if (tag === 'script' || tag === 'style') {
-                            var close = '</' + tag;
-                            var ci = html.toLowerCase().indexOf(close, i);
-                            var rawTxt = ci === -1 ? html.slice(i) : html.slice(i, ci);
-                            if (rawTxt) { var tx = Tx(rawTxt); tx.parent = el; el.children.push(tx); }
-                            if (ci !== -1) {
-                                var cgt = html.indexOf('>', ci);
-                                i = cgt === -1 ? n : cgt + 1;
-                            } else { i = n; }
-                            stack.pop();
-                        }
-                    }
-                }
-                return root;
+                ['find', 'text', 'attr', 'html', 'hasClass', 'first', 'last', 'eq', 'each', 'map', 'filter', 'is',
+                 'closest', 'parents', 'siblings', 'contents', 'toArray'].forEach(function(m) {
+                    if (m in proto) return;
+                    Object.defineProperty(proto, m, {
+                        configurable: true, writable: true, enumerable: false,
+                        value: function() { var w = wrap$(this); return w[m].apply(w, arguments); }
+                    });
+                });
             }
-
-            // ── All descendants in document order ────────────────────────────────────
-            function descendants(node) {
-                var out = [];
-                var ch = node.children || [];
-                for (var i = 0; i < ch.length; i++) {
-                    out.push(ch[i]);
-                    var sub = descendants(ch[i]);
-                    for (var j = 0; j < sub.length; j++) out.push(sub[j]);
-                }
-                return out;
-            }
-
-            // ── CSS selector engine ──────────────────────────────────────────────────
-            // Parses one simple selector token (tag, .class, #id, [attr], [attr=val], combinations).
-            function parseSimple(sel) {
-                var tag=null, id=null, cls=null, attr=null, attrVal=null, hasAttr=false;
-                // [attr=val] or [attr]
-                var am = sel.match(/\[([a-zA-Z_:][a-zA-Z0-9_:.-]*)(?:=["']?([^"'\]]*)["']?)?\]/);
-                if (am) {
-                    attr = am[1].toLowerCase(); hasAttr = true;
-                    attrVal = am[2] !== undefined ? am[2] : null;
-                    sel = sel.replace(am[0], '');
-                }
-                var im = sel.match(/#([\w-]+)/);
-                if (im) { id = im[1]; sel = sel.replace(im[0], ''); }
-                var cm = sel.match(/\.([\w-]+)/);
-                if (cm) { cls = cm[1]; sel = sel.replace(cm[0], ''); }
-                var tm = sel.match(/^([a-zA-Z][\w-]*)/);
-                if (tm) { tag = tm[1].toLowerCase(); }
-                return {tag:tag, id:id, cls:cls, attr:attr, attrVal:attrVal, hasAttr:hasAttr};
-            }
-
-            function matchesSimple(node, s) {
-                if (node.type !== 'el' || node.tag === '#root') return false;
-                if (s.tag && node.tag !== s.tag) return false;
-                if (s.id  && node.attrs.id !== s.id) return false;
-                if (s.cls && (node.attrs['class'] || '').split(/\s+/).indexOf(s.cls) === -1) return false;
-                if (s.hasAttr) {
-                    if (!(s.attr in node.attrs)) return false;
-                    if (s.attrVal !== null && node.attrs[s.attr] !== s.attrVal) return false;
-                }
-                return true;
-            }
-
-            // Select nodes matching selectorStr within ctx.
-            // Handles: comma lists, descendant combinator (space), child combinator (>).
-            function select(ctx, selectorStr) {
-                if (!selectorStr || typeof selectorStr !== 'string') return [];
-                var parts = selectorStr.split(',');
-                if (parts.length > 1) {
-                    var r = [];
-                    for (var p = 0; p < parts.length; p++) {
-                        var sub = select(ctx, parts[p].trim());
-                        for (var q = 0; q < sub.length; q++) {
-                            if (r.indexOf(sub[q]) === -1) r.push(sub[q]);
-                        }
-                    }
-                    return r;
-                }
-                // Tokenise into simple selectors + combinators ('>' or ' ')
-                var raw = selectorStr.trim();
-                var tokens = [], combinators = [];
-                var re = /\s*>\s*|\s+/g, last = 0, rm;
-                while ((rm = re.exec(raw)) !== null) {
-                    tokens.push(raw.slice(last, rm.index).trim());
-                    combinators.push(rm[0].indexOf('>') !== -1 ? '>' : ' ');
-                    last = rm.index + rm[0].length;
-                }
-                tokens.push(raw.slice(last).trim());
-
-                var pool = descendants(ctx);
-                var s0 = parseSimple(tokens[0]);
-                var matched = pool.filter(function(n) { return matchesSimple(n, s0); });
-                for (var si = 1; si < tokens.length; si++) {
-                    var sp = parseSimple(tokens[si]);
-                    var comb = combinators[si - 1];
-                    var next = [];
-                    for (var mi = 0; mi < matched.length; mi++) {
-                        if (comb === '>') {
-                            // Child combinator: direct element children only
-                            var ch = (matched[mi].children || []);
-                            for (var ci = 0; ci < ch.length; ci++) {
-                                if (ch[ci].type === 'el' && matchesSimple(ch[ci], sp) && next.indexOf(ch[ci]) === -1)
-                                    next.push(ch[ci]);
-                            }
-                        } else {
-                            // Descendant combinator
-                            var d = descendants(matched[mi]);
-                            for (var di = 0; di < d.length; di++) {
-                                if (matchesSimple(d[di], sp) && next.indexOf(d[di]) === -1) next.push(d[di]);
-                            }
-                        }
-                    }
-                    matched = next;
-                }
-                return matched;
-            }
-
-            // ── Serialization ────────────────────────────────────────────────────────
-            function textOf(node) {
-                if (node.type === 'tx') return node.text || '';
-                var out = '';
-                var ch = node.children || [];
-                for (var i = 0; i < ch.length; i++) out += textOf(ch[i]);
-                return out;
-            }
-
-            function htmlOf(node) {
-                var out = '';
-                var ch = node.children || [];
-                for (var i = 0; i < ch.length; i++) {
-                    var c = ch[i];
-                    if (c.type === 'tx') {
-                        out += c.text || '';
-                    } else {
-                        var as = '';
-                        for (var k in c.attrs) as += ' ' + k + '="' + c.attrs[k] + '"';
-                        out += '<' + c.tag + as + '>' + htmlOf(c) + '</' + c.tag + '>';
-                    }
-                }
-                return out;
-            }
-
-            // ── Cheerio wrapper ──────────────────────────────────────────────────────
-            function wrap(nodes) {
-                var obj = {
-                    length: nodes.length,
-                    text: function() {
-                        return nodes.map(function(n) { return textOf(n); }).join('');
-                    },
-                    html: function() {
-                        return nodes.length ? htmlOf(nodes[0]) : '';
-                    },
-                    attr: function(name) {
-                        return nodes.length ? nodes[0].attrs[name.toLowerCase()] : undefined;
-                    },
-                    find: function(sel) {
-                        var found = [];
-                        for (var i = 0; i < nodes.length; i++) {
-                            var sub = select(nodes[i], sel);
-                            for (var j = 0; j < sub.length; j++) {
-                                if (found.indexOf(sub[j]) === -1) found.push(sub[j]);
-                            }
-                        }
-                        return wrap(found);
-                    },
-                    each: function(fn) {
-                        for (var i = 0; i < nodes.length; i++) {
-                            var w = wrap([nodes[i]]);
-                            fn.call(w, i, w);
-                        }
-                        return obj;
-                    },
-                    map: function(fn) {
-                        var r = [];
-                        for (var i = 0; i < nodes.length; i++) {
-                            var w = wrap([nodes[i]]);
-                            r.push(fn.call(w, i, w));
-                        }
-                        return r;
-                    },
-                    first:   function() { return wrap(nodes.length ? [nodes[0]] : []); },
-                    last:    function() { return wrap(nodes.length ? [nodes[nodes.length-1]] : []); },
-                    eq: function(i) {
-                        var idx = i < 0 ? nodes.length + i : i;
-                        return wrap(idx >= 0 && idx < nodes.length ? [nodes[idx]] : []);
-                    },
-                    toArray: function() { return nodes.slice(); },
-                    parent: function() {
-                        var ps = [];
-                        for (var i = 0; i < nodes.length; i++) {
-                            var p = nodes[i].parent;
-                            if (p && p.tag !== '#root' && ps.indexOf(p) === -1) ps.push(p);
-                        }
-                        return wrap(ps);
-                    },
-                    children: function(sel) {
-                        var ch = [];
-                        for (var i = 0; i < nodes.length; i++) {
-                            var c = (nodes[i].children || []).filter(function(n) { return n.type === 'el'; });
-                            for (var j = 0; j < c.length; j++) {
-                                if (!sel || matchesSimple(c[j], parseSimple(sel))) ch.push(c[j]);
-                            }
-                        }
-                        return wrap(ch);
-                    },
-                    is: function(sel) {
-                        try { return nodes.length ? matchesSimple(nodes[0], parseSimple(sel)) : false; }
-                        catch(e) { return false; }
-                    },
-                    hasClass: function(c) {
-                        return nodes.length ? (nodes[0].attrs['class'] || '').split(/\s+/).indexOf(c) !== -1 : false;
-                    },
-                    filter: function(sel) {
-                        if (typeof sel === 'string') {
-                            var s = parseSimple(sel);
-                            return wrap(nodes.filter(function(n) { return matchesSimple(n, s); }));
-                        }
-                        return wrap(nodes.filter(sel));
-                    },
-                    next: function() { return wrap([]); },
-                    prev: function() { return wrap([]); }
-                };
-                return obj;
-            }
-
-            // ── Public API ───────────────────────────────────────────────────────────
             global.cheerio = {
-                load: function(html) {
-                    var root;
-                    try { root = parse(html); } catch(e) { root = El('#root'); }
-                    function $(selector) {
-                        try {
-                            if (!selector) return wrap([]);
-                            if (typeof selector === 'object') {
-                                // Raw DOM node (from each/map callback)
-                                if (selector.type) return wrap([selector]);
-                                // Already a wrap object — return as-is
-                                if (typeof selector.find === 'function') return selector;
-                                return wrap([]);
-                            }
-                            if (selector === '*') return wrap(descendants(root));
-                            return wrap(select(root, selector));
-                        } catch(e) { return wrap([]); }
-                    }
-                    $.root = function() { return wrap([root]); };
-                    $.load = global.cheerio.load;
-                    return $;
+                load: function(html, options, isDocument) {
+                    var $ = libs.cheerio.load(html == null ? '' : String(html), options, isDocument);
+                    return new Proxy($, {
+                        apply: function(target, thisArg, args) {
+                            try { return Reflect.apply(target, thisArg, args); }
+                            catch (e) { return target([]); }
+                        }
+                    });
                 }
             };
         })(this);
@@ -1463,7 +1225,12 @@ final class JSBridge {
                             var rawBody = (options && options.body) ? options.body : null;
                             var origHdrs = (options && options.headers) ? options.headers : {};
                             var bodyStr, hdrs;
-                            if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
+                            if (typeof URLSearchParams === 'function' && rawBody instanceof URLSearchParams) {
+                                bodyStr = rawBody.toString();
+                                hdrs = {}; for (var uk in origHdrs) hdrs[uk] = origHdrs[uk];
+                                if (!hdrs['Content-Type'] && !hdrs['content-type'])
+                                    hdrs['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+                            } else if (rawBody && typeof rawBody === 'object' && rawBody._entries) {
                                 // FormData — serialize as application/x-www-form-urlencoded
                                 bodyStr = rawBody._entries.map(function(e) {
                                     return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]);
@@ -1475,12 +1242,13 @@ final class JSBridge {
                                 bodyStr = rawBody ? (typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)) : '';
                                 hdrs = origHdrs;
                             }
-                            var text = SOURCE._fetchSync(url, method, bodyStr, JSON.stringify(hdrs));
-                            return Promise.resolve({
-                                ok: true,
-                                status: 200,
-                                text: function() { return Promise.resolve(text); },
-                                json: function() { return Promise.resolve(JSON.parse(text)); }
+                            return Promise.resolve(SOURCE._makeResponse(
+                                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(hdrs)), url));
+                        },
+                        // LNReader's fetchText resolves to the body, or '' on a failed request.
+                        fetchText: function(url, init) {
+                            return this.fetchApi(url, init).then(function(res) {
+                                return res.ok ? res.text() : '';
                             });
                         }
                     };
@@ -1495,101 +1263,19 @@ final class JSBridge {
                     };
 
                 } else if (name === 'dayjs') {
-                    // Minimal dayjs stub — supports subtract/add/format used by LNReader date parsing
-                    mod.exports = (function() {
-                        function Dayjs(d) { this._d = d ? new Date(d) : new Date(); }
-                        var MS = { day: 864e5, week: 6048e5, month: 2592e6, year: 31536e6 };
-                        Dayjs.prototype.subtract = function(n, u) { return new Dayjs(this._d.getTime() - n * (MS[u] || 864e5)); };
-                        Dayjs.prototype.add      = function(n, u) { return new Dayjs(this._d.getTime() + n * (MS[u] || 864e5)); };
-                        Dayjs.prototype.format   = function(fmt) {
-                            var d = this._d;
-                            if (!fmt) return d.toISOString();
-                            var p = function(n) { return n < 10 ? '0' + n : '' + n; };
-                            return fmt.replace('YYYY', d.getFullYear()).replace('MM', p(d.getMonth()+1))
-                                      .replace('DD', p(d.getDate())).replace('HH', p(d.getHours()))
-                                      .replace('mm', p(d.getMinutes())).replace('ss', p(d.getSeconds()));
-                        };
-                        Dayjs.prototype.toDate  = function() { return this._d; };
-                        Dayjs.prototype.valueOf = function() { return this._d.getTime(); };
-                        Dayjs.prototype.isValid = function() { return !isNaN(this._d.getTime()); };
-                        function dayjs(d) { return new Dayjs(d); }
-                        dayjs.extend = function() {};
-                        return dayjs;
-                    })();
+                    // Real dayjs (+ customParseFormat, relativeTime, utc) from the bundled libraries.
+                    mod.exports = global.__yomiLibs ? global.__yomiLibs.dayjs : function(d) { return new Date(d); };
 
                 } else if (name === 'htmlparser2') {
-                    mod.exports = (function() {
-                        var VOID = {
-                            area:1,base:1,br:1,col:1,embed:1,hr:1,img:1,
-                            input:1,link:1,meta:1,param:1,source:1,track:1,wbr:true
-                        };
-                        function decode(s) {
-                            if (!s || s.indexOf('&') === -1) return s;
-                            return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
-                                .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'")
-                                .replace(/&nbsp;/g,' ')
-                                .replace(/&#(\\d+);/g,function(_,n){return String.fromCharCode(parseInt(n,10));})
-                                .replace(/&#x([0-9a-fA-F]+);/g,function(_,n){return String.fromCharCode(parseInt(n,16));});
-                        }
-                        function parseAttribs(s) {
-                            var a={}, re=/([a-zA-Z_:][a-zA-Z0-9_:.-]*)\\s*(?:=\\s*(?:"([^"]*)"|'([^']*)'|(\\S+)))?/g, m;
-                            while ((m=re.exec(s))!==null) {
-                                var k=m[1].toLowerCase();
-                                var v=m[2]!==undefined?m[2]:m[3]!==undefined?m[3]:m[4]!==undefined?m[4]:'';
-                                a[k]=decode(v);
-                            }
-                            return a;
-                        }
-                        function Parser(h) { this._h=h||{}; this._buf=''; }
-                        Parser.prototype.isVoidElement=function(t){return !!VOID[t.toLowerCase()];};
-                        Parser.prototype.write=function(c){this._buf+=c;};
-                        Parser.prototype.end=function(c) {
-                            if(c) this._buf+=c;
-                            var html=this._buf, h=this._h, pos=0, len=html.length;
-                            while(pos<len) {
-                                var lt=html.indexOf('<',pos);
-                                if(lt===-1){var t=html.slice(pos);if(t&&h.ontext)h.ontext(decode(t));break;}
-                                if(lt>pos){var tb=html.slice(pos,lt);if(tb&&h.ontext)h.ontext(decode(tb));}
-                                pos=lt+1; if(pos>=len) break;
-                                var ch=html[pos];
-                                if(ch==='!'||ch==='?'){var e=html.indexOf('>',pos);pos=(e===-1?len-1:e)+1;continue;}
-                                if(ch==='/'){
-                                    var ge=html.indexOf('>',pos);if(ge===-1){pos=len;break;}
-                                    var tn=html.slice(pos+1,ge).trim().split(/\\s/)[0].toLowerCase();
-                                    if(tn&&h.onclosetag)h.onclosetag(tn);
-                                    pos=ge+1;continue;
-                                }
-                                // opening tag — find closing > respecting quotes
-                                var gt=-1,inQ=false,qc='';
-                                for(var i=pos;i<len;i++){var x=html[i];if(inQ){if(x===qc)inQ=false;}
-                                    else if(x==='"'||x==="'"){inQ=true;qc=x;}else if(x==='>'){gt=i;break;}}
-                                if(gt===-1){pos=len;break;}
-                                var raw=html.slice(pos,gt);
-                                var sc=raw[raw.length-1]==='/';if(sc)raw=raw.slice(0,-1);
-                                var si=raw.search(/\\s/),tag2,astr;
-                                if(si===-1){tag2=raw.trim().toLowerCase();astr='';}
-                                else{tag2=raw.slice(0,si).toLowerCase();astr=raw.slice(si);}
-                                if(tag2){
-                                    var attrs=parseAttribs(astr);
-                                    if(h.onopentag)h.onopentag(tag2,attrs);
-                                    if(sc||VOID[tag2]){if(h.onclosetag)h.onclosetag(tag2);}
-                                    else if(tag2==='script'||tag2==='style'){
-                                        var ct='</'+tag2,ci=html.toLowerCase().indexOf(ct,gt+1);
-                                        if(ci!==-1){var cg=html.indexOf('>',ci);if(h.onclosetag)h.onclosetag(tag2);pos=cg!==-1?cg+1:len;continue;}
-                                    }
-                                }
-                                pos=gt+1;
-                            }
-                            if(h.onend)h.onend();
-                            this._buf='';
-                        };
-                        return { Parser:Parser, parseDocument:function(){return {};} };
-                    })();
+                    mod.exports = global.__yomiLibs ? global.__yomiLibs.htmlparser2 : {};
 
                 } else if (name === '@libs/isAbsoluteUrl') {
-                    mod.exports = function(url) {
+                    // LNReader exports `isUrlAbsolute`; the bare-function form stays callable for older plugins.
+                    var isUrlAbsolute = function(url) {
                         var s = String(url); var c = s.indexOf('://'); return c > 0 && c < 20;
                     };
+                    isUrlAbsolute.isUrlAbsolute = isUrlAbsolute;
+                    mod.exports = isUrlAbsolute;
 
                 } else if (name === '@/types/constants') {
                     // NovelFire only — compiled output rebinds the import variable; empty object is safe
@@ -1880,6 +1566,7 @@ final class JSBridge {
         let argList = argGlobals.joined(separator: ", ")
         context.evaluateScript("""
         __lnr_result = undefined;
+        __lnr_reject_reason = undefined;
         (function() {
             try {
                 var __r = plugin['\(name)'](\(argList));
@@ -1892,6 +1579,26 @@ final class JSBridge {
         """)
         // evaluateScript internally calls JSC's drainMicrotasks() before returning,
         // so __lnr_result is guaranteed to be set when we read it below.
+    }
+
+    /// What the last LNReader plugin call left in `__lnr_result`, for diagnosing an empty result that came with no
+    /// error: "undefined" usually means a promise that never settled.
+    nonisolated var lastResultSummary: String {
+        context.evaluateScript("""
+        (function(r) {
+            if (r === undefined) return 'undefined (promise never settled?)';
+            if (r === null) return 'null';
+            if (Array.isArray(r)) return 'array(' + r.length + ')' + (r.length ? ' first=' + JSON.stringify(r[0]).slice(0, 160) : '');
+            return typeof r + ' ' + JSON.stringify(r).slice(0, 160);
+        })(__lnr_result)
+        """)?.toString() ?? "?"
+    }
+
+    /// Why the last LNReader plugin call failed (a thrown error or rejected promise), if it did.
+    nonisolated var lastPluginError: String? {
+        guard let value = context.objectForKeyedSubscript("__lnr_reject_reason"), !value.isUndefined, !value.isNull
+        else { return nil }
+        return value.toString()
     }
 
     nonisolated func popularNovels(page: Int) -> [NovelItem] {
@@ -1937,7 +1644,23 @@ final class JSBridge {
         context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
         callPluginMethod("parseNovel", argGlobals: ["__lnr_path"])
         guard let dict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any] else { return nil }
-        let chapters: [JSNovelChapter] = (dict["chapters"] as? [[String: Any]] ?? []).compactMap {
+        var rawChapters = dict["chapters"] as? [[String: Any]] ?? []
+        // Paged plugins (Novel Fire, LnMTL, …) return `totalPages` and serve chapters through parsePage(path, page).
+        // LNReader loads pages as you scroll; Yomi's chapter list is one list, so fetch them all (capped).
+        if let totalPages = (dict["totalPages"] as? NSNumber)?.intValue, totalPages > 0 {
+            let novelPath = dict["path"] as? String ?? path
+            var paged: [[String: Any]] = []
+            for page in 1...min(totalPages, 150) {
+                context.setObject(novelPath as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+                context.setObject(String(page) as AnyObject, forKeyedSubscript: "__lnr_page" as NSString)
+                callPluginMethod("parsePage", argGlobals: ["__lnr_path", "__lnr_page"])
+                let pageDict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any]
+                guard let chapters = pageDict?["chapters"] as? [[String: Any]], !chapters.isEmpty else { break }
+                paged.append(contentsOf: chapters)
+            }
+            if !paged.isEmpty { rawChapters = paged }
+        }
+        let chapters: [JSNovelChapter] = rawChapters.compactMap {
             guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
             return JSNovelChapter(
                 name:          name,
