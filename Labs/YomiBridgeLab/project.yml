@@ -1,0 +1,40 @@
+name: YomiBridgeLab
+options:
+  bundleIdPrefix: pacodealer
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: F9R33MN82P
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  YomiBridgeLab:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - path: Vendor/BridgeFiles
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - framework: Vendor/OpenJDKRuntime.framework
+        embed: true
+        codeSign: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: pacodealer.YomiBridgeLab
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/BridgeLab-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(PROJECT_DIR)/Vendor/OpenJDKRuntime.framework/Headers
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: BridgeLab
+        SUPPORTED_PLATFORMS: iphoneos
+    info:
+      path: Sources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
