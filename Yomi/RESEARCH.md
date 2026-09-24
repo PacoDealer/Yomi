@@ -1302,6 +1302,8 @@ Reddit confirms the audience punishes AI-looking apps (see 22.7).
    (§22.3) as the first implementation step; alternative is the performance fixes (§22.5) first since they
    touch every screen.
 2. **Which iPhone model does Martin have?** (Interpreter-only JVM speed depends on it.)
+- **Answered S123 (2026-09-24):** (1) **on-device Keiyoushi proof of concept first**; (2) **iPhone 17, iOS 26.6.1**
+  (A19-class chip; enough RAM for Kokoro voices too).
 - Answered this session: Tachimanga repo URL = `index.pb` (Keiyoushi direct); Google account = Workspace (no
   credits); Reddit posts = §22.7.
 
