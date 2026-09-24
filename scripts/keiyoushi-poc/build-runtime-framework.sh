@@ -2,7 +2,10 @@
 # Wraps OpenJDK Mobile's static libdevice.a into a signed-able dynamic OpenJDKRuntime.framework (device only).
 # Why dynamic: HotSpot finds JNI natives (Java_*) by symbol lookup at runtime; linking the .a straight into the app
 # lets the linker dead-strip them. -all_load keeps every object; a dylib exports its globals by default.
-# The framework also carries the Java home (lib/modules, tzdb.dat, security, conf) the VM needs as -Djava.home.
+# The framework also carries the Java home (lib/modules, tzdb.dat, security, conf). Its location is NOT configurable:
+# on iOS HotSpot ignores -Djava.home and uses "<directory of the JVM binary>/lib" (os_bsd.cpp,
+# init_system_properties_values, __IOS__ + static build), so the Java home must be OpenJDKRuntime.framework/lib
+# and the module image OpenJDKRuntime.framework/lib/lib/modules. Anywhere else: "Failed setting boot class path".
 set -euo pipefail
 WORK="${KEIYOUSHI_POC_WORK:-$HOME/Desktop/Projects/Yomi/Tools/keiyoushi-poc}"
 SRC="$WORK/openjdk-ios"
@@ -10,12 +13,12 @@ OUT="$WORK/build/OpenJDKRuntime.framework"
 LIB="$SRC/OpenJDK.xcframework/ios-arm64/libdevice.a"
 HOME_SRC="$SRC/bundle/java_bundle-device"
 
-rm -rf "$OUT" && mkdir -p "$OUT/Headers" "$OUT/java_home/lib"
+rm -rf "$OUT" && mkdir -p "$OUT/Headers" "$OUT/lib/lib"
 cp "$SRC"/OpenJDK.xcframework/ios-arm64/Headers/*.h "$OUT/Headers/"
 cp -R "$SRC"/OpenJDK.xcframework/ios-arm64/Headers/ios "$OUT/Headers/" 2>/dev/null || true
-cp "$HOME_SRC/lib/modules" "$HOME_SRC/lib/tzdb.dat" "$OUT/java_home/lib/"
-cp -R "$HOME_SRC/lib/security" "$OUT/java_home/lib/"
-cp -R "$HOME_SRC/conf" "$HOME_SRC/release" "$OUT/java_home/"
+cp "$HOME_SRC/lib/modules" "$HOME_SRC/lib/tzdb.dat" "$OUT/lib/lib/"
+cp -R "$HOME_SRC/lib/security" "$OUT/lib/lib/"
+cp -R "$HOME_SRC/conf" "$HOME_SRC/release" "$OUT/lib/"
 
 xcrun --sdk iphoneos clang++ -target arm64-apple-ios15.0 -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
   -dynamiclib -Wl,-all_load "$LIB" \

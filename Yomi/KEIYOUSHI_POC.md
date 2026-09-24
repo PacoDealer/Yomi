@@ -1,11 +1,12 @@
-# Keiyoushi on-device proof of concept (S123 → next session)
+# Keiyoushi on-device proof of concept (S123 Mac · S124 iPhone ✅ · next: Phase 2)
 
 **Goal:** run real Keiyoushi (Mihon) extensions **inside Yomi on Martin's iPhone**, no server — the way Tachimanga and
 Madomi do. This doc is the single source of truth for the PoC: what's already proven, what's ready, and the exact
 steps for next session. Background research: `RESEARCH.md` §22.1–22.3 and §22.12.
 
-**Martin's instruction for next session:** when he says *"Lets continue with yomi"*, execute **Phase 1** below
-immediately — no questions first. Report results at the end. (Decided S123, 2026-09-24.)
+**Status (S124, 2026-09-24): Phase 1 PASSED.** Real Keiyoushi extensions (Asura Scans + MangaFire) run end to end
+**on Martin's iPhone 17, inside an app, no server** — results table under Phase 1. Next is Phase 2 (below); its order
+is Martin's call, not pre-decided.
 
 ---
 
@@ -72,7 +73,7 @@ expected to be noticeably slower. The Mac numbers prove *correctness*, not phone
 | **Duplicate translations** — MangaFire's Devil Butler: 1,516 chapters, all English, **592 chapter numbers twice** (`official` + `unofficial` scanlator) | Same "clones" problem Martin hit on MangaDex — it's a Keiyoushi-wide pattern, not a MangaDex quirk | **Yomi feature, not bridge:** per-title "one translation per chapter" (dedupe by chapter number, preferred scanlator), like Mihon's scanlator filter |
 | NewPipe Extractor (GPLv3) is inside the server jar | Licence, only matters when shipping | Build variant without `org/schabi` before any App Store build |
 
-## Phase 1 — on the iPhone (NEXT SESSION — do this immediately)
+## Phase 1 — on the iPhone ✅ DONE (S124, 2026-09-24)
 
 Everything below runs on this Mac; the phone is already paired. Workspace: `~/Desktop/Projects/Yomi/Tools/keiyoushi-poc`
 (outside git; `setup.sh` rebuilds it). Scripts: `iOS/scripts/keiyoushi-poc/`.
@@ -90,9 +91,9 @@ Everything below runs on this Mac; the phone is already paired. Workspace: `~/De
 4. **Write our own host (clean-room, ObjC++ `JVMHost.mm` + Swift wrapper)** — facts to use (from reading, not copying):
    - Create the VM on a **dedicated `NSThread` with an 8 MiB stack** (Zero puts its Java stack on the native stack;
      dispatch threads are too small and crash during bootstrap). Pass `-Xss8m` too.
-   - JVM options: `-Djava.home=<framework>/java_home`, `-Djava.class.path=<bundle>/MExtensionServer.jar`,
+   - JVM options: *(no `-Djava.home` — ignored on iOS, see S124 fix 1)*, `-Djava.class.path=<bundle>/MExtensionServer.jar`,
      `-Xbootclasspath/a:<bundle>/java-logging-shim.jar`, `-Djava.io.tmpdir=<NSTemporaryDirectory>/MihonExtensions`,
-     `-Duser.home=<Application Support>`, `-Djavax.net.ssl.trustStore=<java_home>/lib/security/cacerts`,
+     `-Duser.home=<Application Support>`, `-Djavax.net.ssl.trustStore=<framework>/lib/lib/security/cacerts`,
      `-Djava.awt.headless=true`, `-Dfile.encoding=UTF-8`, `-Djava.net.preferIPv4Stack=true`, `-XX:+UseSerialGC`,
      `-Xms128m -Xmx512m`, `-Dorg.slf4j.simpleLogger.defaultLogLevel=warn`.
    - `JNI_CreateJavaVM` (link the framework, or `dlsym`), then `FindClass("mextensionserver/EmbeddedBridge")`,
@@ -111,18 +112,43 @@ Everything below runs on this Mac; the phone is already paired. Workspace: `~/De
    Management → trust the developer profile (tell him exactly this if launch is refused).
 7. **Record results** in the table below + RESEARCH.md §22.12, commit, push.
 
-### Phase 1 measurements to fill in
+### Phase 1 measurements (S124, iPhone 17 / iOS 26.6.1, Debug build, home Wi-Fi, one run)
+
+Lab app: `Labs/YomiBridgeLab/` (`prepare.sh` stages the artefacts + runs xcodegen). Launched with `--autorun`
+(`devicectl … process launch --console pacodealer.YomiBridgeLab --autorun`): starts the JVM, then walks both sources
+twice (cold, warm), logging per-step ms and `phys_footprint`.
 
 | Metric | Result |
 |---|---|
-| JVM create time (JNI_CreateJavaVM → returns) | |
-| `EmbeddedBridge.start` time | |
-| Asura: first getPopularManga (incl. dex2jar) / warm call | |
-| Asura: chapters / pages / first image | |
-| MangaFire: first getPopularManga / warm | |
-| Resident memory after JVM start / after both extensions | |
-| App size (.ipa / installed) | |
-| Any crash / signal (Zero has no stack-overflow signal path — watch for deep recursion) | |
+| JVM create time (JNI_CreateJavaVM → returns) | **45 ms** |
+| `EmbeddedBridge.start` time | **366 ms** (Mac `-Xint`: 402 ms) |
+| Asura: first getPopularManga (incl. dex2jar) / warm call | **7.4 s** (Mac 5.7 s) / 113 ms |
+| Asura: search / details / chapters / pages / first image (cold) | 1.8 s / 2.1 s / 0.7 s (162) / 1.4 s (28) / 340 ms (200 KB WebP, decoded) |
+| MangaFire: first getPopularManga / warm | **4.3 s** (Mac 3.5 s) / 357 ms |
+| MangaFire: search / details / chapters / pages / first image (cold) | 0.5 s / 0.36 s / 4.2 s (1,516) / 0.38 s (10) / 774 ms (779 KB JPEG, decoded) |
+| Resident memory (phys_footprint) | 8 MB before · **62 MB after JVM+bridge** · 119 after Asura · 133 after both · peak 164 · 133 at end |
+| App size | 86 MB installed `.app` (48 MB server jar + 40 MB runtime framework incl. 31 MB `modules`); no `.ipa` made |
+| Any crash / signal | **None.** Only the known zstd filter-cache error (below), twice, in a background coroutine; every request returned 200 |
+
+**Reading the numbers:** the phone's OpenJDK Zero is within ~1.3× of the Mac's HotSpot `-Xint` on first calls, and
+most steps are dominated by the network, not the interpreter. Warm-pass Asura details/chapters were *slower* than
+cold (2.3 s / 1.9 s) — site-latency variance, so treat single-step numbers as ±1 s. **n = 1 run on one network.**
+The 7.4 s first call is mostly the dex2jar conversion → persisting converted jars (gaps table) is the big UX win.
+
+### What broke on the phone, and the fixes (S124)
+
+1. **`-Djava.home` is ignored on iOS.** HotSpot (`os_bsd.cpp`, `init_system_properties_values`, `__IOS__` + static
+   build) sets Java home to **"<directory of the JVM binary>/lib"** and needs `<java home>/lib/modules`; anything
+   else → `Error occurred during initialization of VM: Failed setting boot class path.` The JVM binary is
+   `OpenJDKRuntime.framework/OpenJDKRuntime`, so the framework now carries the Java home at
+   **`OpenJDKRuntime.framework/lib/`** (modules at `lib/lib/modules`). Confirmed by ios-tools' sample app
+   (`HelloMobileApp/lib/lib/modules` next to a statically linked binary). Fixed in `build-runtime-framework.sh`.
+2. **A resource folder named `Payload` makes the app uninstallable** (`MIInstallerErrorDomain 6`, "did not contain
+   any installable apps") — installd confuses it with an IPA's top-level `Payload/`. Renamed `BridgeFiles`.
+3. **Codesign "resource fork, Finder information, or similar detritus not allowed"** — files copied out of
+   `~/Desktop` carry xattrs. `prepare.sh` runs `xattr -cr`; build with `-derivedDataPath` outside Desktop.
+4. Device must be **unlocked** to launch (`FBSOpenApplicationErrorDomain 7`), and first launch needed the one-time
+   profile trust (done by Martin S124). Keep the app foreground during a run — backgrounding pauses the bridge.
 
 ### If it fails — first things to check
 - Crash in bootstrap → stack size (must be the dedicated 8 MiB thread), `java.home` layout (`lib/modules` must exist
@@ -132,7 +158,7 @@ Everything below runs on this Mac; the phone is already paired. Workspace: `~/De
 - TLS errors → `javax.net.ssl.trustStore` path.
 - 403 from a source → UA not forwarded, or Cloudflare needs a cookie → open the site in a WKWebView first.
 
-## Phase 2+ (after the phone PoC works)
+## Phase 2+ (NEXT — the phone PoC works; order to be agreed with Martin)
 1. Close the gaps table above (zstd stand-in, Bitmap via CoreGraphics, captcha via WKWebView cookies, jar caching).
 2. Integrate into Yomi: new source type "Keiyoushi repo" — parse `index.pb` (protobuf, gzipped), install = download
    APK/JAR into app storage, Browse/Detail/Reader route through the bridge (like the S120 `suwayomi://` path routing).

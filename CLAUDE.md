@@ -37,11 +37,18 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S123 — 2026-09-24 · Keiyoushi on-device PoC: Mac phase done, iPhone phase NEXT)
+## Current state (post S124 — 2026-09-24 · Keiyoushi runs ON THE iPHONE — PoC Phase 1 passed)
 
-**➡️ NEXT SESSION: when Martin says "Lets continue with yomi", immediately execute `Yomi/KEIYOUSHI_POC.md` → Phase 1
-(build the YomiBridgeLab app, run Keiyoushi extensions on his iPhone 17). No questions first — every decision is
-recorded in that doc's "Decisions already made" table.**
+**S124 (2026-09-24): Phase 1 of `Yomi/KEIYOUSHI_POC.md` PASSED.** New lab app `Labs/YomiBridgeLab/` (XcodeGen;
+`prepare.sh` stages the gitignored `Vendor/` artefacts) hosts OpenJDK Zero + M-Extension-Server in-process on
+Martin's iPhone 17; Asura Scans + MangaFire ran end to end (cold + warm), no crash, JVM start 45 ms, first
+extension call 4.3–7.4 s, footprint peak 164 MB — table in KEIYOUSHI_POC.md, summary `RESEARCH.md` §22.13.
+Fixes found on-device: iOS HotSpot **ignores `-Djava.home`** (Java home must be `OpenJDKRuntime.framework/lib`);
+never name a bundle folder `Payload`; strip xattrs before codesign. **NEXT: Phase 2** (gaps: persist converted
+jars, zstd stand-in, Bitmap via CoreGraphics, captcha via WKWebView cookies; then Yomi integration + one-translation
+dedupe) — agree the order with Martin first. Yomi app code unchanged; next migration prefix still `v23_`.
+
+## Prior state (post S123)
 
 S123 (2026-09-24): (1) ArcReader deep-dive from its public Android APK → `RESEARCH.md` §22.11 (Flutter + Supabase,
 server-shipped CSS-selector "recipes" + server resolver, sherpa-onnx TTS with 140 downloadable voices, coin
