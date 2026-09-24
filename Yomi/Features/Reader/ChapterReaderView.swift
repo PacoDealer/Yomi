@@ -217,9 +217,7 @@ struct ChapterReaderView: View {
             guard !pages.isEmpty, elapsed > 3 else { return }
             let mangaId = manga.id
             Task.detached(priority: .background) {
-                guard var m = try? MangaQueries.fetchOne(id: mangaId) else { return }
-                m.readingSeconds += elapsed
-                try? MangaQueries.update(m)
+                try? MangaQueries.addReadingSeconds(mangaId: mangaId, seconds: elapsed)
             }
         }
         .onChange(of: currentPage) { _, newPage in

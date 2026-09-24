@@ -84,6 +84,47 @@ enum MangaQueries {
         markCloudDirty(.manga, key: manga.id)
     }
 
+    /// Refreshes only what a *source* knows about a manga — title, cover, summary, author, artist, genres,
+    /// status — on the saved row, inside one transaction. Never touches user state (library membership,
+    /// lastReadAt, reading status, notes, custom cover, reading time). A full-row `update(_:)` of a manga opened
+    /// from Browse wrote that model's defaults over all of it (S124: Keiyoushi/Suwayomi titles vanished from
+    /// History). No-op if the row doesn't exist yet.
+    nonisolated static func updateSourceMetadata(_ source: Manga) throws {
+        let changed: Bool = try appDatabase.write { db in
+            guard var row = try Manga.fetchOne(db, key: source.id) else { return false }
+            row.title = source.title
+            if let cover = source.coverURL { row.coverURL = cover }
+            if let summary = source.summary, !summary.isEmpty { row.summary = summary }
+            if let author = source.author, !author.isEmpty { row.author = author }
+            if let artist = source.artist, !artist.isEmpty { row.artist = artist }
+            if !source.genres.isEmpty { row.genres = source.genres }
+            if source.status != .unknown { row.status = source.status }
+            try row.update(db)
+            return true
+        }
+        if changed { markCloudDirty(.manga, key: source.id) }
+    }
+
+    /// Adds reading time atomically. The reader used to fetch the row, add, and write the whole row back on a
+    /// detached task racing the progress save's `touchLastRead` — whichever wrote last won, and lastReadAt could
+    /// be restored to NULL (S124).
+    nonisolated static func addReadingSeconds(mangaId: String, seconds: Int) throws {
+        guard seconds > 0 else { return }
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE manga SET readingSeconds = readingSeconds + ? WHERE id = ?",
+                           arguments: [seconds, mangaId])
+        }
+        markCloudDirty(.manga, key: mangaId)
+    }
+
+    /// Sets only the custom cover path (relative to Documents), leaving the rest of the row alone.
+    nonisolated static func updateCustomCover(mangaId: String, path: String?) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE manga SET customCoverPath = ? WHERE id = ?", arguments: [path, mangaId])
+        }
+        markCloudDirty(.manga, key: mangaId)
+    }
+
     /// Inserts or updates a manga (save = INSERT OR REPLACE)
     nonisolated static func upsert(_ manga: Manga) throws {
         _ = try appDatabase.write { db in
