@@ -21,7 +21,29 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S123 — 2026-09-24 · Keiyoushi on-device PoC — Mac phase verified)
+## Current state (post S124 — 2026-09-24 · Keiyoushi extensions inside Yomi, on-device)
+
+**S124 (2026-09-24) — KEIYOUSHI RUNS INSIDE YOMI ON MARTIN'S iPHONE, no server.** Commits `c3c202b`…`680d9b2`.
+1. **PoC Phase 1 passed** on the iPhone 17 (lab app `Labs/YomiBridgeLab`, table in `KEIYOUSHI_POC.md`). iOS HotSpot
+   ignores `-Djava.home` → the runtime framework carries its Java home at `OpenJDKRuntime.framework/lib`.
+2. **Converted extension jars persist** (bridge patch): first call after relaunch Asura 6.0 → 1.6 s, MangaFire 3.5 → 0.5 s (Mac).
+3. **Personal build** (`Config/Personal.xcconfig`, `scripts/build-personal.sh`): free Personal Team, no push/iCloud/App
+   Group (free team can't sign them — widget shows its placeholder), `YOMI_PERSONAL` disables CloudKit sync. Device-only.
+4. **Keiyoushi in Yomi** (`Yomi/Features/Keiyoushi/`): `KeiyoushiJVMHost.mm` (dlopen'd runtime, embedded by the
+   'Embed Keiyoushi runtime' build phase only when `YOMI_EMBED_KEIYOUSHI=YES`; stage with `scripts/keiyoushi/stage-vendor.sh`),
+   `KeiyoushiRepository` (index.pb decode, install = APK to App Support), `KeiyoushiBridge` (POST /dalvik),
+   `KeiyoushiBrowseView`, `KeiyoushiExtensionsView` (More → Keiyoushi). sourceId `keiyoushi_<Mihon id>`, chapter path
+   `keiyoushi://…`. **Verified by Martin on device**: repo load, install, browse, read Asura + MangaFire.
+5. **One translation per chapter** (MangaDetailView `readingChapters`, star chips = preferred group per title).
+   MangaFire 1,516 → 924.
+6. **Bug found on device + fixed**: History lost Keiyoushi reads — whole-row `MangaQueries.update` lost-update race on
+   reader close + Browse-model rows overwriting saved state. Now `addReadingSeconds`/`updateSourceMetadata`/
+   `updateCustomCover` + `adoptSavedState`. Affected JS/Suwayomi titles too.
+**Next (Martin tests today):** his feedback first; then Updates/Downloads for Keiyoushi titles (not routed yet), Mihon
+backup import mapping by source id, zstd stand-in, Asura tile pages (CoreGraphics Bitmap), MangaFire captcha via
+WKWebView, dropping NewPipe (GPLv3) from the jar. Next migration prefix still `v23_`.
+
+## Prior state (post S123 — 2026-09-24 · Keiyoushi on-device PoC — Mac phase verified)
 
 - **Next session = `KEIYOUSHI_POC.md` Phase 1** (lab app on Martin's iPhone 17, free Personal Team). Start without asking.
 - Done S123: ArcReader APK teardown (`RESEARCH.md` §22.11); Mac-side PoC — Asura Scans + MangaFire run end to end on

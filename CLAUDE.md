@@ -27,7 +27,7 @@ just can't authenticate until filled in.
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture) — **§22 (S122) is the current direction; it corrects §7b and §19**
-- `Yomi/KEIYOUSHI_POC.md` — **S123: the on-device Keiyoushi proof of concept — current work, start here**
+- `Yomi/KEIYOUSHI_POC.md` — **on-device Keiyoushi: PoC results + remaining gaps (S123–S124) — start here**
 - `Yomi/design/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
 - `Yomi/design/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
@@ -37,7 +37,30 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S124 — 2026-09-24 · Keiyoushi runs ON THE iPHONE — PoC Phase 1 passed)
+## Current state (post S124 — 2026-09-24 · Keiyoushi (Mihon) extensions run inside Yomi on the iPhone)
+
+**S124 (2026-09-24) — KEIYOUSHI RUNS INSIDE YOMI ON MARTIN'S iPHONE, no server.** Commits `c3c202b`…`680d9b2`.
+1. **PoC Phase 1 passed** on the iPhone 17 (lab app `Labs/YomiBridgeLab`, table in `KEIYOUSHI_POC.md`). iOS HotSpot
+   ignores `-Djava.home` → the runtime framework carries its Java home at `OpenJDKRuntime.framework/lib`.
+2. **Converted extension jars persist** (bridge patch): first call after relaunch Asura 6.0 → 1.6 s, MangaFire 3.5 → 0.5 s (Mac).
+3. **Personal build** (`Config/Personal.xcconfig`, `scripts/build-personal.sh`): free Personal Team, no push/iCloud/App
+   Group (free team can't sign them — widget shows its placeholder), `YOMI_PERSONAL` disables CloudKit sync. Device-only.
+4. **Keiyoushi in Yomi** (`Yomi/Features/Keiyoushi/`): `KeiyoushiJVMHost.mm` (dlopen'd runtime, embedded by the
+   'Embed Keiyoushi runtime' build phase only when `YOMI_EMBED_KEIYOUSHI=YES`; stage with `scripts/keiyoushi/stage-vendor.sh`),
+   `KeiyoushiRepository` (index.pb decode, install = APK to App Support), `KeiyoushiBridge` (POST /dalvik),
+   `KeiyoushiBrowseView`, `KeiyoushiExtensionsView` (More → Keiyoushi). sourceId `keiyoushi_<Mihon id>`, chapter path
+   `keiyoushi://…`. **Verified by Martin on device**: repo load, install, browse, read Asura + MangaFire.
+5. **One translation per chapter** (MangaDetailView `readingChapters`, star chips = preferred group per title).
+   MangaFire 1,516 → 924.
+6. **Bug found on device + fixed**: History lost Keiyoushi reads — whole-row `MangaQueries.update` lost-update race on
+   reader close + Browse-model rows overwriting saved state. Now `addReadingSeconds`/`updateSourceMetadata`/
+   `updateCustomCover` + `adoptSavedState`. Affected JS/Suwayomi titles too.
+**Next (Martin tests today):** his feedback first; then Updates/Downloads for Keiyoushi titles (not routed yet), Mihon
+backup import mapping by source id, zstd stand-in, Asura tile pages (CoreGraphics Bitmap), MangaFire captcha via
+WKWebView, dropping NewPipe (GPLv3) from the jar. Next migration prefix still `v23_`.
+
+## Prior state (post S124 PoC phase)
+
 
 **S124 (2026-09-24): Phase 1 of `Yomi/KEIYOUSHI_POC.md` PASSED.** New lab app `Labs/YomiBridgeLab/` (XcodeGen;
 `prepare.sh` stages the gitignored `Vendor/` artefacts) hosts OpenJDK Zero + M-Extension-Server in-process on
