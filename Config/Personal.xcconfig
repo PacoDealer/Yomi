@@ -1,0 +1,11 @@
+// Personal build: Yomi signed by Martin's FREE Personal Team so it can run on his iPhone before the paid Apple
+// Developer Program. A free team cannot sign push, iCloud/CloudKit or App Groups (verified S124: its profiles
+// "don't match the entitlements file's value for com.apple.security.application-groups"), so this build uses an
+// EMPTY Personal.entitlements and compiles with YOMI_PERSONAL, which turns CloudKit sync off (CloudSyncManager).
+// Without the App Group the widget gets no shared data and shows its placeholder (WidgetDataWriter guards nil).
+// The on-device Keiyoushi runtime has no simulator slice, so everything Keiyoushi is tested with this build.
+// Usage: scripts/build-personal.sh   (passes this file with -xcconfig, overriding every target)
+DEVELOPMENT_TEAM = F9R33MN82P
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_ENTITLEMENTS = Config/Personal.entitlements
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) YOMI_PERSONAL
