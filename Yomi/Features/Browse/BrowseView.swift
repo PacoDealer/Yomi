@@ -4,8 +4,8 @@ import Kingfisher
 // MARK: - BrowseView
 //
 // Design spec: YOMI Screens.dc.html N.06 (Browse) + N.16 (Browse — search).
-// Extension/repo management (install, add repo, update, delete) lives entirely in
-// More → Plugins (PluginsView) — Browse only consumes already-installed sources.
+// Three tabs, like Tachimanga: Sources (installed sources to browse), Extensions (install / update / repos —
+// PluginsView embedded) and Migrate.
 
 struct BrowseView: View {
     @State private var extensionManager = ExtensionManager.shared
@@ -23,26 +23,84 @@ struct BrowseView: View {
     @State private var opdsLoading = false
     @State private var opdsLoadingMore = false
     @State private var showSearch = false
-    @State private var showMigrate = false
+    @State private var tab: BrowseTab = .sources
+    @State private var catalogService = PluginCatalogService.shared
     @State private var keiyoushi = KeiyoushiRepository.shared
     /// Plugin id → is it a novel plugin. Seeded from the in-memory cache so a revisit sorts instantly.
     @State private var pluginIsNovel: [String: Bool] = PluginKindCache.isNovel
 
+    enum BrowseTab: String, CaseIterable {
+        case sources = "Sources"
+        case extensions = "Extensions"
+        case migrate = "Migrate"
+    }
+
+    /// Plugin + Keiyoushi updates waiting — shown on the Extensions tab.
+    private var updateCount: Int {
+        extensionManager.installed.filter { catalogService.availableUpdate(for: $0) != nil }.count
+            + keiyoushi.installed.filter { keiyoushi.availableUpdate(for: $0) != nil }.count
+    }
+
     var body: some View {
         NavigationStack {
-            sourcesTab
-                .navigationTitle("Browse")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { showMigrate = true } label: {
-                            Image(systemName: "arrow.triangle.swap")
-                        }
-                        .accessibilityLabel("Migrate a title to another source")
-                    }
+            VStack(spacing: 0) {
+                tabStrip
+                switch tab {
+                case .sources: sourcesTab
+                case .extensions: PluginsView(embedded: true)
+                case .migrate: MigrateView(embedded: true)
                 }
-                .navigationDestination(isPresented: $showSearch) { SearchScreen() }
-                .navigationDestination(isPresented: $showMigrate) { MigrateView() }
+            }
+            .background(canvas.bg.ignoresSafeArea())
+            .navigationTitle("Browse")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showSearch) { SearchScreen() }
         }
+        .task { await catalogService.fetchCatalog() }
+        // "Get plugins" buttons elsewhere (Library, onboarding) land here.
+        .onChange(of: appRouter.openBrowseExtensions, initial: true) { _, open in
+            if open {
+                tab = .extensions
+                appRouter.openBrowseExtensions = false
+            }
+        }
+    }
+
+    // MARK: Tab strip
+
+    private var tabStrip: some View {
+        HStack(spacing: 0) {
+            ForEach(BrowseTab.allCases, id: \.self) { item in
+                Button {
+                    tab = item
+                } label: {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 5) {
+                            Text(item.rawValue)
+                                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: .medium))
+                            if item == .extensions && updateCount > 0 {
+                                Text("\(updateCount)")
+                                    .font(YomiTokens.Font.mono(10, bold: true))
+                                    .foregroundStyle(AppSettings.shared.accentForeground)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(Color.accentColor, in: Capsule())
+                            }
+                        }
+                        .foregroundStyle(tab == item ? Color.accentColor : canvas.textSecondary)
+                        Capsule()
+                            .fill(tab == item ? Color.accentColor : .clear)
+                            .frame(width: 44, height: 3)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(tab == item ? .isSelected : [])
+            }
+        }
+        .padding(.top, 6)
+        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
     }
 
     // MARK: Sources
@@ -201,12 +259,11 @@ struct BrowseView: View {
         YomiEmptyState(
             systemImage: "puzzlepiece.extension",
             title: "No sources installed",
-            message: "Go to More → Plugins to discover and install sources.",
-            actionLabel: "Open Plugins",
+            message: "Install sources from the Extensions tab.",
+            actionLabel: "Open Extensions",
             actionIcon: "puzzlepiece.extension"
         ) {
-            appRouter.openMorePlugins = true
-            appRouter.selectedTab = AppRouter.tabMore
+            tab = .extensions
         }
     }
 

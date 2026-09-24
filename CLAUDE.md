@@ -47,7 +47,11 @@ Commit `5ba8c7f`:
 2. **Multi-language Keiyoushi extensions** are one row: `InstalledKeiyoushiExtension.enabledLangs` (nil = all),
    chosen at install (`KeiyoushiLanguageSheet`, phone language → English preselected); a row with >1 language opens
    `KeiyoushiLanguagesView`. `KeiyoushiExtensionsView` is gone (file now `KeiyoushiViews.swift`).
-3. **More → Extensions** (`PluginsView`) replaces Plugins + Keiyoushi: merged Installed, a Repositories section (Add
+3. **Browse has Tachimanga's 3 tabs — Sources · Extensions · Migrate** (`BrowseView.BrowseTab`, update-count badge on
+   Extensions; `PluginsView(embedded:)` / `MigrateView(embedded:)`, embedded Extensions puts its search field in the
+   list so the tab strip doesn't jump). Extensions left More; "Get plugins" buttons set
+   `appRouter.openBrowseExtensions` (was `openMorePlugins`). Storage → "Manage plugins" still pushes `PluginsView()`.
+   The Extensions tab (`PluginsView`) replaces Plugins + Keiyoushi: merged Installed, a Repositories section (Add
    repository takes `.json` catalogs or `index.pb`), merged Available with a language filter; `SourceLanguage`
    normalizes codes vs LNReader's native names ("Español" → es).
 Verified in the simulator (iOS 26.3 iPhone 17 Pro; the 26.0 one can't install — deployment target 26.2): Last used

@@ -55,8 +55,8 @@ struct LibraryView: View {
                             actionLabel: "Get plugins",
                             actionIcon: "puzzlepiece.extension"
                         ) {
-                            appRouter.openMorePlugins = true
-                            appRouter.selectedTab = AppRouter.tabMore
+                            appRouter.openBrowseExtensions = true
+                            appRouter.selectedTab = AppRouter.tabBrowse
                         }
                     } else {
                         YomiEmptyState(
