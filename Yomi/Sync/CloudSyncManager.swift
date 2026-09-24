@@ -153,7 +153,8 @@ final class CloudSyncManager: NSObject {
         return dir.appendingPathComponent("CloudSyncEngineState.data")
     }()
 
-    private let container = CKContainer(identifier: CloudSyncManager.containerIdentifier)
+    // Lazy so a build without the iCloud entitlement (YOMI_PERSONAL, below) never constructs it.
+    @ObservationIgnored private lazy var container = CKContainer(identifier: CloudSyncManager.containerIdentifier)
     private let zoneID = CKRecordZone.ID(zoneName: CloudSyncManager.zoneName, ownerName: CKCurrentUserDefaultName)
 
     private override init() {
@@ -168,6 +169,13 @@ final class CloudSyncManager: NSObject {
     /// merge logic against whatever's already in CloudKit.
     func enable() async {
         guard cloudSyncEngine == nil, !isEnabling else { return }
+        #if YOMI_PERSONAL
+        // Personal build (Config/Personal.xcconfig): signed by a free Personal Team, which cannot carry the
+        // iCloud/CloudKit entitlement — touching CKContainer would fail. Report sync as unavailable instead.
+        isAccountAvailable = false
+        status = .unavailable
+        return
+        #else
         isEnabling = true
         defer { isEnabling = false }
 
@@ -202,6 +210,7 @@ final class CloudSyncManager: NSObject {
         }
 
         await syncNow()
+        #endif
     }
 
     /// Stops the sync engine. Local data is untouched — disabling sync just stops pushing/pulling,
