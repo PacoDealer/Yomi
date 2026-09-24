@@ -1,4 +1,4 @@
-# Keiyoushi on-device proof of concept (S123 Mac · S124 iPhone ✅ · next: Phase 2)
+# Keiyoushi on-device (S123 Mac PoC · S124 iPhone PoC ✅ · S124 integrated into Yomi ✅)
 
 **Goal:** run real Keiyoushi (Mihon) extensions **inside Yomi on Martin's iPhone**, no server — the way Tachimanga and
 Madomi do. This doc is the single source of truth for the PoC: what's already proven, what's ready, and the exact
@@ -158,7 +158,11 @@ The 7.4 s first call is mostly the dex2jar conversion → persisting converted j
 - TLS errors → `javax.net.ssl.trustStore` path.
 - 403 from a source → UA not forwarded, or Cloudflare needs a cookie → open the site in a WKWebView first.
 
-## Phase 2+ (NEXT — the phone PoC works; order to be agreed with Martin)
+## Phase 2 — integrated into Yomi ✅ (S124)
+Done: jar cache, personal build, Keiyoushi in Yomi (repo → install → Browse → detail → reader), one translation per
+chapter, History fix. Verified by Martin on the iPhone. Still open below.
+
+## Phase 3+ (NEXT)
 1. Close the gaps table above (zstd stand-in, Bitmap via CoreGraphics, captcha via WKWebView cookies, jar caching).
 2. Integrate into Yomi: new source type "Keiyoushi repo" — parse `index.pb` (protobuf, gzipped), install = download
    APK/JAR into app storage, Browse/Detail/Reader route through the bridge (like the S120 `suwayomi://` path routing).

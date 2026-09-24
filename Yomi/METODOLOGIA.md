@@ -129,6 +129,24 @@ during the 2026-08-04 doc restructure — this file now stays workflow-rules-onl
 two files for what happened when; see the Technical learnings sections below for durable
 patterns and lessons.
 
+## Technical learnings — S124
+
+- **iOS HotSpot ignores `-Djava.home`**: Java home = "<dir of the JVM binary>/lib" (static build). Read the source
+  (`os_bsd.cpp`) before guessing — the error was only "Failed setting boot class path".
+- **Never name a bundle folder `Payload`** (installd: "no installable apps"); **strip xattrs** from Desktop copies
+  before codesign ("detritus not allowed").
+- **The `xcodeproj` Ruby gem rewrote unrelated parts of project.pbxproj** (reordered, dropped a
+  `CODE_SIGN_ENTITLEMENTS` line). Hand-insert build phases and diff before committing.
+- **Xcode's user-script sandbox** blocks build-phase scripts outside declared inputs — gate the phase inline so normal
+  builds never touch the script; the opt-in build sets `ENABLE_USER_SCRIPT_SANDBOXING = NO`.
+- **Free Personal Team can't sign push, iCloud/CloudKit or App Groups** (verified by the provisioning error).
+- **Never write a whole Manga row to change one field.** Two detached tasks (progress+lastReadAt touch vs.
+  fetch→readingSeconds+=→update) lost-updated lastReadAt to NULL. Use targeted SQL; merge saved user state into
+  models opened from Browse. Found by pulling yomi.db off the device:
+  `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier pacodealer.Yomi --source Documents/yomi.db`.
+- Device testing loop: `scripts/build-personal.sh` (installs even when locked), then
+  `devicectl … process launch --console` (phone must be unlocked) streams NSLog/Java output.
+
 ## Technical learnings — S120
 
 **When a finding says "these methods have zero call sites," check what else the missing call site
