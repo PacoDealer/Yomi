@@ -1318,6 +1318,73 @@ Reddit confirms the audience punishes AI-looking apps (see 22.7).
 - thebaselab "OpenJDK 8 on the App Store" article (not read).
 - App Review outcome for Yomi with an embedded JVM.
 
+### 22.11 ArcReader deep-dive — how it actually works (S123, 2026-09-24)
+
+Method: App Store lookup API + public review RSS, `arcreaders.app` legal/support/licences pages, and the public
+Android APK (`cdn.arcreaders.app/apk/arcreader-latest.apk`, 210 MB universal) unzipped + `strings` on the Dart
+AOT binary `libapp.so`. Only public CDN files fetched; the authenticated API was **not** called.
+
+**Stack (verified from the APK):** Flutter/Dart; Drift (SQLite); Riverpod; Dio; Dart `html` parser; Supabase
+project `edqosjdoeoehzqeudtyv` (auth/rest/realtime/storage/functions) for accounts + sync; own REST API at
+`api-arcreader.novelworlds.org` and `api(3).allnovelreader.org` behind Cloudflare; CDN `cdn.allnovelreader.org`;
+RevenueCat; AdMob (rewarded video); Sentry; pdfium; **sherpa-onnx + onnxruntime** (on-device TTS). Firebase
+Analytics/measurement SDK `.properties` are in the APK although the privacy policy says the app runs no Google
+Analytics — SDK presence ≠ active use (UNVERIFIED). iOS build 142 MB, min iOS 15.6, 17+.
+
+**Sources — NOT plugins, a hybrid "recipe" system** (class names in the binary: `RecipeEngine`,
+`RecipeManifest`, `RecipePageFetcher`, `RecipeChapterResolver`, `RecipeHostThrottle`, `RecipeDebugScreen`;
+Remote Config flag `recipe_first_enabled`):
+- Server ships **declarative recipes** (per-host CSS-selector JSON via `/chapters/recipes`, `/recipes/manifest.json`)
+  that the phone executes itself — fetch page on device, apply selectors. No executable code downloaded →
+  sidesteps App Store 2.5.2. Sources are fixed server-side "weekly" without an app update (support FAQ).
+- Fallback = **server resolver**: `/novels/resolve`, `/novels/parse-meta`, `/novels/check-updates`.
+  Search is split: `/novels/search/plan` (server says what to fetch) → device fetches → `/novels/search/parse`
+  (server parses) → `/novels/search/stream`. Keeps parsing logic on the server, traffic from the user's IP.
+- Almost no source domains are hard-coded (only Royal Road/ScribbleHub helpers + WTR-Lab login/unlock checks via
+  injected `document.querySelector` JS in a WebView — gated sources use an in-app browser).
+- DMCA page: takedowns "block the source at our resolver". Central control = central liability; also what lets
+  him ship "200+ sources" with zero user setup.
+
+**TTS** — public catalog `cdn.allnovelreader.org/tts/catalog-v4.json` (v10, 2026-09-18): **140 downloadable voice
+models**: Piper 82 (6–104 MB, 20 locales incl. es-AR, min RAM 256 MB+), Kokoro 47 (327 MB, **min RAM 3 GB**, 8
+locales), Supertonic-3 int8 10 (119 MB, 31 languages, 2 GB), Matcha 1 (70 MB). Each entry has sha256, sample mp3,
+min_ram, `requires_espeak_data`; espeak-ng data ships in the app. Plus TTS **pronunciation/filter rules**,
+per-novel text replacement rules, shareable as `.arcrules` "rule packs" (import previews + one-tap undo), and
+ambience loops (rain/fireplace/forest/cave/wind). The public licences page (dated v1.0, 2026-04-23) still claims
+`flutter_tts`/AVSpeechSynthesizer and "cloud AI voices" — stale.
+
+**Translation:** BYO key for OpenAI / Groq / DeepSeek / OpenRouter / Gemini / any OpenAI-compatible server,
+plus the unofficial Google `translate_a/single` endpoint (free path). Dictionary = `freedictionaryapi.com`.
+
+**Monetization:** coins. Batch download = 1 coin/chapter, max 30/batch free; daily coins + rewarded ads + referral
+codes; Pro (monthly/yearly/lifetime) removes coins, 100/batch, auto-download-ahead. Opening a chapter caches it
+free. Guest coins are device-local.
+
+**UX details worth noting:** onboarding is a 4-chapter bundled "Welcome to ArcReader" *novel* that teaches the app
+by using it; paste-link + share-sheet + in-app browser as the three add paths; smart prefetch N+1..N+4; "read now"
+at 10% of a batch; local notification when a batch finishes; sentence highlight during TTS; JSON export (chapter
+bodies referenced by URL); public-domain catalogs (Gutenberg, Standard Ebooks, ManyBooks, Global Grey); per-novel
+comments (`/novel/:key/comments`).
+
+**Trust/quality signals:** homepage "unedited" store reviews are dated Feb–Apr 2026 "v1.0" — before the
+2026-04-29 release. App Store reviewer (v1.0.26): "Super clean **Claude code UI** 🤣"; another: "Tachimanga but for
+Novels". Website = Newsreader + Geist + JetBrains Mono with mono "Document · 04 · Credits" labels — the same
+template look §22.6 wants Yomi to leave. Community (§22.7): closed source is the main objection.
+
+**What this means for Yomi (candidates, not decisions):**
+- Martin's rule "no maintaining sources" rules out ArcReader's model (it needs a dev who fixes recipes weekly + a
+  server). Yomi keeps LNReader/Keiyoushi repos. Borrowable idea: a *generic* on-device extractor for "paste any
+  link" when no installed plugin matches (readability-style, no per-site upkeep).
+- TTS is his strongest feature and it's replicable on-device: sherpa-onnx has iOS support (licence + iOS
+  packaging UNVERIFIED), Piper voices are small (6–60 MB), Kokoro needs ≥3 GB RAM. Voices as optional downloads,
+  not bundled. AVSpeechSynthesizer remains the zero-download default.
+- Free translation on iOS: Apple's on-device Translation framework (UNVERIFIED which iOS version/API shape fits)
+  instead of an unofficial Google endpoint.
+- Cheap wins: tutorial-as-a-book onboarding, share-sheet import, prefetch-ahead + read-while-downloading,
+  batch-done notification, per-novel text replacement rules (kill "translator note"/watermark junk), sentence
+  highlight in TTS, sleep timer.
+- Avoid: coins/ads/accounts, fake testimonials, the Geist/mono template look.
+
 ---
 
-*End of RESEARCH.md — last compiled S122, 2026-09-23*
+*End of RESEARCH.md — last compiled S123, 2026-09-24*
