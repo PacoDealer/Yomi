@@ -46,7 +46,8 @@ enum TachiyomiBackupParser {
 
     // MARK: - Gzip decompression (libz, windowBits=47 = auto gzip/zlib detection)
 
-    private static func gunzip(_ data: Data) throws -> Data {
+    /// Shared with the Keiyoushi repository index (also gzip'd protobuf) — nonisolated so it can run off MainActor.
+    nonisolated static func gunzip(_ data: Data) throws -> Data {
         guard data.count >= 2, data[0] == 0x1f, data[1] == 0x8b else {
             throw BackupParseError.notGzip
         }
@@ -266,7 +267,8 @@ enum BackupParseError: LocalizedError {
 
 // MARK: - ProtoReader (protobuf3 binary format)
 
-private final class ProtoReader {
+/// Shared with `KeiyoushiRepository`'s index decoder; nonisolated so decoding can run in `Task.detached`.
+nonisolated final class ProtoReader {
     private let data: Data
     private var pos: Int
 

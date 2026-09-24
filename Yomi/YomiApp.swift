@@ -224,6 +224,9 @@ struct YomiApp: App {
                 }
             }
             if phase == .background {
+                // iOS suspends the on-device extension bridge's socket anyway; pausing keeps extensions loaded
+                // and lets the next Keiyoushi call restart serving on a fresh port.
+                KeiyoushiBridge.shared.pause()
                 if settings.appLockEnabled { isLocked = true }
                 if settings.backgroundAutoRefreshEnabled { scheduleBackgroundRefresh() }
                 if settings.iCloudAutoBackup {

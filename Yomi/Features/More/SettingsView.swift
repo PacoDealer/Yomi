@@ -365,6 +365,12 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
 
                 rowDivider()
+                navRow("Keiyoushi Extensions",
+                       trailing: KeiyoushiRepository.shared.installed.isEmpty
+                           ? nil : "\(KeiyoushiRepository.shared.installed.count)") {
+                    KeiyoushiExtensionsView()
+                }
+                rowDivider()
                 navRow("Suwayomi Server") { SuwayomiSettingsView() }
                 rowDivider()
                 navRow("OPDS Server (Kavita / Komga)") { OPDSSettingsView() }

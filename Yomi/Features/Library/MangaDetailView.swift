@@ -20,8 +20,12 @@ struct MangaDetailView: View {
     /// (Known Issue #131).
     private var canOpenReader: Bool {
         bridge != nil || SuwayomiService.isSuwayomiSourceId(manga.sourceId)
+            || KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId)
     }
     @State private var showCFBypass = false
+    /// Site to open in `CFBypassView` when a Keiyoushi extension got a Cloudflare 403 (its cookies then reach
+    /// the extension through the bridge's Cookie forwarding).
+    @State private var keiyoushiCFURL: String? = nil
     @State private var downloadManager = DownloadManager.shared
 
     // Feature 1 — Category assignment
@@ -322,7 +326,16 @@ struct MangaDetailView: View {
                     if let chapterLoadError {
                         Text(chapterLoadError)
                             .font(.subheadline).foregroundStyle(.secondary)
-                    } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId) {
+                        if keiyoushiCFURL != nil {
+                            Button {
+                                showCFBypass = true
+                            } label: {
+                                Label("Bypass Cloudflare", systemImage: "shield.slash")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId)
+                                && !KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
                         Text("No source available for this manga.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
@@ -550,8 +563,9 @@ struct MangaDetailView: View {
         .task { notesText = manga.notes ?? "" }
         .task { aniListScore = await AniListService.shared.fetchScore(title: manga.title, isManga: true) }
         .sheet(isPresented: $showCFBypass) {
-            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? keiyoushiCFURL ?? "https://") {
                 bridge?.clearCFBlock()
+                keiyoushiCFURL = nil
                 Task { await loadChapters() }
             }
         }
@@ -1014,6 +1028,10 @@ struct MangaDetailView: View {
             await loadSuwayomiChapters()
             return
         }
+        if KeiyoushiMapping.isKeiyoushiSourceId(sourceId) {
+            await loadKeiyoushiChapters()
+            return
+        }
 
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
             // Extension not installed — show whatever chapters are already in DB
@@ -1176,6 +1194,95 @@ struct MangaDetailView: View {
             }
             // Suwayomi returns chapters newest-first; the reader's prev/next navigation assumes
             // ascending order (see #50).
+            chapters.sort {
+                ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude)
+            }
+        }
+
+        isLoadingChapters = false
+    }
+
+    // MARK: - Load Chapters (Keiyoushi)
+
+    /// Chapter loading for a manga from an on-device Keiyoushi (Mihon) extension, run by the embedded JVM through
+    /// `KeiyoushiBridge`. Same persist-and-merge shape as the Suwayomi path above.
+    private func loadKeiyoushiChapters() async {
+        let mangaId = manga.id
+        let mangaURL = manga.path
+        let sourceId = KeiyoushiMapping.mihonSourceId(manga.sourceId)
+        chapterLoadError = nil
+        keiyoushiCFURL = nil
+
+        guard KeiyoushiRepository.shared.installedExtension(forSourceId: sourceId) != nil else {
+            chapters = await savedChapters(mangaId: mangaId)
+            chapterLoadError = chapters.isEmpty
+                ? "This Keiyoushi source isn't installed. Add it in Settings → Keiyoushi." : nil
+            isLoadingChapters = false
+            return
+        }
+
+        isLoadingChapters = true
+
+        // Details first: a browse result usually carries only title + cover. A failure here is not fatal.
+        if let detail = try? await KeiyoushiBridge.shared.details(sourceId: sourceId, mangaURL: mangaURL) {
+            if let summary = detail.description, !summary.isEmpty,
+               manga.summary == nil || manga.summary!.isEmpty {
+                manga.summary = summary
+            }
+            if let author = detail.author, !author.isEmpty, manga.author == nil { manga.author = author }
+            if let artist = detail.artist, !artist.isEmpty, manga.artist == nil { manga.artist = artist }
+            let genres = KeiyoushiMapping.genres(detail.genre)
+            if !genres.isEmpty, manga.genres.isEmpty { manga.genres = genres }
+            let status = KeiyoushiMapping.status(detail.status)
+            if status != .unknown { manga.status = status }
+            if manga.coverURL == nil, let cover = detail.thumbnail_url.flatMap({ URL(string: $0) }) {
+                manga.coverURL = cover
+            }
+        }
+
+        let fetched: [Chapter]
+        do {
+            let items = try await KeiyoushiBridge.shared.chapters(sourceId: sourceId, mangaURL: mangaURL)
+            var seen = Set<String>()   // ids hash the chapter URL; never let a repeated URL become a duplicate row
+            fetched = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId) }
+                .filter { seen.insert($0.id).inserted }
+        } catch {
+            chapters = await savedChapters(mangaId: mangaId)
+            let message = error.localizedDescription
+            if message.hasPrefix("CLOUDFLARE:") {
+                keiyoushiCFURL = String(message.dropFirst("CLOUDFLARE:".count))
+                chapterLoadError = "Cloudflare blocked this source."
+            } else {
+                chapterLoadError = message
+            }
+            isLoadingChapters = false
+            return
+        }
+
+        let mangaSnapshot = manga
+        await Task.detached(priority: .userInitiated) {
+            try? MangaQueries.update(mangaSnapshot)
+            try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
+        }.value
+
+        let saved = await savedChapters(mangaId: mangaId)
+        if fetched.isEmpty {
+            chapters = saved
+            if saved.isEmpty { chapterLoadError = "This source returned no chapters." }
+        } else {
+            let savedMap = Dictionary(saved.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            chapters = fetched.map { ch in
+                guard let persisted = savedMap[ch.id] else { return ch }
+                var merged = ch
+                merged.isRead = persisted.isRead
+                merged.isDownloaded = persisted.isDownloaded
+                merged.readingSeconds = persisted.readingSeconds
+                merged.progress = persisted.progress
+                merged.lastPageRead = persisted.lastPageRead
+                merged.readAt = persisted.readAt
+                return merged
+            }
+            // Mihon extensions return chapters newest-first; the reader assumes ascending order (see #50).
             chapters.sort {
                 ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude)
             }
