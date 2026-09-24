@@ -406,6 +406,16 @@ import Observation
         didSet { defaults.set(keiyoushiRepoURL, forKey: "keiyoushiRepoURL") }
     }
 
+    /// Browse's "Last used" section, most recent first — `BrowseSourceKey` raw values (plugin id or Keiyoushi
+    /// source id, prefixed by kind).
+    var recentSourceKeys: [String] {
+        didSet { defaults.set(recentSourceKeys, forKey: "recentSourceKeys") }
+    }
+
+    func noteSourceOpened(_ key: String) {
+        recentSourceKeys = [key] + recentSourceKeys.filter { $0 != key }.prefix(4)
+    }
+
     // MARK: - App Lock
 
     /// Require biometric/passcode authentication when app enters foreground
@@ -539,6 +549,7 @@ import Observation
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         keiyoushiRepoURL         = d.string(forKey: "keiyoushiRepoURL")          ?? ""
+        recentSourceKeys         = d.stringArray(forKey: "recentSourceKeys")     ?? []
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5

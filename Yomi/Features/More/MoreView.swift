@@ -11,9 +11,10 @@ struct MoreView: View {
     @Environment(\.yomiCanvas) private var canvas
 
     private var pluginUpdateCount: Int {
-        extensionManager.installed.filter {
+        let keiyoushi = KeiyoushiRepository.shared
+        return extensionManager.installed.filter {
             catalogService.availableUpdate(for: $0) != nil
-        }.count
+        }.count + keiyoushi.installed.filter { keiyoushi.availableUpdate(for: $0) != nil }.count
     }
 
     var body: some View {
@@ -34,13 +35,8 @@ struct MoreView: View {
                     }
 
                     card("SOURCES") {
-                        MoreRow(icon: "puzzlepiece.extension", label: "Plugins", badge: pluginUpdateCount > 0 ? "\(pluginUpdateCount)" : nil) {
+                        MoreRow(icon: "puzzlepiece.extension", label: "Extensions", badge: pluginUpdateCount > 0 ? "\(pluginUpdateCount)" : nil) {
                             PluginsView()
-                        }
-                        MoreRow(icon: "shippingbox", label: "Keiyoushi",
-                                badge: KeiyoushiRepository.shared.installed.isEmpty
-                                    ? nil : "\(KeiyoushiRepository.shared.installed.count)") {
-                            KeiyoushiExtensionsView()
                         }
                     }
 
