@@ -61,6 +61,10 @@ struct MangaDetailView: View {
 
     // Feature 5 — Scanlator filter
     @State private var scanlatorFilter: String? = nil
+    /// One translation per chapter (S124): sources like MangaFire/MangaDex list the same chapter once per
+    /// scanlation group ("feels like clones"). On by default; the preferred group is remembered per title.
+    @AppStorage("oneTranslationPerChapter") private var oneTranslationPerChapter = true
+    @State private var preferredScanlator: String? = nil
     @State private var chapterSearchText: String = ""
 
     // Feature 6 — Custom cover
@@ -84,6 +88,7 @@ struct MangaDetailView: View {
     // MARK: - Resume helpers
 
     private var resumeChapter: Chapter? {
+        let chapters = readingChapters
         guard !chapters.isEmpty else { return nil }
         // In-progress (partially read) chapter
         if let partial = chapters.first(where: { $0.lastPageRead > 0 && !$0.isRead }) {
@@ -98,8 +103,51 @@ struct MangaDetailView: View {
     }
 
     private var hasStartedReading: Bool {
-        chapters.contains { $0.isRead || $0.lastPageRead > 0 }
+        readingChapters.contains { $0.isRead || $0.lastPageRead > 0 }
     }
+
+    /// True when some chapter number appears more than once (one entry per scanlation group).
+    private var hasDuplicateTranslations: Bool {
+        var seen = Set<Double>()
+        return chapters.contains { ch in ch.chapterNumber.map { !seen.insert($0).inserted } ?? false }
+    }
+
+    /// The chapter list the reader, resume button, progress and the visible list all use: with
+    /// one-translation-per-chapter on, each chapter number appears once, so Next/Prev never steps through
+    /// clones. `chapters` itself stays complete (it's what gets persisted and marked read).
+    private var readingChapters: [Chapter] {
+        guard oneTranslationPerChapter, hasDuplicateTranslations else { return chapters }
+        return Self.oneTranslationPerChapter(chapters, preferred: preferredScanlator)
+    }
+
+    /// Keeps one version per chapter number, in the list's existing (ascending) order. Choice per number:
+    /// the preferred group's version, else one already read or started (so progress never disappears), else
+    /// the group that covers the most chapters. Chapters without a number are all kept.
+    static func oneTranslationPerChapter(_ chapters: [Chapter], preferred: String?) -> [Chapter] {
+        var coverage: [String: Int] = [:]
+        for ch in chapters { coverage[ch.scanlator ?? "", default: 0] += 1 }
+        func rank(_ ch: Chapter) -> (Int, Int, Int) {
+            let group = ch.scanlator ?? ""
+            return (preferred != nil && group == preferred ? 1 : 0,
+                    ch.isRead || ch.lastPageRead > 0 ? 1 : 0,
+                    coverage[group] ?? 0)
+        }
+        var best: [Double: Chapter] = [:]
+        for ch in chapters {
+            guard let n = ch.chapterNumber else { continue }
+            if let current = best[n], rank(current) >= rank(ch) { continue }
+            best[n] = ch
+        }
+        var emitted = Set<Double>()
+        return chapters.compactMap { ch in
+            guard let n = ch.chapterNumber else { return ch }
+            guard !emitted.contains(n), let pick = best[n] else { return nil }
+            emitted.insert(n)
+            return pick
+        }
+    }
+
+    private var preferredScanlatorKey: String { "preferredScanlator.\(manga.id)" }
 
     private var resumeButtonTitle: String {
         guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
@@ -234,16 +282,16 @@ struct MangaDetailView: View {
 
                     // Reading progress bar
                     if !chapters.isEmpty {
-                        let readCount = chapters.filter { $0.isRead }.count
+                        let readCount = readingChapters.filter { $0.isRead }.count
                         if readCount > 0 {
                             let totalSecs = chapters.reduce(0) { $0 + $1.readingSeconds }
                             VStack(alignment: .leading, spacing: 3) {
-                                ProgressView(value: Double(readCount), total: Double(chapters.count))
+                                ProgressView(value: Double(readCount), total: Double(readingChapters.count))
                                     .tint(.accentColor)
-                                let fraction = Double(readCount) / Double(chapters.count)
+                                let fraction = Double(readCount) / Double(readingChapters.count)
                                 let time = Notation.readingTime(seconds: totalSecs)
                                 let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
-                                Text("\(readCount) OF \(chapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
+                                Text("\(readCount) OF \(readingChapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
                                     .font(YomiTokens.Font.mono(11))
                                     .foregroundStyle(canvas.textSecondary)
                             }
@@ -378,9 +426,9 @@ struct MangaDetailView: View {
                     let sorted: [Chapter] = {
                         switch chapterSortOption {
                         case .chapterNumber:
-                            return chaptersDescending ? Array(chapters.reversed()) : chapters
+                            return chaptersDescending ? Array(readingChapters.reversed()) : readingChapters
                         case .name:
-                            return chapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
+                            return readingChapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
                         }
                     }()
                     let filtered: [Chapter] = {
@@ -390,7 +438,11 @@ struct MangaDetailView: View {
                         case .unread:     base = sorted.filter { !$0.isRead }
                         case .downloaded: base = sorted.filter { $0.isDownloaded }
                         }
-                        var result = scanlatorFilter.map { s in base.filter { $0.scanlator == s } } ?? base
+                        // In one-per-chapter mode the chips pick the *preferred* group (applied in readingChapters);
+                        // only the classic mode filters the list down to a single group.
+                        var result = oneTranslationPerChapter && hasDuplicateTranslations
+                            ? base
+                            : scanlatorFilter.map { s in base.filter { $0.scanlator == s } } ?? base
                         if !chapterSearchText.isEmpty {
                             result = result.filter { $0.name.localizedStandardContains(chapterSearchText) }
                         }
@@ -435,9 +487,10 @@ struct MangaDetailView: View {
                                 }
                             },
                             onMarkPreviousRead: {
-                                guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
+                                let list = readingChapters
+                                guard let pos = list.firstIndex(where: { $0.id == chapter.id }),
                                       pos > 0 else { return }
-                                let ids = chapters[0..<pos].filter { !$0.isRead }.map { $0.id }
+                                let ids = list[0..<pos].filter { !$0.isRead }.map { $0.id }
                                 guard !ids.isEmpty else { return }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 let markSet = Set(ids)
@@ -497,9 +550,9 @@ struct MangaDetailView: View {
                     let sortedChapters: [Chapter] = {
                         switch chapterSortOption {
                         case .chapterNumber:
-                            return chaptersDescending ? Array(chapters.reversed()) : chapters
+                            return chaptersDescending ? Array(readingChapters.reversed()) : readingChapters
                         case .name:
-                            return chapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
+                            return readingChapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
                         }
                     }()
                     let filteredChapters: [Chapter] = {
@@ -551,11 +604,12 @@ struct MangaDetailView: View {
                 ChapterReaderView(
                     manga: manga,
                     bridge: bridge,
-                    chapters: chapters,
-                    chapterIndex: chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
+                    chapters: readingChapters,
+                    chapterIndex: readingChapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
                 )
             }
         }
+        .task { preferredScanlator = UserDefaults.standard.string(forKey: preferredScanlatorKey) }
         .task { await loadChapters() }
         .task { await touchLastRead() }
         .task { await loadCategories() }
@@ -713,13 +767,13 @@ struct MangaDetailView: View {
             Text("Chapters")
                 .font(YomiTokens.Font.grotesk(15, weight: .semibold))
             if !chapters.isEmpty {
-                let readCount = chapters.filter { $0.isRead }.count
+                let readCount = readingChapters.filter { $0.isRead }.count
                 if readCount > 0 {
-                    Text("\(readCount) / \(chapters.count)")
+                    Text("\(readCount) / \(readingChapters.count)")
                         .font(YomiTokens.Font.mono(12))
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("(\(chapters.count))")
+                    Text("(\(readingChapters.count))")
                         .font(YomiTokens.Font.mono(12))
                         .foregroundStyle(.secondary)
                 }
@@ -841,11 +895,19 @@ struct MangaDetailView: View {
     @ViewBuilder
     private var scanlatorChipRow: some View {
         let available = Array(Set(chapters.compactMap { $0.scanlator })).sorted()
-        if available.count > 1 {
+        if oneTranslationPerChapter && hasDuplicateTranslations {
+            preferredScanlatorRow(available)
+        } else if available.count > 1 || hasDuplicateTranslations {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     // `canvas` is already in scope on this view — the unselected tint was a
                     // hardcoded `Color.gray` regardless of canvas (Known Issue #119).
+                    if hasDuplicateTranslations {
+                        Button("One per chapter") { oneTranslationPerChapter = true }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .tint(canvas.textSecondary)
+                    }
                     Button("All") { scanlatorFilter = nil }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -863,6 +925,38 @@ struct MangaDetailView: View {
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
         }
+    }
+
+    /// One-per-chapter mode: "All versions" leaves the mode; each group chip makes that group preferred (tap
+    /// again to clear). Preference is per title.
+    private func preferredScanlatorRow(_ available: [String]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                Button("All versions") {
+                    oneTranslationPerChapter = false
+                    scanlatorFilter = nil
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(canvas.textSecondary)
+                .accessibilityHint("Shows every translation of each chapter")
+                ForEach(available, id: \.self) { group in
+                    Button {
+                        preferredScanlator = preferredScanlator == group ? nil : group
+                        UserDefaults.standard.set(preferredScanlator, forKey: preferredScanlatorKey)
+                    } label: {
+                        Label(group, systemImage: preferredScanlator == group ? "star.fill" : "star")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(preferredScanlator == group ? Color.accentColor : canvas.textSecondary)
+                    .accessibilityLabel("Prefer \(group)")
+                    .accessibilityAddTraits(preferredScanlator == group ? .isSelected : [])
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
     }
 
     // MARK: - Selection Action Bar
