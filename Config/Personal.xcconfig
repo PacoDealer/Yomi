@@ -9,3 +9,8 @@ DEVELOPMENT_TEAM = F9R33MN82P
 CODE_SIGN_STYLE = Automatic
 CODE_SIGN_ENTITLEMENTS = Config/Personal.entitlements
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) YOMI_PERSONAL
+
+// On-device Keiyoushi (S124): embed the OpenJDK runtime + extension bridge (scripts/keiyoushi/embed-runtime.sh).
+// The embed phase reads Vendor/Keiyoushi outside Xcode's declared inputs, so script sandboxing is off here.
+YOMI_EMBED_KEIYOUSHI = YES
+ENABLE_USER_SCRIPT_SANDBOXING = NO
