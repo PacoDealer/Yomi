@@ -476,10 +476,19 @@ struct ChapterReaderView: View {
     ///
     /// The JS-plugin path stays on a detached task — `SOURCE._fetchSync` blocks its thread on a
     /// `DispatchSemaphore` and must never run on MainActor. The Suwayomi path is ordinary async
-    /// `URLSession` work and needs no hop.
+    /// `URLSession` work and needs no hop. So is the Keiyoushi path: the extension runs in the embedded JVM
+    /// and pages come back as `http://127.0.0.1:<port>/image/<id>` URLs served by the on-device bridge.
     private static func fetchPages(bridge: JSBridge?, path: String) async -> [String] {
         if SuwayomiService.chapterRef(from: path) != nil {
             return (try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? []
+        }
+        if let ref = KeiyoushiMapping.chapterRef(from: path) {
+            let pages = (try? await KeiyoushiBridge.shared.pages(sourceId: ref.sourceId, chapterURL: ref.url,
+                                                                  chapterName: ref.name)) ?? []
+            return pages.sorted { $0.index < $1.index }.compactMap { page in
+                if let image = page.imageUrl, !image.isEmpty { return image }
+                return page.url
+            }
         }
         guard let bridge else { return [] }
         return await Task.detached(priority: .userInitiated) {

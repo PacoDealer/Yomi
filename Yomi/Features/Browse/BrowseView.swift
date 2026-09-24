@@ -40,13 +40,15 @@ struct BrowseView: View {
     private var sourcesTab: some View {
         let hasSuwayomi = SuwayomiService.shared.isEnabled
         let hasOPDS     = OPDSService.shared.isEnabled
-        if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS {
+        let hasKeiyoushi = !KeiyoushiRepository.shared.installed.isEmpty
+        if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS && !hasKeiyoushi {
             emptyState
         } else {
             ScrollView {
                 VStack(spacing: 0) {
                     searchPillAndSegmented
                     installedSection
+                    if hasKeiyoushi { keiyoushiSection }
                     if hasSuwayomi { suwayomiSection }
                     if hasOPDS { opdsSection }
                     if let firstExt = extensionManager.installed.first {
@@ -216,6 +218,58 @@ struct BrowseView: View {
                 }
                 .padding(.horizontal, 16)
             }
+        }
+        .padding(.top, 22)
+    }
+
+    // MARK: Keiyoushi section
+
+    /// Installed Keiyoushi (Mihon) sources, run on-device by the embedded JVM. One row per source, so a
+    /// multi-language extension (e.g. MangaFire) lists each language it serves.
+    @ViewBuilder
+    private var keiyoushiSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("KEIYOUSHI")
+                .font(YomiTokens.Font.mono(11))
+                .tracking(0.6)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, 16)
+
+            VStack(spacing: 0) {
+                ForEach(KeiyoushiRepository.shared.installedSources, id: \.source.id) { entry in
+                    NavigationLink {
+                        KeiyoushiBrowseView(source: entry.source)
+                    } label: {
+                        HStack(spacing: 12) {
+                            KFImage(URL(string: entry.ext.info.iconURL))
+                                .placeholder { Image(systemName: "puzzlepiece.extension").foregroundStyle(canvas.textSecondary) }
+                                .fade(duration: 0.2)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 36, height: 36)
+                                .clipShape(RoundedRectangle(cornerRadius: 9))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.source.name)
+                                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                                    .foregroundStyle(canvas.textPrimary)
+                                Text(entry.source.lang.uppercased())
+                                    .font(YomiTokens.Font.mono(11))
+                                    .foregroundStyle(canvas.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                        }
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+                        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
         }
         .padding(.top, 22)
     }

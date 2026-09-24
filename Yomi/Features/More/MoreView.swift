@@ -37,6 +37,11 @@ struct MoreView: View {
                         MoreRow(icon: "puzzlepiece.extension", label: "Plugins", badge: pluginUpdateCount > 0 ? "\(pluginUpdateCount)" : nil) {
                             PluginsView()
                         }
+                        MoreRow(icon: "shippingbox", label: "Keiyoushi",
+                                badge: KeiyoushiRepository.shared.installed.isEmpty
+                                    ? nil : "\(KeiyoushiRepository.shared.installed.count)") {
+                            KeiyoushiExtensionsView()
+                        }
                     }
 
                     card("READING") {
