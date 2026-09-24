@@ -173,6 +173,7 @@
 				0EE530CA2F64CF600074B935 /* Frameworks */,
 				0EE530CB2F64CF600074B935 /* Resources */,
 				AABB000BAABB000BAABB000B /* Embed Foundation Extensions */,
+				AABB0020AABB0020AABB0020 /* Embed Keiyoushi runtime */,
 			);
 			buildRules = (
 			);
@@ -274,6 +275,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AABB0020AABB0020AABB0020 /* Embed Keiyoushi runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Keiyoushi runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Only the personal device build opts in (Config/Personal.xcconfig); every other build never touches the script,\n# so Xcode's user-script sandbox stays on for them.\nif [ \"${YOMI_EMBED_KEIYOUSHI}\" = \"YES\" ]; then\n  \"${SRCROOT}/scripts/keiyoushi/embed-runtime.sh\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0EE530C92F64CF600074B935 /* Sources */ = {
