@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-08-07 (S104 §5 App Store Regulations rewrite) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-09-23 (S122 §22 direction reset — corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 
@@ -22,6 +22,7 @@ This file is the single source of truth for all Yomi research. It replaces all p
 14. [Full iOS Manga/Novel Reader Landscape (2026)](#14-full-ios-mangannovel-reader-landscape-2026)
 15. [App Store Strategy for Plugin-Based Apps](#15-app-store-strategy-for-plugin-based-apps)
 20. [Competitor Deep-Dive & Architecture Comparison (S114, 2026-08-18)](#20-competitor-deep-dive--architecture-comparison-s114-2026-08-18)
+22. [Direction Reset — Sources, Hosting, Performance, Design, New Competitors (S122, 2026-09-23)](#22-direction-reset--sources-hosting-performance-design-new-competitors-s122-2026-09-23)
 
 ---
 
@@ -415,6 +416,8 @@ Direct side-by-side comparison of Yomi simulator vs Tachimanga real device:
 ---
 
 ## 7b. Tachimanga Architecture Deep Dive
+> ⚠️ **SUPERSEDED S122 (2026-09-23) — see §22.1.** Evidence shows Tachimanga runs an on-device fork of Suwayomi-Server (JVM) that downloads Keiyoushi `.jar` builds — not a DEX interpreter. The diagram below is kept for history only.
+
 ✅ RESEARCHED (S39 audit + web search + S44 DEX research, 2026-04-20)
 
 ### How Tachimanga gets 100+ sources on iOS — CORRECTED
@@ -986,6 +989,8 @@ Yomi presents users with three clear source choices:
 Scribble Hub, DaoNovel, MTL-Novel, Novel Updates, WuxiaWorld.Site, Moonquill, Chrysanthemum Garden, Wuxia Blog, Pandanovel, Luminous Scans, and 42+ more. All POST to `wp-admin/admin-ajax.php` with `action=something&postid=X` as FormData. Fixed in S47 by detecting `rawBody._entries` and serializing as URL-encoded.
 
 ### Conclusion
+> ⚠️ **WRONG — corrected S122 (§22.4).** This audit only checked module *names*. Running Yomi's cheerio shim under `jsc` showed `.remove()/.contents()/.get()` throw and `.a.b`/`:nth-child`/`:contains` return wrong nodes; 147 of 280 current plugins call `.remove()`.
+
 As of S47, all 131 English LNReader v3 plugins should work in Yomi at the JSBridge level. Remaining failures (if any) are source-specific (site structure changes, Cloudflare blocks, dead sites) — not JSBridge gaps.
 
 ---
@@ -1083,4 +1088,236 @@ data, since each user still authenticates directly with the real service.
 
 ---
 
-*End of RESEARCH.md — last compiled S115, 2026-08-19*
+
+---
+
+## 22. Direction Reset — Sources, Hosting, Performance, Design, New Competitors (S122, 2026-09-23)
+✅ RESEARCHED (S122 — research-only session, no code changes; every claim below was checked live on 2026-09-23 unless marked UNVERIFIED)
+
+**Why this session happened.** Martin's brief (voice-memo transcript): finish Yomi no matter what. Tachimanga
+feels smoother and hand-crafted; Yomi stutters/freezes and he never actually uses it. Space Grotesk made the
+app look AI-generated. **Top priority: Keiyoushi (and LNReader) sources must work exactly like in
+Tachimanga — add the repo URL and be done, never maintain a source himself — so library imports from
+Mihon/Tachimanga resolve.** He doesn't want to host a server unless truly necessary. He reads light novels in
+Safari today. Working rules for this phase: don't implement, don't assume, dig deeper, ask.
+
+### 22.1 Tachimanga — how it really runs Keiyoushi (supersedes §7b and the S89 "server bridge" claim)
+
+Three conflicting stories existed in our docs: §7b ("native C DEX interpreter"), S89 in CLAUDE.md/memory
+("same self-hosted-server bridge as Yomi"), and the April research ("no extension system"). **Evidence
+found S122:**
+- Tachimanga publishes a fork of Suwayomi-Server: `github.com/tachimanga/Tachidesk-Server` (MPL-2.0, last
+  push 2026-07-15, version tags `v4.x buildNNN`). It contains `libs/sqlite-jdbc-ios-3.41.0.0.jar` and
+  `server/src/main/kotlin/okhttp3/*` files commented "On iOS, URLSession natively handles…" → **the Suwayomi
+  server (Kotlin/JVM) runs INSIDE the iPhone app**, with networking bridged to URLSession. No external server.
+- `github.com/trxlezi/tachimanga-repo` (third-party compat repo) states the iOS client downloads the
+  extension's **`.jar`** (`jarUrl`), not the `.apk`; a `.jar` = the APK with `classes.dex` converted to JVM
+  classes (dex2jar) and the binary manifest converted to text XML. Renaming an APK fails with
+  "Content is not allowed in prolog".
+- ⇒ Tachimanga executes **JVM bytecode on-device**, so it embeds some JVM interpreter. **Which engine is
+  UNVERIFIED** (the Flutter app + native glue are closed source). §7b's "DEX interpreter" claim is therefore
+  most likely wrong (DEX ≠ jar), and S89's "server bridge" claim is definitely wrong.
+- Martin's own Tachimanga uses repo URL `https://github.com/keiyoushi/extensions/raw/repo/index.pb` →
+  Tachimanga reads Keiyoushi's new protobuf index natively.
+- App Store: Tachimanga v5.0 (2026-09-06), 218 MB, 4.76★ from 5,385 ratings, seller Tekbrio LLC, min iOS 15.
+
+### 22.2 Keiyoushi changed format on 2026-08-13
+
+- `keiyoushi/extensions` branch `repo` was "Reinitialize[d] as release-based extensions repo" on 2026-08-13.
+- **Repo URL now:** `https://github.com/keiyoushi/extensions/raw/repo/index.pb` — gzip-compressed protobuf.
+  `repo.json` = `{"index_v2": ".../index.pb", "meta": {"name":"Keiyoushi", "signingKeyFingerprint":"9add655a…4da2"}}`.
+- The old `raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json` now returns **one stub
+  extension named "Outdated App"** (pkg `eu.kanade.tachiyomi.extension.all.keiyoushi`) — old JSON clients
+  see an empty/obsolete list.
+- **1,397 extensions**, each published as BOTH `.apk` and a pre-built **`.jar`** in GitHub Releases
+  (`release-assets.json` lists name + sha256 for both). The `.jar` exists for JVM hosts (Suwayomi, Tachimanga, …).
+- keiyoushi.github.io: officially supports only **Mihon, TachiyomiSY, Komikku**; "anything else isn't
+  supported so if it doesn't work, you are on your own".
+- How to decode it (reusable): `curl -sL <index.pb> | gunzip | strings` shows names/pkgs/apk/jar URLs; proper
+  parsing needs the proto schema (Suwayomi: `ExtensionStoreService.kt`, kotlinx `ProtoBuf`).
+- **Suwayomi reads `index_v2` since 2026-06-27** (commit "Extension API 1.6 (#2120)"), included in stable
+  v2.3.2243 (2026-07-13); latest preview v2.3.2363 (2026-09-23). Relevant open Suwayomi issues: #2298
+  (APK→JAR conversion emits invalid bytecode for Kotlin 2.x extensions — Keiyoushi's pre-built jars sidestep
+  it), #2347/#2357 (WebView glue for new `runWebView` client-hint helpers), #2364 (updates fail when
+  versionName + JAR filename unchanged).
+
+### 22.3 On-device Keiyoushi for Yomi — the open-source stack that already exists
+
+Martin asked "is it really that complicated? It's free and the app works better." Answer after digging:
+**feasible, the hard parts exist as licensed open source; still the biggest single job on Yomi's list.**
+
+| Piece | What | Licence | Size | Notes |
+|---|---|---|---|---|
+| JVM | **Official OpenJDK Mobile port** (`github.com/openjdk/mobile` + `openjdk-mobile/ios-tools`), Zero interpreter, no JIT, min iOS 13 | GPLv2 + Classpath Exception (standard OpenJDK — **verify exact files before shipping**) | Prebuilt at `github.com/1Selxo/Mangatan` release `embedded-openjdk-ios13-v16` (2026-08-25): `OpenJDK.xcframework.zip` 6 MB + `java_bundle-device.zip` 9 MB, with `SOURCE_MANIFEST.txt` (commit `fc10224…`, 3 patches: zero-jni-env-lifetime, ios-libjava-global-symbols, ios-zero-runtime; libffi) | Physical devices only (Dartotsu ships a simulator stub) |
+| Extension host | **M-Extension-Server** `github.com/kodjodevf/M-Extension-Server` — headless Mihon/Aniyomi extension runner with small HTTP API; built with `-PiosRuntime=true` for iOS (drops KCEF/JCEF/JOGL, swaps logging) | **MPL-2.0** (AndroidCompat from TachiWeb, Apache-2.0) | `ios-runtime-v7` `MExtensionServer-ios.jar` = **46 MB** | **Trap:** bundles NewPipe Extractor (`org/schabi`, 485 entries, **GPLv3**, used only for anime/YouTube) → build our own variant without it. Also bundles ICU4J (`com/ibm`, 6,135 entries) — size candidate to trim |
+| Alternative host | Tachimanga's Suwayomi fork (§22.1) | MPL-2.0 | full server | heavier; Yomi already has a Suwayomi REST client (`SuwayomiService.swift`) |
+| Reference integration | `github.com/kodjodevf/m_extension_server` (Flutter plugin used by **Mangayomi**: "iOS device: in-process OpenJDK Zero interpreter, loaded lazily without JIT"; server pauses in background) | **NO licence file** ("TODO: Add your license here") → read for understanding, **do not copy** | — | `ios/Classes/MihonEmbeddedBridge.mm`, `ios/PrepareEmbeddedRuntime.sh` (checksum-pinned downloads) |
+| Reference integration 2 | `github.com/aayush2622/DartotsuExtensionBridge` (Flutter) — same OpenJDK artifacts reused verbatim; `ios/.../EmbeddedJvm.mm` | UPL (GPLv3-based) → **don't reuse code** unless Yomi goes GPL | — | runs Aniyomi/CloudStream/Tsundoku/Kotatsu backends on iOS via embedded JVM |
+| Research-grade | `github.com/taizaki69/Kami` — pure-Swift DEX interpreter for Mihon APKs | none | — | 0★, experimental; not usable |
+| Other JVMs looked at | `digitalgust/miniJVM` (414★, minimal JVM, Java subset — unlikely to run Kotlin/okhttp/jsoup extensions); thebaselab Code App (reported OpenJDK 8 on App Store — article NOT read) | — | — | not pursued |
+
+**Precedent:** Mangayomi (Apache-2.0, 3.8k★, iOS **sideload only** via AltStore/SideStore — not App Store)
+does exactly this stack. App Store apps running Mihon extensions on-device: **Tachimanga** and **Madomi**
+(§22.7). Apple guideline 2.5.2 risk remains — precedent, not guarantee.
+
+**Real remaining work for Yomi:** Swift ↔ JVM glue written ourselves; our own iOS host build without NewPipe;
+WebView/Cloudflare glue for extensions that need a WebView (→ WKWebView); lazy JVM start + background pause;
+index.pb parsing + jar install/update/signature check; device-only testing (no simulator); app size
++~60–100 MB (rough). **UNMEASURED:** JVM startup time, memory, per-request speed on Martin's phone.
+
+**Proposed first step (awaiting Martin's answer):** a throwaway proof of concept on Martin's iPhone — embed
+the OpenJDK runtime + host jar, install ONE Keiyoushi extension, load Popular + one chapter, measure launch
+time / memory / app size. This removes the need for the S90 hosted server (`SuwayomiServer-Deploy/`) and its
+legal exposure; Yomi's Suwayomi client stays for self-hosters.
+
+**Server options kept for the record (if on-device fails):** A) hosted Suwayomi per S90 (Oracle Always Free
+or ~$5–10/mo) — Martin's IP fetches for all users, dies if unpaid, Oracle reclaims idle VMs; C) port
+extensions to our own format — rejected (Martin won't maintain sources).
+
+### 22.4 LNReader in Yomi — measured, not assumed (supersedes §19's conclusion)
+
+§19 (S47) concluded "all 131 English plugins should work at the JSBridge level". It only checked that each
+`require()`d module name exists. **S122 tested behaviour:**
+- Plugin set: `LNReader/lnreader-plugins` branch `plugins/v3.0.0` (the URL Yomi uses:
+  `.../plugins/v3.0.0/.dist/plugins.min.json`), last publish 2026-09-22 — **280 plugins** (154 English).
+- Module coverage (all 280): `@libs/fetch` 280, `cheerio` 242, `@libs/novelStatus` 239, `@libs/defaultCover`
+  182, `@libs/storage` 127, `dayjs` 113, `@libs/filterInputs` 71, `htmlparser2` 55, `@/types/constants` 2,
+  `@libs/aes` 1, `@libs/isAbsoluteUrl` 1. Only `@libs/aes` (1 plugin) is unshimmed. `fetchApi` 274,
+  `imageRequestInit` 30 (cover request headers — check Yomi honours it), `fetchText` 7, `fetchProto` 1.
+- **The failure point is Yomi's hand-written cheerio** (`JSBridge.injectCheerio`, ~350 lines: own HTML parser +
+  selector engine; one class and one attribute per token, `>` and descendant combinators only). Runtime test —
+  extracted the shim JS and ran it under macOS `jsc`
+  (`/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc`):
+  - `.remove()`, `.contents()`, `.get()` → **TypeError: not a function** (throws, kills that plugin call)
+  - `$('.x.y')` → matches `.x` only (returned 2, expected 1) — **silently wrong**
+  - `p:nth-child(2)`, `p:contains(World)` → pseudo ignored, returns all `p` — **silently wrong**
+  - Methods present: attr, children, each, eq, filter, find, first, hasClass, html, is, last, map, next,
+    parent, prev, text, toArray, load.
+- Static scan of the 280 plugins: **147 call `.remove()`** (typically chapter-text cleanup, e.g. Madara
+  `e(".manga-title-badges").remove()`), 82 `.contents()`, plus `.replaceWith/.slice/.clone/.closest/:has/
+  :nth-child/:contains/[attr^=]`… — 219/251 cheerio users hit ≥1 unsupported feature (heuristic; `.append`
+  may be FormData, so treat as upper bound; `.remove()` count is solid).
+- `dayjs` is also a stub ("supports subtract/add/format use").
+- **Fix direction (no server needed):** bundle the real libraries LNReader itself ships (cheerio,
+  htmlparser2, dayjs; LNReader runs them in Hermes, all pure JS) instead of shims.
+- **Upstream health:** lnreader-plugins has **545 open issues** (first page labels: 22 bug, 15 "severity:
+  can't load novels"), but 65 commits to master since 2026-08-01 — actively maintained. Even with perfect
+  compatibility some sources will be broken at any moment; that's upstream's job, not Martin's.
+- Reusable harness (recreate in scratchpad):
+  ```
+  python3: slice JSBridge.swift between '#"""' and '"""#' after 'injectCheerio' → cheerio_shim.js
+  t.js: load('cheerio_shim.js'); var $=cheerio.load('<div id="c"><p class="x y">Hello</p>…'); try each call
+  run: <jsc path above> t.js
+  ```
+
+### 22.5 Why Yomi stutters — root causes found by reading code (NOT yet measured in Instruments)
+
+1. **Images decoded full-size on the main thread.** Kingfisher 8.9.0: `backgroundDecode` defaults to `false`
+   (`KingfisherOptionsInfo.swift` line 418); Yomi's only global option is `.requestModifier` (`YomiApp.swift:173`).
+   No `DownsamplingImageProcessor`, no `ImagePrefetcher` anywhere. Tall webtoon strips and covers decode on
+   main at first draw → hitches + memory pressure.
+2. **Webtoon reader layout jumps** (`ChapterReaderView.swift` ~855-965): SwiftUI `LazyVStack` of `KFImage`s with
+   a 2:3 placeholder that snaps to the real (very tall) height on load; `ForEach(... id: \.offset)`; two-way
+   `visibleId`/`currentPage` sync with `withAnimation { proxy.scrollTo }`.
+3. **Novel reader relayouts while scrolling** (`TextReaderView.swift`): `lastKnownScrollPercent` is `@State`
+   read in `body` (line 238), set every ~400 ms scroll tick (line 210) → `updateUIView` (line 576) re-injects
+   the whole `<style>` element via `evaluateJavaScript` → WebKit style recalc + relayout of the chapter.
+4. **`UIImage.averageColor()`** (`Core/UIImage+AverageColor.swift`) creates a new `CIContext` per call, run
+   `@MainActor` from `ContinueReadingRow.sampleAmbient` on a full-res cover.
+5. **Library reload model** (`LibraryViewModel.loadLibrary`): full reload + `isLoading = true` on every
+   `onAppear`, writes widget data each time; mutations are `Task.detached { write }` followed by a separate
+   `Task { loadLibrary() }` that can run before the write lands. No GRDB `ValueObservation` anywhere.
+6. **Zero automated tests** in the repo (no XCTest/Swift Testing target) across ~25,600 Swift lines; biggest
+   files JSBridge 2,032, MangaDetailView 1,558, ChapterReaderView 1,409, BrowseView 1,152, TextReaderView 1,090.
+   384 commits, 97 with "fix" in the subject. This is the structural reason "every audit fixes one thing and
+   breaks another".
+- JSBridge itself is fine threading-wise: all JS runs `nonisolated` off the main actor (sync `DispatchSemaphore`
+  fetch on background threads).
+- **Next step when implementing:** profile on Martin's real iPhone with Instruments (Time Profiler + Hangs +
+  Allocations) before and after, not just code reading.
+
+### 22.6 Design — Martin's call, research pending
+
+Martin: Space Grotesk experiment made the app worse / AI-looking; Tachimanga started as an Android port but
+improves; Yomi can win on graphic design + less clutter. S122 observation (not yet a decision): Space Grotesk
++ Space Mono "catalog notation" labels is a widely recognised template look; Tachimanga, Aidoku and Apple Books
+use the system font. Candidate direction: SF Pro for chrome (Dynamic Type), keep a serif for novel body. **To
+decide together from screenshots**, re-using `Yomi/design/DESIGN_RESEARCH.md` + §4 rather than re-researching.
+Reddit confirms the audience punishes AI-looking apps (see 22.7).
+
+### 22.7 New competitors / apps Martin found (r/mangapiracy posts, read via Firefox — Reddit blocks curl/WebFetch)
+
+- **ArcReader** — `arcreaders.app`, App Store id6762717697, seller Thien Le, v1.2.3 (2026-09-20), 4.92★/37,
+  released 2026-04-29, iOS + Android, **closed source** (dev confirmed in thread; website GitHub icon linked to
+  nothing — "leftover from the site template"). Novels only (no manga), 200+ **dev-maintained built-in sources**
+  (not plugins; users request sources in threads), paste-a-link import, offline downloads, on-device neural TTS
+  (Kokoro 59 voices + Supertonic, 15+ languages, voice preview, lock-screen controls, sleep timer), BYO-API-key
+  chapter translation (Gemini/OpenAI-compatible), EPUB (multi) / TXT / MOBI / DOCX import, tap-to-define +
+  flashcards, highlights, stats/streaks, optional account sync, Pro subscription, auto-download-ahead (Premium),
+  search across 20 sources in parallel, polite rate-limiting (slow downloads on some sources). Excludes AO3 on
+  purpose. Thread `r/mangapiracy/comments/1wm7nue` top comments: "No point using if not FOSS", "Vibecoding final
+  boss", "Just don't try to monetize it… DMCA'd pretty quickly", worry about App Store survival.
+  **Take:** paste-link import, on-device TTS, tap-to-define, highlights, doc import, download-ahead + clear-read.
+  **Leave:** closed source, accounts, subscriptions, dev-maintained sources, AI look.
+- **Bunori** — `github.com/bunoriapp/bunori`, GPL-3.0, Kotlin, **Android only** (v2.0.2 2026-09-23, created
+  2026-08-05, 34★). Own `.bext` extensions written in Rust → WASM (`bunoriapp/extensions`), concurrent
+  downloads with retry/pause/resume, compressed storage, custom CSS/scripting in reader, export. Dev says he
+  didn't adopt lnreader-plugins because "most were broken"; may add LNReader support later. Thread `1wna9m1`.
+- **Madomi** — `pawakalabs.com/products/madomi/`, App Store id6748589728 "Madomi: Read & Translate Manga",
+  seller Pawaka Empire, v1.1.18 (2026-09-17), **423 MB**, 3.41★/22, min iOS 15.5, iOS + Android. Started as a
+  Chrome manga-translation extension (formerly "Fakey"). **Runs Mihon/Tachiyomi extension repos on iOS**
+  (paste `index.pb` or `index.min.json`), imports Mihon `.tachibk` **and Tachimanga `.tmb`** backups,
+  Komikku-style recommendations + library sync, AI page translation. How it runs extensions: **UNVERIFIED**
+  (their blog doesn't say; size suggests embedded JVM + ML models). Thread `1w80c0c`.
+  **Take:** Tachimanga-backup import — directly serves Martin's "import my library and it resolves" goal.
+- **Aidoku** (GPL-3.0, Swift, 4.6k★): v0.9 (2026-09-03) added Yomitan-compatible OCR dictionary lookup and a
+  built-in **Suwayomi** source; v0.8.2 added an experimental paged text reader for text-only chapters; v0.8.4
+  (2026-07-03) fixed iOS 27 settings freezes and made backup restore take seconds. Best open-source reference
+  for a hand-built UIKit reader.
+- **LNReader** (MIT, 2.8k★): still **no iOS app** (issue "Add iOS support" open since 2023-12).
+- **Mangayomi** (Apache-2.0, 3.8k★): iOS sideload only; manga/novel/anime; Mihon extensions on iOS via
+  embedded OpenJDK (§22.3).
+
+### 22.8 Hosting — only relevant if on-device fails
+
+- **Firebase** (firebase.google.com/pricing): Spark (free) = Hosting 10 GB storage + 360 MB/day transfer (what
+  the plugin catalog uses now); **no Cloud Functions, no App Hosting on Spark**. Blaze no-cost quotas: Functions
+  2M invocations/mo + 400K GB-s + 200K CPU-s; Firestore 50K reads/20K writes per day; App Hosting 10 GiB/mo
+  cached egress. Firebase cannot run Suwayomi; only Cloud Run could (JVM cold starts, persistent state
+  problems) — not recommended.
+- **Martin's Google account = Google Workspace**. **Workspace includes no Google Cloud
+  credit.** Credits exist only for Google AI Pro ($10/mo) / Ultra ($100/mo) consumer plans (announced
+  2026-01-27, claimed via Google Developer Program) or Workspace + a separate legacy GDP Premium subscription
+  (new standalone Premium sign-ups closed).
+- **Railway** (railway.com/pricing): Free $0 with $1/mo usage; Hobby $5/mo incl. $5 usage; RAM $10/GB-mo,
+  vCPU $20/mo, volume $0.15/GB, egress $0.05/GB → Suwayomi ≈ $5–10/mo.
+- **Oracle Always Free** (docs.oracle.com FreeTier): A1 = 1,500 OCPU-h + 9,000 GB-h/mo ≈ **2 OCPU / 12 GB**
+  (was 4/24 when S90 was designed); idle reclaim if over 7 days CPU p95 <20% AND network <20% AND memory <20%.
+- Current known recurring costs: Apple Developer Program $99/yr (Martin will pay). No server needed if
+  on-device works.
+
+### 22.9 Open questions for Martin (asked end of S122 — answers go here next session)
+
+1. **Proof of concept first, or stutter fixes first?** Proposed: on-device Keiyoushi PoC on his iPhone
+   (§22.3) as the first implementation step; alternative is the performance fixes (§22.5) first since they
+   touch every screen.
+2. **Which iPhone model does Martin have?** (Interpreter-only JVM speed depends on it.)
+- Answered this session: Tachimanga repo URL = `index.pb` (Keiyoushi direct); Google account = Workspace (no
+  credits); Reddit posts = §22.7.
+
+### 22.10 Not yet researched / explicitly UNVERIFIED (don't assume next session)
+
+- Which JVM Tachimanga and Madomi embed; Madomi's architecture in general.
+- Whether M-Extension-Server's iOS build runs current Keiyoushi `.jar`s unmodified (Suwayomi #2298 Kotlin 2.x
+  issue class), its exact HTTP API, and how it handles WebView-dependent extensions.
+- OpenJDK Mobile licence files for the iOS build (assumed standard GPLv2+CPE).
+- Real on-device numbers: JVM start time, RAM, app-size delta, battery.
+- Tachimanga `.tmb` backup format (for import).
+- Whether Yomi honours LNReader `imageRequestInit`; which LNReader plugins work once real cheerio is bundled
+  (needs a runtime harness against live sites).
+- thebaselab "OpenJDK 8 on the App Store" article (not read).
+- App Review outcome for Yomi with an embedded JVM.
+
+---
+
+*End of RESEARCH.md — last compiled S122, 2026-09-23*
