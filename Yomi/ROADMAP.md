@@ -21,7 +21,41 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S120 — 2026-08-27 · 11 backlog findings fixed: Suwayomi reader, tracker CSRF + token refresh, History, error surfacing, dead code)
+## Current state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes)
+
+**Martin's brief:** finish Yomi no matter what. Tachimanga feels smoother and hand-crafted; Yomi stutters/freezes and he
+never uses it; Space Grotesk made it look AI-generated. **Top priority: Keiyoushi + LNReader sources must work like in
+Tachimanga — paste a repo URL, never maintain a source.** No server unless truly necessary. Everything is in
+`RESEARCH.md` §22 (read it before any source/perf/design work). Headlines:
+
+1. **Tachimanga runs Keiyoushi ON THE PHONE** (embedded Suwayomi fork + JVM, downloads Keiyoushi `.jar`s) — corrects S89.
+   Madomi does the same on the App Store. Open-source stack for Yomi exists: official OpenJDK Mobile (Zero interpreter)
+   + M-Extension-Server (MPL-2.0, iOS build) as used by Mangayomi. **Proposed next step: on-device proof of concept on
+   Martin's iPhone** (one Keiyoushi extension → Popular + a chapter; measure start time, RAM, app size). If it works,
+   the S90 hosted-server plan is dropped.
+2. **Keiyoushi changed format 2026-08-13** → `https://github.com/keiyoushi/extensions/raw/repo/index.pb`; old JSON URL
+   returns a fake "Outdated App" entry. 1,397 extensions, each with `.apk` + `.jar`.
+3. **LNReader needs no server — Yomi's hand-written cheerio is the bug.** `.remove()/.contents()/.get()` throw,
+   `.a.b`/`:nth-child`/`:contains` silently wrong; 147/280 plugins call `.remove()`. Fix: bundle real
+   cheerio/htmlparser2/dayjs.
+4. **Stutter root causes (code-read, not yet profiled):** no Kingfisher `backgroundDecode`/downsampling/prefetch; webtoon
+   LazyVStack placeholder jumps; novel reader re-injects `<style>` every scroll tick; `averageColor` CIContext on main;
+   Library full reload on every appear; **zero automated tests**.
+5. **Hosting:** only matters if on-device fails. Firebase Spark can't run a JVM; Workspace gives no Cloud credit;
+   Railway ≈ $5–10/mo; Oracle free now 2 OCPU/12 GB with idle reclaim.
+6. **Design:** Martin wants away from the Space Grotesk/Space Mono look; direction to decide together from screenshots.
+7. **Take from ArcReader:** paste-link import, on-device TTS, tap-to-define, highlights, doc import, download-ahead.
+   **From Madomi:** Tachimanga `.tmb` + Mihon `.tachibk` backup import.
+
+**Open questions for Martin (answer first thing next session):** (1) PoC first, or stutter fixes first? (2) Which iPhone
+model? Unverified items to not assume: `RESEARCH.md` §22.10.
+
+**Also stale in this file:** the Strategic Goal table above (LNReader "✅ Native", keiyoushi "✅ S41 integrated") —
+both overstated; see §22.3/§22.4.
+
+---
+
+## Prior state (post S120 — 2026-08-27 · 11 backlog findings fixed: Suwayomi reader, tracker CSRF + token refresh, History, error surfacing, dead code)
 
 **S120 took the two items S119's handoff named as highest-value.** **#131**: a Suwayomi-sourced
 manga's detail screen showed no chapters, ever — its `sourceId` can never match an installed JS
@@ -1652,6 +1686,8 @@ work is fully captured here and doesn't need to stay loaded to continue frontend
 ---
 
 ## Current state (post S89 — 2026-08-05 · Keiyoushi/Suwayomi root-cause + fix session)
+
+> ⚠️ **S122 correction:** the "Tachimanga does not embed Keiyoushi" finding below is wrong — Tachimanga runs Suwayomi on-device. See `RESEARCH.md` §22.1.
 
 **S89 (2026-08-05): User asked how Tachimanga makes Keiyoushi work via Suwayomi-Server "the same
 way LNReader works" and reported the existing Suwayomi bridge (shipped S41) still doesn't work in

@@ -698,6 +698,8 @@ The script now loads existing Firebase index.json before writing. New TS-compile
 - `liquid_glass_appearance_title` — iOS 26 Liquid Glass toggle
 
 ### Addendum — S89: how Tachimanga does Keiyoushi
+> ⚠️ **WRONG — corrected S122 (2026-09-23), see `RESEARCH.md` §22.1.** Tachimanga DOES bundle it: its public fork `tachimanga/Tachidesk-Server` (MPL-2.0, `sqlite-jdbc-ios`, okhttp over URLSession) runs Suwayomi ON the phone and executes Keiyoushi `.jar` builds in an embedded JVM. Madomi does the same on the App Store. Lesson: "confirmed via web research" was a summary, not source code — S122 read the fork itself.
+
 Confirmed via web research: Tachimanga does **not** embed or bundle Keiyoushi/Suwayomi — it's a
 thin REST client against a separately self-hosted Suwayomi-Server (Docker/JVM/standalone jar),
 same architecture Yomi already shipped in S41 via `SuwayomiService.swift`. No Flutter-specific
@@ -1849,3 +1851,18 @@ The adapter wraps `plugin.latestUpdates` into a synchronous form, but `UpdatesVi
 
 See `Yomi/ARQUITECTURA.md` §Design decisions — the full, current table. The short/stale copy
 previously here was removed during the 2026-08-04 doc restructure.
+
+## Technical learnings — S122 direction research (2026-09-23)
+
+- **Read the code, not the summary.** Three docs gave three different Tachimanga architectures (DEX interpreter / server
+  bridge / no extensions). Its own public fork settled it in minutes. For competitor architecture claims, find a repo or
+  binary artefact before writing a verdict.
+- **A shim that "exists" is not a shim that works.** S47 counted `require()` names and declared LNReader covered. S122 ran
+  the shim under macOS `jsc` (`/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc`) and it
+  threw on `.remove()` — used by 147/280 plugins. Behavioural tests beat inventory checks.
+- **Upstream formats move.** Keiyoushi switched to a protobuf `index.pb` on 2026-08-13 and serves old JSON clients a fake
+  "Outdated App" entry. Re-check live endpoints at the start of any source-strategy session.
+- **Reddit blocks curl/WebFetch (403, old.reddit needs login).** Firefox via Claudezilla works: `www.reddit.com` post page,
+  `firefox_get_content` with selector `shreddit-post` for the post body.
+- **No automated tests exist** — the root of the fix-one-break-another loop (see `RESEARCH.md` §22.5).
+

@@ -26,7 +26,7 @@ just can't authenticate until filled in.
 - `Yomi/ROADMAP.md` — current state, planned work, tech debt
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
-- `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture)
+- `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture) — **§22 (S122) is the current direction; it corrects §7b and §19**
 - `Yomi/design/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
 - `Yomi/design/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
@@ -36,7 +36,31 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S120 — 2026-08-27 · Suwayomi detail/reader fixed end-to-end, OAuth login-CSRF closed, token refresh + History gap fixed)
+## Current state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes, read `RESEARCH.md` §22 first)
+
+**S122 was a research-only session at Martin's explicit request** ("do not implement, don't assume, ask"). Goal: finish
+and publish Yomi; make it as smooth as Tachimanga; drop the AI-looking Space Grotesk design; **top priority: Keiyoushi +
+LNReader sources that work by pasting a repo URL, never maintained by Martin; ideally no server.** Full findings, numbers,
+sources and URLs: **`Yomi/RESEARCH.md` §22** (§22.9 = open questions, §22.10 = things still UNVERIFIED — don't assume them).
+
+**Corrections recorded (older docs were wrong):** Tachimanga does NOT use a remote server bridge (S89) nor a DEX
+interpreter (§7b) — it runs a fork of Suwayomi ON THE PHONE (`tachimanga/Tachidesk-Server`, MPL-2.0) executing Keiyoushi
+`.jar` builds in an embedded JVM. S47's "all LNReader plugins work at the JSBridge level" (§19) is false — the cheerio shim
+throws on `.remove()` (147/280 plugins use it).
+
+**Proposed direction (awaiting Martin):** (a) on-device Keiyoushi proof of concept on Martin's iPhone using the official
+OpenJDK Mobile Zero runtime + an M-Extension-Server iOS build without its GPLv3 NewPipe part (§22.3); (b) replace the
+cheerio/dayjs shims with the real libraries (§22.4); (c) performance pass driven by Instruments on device (§22.5 lists
+6 code-read causes, incl. Kingfisher `backgroundDecode` off and zero tests); (d) design reset away from Space Grotesk
+(§22.6); (e) Tachimanga `.tmb`/Mihon `.tachibk` backup import (§22.7, Madomi does it).
+
+**Open questions for Martin:** (1) proof of concept first, or stutter fixes first? (2) which iPhone model?
+Answered: Tachimanga repo URL = `https://github.com/keiyoushi/extensions/raw/repo/index.pb`; his Google account is
+Workspace (no Cloud credits); Reddit posts reviewed (ArcReader, Bunori, Madomi).
+
+**Not done this session:** no code, no builds, no Instruments profiling, no on-device test. Next migration prefix still `v23_`.
+
+## Prior state (post S120 — 2026-08-27 · Suwayomi detail/reader fixed end-to-end, OAuth login-CSRF closed, token refresh + History gap fixed)
 
 **S120 took the two items S119's handoff named as highest-value: #131 (Suwayomi manga detail shows
 no chapters, ever) and #123/#124 (real tracker login-CSRF).** Clean zero-warning `build_sim`
