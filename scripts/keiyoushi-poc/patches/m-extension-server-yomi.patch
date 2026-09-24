@@ -1,0 +1,53 @@
+diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
+index f7a664c..e404f46 100644
+--- a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
++++ b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
+@@ -10,6 +10,7 @@ package eu.kanade.tachiyomi.network
+ 
+ import android.content.Context
+ import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
++import eu.kanade.tachiyomi.network.interceptor.NoZstdInterceptor
+ import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
+ import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
+ import okhttp3.Cache
+@@ -30,6 +31,7 @@ class NetworkHelper(
+                 .addInterceptor(UncaughtExceptionInterceptor())
+                 .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+                 .addInterceptor(CloudflareInterceptor())
++                .addNetworkInterceptor(NoZstdInterceptor())
+                 .connectTimeout(30, TimeUnit.SECONDS)
+                 .readTimeout(30, TimeUnit.SECONDS)
+                 .callTimeout(2, TimeUnit.MINUTES)
+diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/NoZstdInterceptor.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/NoZstdInterceptor.kt
+new file mode 100644
+index 0000000..204cd1d
+--- /dev/null
++++ b/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/NoZstdInterceptor.kt
+@@ -0,0 +1,27 @@
++package eu.kanade.tachiyomi.network.interceptor
++
++import okhttp3.Interceptor
++import okhttp3.Response
++
++/**
++ * Yomi patch: Keiyoushi's KeiSource adds `CompressionInterceptor(Brotli, Gzip, Zstd)`, which advertises
++ * zstd. okhttp-zstd decodes through a JNI library that cannot load on iOS (and has no macOS build in
++ * this jar), so any zstd response crashes the call. Registered as a network interceptor, this runs after
++ * every application interceptor and drops zstd from Accept-Encoding; servers fall back to br/gzip,
++ * which decode in pure Java.
++ */
++class NoZstdInterceptor : Interceptor {
++    override fun intercept(chain: Interceptor.Chain): Response {
++        val request = chain.request()
++        val accept = request.header("Accept-Encoding") ?: return chain.proceed(request)
++        val kept =
++            accept
++                .split(',')
++                .map(String::trim)
++                .filter { it.isNotEmpty() && !it.substringBefore(';').trim().equals("zstd", ignoreCase = true) }
++        if (kept.size == accept.split(',').count { it.isNotBlank() }) return chain.proceed(request)
++        val builder = request.newBuilder()
++        if (kept.isEmpty()) builder.removeHeader("Accept-Encoding") else builder.header("Accept-Encoding", kept.joinToString(", "))
++        return chain.proceed(builder.build())
++    }
++}

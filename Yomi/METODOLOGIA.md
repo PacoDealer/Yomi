@@ -1866,3 +1866,23 @@ previously here was removed during the 2026-08-04 doc restructure.
   `firefox_get_content` with selector `shreddit-post` for the post body.
 - **No automated tests exist** — the root of the fix-one-break-another loop (see `RESEARCH.md` §22.5).
 
+
+## Technical learnings — S123 Keiyoushi PoC, Mac phase (2026-09-24)
+
+- **Simulate the target runtime's limits on the Mac before touching the device.** `jlink --add-modules java.base`
+  + `-Xint` + starting through `EmbeddedBridge.start` (not `main()`) reproduced the phone's constraints and surfaced
+  two real bugs (missing `java.logging`, JNI-only zstd) in minutes, where each would have cost a device build cycle.
+  Mac-only differences to remember: JDK 21 keeps EC crypto in `jdk.crypto.ec` (JDK 22+ folds it into `java.base`),
+  and this Mac has no IPv6 route (`-Djava.net.preferIPv4Stack=true`).
+- **`jdeps --multi-release 21 -verbose:package` + `javap -c` on the callers** gives the exact set of JDK members a
+  stand-in has to provide — the `java.util.logging` shim needed 2 classes / ~15 members, not the whole module.
+- **A bridge that forwards the caller's User-Agent makes the test client part of the fingerprint.** A 403 from
+  Cloudflare was our Python test script's `Python-urllib` UA, not the JVM. Send the real WKWebView UA in tests.
+- **Upstream shared code changes under you.** Keiyoushi's `KeiSource` started requesting zstd the same day we tested
+  (commit dated 2026-09-24). Pin versions in scripts (`setup.sh` pins the server commit and APK URLs) and re-run the
+  Mac harness first thing each session.
+- **`set -o pipefail` + `grep -q` = exit 141.** `grep -q` exits on the first match and the producer dies of SIGPIPE;
+  capture into a variable (`SYMS=$(…)`, `grep … <<<"$SYMS"`) instead.
+- **Reading unlicensed code for facts is fine; copying it is not.** Mangayomi's `m_extension_server` plugin has no
+  licence file — the JVM options and the 8 MiB bootstrap-thread requirement are recorded as facts in
+  `KEIYOUSHI_POC.md`; our host code is written from scratch.

@@ -1310,10 +1310,11 @@ Reddit confirms the audience punishes AI-looking apps (see 22.7).
 ### 22.10 Not yet researched / explicitly UNVERIFIED (don't assume next session)
 
 - Which JVM Tachimanga and Madomi embed; Madomi's architecture in general.
-- Whether M-Extension-Server's iOS build runs current Keiyoushi `.jar`s unmodified (Suwayomi #2298 Kotlin 2.x
-  issue class), its exact HTTP API, and how it handles WebView-dependent extensions.
+- ~~M-Extension-Server's HTTP API / whether current Keiyoushi extensions run~~ → answered S123 (§22.12): API
+  documented; Asura + MangaFire run after 2 fixes (on a Mac java.base-only JVM — **not yet on the phone**).
+  WebView-dependent paths (MangaFire captcha) are still unhandled.
 - OpenJDK Mobile licence files for the iOS build (assumed standard GPLv2+CPE).
-- Real on-device numbers: JVM start time, RAM, app-size delta, battery.
+- Real on-device numbers: JVM start time, RAM, app-size delta, battery → **KEIYOUSHI_POC.md Phase 1** (next session).
 - Tachimanga `.tmb` backup format (for import).
 - Whether Yomi honours LNReader `imageRequestInit`; which LNReader plugins work once real cheerio is bundled
   (needs a runtime harness against live sites).
@@ -1387,6 +1388,42 @@ template look §22.6 wants Yomi to leave. Community (§22.7): closed source is t
   highlight in TTS, sleep timer.
 - Avoid: coins/ads/accounts, fake testimonials, the Geist/mono template look.
 
+### 22.12 Keiyoushi on-device PoC — Phase 0 (Mac) verified (S123, 2026-09-24)
+
+Plan + results live in **`Yomi/KEIYOUSHI_POC.md`**; scripts in `scripts/keiyoushi-poc/`. Verified facts:
+
+- **M-Extension-Server** (`kodjodevf/M-Extension-Server`, MPL-2.0, pinned `6685bdc`): one HTTP endpoint
+  `POST /dalvik` with `{method, data: base64 APK | extensionId, page, search, mangaData, chapterData, lang, …}`;
+  methods `getPopularManga/getLatestManga/getSearchManga/getDetailsManga/getChapterList/getPageList/…`; returns
+  `X-Mangayomi-Extension-Id` handle; images served via its own `/image/<uuid>` proxy. iOS entry =
+  `mextensionserver.EmbeddedBridge.start(port, appDir)` (loopback only), `pause()`, `stop()`, `isRunning()`.
+  Loader converts APK→JAR with dex2jar on every load (in-memory cache only). Forwards the caller's
+  `User-Agent` and `Cookie` headers into extension requests.
+- **OpenJDK Mobile iOS runtime** (`1Selxo/Mangatan` release `embedded-openjdk-ios13-v16`, 2026-08-25, built from
+  `openjdk/mobile` `fc10224`): `libdevice.a` (arm64 device only, **no simulator slice**) + a Java home whose
+  `release` says **`MODULES="java.base"`**; `sun/security/ec` is inside `java.base`; libffi is inside the archive.
+  Links into a dylib needing only libz/libc++/Foundation/CoreFoundation/Security. Mangayomi ships exactly this
+  runtime + the `ios-runtime-v7` jar.
+- **`jdeps` of the server jar**: besides `java.base` it references `java.desktop` (AndroidCompat graphics/text,
+  TwelveMonkeys ImageIO), `java.xml` (jsoup helper, android.sax), `java.logging` (NanoHTTPD, OkHttp, protobuf, dx),
+  `java.sql` (Jackson ext, android.database) — code paths touching these fail on the phone. `java.logging` is
+  hit on every start → our shim. QuickJS runs via `quickjs4j` on the **Chicory pure-Java WASM** runtime (no JIT
+  needed).
+- **Keiyoushi (2026-09-24)**: Asura Scans `en.asurascans` v1.6.69 and MangaFire `all.mangafire` v1.6.34 both exist
+  as `.apk` + `.jar`. New shared base `keiyoushi.source.KeiSource` adds `CompressionInterceptor(Brotli, Gzip, Zstd)`
+  and zstd-compresses its filter cache on disk → requires `com.squareup.zstd` (JNI) from the host. Asura unscrambles
+  "tiles" pages with `android.graphics` (AWT-backed in AndroidCompat); MangaFire signs requests in pure Kotlin
+  (`VrfSigner`) but solves its shape-captcha in an Android WebView (`runWebViewBlocking`).
+- **Result:** with our `java.logging` stand-in + `NoZstdInterceptor` patch, both sources work end to end on a
+  java.base-only, interpreter-only JVM (table in KEIYOUSHI_POC.md). **MangaFire returns duplicate translations**
+  (Devil Butler: 1,516 English chapters, 592 numbers twice — `official` + `unofficial`), so the "clones" problem
+  Martin saw on MangaDex is Keiyoushi-wide → Yomi needs a per-title "one translation per chapter" dedupe.
+- **aircompressor** (both 2.0.2 and v3 3.3) depends on `jdk.unsupported` (`sun.misc.Unsafe`) → not usable as a
+  pure-Java zstd on the phone.
+- Device facts: Martin's iPhone 17 (iPhone18,3, iOS 26.6.1) is paired, Developer Mode on; the only signing team is
+  the free Personal Team `F9R33MN82P`; Yomi's entitlements (push, iCloud/CloudKit) can't be signed by it → PoC in a
+  separate lab app.
+
 ---
 
-*End of RESEARCH.md — last compiled S123, 2026-09-24*
+*End of RESEARCH.md — last compiled S123, 2026-09-24 (§22.11–22.12)*
