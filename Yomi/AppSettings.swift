@@ -398,6 +398,14 @@ import Observation
         didSet { defaults.set(suwayomiURL, forKey: "suwayomiURL") }
     }
 
+    // MARK: - Keiyoushi (on-device Mihon extensions, S124)
+
+    /// A Mihon/Keiyoushi extension repository index the user pasted, e.g. Keiyoushi's `…/repo/index.pb`.
+    /// Empty = no repository. Never prefilled — the user supplies it (App Store 5.2.2, see RESEARCH.md §5).
+    var keiyoushiRepoURL: String {
+        didSet { defaults.set(keiyoushiRepoURL, forKey: "keiyoushiRepoURL") }
+    }
+
     // MARK: - App Lock
 
     /// Require biometric/passcode authentication when app enters foreground
@@ -530,6 +538,7 @@ import Observation
         pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
+        keiyoushiRepoURL         = d.string(forKey: "keiyoushiRepoURL")          ?? ""
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
