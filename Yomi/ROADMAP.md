@@ -21,7 +21,17 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes)
+## Current state (post S123 — 2026-09-24 · Keiyoushi on-device PoC — Mac phase verified)
+
+- **Next session = `KEIYOUSHI_POC.md` Phase 1** (lab app on Martin's iPhone 17, free Personal Team). Start without asking.
+- Done S123: ArcReader APK teardown (`RESEARCH.md` §22.11); Mac-side PoC — Asura Scans + MangaFire run end to end on
+  a java.base-only interpreter JVM through our patched M-Extension-Server (§22.12); reproducible `setup.sh` (58 s from
+  zero); OpenJDK Mobile → `OpenJDKRuntime.framework` links for iphoneos.
+- New backlog items from S123: zstd stand-in for KeiSource's filter cache; CoreGraphics `Bitmap` for Asura tiles;
+  MangaFire captcha via WKWebView cookies; persist converted jars; **per-title "one translation per chapter" dedupe**
+  (Keiyoushi sources return official + unofficial copies of the same chapter); drop NewPipe (GPLv3) before shipping.
+
+## Prior state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes)
 
 **Martin's brief:** finish Yomi no matter what. Tachimanga feels smoother and hand-crafted; Yomi stutters/freezes and he
 never uses it; Space Grotesk made it look AI-generated. **Top priority: Keiyoushi + LNReader sources must work like in

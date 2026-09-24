@@ -27,6 +27,7 @@ just can't authenticate until filled in.
 - `Yomi/ARQUITECTURA.md` — full architecture, data flows, DB schema
 - `Yomi/METODOLOGIA.md` — workflow rules, tech learnings per session
 - `Yomi/RESEARCH.md` — master research doc (competitive, UX, App Store, iOS 26, plugins, architecture) — **§22 (S122) is the current direction; it corrects §7b and §19**
+- `Yomi/KEIYOUSHI_POC.md` — **S123: the on-device Keiyoushi proof of concept — current work, start here**
 - `Yomi/design/DESIGN_HANDOFF.md` — **design track handoff + roadmap to launch (start here for design/publish work)**
 - `Yomi/design/DESIGN_SYSTEM.md` — the justified design system (concept, color/theming, type, components, screens)
 - `Yomi/design/DESIGN_RESEARCH.md` — design/UX/competitive research behind the system
@@ -36,7 +37,25 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes, read `RESEARCH.md` §22 first)
+## Current state (post S123 — 2026-09-24 · Keiyoushi on-device PoC: Mac phase done, iPhone phase NEXT)
+
+**➡️ NEXT SESSION: when Martin says "Lets continue with yomi", immediately execute `Yomi/KEIYOUSHI_POC.md` → Phase 1
+(build the YomiBridgeLab app, run Keiyoushi extensions on his iPhone 17). No questions first — every decision is
+recorded in that doc's "Decisions already made" table.**
+
+S123 (2026-09-24): (1) ArcReader deep-dive from its public Android APK → `RESEARCH.md` §22.11 (Flutter + Supabase,
+server-shipped CSS-selector "recipes" + server resolver, sherpa-onnx TTS with 140 downloadable voices, coin
+monetization). (2) Martin answered S122's questions: **PoC first; iPhone 17 / iOS 26.6.1; free Personal Team (7-day
+builds); test with Asura Scans + MangaFire, never MangaDex.** (3) **Phase 0 verified on the Mac**: patched
+M-Extension-Server on a java.base-only, interpreter-only JVM runs both extensions end to end (popular → search →
+details → chapters → pages → image). Two real fixes were needed and are scripted: a `java.util.logging` stand-in (the
+iOS runtime is `java.base` only) and a `NoZstdInterceptor` patch (Keiyoushi's new `KeiSource` requests zstd, whose
+decoder is JNI-only). The OpenJDK Mobile runtime links into an iOS framework cleanly. Found that Keiyoushi sources
+(MangaFire) also return duplicate translations → Yomi needs a "one translation per chapter" dedupe. Tooling installed:
+Homebrew `openjdk@21` (keg-only, not on PATH) and `xcodegen`. Scripts: `scripts/keiyoushi-poc/` (README there);
+research evidence: `RESEARCH.md` §22.12. No app code changed; next migration prefix still `v23_`.
+
+## Prior state (post S122 — 2026-09-23 · DIRECTION RESET — research only, no code changes, read `RESEARCH.md` §22 first)
 
 **S122 was a research-only session at Martin's explicit request** ("do not implement, don't assume, ask"). Goal: finish
 and publish Yomi; make it as smooth as Tachimanga; drop the AI-looking Space Grotesk design; **top priority: Keiyoushi +

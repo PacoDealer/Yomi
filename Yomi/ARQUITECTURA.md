@@ -711,6 +711,14 @@ Write `.ts` plugin in `scripts/plugins-src/`, build with `build-plugins.mjs`, de
 Constraint: JavaScriptCore has no event loop. Only microtask-chain Promises work (no setTimeout/setInterval).
 Covers 95%+ of LNReader sources. Sources using `crypto` module need a `require('crypto')` shim (CommonCrypto bridge).
 
+## Planned: on-device Keiyoushi (S123 — proof of concept in progress)
+
+Not in the app yet. Target shape (see `KEIYOUSHI_POC.md`): an embedded OpenJDK Mobile JVM (Zero interpreter,
+`java.base` only) inside the app process, running our patched M-Extension-Server (MPL-2.0) on `127.0.0.1`; Swift
+talks to it over `POST /dalvik` like the existing Suwayomi REST path. Tooling in `scripts/keiyoushi-poc/`; the PoC app
+will live in `Labs/YomiBridgeLab/`, separate from the Yomi target (free-team signing can't carry Yomi's
+push/iCloud entitlements).
+
 ## Known architectural issues
 
 ### @Observable computed property chain — theme/accent ✅ Fixed S23
