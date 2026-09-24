@@ -610,7 +610,10 @@ struct MangaDetailView: View {
             }
         }
         .task { preferredScanlator = UserDefaults.standard.string(forKey: preferredScanlatorKey) }
-        .task { await loadChapters() }
+        .task {
+            await adoptSavedState()
+            await loadChapters()
+        }
         .task { await touchLastRead() }
         .task { await loadCategories() }
         .task { computeStorageSize() }
@@ -643,8 +646,9 @@ struct MangaDetailView: View {
                 let fileURL = coversDir.appendingPathComponent("\(manga.id).jpg")
                 try? data.write(to: fileURL)
                 manga.customCoverPath = "Covers/\(manga.id).jpg"
-                let updated = manga
-                Task.detached { try? MangaQueries.update(updated) }
+                let id = manga.id
+                let path = manga.customCoverPath
+                Task.detached { try? MangaQueries.updateCustomCover(mangaId: id, path: path) }
             }
         }
         .sheet(isPresented: $showCategorySheet) {
@@ -1108,6 +1112,28 @@ struct MangaDetailView: View {
         }
     }
 
+    /// A manga opened from Browse/search is the source's fresh model (not in library, never read). If this
+    /// device already has a row for it, adopt the user-owned state from that row, so the heart, reading status,
+    /// notes and cover are right and nothing later writes browse defaults over them (S124).
+    private func adoptSavedState() async {
+        let id = manga.id
+        guard let saved = await Task.detached(priority: .userInitiated, operation: {
+            try? MangaQueries.fetchOne(id: id)
+        }).value else { return }
+        manga.inLibrary = saved.inLibrary
+        manga.lastReadAt = saved.lastReadAt
+        manga.lastUpdatedAt = saved.lastUpdatedAt
+        manga.readingSeconds = saved.readingSeconds
+        manga.readingStatus = saved.readingStatus
+        manga.customCoverPath = saved.customCoverPath
+        manga.notes = saved.notes
+        if manga.summary?.isEmpty ?? true { manga.summary = saved.summary }
+        if manga.author == nil { manga.author = saved.author }
+        if manga.artist == nil { manga.artist = saved.artist }
+        if manga.genres.isEmpty { manga.genres = saved.genres }
+        if manga.status == .unknown { manga.status = saved.status }
+    }
+
     // MARK: - Load Chapters
 
     private func loadChapters() async {
@@ -1159,7 +1185,7 @@ struct MangaDetailView: View {
                 if mapped != .unknown { manga.status = mapped }
             }
             let updated = manga
-            Task.detached { try? MangaQueries.update(updated) }
+            Task.detached { try? MangaQueries.updateSourceMetadata(updated) }
         }
 
         // Ensure manga row exists first (FK constraint on chapter.mangaId),
@@ -1265,8 +1291,8 @@ struct MangaDetailView: View {
 
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
-            try? MangaQueries.update(mangaSnapshot)
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
+            try? MangaQueries.updateSourceMetadata(mangaSnapshot)
         }.value
 
         let saved = await savedChapters(mangaId: mangaId)
@@ -1355,8 +1381,8 @@ struct MangaDetailView: View {
 
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
-            try? MangaQueries.update(mangaSnapshot)
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
+            try? MangaQueries.updateSourceMetadata(mangaSnapshot)
         }.value
 
         let saved = await savedChapters(mangaId: mangaId)
