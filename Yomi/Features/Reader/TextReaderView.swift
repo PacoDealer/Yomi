@@ -406,8 +406,10 @@ struct TextReaderView: View {
         preloadingChapterIds.insert(next.id)
         let path = next.path
         let nextId = next.id
+        let novelId = novel.id
         Task.detached(priority: .background) {
-            let html = bridge.parseChapter(path: path)
+            let html = NovelDownloadStore.content(novelId: novelId, chapterPath: path)
+                ?? bridge.parseChapter(path: path)
             await MainActor.run {
                 preloadingChapterIds.remove(nextId)
                 // Only cache if this chapter is still legitimately "next" — a jump-to-chapter's
@@ -466,14 +468,20 @@ struct TextReaderView: View {
         errorMessage = nil
         rawContent   = ""
         let cid = activeChapter.id
+        // Download-ahead first, so the next chapters are fetching while this one loads.
+        NovelDownloadManager.shared.downloadAhead(novel: novel, chapters: chapters,
+                                                  after: currentChapterIndex,
+                                                  count: AppSettings.shared.novelDownloadAhead)
         if let cached = chapterContentCache.removeValue(forKey: cid) {
             rawContent = cached
             isLoading = false
             return
         }
         let path = activeChapter.path
+        let novelId = novel.id
         let html = await Task.detached(priority: .userInitiated) {
-            bridge.parseChapter(path: path)
+            NovelDownloadStore.content(novelId: novelId, chapterPath: path)
+                ?? bridge.parseChapter(path: path)
         }.value
 
         if html.isEmpty {

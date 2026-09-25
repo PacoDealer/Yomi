@@ -1904,3 +1904,15 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Reading unlicensed code for facts is fine; copying it is not.** Mangayomi's `m_extension_server` plugin has no
   licence file — the JVM options and the 8 MiB bootstrap-thread requirement are recorded as facts in
   `KEIYOUSHI_POC.md`; our host code is written from scratch.
+
+## Technical learnings — S127 novel downloads (2026-09-25)
+
+- **Key offline files by something stable.** `NovelChapter.id` is `<novelId>-ch-<index>`, so it shifts whenever a
+  source inserts a chapter; a file keyed by it can come back as the wrong chapter. The chapter's source path is stable.
+- **"Downloaded" as file existence beats a new column** when the data isn't synced: no `v23_` migration, no CloudKit
+  mapping, and a deleted folder can never disagree with the DB (the manga side's #102/#149 were exactly that drift).
+- **Novel ids contain the source path** (`<sourceId>_/series/…`), so they can't be folder names — hash them and keep a
+  `novel.json` beside the files so the Downloads screen can list a title that isn't in the library.
+- **Download-ahead goes to the front of the queue**, or a whole-novel download starves the chapter the reader needs next.
+- mobile-mcp: `mobile_long_press_on_screen_at_coordinates` on a List row registered as a tap (opened the reader);
+  use the ⋯ → Select chapters menu to enter selection mode in tests.
