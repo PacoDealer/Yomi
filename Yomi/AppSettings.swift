@@ -443,6 +443,14 @@ import Observation
         didSet { defaults.set(ttsSpeechRate, forKey: "ttsSpeechRate") }
     }
 
+    // MARK: - Novel downloads
+
+    /// How many chapters past the open one the novel reader keeps downloaded (library novels only).
+    /// 0 = off. ArcReader's "Download ahead" offers 5/10/20/30.
+    var novelDownloadAhead: Int {
+        didSet { defaults.set(novelDownloadAhead, forKey: "novelDownloadAhead") }
+    }
+
     // MARK: - OPDS
 
     /// OPDS catalog root URL, e.g. "http://192.168.1.x:5000/opds/v1.2/catalog". Empty = disabled.
@@ -553,6 +561,7 @@ import Observation
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
+        novelDownloadAhead       = d.object(forKey: "novelDownloadAhead")       as? Int ?? 5
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
         // opdsPassword: migrate any legacy UserDefaults value to Keychain, then load from Keychain.

@@ -13,11 +13,24 @@ import Kingfisher
         var id: String { manga.id }
     }
 
+    struct NovelDownloadGroup: Identifiable {
+        let novel: Novel
+        let chapterCount: Int
+        let byteSize: Int64
+        var id: String { novel.id }
+    }
+
     var groups: [MangaDownloadGroup] = []
+    var novelGroups: [NovelDownloadGroup] = []
     var isLoading = false
 
-    var totalChapters: Int { groups.reduce(0) { $0 + $1.chapterCount } }
-    var totalBytes: Int64 { groups.reduce(0) { $0 + $1.byteSize } }
+    var totalChapters: Int {
+        groups.reduce(0) { $0 + $1.chapterCount } + novelGroups.reduce(0) { $0 + $1.chapterCount }
+    }
+    var totalBytes: Int64 {
+        groups.reduce(0) { $0 + $1.byteSize } + novelGroups.reduce(0) { $0 + $1.byteSize }
+    }
+    var isEmpty: Bool { groups.isEmpty && novelGroups.isEmpty }
 
     func load() async {
         isLoading = true
@@ -33,7 +46,26 @@ import Kingfisher
             }.sorted { $0.manga.title < $1.manga.title }
         }.value
         groups = result
+        let novelResult = await Task.detached(priority: .userInitiated) {
+            NovelDownloadStore.allGroups().map { g -> NovelDownloadGroup in
+                // The DB row when there is one (library novels); otherwise the saved metadata is
+                // enough to open the novel from its source again.
+                let novel = (try? NovelQueries.fetchOne(id: g.meta.id)) ?? Novel(
+                    id: g.meta.id, path: g.meta.path, sourceId: g.meta.sourceId, title: g.meta.title,
+                    coverURL: g.meta.coverURL.flatMap(URL.init(string:)), summary: nil, author: nil,
+                    status: "", genres: [], inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+                    readingSeconds: 0, readingStatus: .none, notes: nil
+                )
+                return NovelDownloadGroup(novel: novel, chapterCount: g.chapterCount, byteSize: g.byteSize)
+            }.sorted { $0.novel.title < $1.novel.title }
+        }.value
+        novelGroups = novelResult
         isLoading = false
+    }
+
+    func deleteAll(for novel: Novel) async {
+        NovelDownloadManager.shared.deleteAll(novelId: novel.id)
+        await load()
     }
 
     func deleteAll(for manga: Manga) async {
@@ -46,6 +78,8 @@ import Kingfisher
 
     func deleteEverything() async {
         for group in groups { await deleteAll(for: group.manga) }
+        for group in novelGroups { NovelDownloadManager.shared.deleteAll(novelId: group.novel.id) }
+        await load()
     }
 }
 
@@ -61,8 +95,13 @@ struct DownloadsView: View {
     @State private var confirmDeleteAll = false
     private var dm: DownloadManager { DownloadManager.shared }
 
-    private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty }
-    private var hasContent: Bool { hasDownloading || !vm.groups.isEmpty }
+    private var ndm: NovelDownloadManager { NovelDownloadManager.shared }
+
+    private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
+    private var hasContent: Bool { hasDownloading || !vm.isEmpty }
+    private var downloadingCount: Int {
+        dm.queue.count + (dm.isRunning ? 1 : 0) + ndm.batches.reduce(0) { $0 + $1.total - $1.done }
+    }
 
     var body: some View {
         Group {
@@ -84,7 +123,7 @@ struct DownloadsView: View {
                             .padding(.top, 8)
 
                         if hasDownloading {
-                            sectionHeader("Downloading · \(dm.queue.count + (dm.isRunning ? 1 : 0))")
+                            sectionHeader("Downloading · \(downloadingCount)")
 
                             if let active = dm.activeChapter {
                                 DownloadingRow(
@@ -109,9 +148,24 @@ struct DownloadsView: View {
                                 )
                                 Divider().padding(.leading, 72)
                             }
+
+                            // Novels: one row per novel — a whole-novel download is hundreds of chapters.
+                            ForEach(ndm.batches) { batch in
+                                DownloadingRow(
+                                    coverURL: batch.novel.coverURL,
+                                    customCoverPath: batch.novel.resolvedCustomCoverPath,
+                                    title: batch.novel.title,
+                                    note: ndm.active?.novel.id == batch.novel.id
+                                        ? "\(ndm.active?.chapter.name ?? "") · \(batch.done)/\(batch.total)"
+                                        : "\(batch.total - batch.done) chapters · Queued",
+                                    fraction: batch.total > 0 ? Double(batch.done) / Double(batch.total) : 0,
+                                    onCancel: { ndm.cancel(novelId: batch.novel.id) }
+                                )
+                                Divider().padding(.leading, 72)
+                            }
                         }
 
-                        if !vm.groups.isEmpty {
+                        if !vm.isEmpty {
                             sectionHeader("Downloaded")
 
                             ForEach(vm.groups) { group in
@@ -129,6 +183,28 @@ struct DownloadsView: View {
                                 .contextMenu {
                                     Button(role: .destructive) {
                                         Task { await vm.deleteAll(for: group.manga) }
+                                    } label: {
+                                        Label("Delete all downloads", systemImage: "trash")
+                                    }
+                                }
+                                Divider().padding(.leading, 72)
+                            }
+
+                            ForEach(vm.novelGroups) { group in
+                                NavigationLink {
+                                    NovelDetailView(novel: group.novel)
+                                } label: {
+                                    DownloadedRow(
+                                        title: group.novel.title,
+                                        coverURL: group.novel.coverURL,
+                                        customCoverPath: group.novel.resolvedCustomCoverPath,
+                                        note: "Novel · \(group.chapterCount) chapter\(group.chapterCount == 1 ? "" : "s") · \(formatBytes(group.byteSize))"
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task { await vm.deleteAll(for: group.novel) }
                                     } label: {
                                         Label("Delete all downloads", systemImage: "trash")
                                     }
@@ -155,6 +231,9 @@ struct DownloadsView: View {
         .onChange(of: dm.completedDownloadCount) { _, _ in
             Task { await vm.load() }
         }
+        .onChange(of: ndm.finishedBatchCount) { _, _ in
+            Task { await vm.load() }
+        }
         .yomiToast(Binding(
             get: { DownloadManager.shared.failureMessage },
             set: { DownloadManager.shared.failureMessage = $0 }
@@ -179,7 +258,7 @@ struct DownloadsView: View {
 
             Spacer()
 
-            if !vm.groups.isEmpty {
+            if !vm.isEmpty {
                 Button { confirmDeleteAll = true } label: {
                     Image(systemName: "trash")
                 }

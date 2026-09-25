@@ -31,7 +31,7 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 **Chapter list (Tachimanga)**
 - [x] Read before / Select range / Select all / Invert (S126, `1f61fdb`)
 - [ ] Bookmark a chapter (+ bookmark filter) — needs a `v23_` migration on `chapter` + `novel_chapter`, CloudKit mapping
-- [ ] Download from the selection bar for novels (needs novel downloads, below)
+- [x] Download from the selection bar for novels (S127)
 
 **Reader — Text**
 - [ ] Font browser beyond serif/sans (ArcReader lists Google Fonts with a live preview; bundled fonts at least: Newsreader, Lora, Quicksand…)
@@ -72,10 +72,10 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 - [ ] Ambient sounds + background music (start with the reader, shuffle, duck under narration)
 
 **Downloads (novels have none today)**
-- [ ] Download novel chapters / whole novel for offline reading
-- [ ] **Download ahead** (keep next 5/10/20/30 chapters on device as you read)
+- [x] Download novel chapters / whole novel for offline reading (S127 — selection bar Download/Delete, ⋯ → Download: next 10 unread / all unread / all)
+- [x] **Download ahead** (keep next 5/10/20/30 chapters on device as you read) (S127 — Settings → Novels → Offline, default 5, library novels only)
 - [ ] Remove read chapters (keep last N; keep bookmarked/highlighted)
-- [ ] Auto-download new chapters; Wi-Fi only
+- [ ] Auto-download new chapters; Wi-Fi only (not in S127: downloads use any network)
 
 **Library / discovery**
 - [ ] "Picking up where you left off" card showing **CH x / total** + % for novels
@@ -89,7 +89,26 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 
 ---
 
-## Current state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, novel-library bug)
+## Current state (post S127 — 2026-09-25 · novel downloads + download-ahead)
+
+- Martin picked **novel downloads + download-ahead** from the ArcReader backlog.
+- New `Features/More/NovelDownloadManager.swift`: `NovelDownloadStore` (files at
+  `Documents/NovelDownloads/<hash(novelId)>/<hash(chapter path)>.html` + `novel.json`; "downloaded" = file exists, so
+  **no migration, no CloudKit mapping**) and `NovelDownloadManager` (one worker, one chapter at a time, 250 ms apart,
+  own bridge per source, stops a novel after 3 misses in a row with a toast).
+- Keyed by chapter **path**, not `NovelChapter.id` — ids are `<novelId>-ch-<index>` and shift when a source inserts
+  a chapter.
+- Reader: `loadContent` and the 70 % preload read the local file first; opening a chapter queues the next N
+  (`AppSettings.novelDownloadAhead`, default 5, Off/5/10/20/30) **at the front** of the queue, library novels only.
+- Detail: download icon / spinner per row, selection bar Download + Delete, ⋯ → Download (next 10 unread / all
+  unread / all) + Delete downloads. Downloads screen: one row per novel (in progress and downloaded).
+- **Sim-verified** (iPhone 17 Pro 26.3, A Regressor's Tale on WeTried): reader on ch 25 → 26–30 on disk; Next → ch 31
+  queued; Next 10 unread → 25–34; select 25+26 → Download disabled, Delete removed both files and icons; Downloads
+  lists "Novel · 8 chapters · 249 KB". **Not verified**: reading with the network actually off, the in-progress
+  Downloads row, the Settings picker UI.
+- Not in this pass: Wi-Fi only, auto-download new chapters, remove-read-chapters.
+
+## Prior state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, novel-library bug)
 
 - New Firebase plugin `wetriedtls.js` (HeanCMS JSON API; v1.0.2 retries search with curly apostrophes) — Martin
   reads *A Regressor's Tale of Cultivation* there. Copy-URL install (not on the instant-install allowlist).

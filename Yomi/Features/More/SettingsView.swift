@@ -578,6 +578,17 @@ private struct NovelReaderSettingsView: View {
                 }
             }
 
+            Section {
+                Picker("Download ahead", selection: $settings.novelDownloadAhead) {
+                    Text("Off").tag(0)
+                    ForEach([5, 10, 20, 30], id: \.self) { Text("\($0) chapters").tag($0) }
+                }
+            } header: {
+                Text("Offline")
+            } footer: {
+                Text("While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection.")
+            }
+
             Section("Text-to-Speech") {
                 Slider(
                     value: Binding(

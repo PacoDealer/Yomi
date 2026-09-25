@@ -571,6 +571,14 @@ BackupManager.importBackup(from:)
 → markCloudDirtyBatch per record type
   (S119 — was per-row *Queries.upsert on MainActor, one transaction each; see Known Issue #138)
 
+### Novel downloads (S127)
+NovelDetailView (selection bar / ⋯ Download) or TextReaderView.loadContent (download-ahead, front of queue)
+→ NovelDownloadManager.enqueue — skips files that exist or are queued; one Batch per novel for the Downloads screen
+→ worker: ExtensionManager.bridge(for:) per sourceId (its own, never the reader's) → Task.detached parseChapter
+→ NovelDownloadStore.save → Documents/NovelDownloads/<sha(novelId)>/<sha(chapter path)>.html (+ novel.json)
+Reading: TextReaderView.loadContent / preload → NovelDownloadStore.content(...) ?? bridge.parseChapter(...)
+No DB column: downloaded = file exists (path-keyed, because NovelChapter.id is index-based).
+
 ### Tracker OAuth (S115 — generalized from MAL-only; each tracker's own redirect host routes here)
 <Tracker>Service.authorizationURL()
 → MAL: PKCE plain code_verifier → yomi://mal/callback
