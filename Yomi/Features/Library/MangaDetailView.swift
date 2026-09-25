@@ -546,7 +546,7 @@ struct MangaDetailView: View {
                         }
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     let sortedChapters: [Chapter] = {
                         switch chapterSortOption {
                         case .chapterNumber:
@@ -562,16 +562,28 @@ struct MangaDetailView: View {
                         case .downloaded: return sortedChapters.filter { $0.isDownloaded }
                         }
                     }()
-                    let visibleIds = Set(filteredChapters.prefix(displayedChapterCount).map { $0.id })
-                    Button(selectedChapterIds.count == visibleIds.count ? "Deselect All" : "Select All") {
+                    let visibleOrder = filteredChapters.prefix(displayedChapterCount).map { $0.id }
+                    let visibleIds = Set(visibleOrder)
+                    // Tachimanga's selection toolbar: range, all, invert.
+                    Button {
                         withAnimation(.spring(duration: 0.15)) {
-                            if selectedChapterIds.count == visibleIds.count {
-                                selectedChapterIds = []
-                            } else {
-                                selectedChapterIds = visibleIds
-                            }
+                            selectedChapterIds = ChapterSelection.range(selectedChapterIds, in: visibleOrder)
                         }
-                    }
+                    } label: { Image(systemName: "arrow.up.and.down") }
+                    .accessibilityLabel("Select range")
+                    .disabled(selectedChapterIds.count < 2)
+                    Button {
+                        withAnimation(.spring(duration: 0.15)) {
+                            selectedChapterIds = selectedChapterIds.count == visibleIds.count ? [] : visibleIds
+                        }
+                    } label: { Image(systemName: "checklist") }
+                    .accessibilityLabel(selectedChapterIds.count == visibleIds.count ? "Deselect all" : "Select all")
+                    Button {
+                        withAnimation(.spring(duration: 0.15)) {
+                            selectedChapterIds = visibleIds.subtracting(selectedChapterIds)
+                        }
+                    } label: { Image(systemName: "circle.lefthalf.filled") }
+                    .accessibilityLabel("Invert selection")
                 }
             }
         }
@@ -978,6 +990,28 @@ struct MangaDetailView: View {
                 .frame(maxWidth: .infinity)
             }
             .disabled(selectedChapterIds.isEmpty)
+
+            // Mihon/Tachimanga "mark previous as read": everything before the one selected chapter.
+            Button {
+                guard selectedChapterIds.count == 1, let id = selectedChapterIds.first,
+                      let pos = readingChapters.firstIndex(where: { $0.id == id }) else { return }
+                // By chapter number across every translation, so hidden duplicate groups get marked too.
+                let earlier: [Chapter]
+                if let n = readingChapters[pos].chapterNumber {
+                    earlier = chapters.filter { ($0.chapterNumber ?? .infinity) < n }
+                } else {
+                    earlier = Array(readingChapters[..<pos])
+                }
+                selectedChapterIds = Set(earlier.filter { !$0.isRead }.map(\.id))
+                Task { await markSelected(read: true) }
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "text.badge.checkmark")
+                    Text("Read before").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.count != 1)
 
             // Mark unread
             Button {
@@ -1427,9 +1461,7 @@ struct MangaDetailView: View {
             ? Set(chapters.filter { ids.contains($0.id) && $0.isDownloaded }.map { $0.id })
             : []
         await Task.detached(priority: .userInitiated) {
-            for id in ids {
-                try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: read)
-            }
+            try? ChapterQueries.setReadBatch(chapterIds: Array(ids), mangaId: mangaId, isRead: read)
             // Auto-delete downloaded files when marking as read
             for id in downloadedIds {
                 let dir = FileManager.default
@@ -1781,5 +1813,16 @@ struct NotesEditorSheet: View {
             genres: ["Action", "Dark Fantasy", "Adventure"],
             inLibrary: true, isLocal: false, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0
         ))
+    }
+}
+
+// MARK: - Chapter selection helpers (shared with NovelDetailView)
+
+enum ChapterSelection {
+    /// Tachimanga's "select range": everything between the first and last selected row, in on-screen order.
+    static func range(_ selected: Set<String>, in order: [String]) -> Set<String> {
+        let positions = order.indices.filter { selected.contains(order[$0]) }
+        guard let lo = positions.first, let hi = positions.last else { return selected }
+        return selected.union(order[lo...hi])
     }
 }
