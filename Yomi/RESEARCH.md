@@ -1474,6 +1474,102 @@ Cloudflare/captcha (need the in-app bypass), ~13 unreachable. Details in CLAUDE.
 Other things worth borrowing from Tsundoku later: LNReader backup import (`LNReaderBackupImporter.kt`), NovelUpdates
 tracker, a per-plugin site resolver.
 
+
+## 23. S128 audit + research — reader feel and app smoothness (2026-09-25)
+
+Trigger: Martin's field report (ROADMAP "S128"). Rule: **no fixes until this is done; then one batched pass.**
+Clean build: succeeds, **0 compiler warnings**. 93 Swift files, ~27,900 lines, **still zero tests**. 404 commits,
+122 with "fix" in the subject.
+
+### 23.1 Novel reader bugs — causes found in code
+
+- **Next chapter does nothing** (suspected, not yet reproduced): `ReaderWebView.updateUIView` re-injects only the
+  `<style>` element and never loads new body HTML. A new chapter appears only if SwiftUI tears the web view down,
+  which happens when `isLoading` renders `true` in between. A preload-cache hit (`loadContent` returns the cached
+  chapter immediately) can skip that render, leaving the old chapter on screen. Quit + reopen builds a fresh view,
+  which matches the symptom. Verify before fixing.
+- **Short scroll opens the menu** (confirmed by reading): a native `UITapGestureRecognizer` on the web view with
+  `shouldRecognizeSimultaneouslyWith → true`. A small drag within the tap slop, or a touch that stops a fling,
+  counts as a tap. LNReader avoids this by using the DOM `click` event (WebKit does not send `click` after a
+  touch that scrolled) plus `ignoreClickUntil` after any move >8 px (`assets/reader/js/core.js` ~L818-906).
+- **Style re-injected on every scroll tick** (S122 §22.5 #3, still true): `lastKnownScrollPercent` is read in
+  `body`, so each ~400 ms scroll update re-runs `updateUIView` → replaces `<style>` → WebKit style recalc of the
+  whole chapter mid-scroll. A likely direct cause of the reader not feeling smooth.
+
+### 23.2 "Not smooth" — Browse, opening titles, everywhere (code-read; NOT yet measured on device)
+
+Ranked by likely impact:
+1. **Opening a manga/novel waits on the network before showing anything.** `MangaDetailView.loadChapters` and
+   `NovelDetailView.loadChapters` show a spinner until the plugin fetches the *entire* chapter list from the site,
+   even for library titles whose chapters are already in the DB. Mihon/Tachimanga show the saved list at once and
+   refresh behind it. Biggest perceived-speed problem.
+2. **Every cover cell runs 4 DB queries on appear** (`MangaCoverCell` `.task`: unread, downloaded count,
+   `fetchAll` chapters = every chapter row just to compute progress, `fetchOne` manga), then sets 7 `@State`
+   values → several re-renders per cell while scrolling Library and Browse grids. `NovelCoverCell` does 1 query.
+   Fix direction: one aggregate query per screen (GROUP BY mangaId) passed into cells.
+3. **Covers decode at full size.** No `DownsamplingImageProcessor` anywhere (S122 #1). Correction to S122: turning on
+   `backgroundDecode` is **not** a proven fix in SwiftUI — Kingfisher #2058 (open) reports it still decoding on main in
+   `KFImage`, and in #1917 the maintainer's `backgroundDecode` + drop-`.fade` suggestion didn't remove LazyVGrid
+   hitches. Downsampling to cell size cuts the decode cost wherever it runs, so do that first and measure.
+   `.fade(0.2)` per cover also adds a transaction per image while scrolling.
+4. **Plugin engine built on the main thread.** `JSBridge(scriptURL:)` evaluates the 450 KB `yomi-js-libs.js` (S125)
+   in every new context. Called on main from `SourceBrowseView.loadContent`, `MangaDetailView.loadChapters`,
+   `NovelDetailView.loadChapters`, `ContinueReadingRow`, `LibraryView` bulk download, and `UpdatesView` (explicit
+   `MainActor.run`, once per title during an update check). Measured: 12–23 ms per eval in macOS `jsc` (with and
+   without JIT). Costs a frame or two per open; small alone, not the main freeze. Cache one bridge per source.
+5. **Library reload model** (S122 #5, still true): full reload + `isLoading = true` on every `onAppear`.
+6. **`averageColor()` builds a new `CIContext` per call** on main (S122 #4, still true).
+7. **Browse source list**: `duplicateNames` rebuilds `allItems` and does an O(n²) scan *per row* → O(n³) per
+   render; `mangaItems`/`novelItems` re-sort with localized compare each render. Only hurts with many sources.
+8. Detail screens start 5–7 independent `.task`s (AniList score, categories, storage size…), each landing as a
+   separate state change → several re-layouts of a long `List` right as it opens.
+
+**Measure before and after** (Martin's iPhone 17, Release/personal build): Instruments *Animation Hitches* + *Time
+Profiler* on (a) scrolling Browse → a source grid, (b) opening a library manga and a library novel, (c) Library
+scroll. CLI: `xcrun xctrace record --template 'Animation Hitches' --device <udid> --attach Yomi`. Add
+`os_signpost` intervals for "tap title → chapters visible" so the fix shows as a number.
+
+### 23.3 Reader architecture decision — keep WKWebView, restructure it
+
+Question: infinite scroll, swipe, tap zones, pages mode, TTS highlight and translation all depend on how the chapter
+is rendered. Options were a web view (today), native TextKit, or a native list of paragraphs.
+
+- **Native text is the worse fit.** Converting HTML to `NSAttributedString` must run on the main thread and is meant
+  for simple markup. TextKit 2 has reported large-document scrolling stutter (Apple forums 729491, fix = fall back
+  to TextKit 1) and image-attachment lag (775509). A list of paragraph cells breaks text selection across paragraphs,
+  and with it the system Look Up/Translate/Share menu a web view gives for free.
+- **Precedents stay on the web.** LNReader (the plugin ecosystem Yomi runs) renders chapters in a WebView and
+  implements tap zones, swipe, a paged mode (CSS/transform pages) and TTS text-node walking in one JS file. Apple
+  Books renders EPUB with WebKit.
+- **Infinite scroll = one document, appended chapters**, not stacked web views. Riffle (Android, Readium-based) stacked
+  one WebView per chapter and hit GPU texture limits (raster stopped at 16,384 px) and tile-memory blanks; the fix
+  was capping each view to 3 viewports and sliding it (PR #1100). One WKWebView with `<section
+  data-chapter=…>` blocks avoids that class of problem: append the next chapter near the end, drop sections more
+  than ~2 chapters behind with scroll-offset compensation, and report the visible chapter + per-chapter % with
+  `IntersectionObserver`. Unverified on iOS: memory with ~3 long chapters loaded, and that offset compensation
+  doesn't jump. Test with a real 5k-word WeTried chapter before committing to it.
+- **Move gestures into JS** (one reader controller script, LNReader-style): center `click` toggles the menu (option:
+  1 tap / 2 taps); optional top/bottom tap zones scroll a page; swipe = horizontal distance > 2× vertical and
+  > ~180 px, next from the right half / previous from the left half; `ignoreClickUntil` after any move. Keep swipes
+  away from the left screen edge, which iOS uses for "back".
+- Data model changes infinite scroll forces: read/progress per section instead of per screen; "current chapter"
+  (history, last read, tracker) updates when a boundary is crossed; the 90 % `readComplete` becomes per section.
+  The index-based `NovelChapter.id` (`<novelId>-ch-<index>`) shifts when a source inserts a chapter — fix or at
+  least guard before more features key off it.
+
+### 23.4 Testing (the structural cause of regressions)
+
+Add a test target first, before the fix pass: Swift Testing unit tests for pure logic (chapter ordering, id
+mapping, progress merge, the new gesture thresholds), plus 2–3 XCUITests for the reader (open chapter → Next →
+new text; short drag doesn't open the menu). Each bug in §23.1 gets a test that fails first.
+
+### 23.5 Sources
+
+LNReader reader JS: github.com/lnreader/lnreader `assets/reader/js/core.js`; infinite-scroll requests lnreader
+#1776, #49. Riffle continuous mode PR github.com/pkmetski/riffle/pull/1100. Readium swift-toolkit #684 (no
+cross-chapter continuous scroll). Kingfisher #2058, #1917, Cheat-Sheet wiki (downsampling). Apple Developer Forums
+threads 729491, 775509. Sarunw "display HTML in UILabel/UITextView" (HTML importer main-thread note).
+
 ---
 
-*End of RESEARCH.md — last compiled S125, 2026-09-24 (§22.14)*
+*End of RESEARCH.md — last compiled S128, 2026-09-25 (§23)*
