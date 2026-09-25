@@ -1041,6 +1041,8 @@ struct SourceBrowseView: View {
     // MARK: Load Content
 
     private func loadContent() async {
+        let perf = Perf.begin("BrowseSource")
+        defer { perf.end() }
         isLoading = true
         errorMessage = nil
         currentPage = 1

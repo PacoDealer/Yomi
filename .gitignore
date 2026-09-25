@@ -5,3 +5,4 @@ build/
 fastlane/report.xml
 fastlane/test_output
 Vendor/
+perf-traces/

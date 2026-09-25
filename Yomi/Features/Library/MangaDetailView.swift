@@ -1175,6 +1175,8 @@ struct MangaDetailView: View {
     // MARK: - Load Chapters
 
     private func loadChapters() async {
+        let perf = Perf.begin("OpenManga")
+        defer { perf.end() }
         let sourceId = manga.sourceId
         let mangaPath = manga.path
         let mangaId = manga.id

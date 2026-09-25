@@ -182,6 +182,8 @@ final class LibraryViewModel {
     // MARK: - Load
 
     func loadLibrary() async {
+        let perf = Perf.begin("LoadLibrary")
+        defer { perf.end() }
         isLoading = true
         errorMessage = nil
         loadCategories()

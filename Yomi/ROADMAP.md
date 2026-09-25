@@ -52,6 +52,12 @@ gesture design; infinite-scroll data model; SwiftUI/iOS performance + measuremen
 5. Smaller: Library reload-on-appear, `averageColor` CIContext, Browse `duplicateNames`, detail `.task` fan-out.
 6. Re-measure against step 0; install on his phone.
 
+**S129 — step 0 baseline DONE** (RESEARCH §23.6, numbers in the table there). Headlines: scrolling is fine; freezes
+come from the JS bridge built on main (800 ms opening a novel), the novel detail list rendering ~880 rows eagerly
+and re-rendering under the reader, and `WKWebView.init` on main; Browse is slow because the Keiyoushi JVM runs
+interpreted (one core pinned for the whole load). Bug #1 reproduced on device. Order revised in §23.6.
+Still to do in step 0: test target + failing tests for #1 and #3.
+
 ## Backlog — novel reader parity with ArcReader (S126, 2026-09-24)
 
 Martin reads novels in ArcReader today; he sent 24 screenshots of it (reader settings, TTS, audio, downloads,

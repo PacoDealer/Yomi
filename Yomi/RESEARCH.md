@@ -1563,6 +1563,48 @@ Add a test target first, before the fix pass: Swift Testing unit tests for pure 
 mapping, progress merge, the new gesture thresholds), plus 2–3 XCUITests for the reader (open chapter → Next →
 new text; short drag doesn't open the menu). Each bug in §23.1 gets a test that fails first.
 
+### 23.6 Baseline measured on device (S129, 2026-09-25)
+
+Martin's iPhone 17 (iOS 26.6.1), **Release** personal build (`scripts/build-personal.sh --release`), Time Profiler +
+Hitches + Points of Interest, 45–60 s per run with Martin driving. Signposts: `Core/Perf/Perf.swift`. Tools:
+`scripts/perf/record.sh <name>` (attaches to the open app) → `scripts/perf/summarize.py`. Traces in `perf-traces/`
+(gitignored). **These are the numbers step 6 must beat.**
+
+| Run | Hitches (total / worst) | Hangs | Intervals |
+|---|---|---|---|
+| 1 Library scroll | 19 / 221 ms / 17 ms | 0 | LoadLibrary 3–6 ms |
+| 2 Browse, Keiyoushi sources | 14 / 171 ms / 17 ms | 0 | KeiyoushiPage 0.75 / 1.4 / 1.5 / 1.9 / 2.0 / 5.8 / 17.3 s (+1 unfinished) |
+| 3 Open library titles | 33 / 592 ms / 83 ms | 801, 722, 326 ms | OpenManga 467, 473 ms · OpenNovel 1.70, 2.08 s · NovelChapter 807 ms |
+| 4 Novel reader + Next | 20 / 538 ms / 142 ms | 589, 541, 263, 262 ms | NovelChapter 2 ms, 677 ms · OpenNovel 1.65 s |
+
+What the samples say (corrects/extends §23.2's code-read ranking):
+- **Scrolling is fine.** Library and Browse grids hitch only at the one-frame level (≤17 ms) in Release. Cover cell
+  queries (§23.2 #2) and full-size decode (#3) are not a visible problem at this library size — ImageIO/AppleJPEG was
+  ~2.4 s of *background* CPU in run 2, never on main. Lower their priority.
+- **Browse is slow because of the JVM, not the network or SwiftUI.** During Keiyoushi page loads one JVM thread sat at
+  ~100 % of a core for ~42 s straight (`BytecodeInterpreter::run` / `ZeroInterpreter::main_loop` in
+  OpenJDKRuntime — Zero, no JIT on iOS), then dropped to idle when loads ended. Plus ~4 s in libz. New item:
+  measure what the extension does per page under Zero (Jsoup parse? OkHttp gzip? class loading on first use) —
+  first-page vs later-page times suggest warm-up matters; consider keeping the JVM warm / caching parsed pages.
+- **Opening a novel hangs 800 ms on main**: `ExtensionManager.bridge(for:)` → `JSBridge.init` → `injectCheerio`
+  on the main thread (§23.2 #4 confirmed — worse than the 12–23 ms `jsc` estimate: a whole new context + 450 KB
+  libs). It happens again when a chapter opens (reader builds its own bridge).
+- **New: `NovelDetailView` renders all ~880 chapter rows eagerly and keeps re-rendering them while the reader is open
+  on top.** `chaptersSection` + a per-row `onLongPressGesture` = 414 main samples (0.4 s) in run 4 and the 262–326
+  ms hangs. Something the detail view observes (download manager progress / reader state) invalidates its body.
+- **Opening the reader: `WKWebView.init` on main** inside a 541 ms hang (plus the bridge build above).
+- **Two hangs are blocked, not busy** (589 ms and 801 ms with 1–2 main samples): the main thread was waiting.
+  Time Profiler can't show on what — a System Trace (thread states) is needed if they survive the fixes.
+- **Bug #1 reproduced on device** (Martin: Next left the old chapter on screen at least once). The run shows one
+  NovelChapter load of **2 ms** (downloaded chapter) — consistent with §23.1's cause: a fast local load never renders
+  `isLoading = true`, so the web view isn't rebuilt.
+- Style re-inject on scroll (§23.1 #3): not visible in Yomi's main-thread frames; its cost, if any, lands in the
+  WebContent process. Unconfirmed — still remove it in step 4, but don't count it as a measured win.
+
+Revised fix priority for the batched pass: (1) bridge off main + cached per source, (2) novel detail: lazy chapter
+list + stop invalidating it from the reader, (3) detail screens DB-first, (4) reader controller (fixes #1 #3 #4 #2),
+(5) Keiyoushi page cost under Zero, (6) the rest of §23.2.
+
 ### 23.5 Sources
 
 LNReader reader JS: github.com/lnreader/lnreader `assets/reader/js/core.js`; infinite-scroll requests lnreader

@@ -846,6 +846,8 @@ struct NovelDetailView: View {
     /// matching SourceBrowseView.loadWithBypass() — see finding #86. Falls back to the manual
     /// "Bypass Cloudflare" button (chaptersSection) only if the automatic attempt fails.
     private func loadChaptersWithBypass() async {
+        let perf = Perf.begin("OpenNovel")
+        defer { perf.end() }
         bypassAttempted = false
         autoBypassFailed = false
         await loadChapters()
