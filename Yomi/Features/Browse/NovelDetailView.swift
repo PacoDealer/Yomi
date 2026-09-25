@@ -138,16 +138,27 @@ struct NovelDetailView: View {
                         }
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(selectedChapterIds.count == visibleChapterIds.count ? "Deselect All" : "Select All") {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    // Tachimanga's selection toolbar: range, all, invert.
+                    Button {
                         withAnimation(.spring(duration: 0.15)) {
-                            if selectedChapterIds.count == visibleChapterIds.count {
-                                selectedChapterIds = []
-                            } else {
-                                selectedChapterIds = visibleChapterIds
-                            }
+                            selectedChapterIds = ChapterSelection.range(selectedChapterIds, in: displayedChapters.map(\.id))
                         }
-                    }
+                    } label: { Image(systemName: "arrow.up.and.down") }
+                    .accessibilityLabel("Select range")
+                    .disabled(selectedChapterIds.count < 2)
+                    Button {
+                        withAnimation(.spring(duration: 0.15)) {
+                            selectedChapterIds = selectedChapterIds.count == visibleChapterIds.count ? [] : visibleChapterIds
+                        }
+                    } label: { Image(systemName: "checklist") }
+                    .accessibilityLabel(selectedChapterIds.count == visibleChapterIds.count ? "Deselect all" : "Select all")
+                    Button {
+                        withAnimation(.spring(duration: 0.15)) {
+                            selectedChapterIds = visibleChapterIds.subtracting(selectedChapterIds)
+                        }
+                    } label: { Image(systemName: "circle.lefthalf.filled") }
+                    .accessibilityLabel("Invert selection")
                 }
             }
         }
@@ -672,9 +683,18 @@ struct NovelDetailView: View {
     // MARK: - Toggle Library
 
     private func toggleLibrary() async {
-        var updated = novel
-        updated.inLibrary = isInLibrary
-        try? NovelQueries.upsert(updated)
+        // Update the view's own copy: every later upsert of `novel` (touchLastReadAt on opening a
+        // chapter, the metadata refresh) used to write back the stale inLibrary=false and silently
+        // take the novel out of the library again.
+        novel.inLibrary = isInLibrary
+        let updated = novel
+        // Persist the chapters already on screen, so read marks made right after adding stick —
+        // otherwise they only exist in the DB after the next reload.
+        let loaded = isInLibrary ? chapters : []
+        await Task.detached(priority: .userInitiated) {
+            try? NovelQueries.upsert(updated)
+            if !loaded.isEmpty { try? NovelQueries.insertAllIgnoringConflicts(loaded) }
+        }.value
         if isInLibrary, let defaultCatId = AppSettings.shared.defaultCategoryId {
             let novelId = novel.id
             Task.detached {
@@ -908,6 +928,18 @@ extension NovelDetailView {
             }
             .disabled(selectedChapterIds.isEmpty)
 
+            // Mihon/Tachimanga "mark previous as read": everything before the one selected chapter.
+            Button {
+                markPreviousAsRead()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "text.badge.checkmark")
+                    Text("Read before").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.count != 1)
+
             Button {
                 markSelected(read: false)
             } label: {
@@ -923,6 +955,15 @@ extension NovelDetailView {
         .background(.bar)
     }
 
+    /// Marks every chapter before the single selected one (in reading order, ignoring the current
+    /// filter/search/sort) as read — how you catch up to where another app left you.
+    private func markPreviousAsRead() {
+        guard selectedChapterIds.count == 1, let id = selectedChapterIds.first,
+              let pos = chapters.firstIndex(where: { $0.id == id }) else { return }
+        selectedChapterIds = Set(chapters[..<pos].filter { !$0.isRead }.map(\.id))
+        markSelected(read: true)
+    }
+
     private func markSelected(read: Bool) {
         let ids = selectedChapterIds
         let now = Date()
@@ -935,12 +976,11 @@ extension NovelDetailView {
         }
         let novelId = novel.id
         Task.detached {
-            for id in ids {
-                if read {
-                    try? NovelQueries.markRead(chapterId: id, novelId: novelId)
-                } else {
-                    try? NovelQueries.markUnread(chapterId: id)
-                }
+            if read {
+                // One transaction — "Read before" can cover hundreds of chapters.
+                try? NovelQueries.markReadBatch(chapterIds: Array(ids), novelId: novelId)
+            } else {
+                for id in ids { try? NovelQueries.markUnread(chapterId: id) }
             }
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
