@@ -21,6 +21,37 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S128 — Martin's field report + plan (2026-09-25)
+
+**Rule for this phase: no fixes until the audit + research are done; then fix everything together** (Martin).
+
+From daily use (novels, on his iPhone):
+1. **Next chapter does nothing** — has to quit the reader and reopen. Suspect (unverified): `ReaderWebView.updateUIView`
+   only re-injects `<style>`, never the body; the view is rebuilt only when `isLoading` renders true in between, which a
+   preload-cache hit can skip → old chapter stays on screen. Reproduce first.
+2. **Infinite scroll** into the next chapter (already in the ArcReader list below).
+3. **A short scroll opens the menu.** Cause: the tap recognizer returns `true` from
+   `shouldRecognizeSimultaneouslyWith` for every gesture, so a small drag / touch-to-stop-a-fling counts as a tap.
+   Wants it less sensitive, tap only.
+4. **Swipe to previous/next** — plan properly (tap zones, swipe vs. scroll vs. text selection).
+5. **The app doesn't feel smooth** — worst: **Browse, opening a novel/manga, and everything in general.**
+
+Plan: (a) write down ✅ → (b) project audit → (c) deep research per topic (reader rendering architecture —
+WKWebView vs TextKit vs native paragraph list, which gates infinite scroll/pages/swipe/TTS highlight/translation;
+gesture design; infinite-scroll data model; SwiftUI/iOS performance + measurement; testing) → (d) one batched fix pass.
+
+(b)+(c) done → RESEARCH.md §23. Proposed batched pass, in order (awaiting Martin's OK):
+0. Baseline: Instruments (Animation Hitches + Time Profiler) on his iPhone + signposts for "tap title → chapters
+   visible"; add a test target (Swift Testing + 2–3 reader XCUITests), failing tests for #1 and #3 first.
+1. Detail screens show saved chapters instantly, refresh from the site behind them (manga + novel).
+2. Grids: one aggregate query per screen instead of 4 per cover cell; downsample covers; drop per-cover fade.
+3. Cache one JSBridge per source off the main thread (Browse, detail, Continue Reading, Updates).
+4. Novel reader rebuilt around one JS controller in the same WKWebView (decision §23.3): proper chapter loading
+   (fixes #1), `click`-based taps + 1/2-tap option (#3), swipe prev/next (#4), infinite scroll via appended chapter
+   sections (#2), no style re-inject on scroll.
+5. Smaller: Library reload-on-appear, `averageColor` CIContext, Browse `duplicateNames`, detail `.task` fan-out.
+6. Re-measure against step 0; install on his phone.
+
 ## Backlog — novel reader parity with ArcReader (S126, 2026-09-24)
 
 Martin reads novels in ArcReader today; he sent 24 screenshots of it (reader settings, TTS, audio, downloads,
