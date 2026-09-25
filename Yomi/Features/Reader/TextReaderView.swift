@@ -467,6 +467,8 @@ struct TextReaderView: View {
     // MARK: - Load Content
 
     private func loadContent() async {
+        let perf = Perf.begin("NovelChapter")
+        defer { perf.end() }
         isLoading    = true
         errorMessage = nil
         rawContent   = ""

@@ -126,6 +126,8 @@ struct KeiyoushiBrowseView: View {
 
     private func loadMore() async {
         guard !isLoading, hasNextPage else { return }
+        let perf = Perf.begin("KeiyoushiPage")
+        defer { perf.end() }
         let generation = loadGeneration
         isLoading = true
         errorMessage = nil
