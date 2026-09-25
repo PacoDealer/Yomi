@@ -292,6 +292,10 @@ struct NovelDetailView: View {
             get: { NovelDownloadManager.shared.failureMessage },
             set: { NovelDownloadManager.shared.failureMessage = $0 }
         ))
+        .yomiToast(Binding(
+            get: { NetworkMonitor.shared.queuedNotice },
+            set: { NetworkMonitor.shared.queuedNotice = $0 }
+        ), isError: false)
         .onChange(of: isLoadingChapters) { _, loading in
             guard !loading, let resume = resumeChapter else { return }
             Task { @MainActor in

@@ -138,6 +138,7 @@ nonisolated enum NovelDownloadStore {
     private var worker: Task<Void, Never>? = nil
 
     var isRunning: Bool { active != nil || !queue.isEmpty }
+    private(set) var isWaitingForNetwork = false
 
     func isPending(chapterId: String) -> Bool {
         active?.chapter.id == chapterId || queue.contains { $0.chapter.id == chapterId }
@@ -156,7 +157,13 @@ nonisolated enum NovelDownloadStore {
             }
             .map { Job(chapter: $0, novel: novel) }
         guard !jobs.isEmpty else { return }
-        if front { queue.insert(contentsOf: jobs, at: 0) } else { queue.append(contentsOf: jobs) }
+        if front {
+            queue.insert(contentsOf: jobs, at: 0)
+        } else {
+            queue.append(contentsOf: jobs)
+            // Only for downloads the user asked for — download-ahead waiting quietly is expected.
+            NetworkMonitor.shared.noteQueued()
+        }
         if let i = batches.firstIndex(where: { $0.novel.id == novelId }) {
             batches[i].total += jobs.count
         } else {
@@ -204,6 +211,13 @@ nonisolated enum NovelDownloadStore {
         var failuresInARow: [String: Int] = [:]
 
         while !queue.isEmpty {
+            // Pause between chapters while the Wi-Fi-only setting holds downloads back; resumes on its own.
+            if !NetworkMonitor.shared.downloadsAllowed {
+                isWaitingForNetwork = true
+                await NetworkMonitor.shared.waitUntilDownloadsAllowed()
+                isWaitingForNetwork = false
+                guard !queue.isEmpty else { break }
+            }
             let job = queue.removeFirst()
             active = job
             let novel = job.novel
@@ -254,6 +268,7 @@ nonisolated enum NovelDownloadStore {
             try? await Task.sleep(for: .milliseconds(250))
         }
         worker = nil
+        NetworkMonitor.shared.queueDrained()
     }
 
     private func finishBatch(novelId: String) {

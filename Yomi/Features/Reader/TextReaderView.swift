@@ -400,7 +400,10 @@ struct TextReaderView: View {
     // MARK: - Preload
 
     private func preloadNextChapterIfNeeded() {
+        // Low Data Mode asks apps not to prefetch; the next chapter still loads when it's opened.
         guard let next = nextChapterForPreload,
+              !NetworkMonitor.shared.isConstrained
+                || FileManager.default.fileExists(atPath: NovelDownloadStore.fileURL(novelId: novel.id, chapterPath: next.path).path),
               chapterContentCache[next.id] == nil,
               !preloadingChapterIds.contains(next.id) else { return }
         preloadingChapterIds.insert(next.id)

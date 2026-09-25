@@ -96,6 +96,10 @@ struct DownloadsView: View {
     private var dm: DownloadManager { DownloadManager.shared }
 
     private var ndm: NovelDownloadManager { NovelDownloadManager.shared }
+    private var network: NetworkMonitor { NetworkMonitor.shared }
+    private var isHeldBack: Bool { dm.isWaitingForNetwork || ndm.isWaitingForNetwork }
+    /// "Queued" normally; the real reason when the network setting is holding downloads back.
+    private var queuedNote: String { isHeldBack ? (network.waitReason ?? "Queued") : "Queued" }
 
     private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
     private var hasContent: Bool { hasDownloading || !vm.isEmpty }
@@ -125,6 +129,10 @@ struct DownloadsView: View {
                         if hasDownloading {
                             sectionHeader("Downloading · \(downloadingCount)")
 
+                            if isHeldBack, let reason = network.waitReason {
+                                waitBanner(reason: reason)
+                            }
+
                             if let active = dm.activeChapter {
                                 DownloadingRow(
                                     coverURL: dm.activeManga?.coverURL,
@@ -142,7 +150,7 @@ struct DownloadsView: View {
                                     coverURL: idx < dm.queueMangas.count ? dm.queueMangas[idx].coverURL : nil,
                                     customCoverPath: idx < dm.queueMangas.count ? dm.queueMangas[idx].resolvedCustomCoverPath : nil,
                                     title: idx < dm.queueMangas.count ? dm.queueMangas[idx].title : "",
-                                    note: "\(chapter.name) · Queued",
+                                    note: "\(chapter.name) · \(queuedNote)",
                                     fraction: 0,
                                     onCancel: { dm.cancel(chapterId: chapter.id) }
                                 )
@@ -157,7 +165,7 @@ struct DownloadsView: View {
                                     title: batch.novel.title,
                                     note: ndm.active?.novel.id == batch.novel.id
                                         ? "\(ndm.active?.chapter.name ?? "") · \(batch.done)/\(batch.total)"
-                                        : "\(batch.total - batch.done) chapters · Queued",
+                                        : "\(batch.total - batch.done) chapters · \(queuedNote)",
                                     fraction: batch.total > 0 ? Double(batch.done) / Double(batch.total) : 0,
                                     onCancel: { ndm.cancel(novelId: batch.novel.id) }
                                 )
@@ -267,6 +275,35 @@ struct DownloadsView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
+    }
+
+    // MARK: - Waiting banner
+
+    private func waitBanner(reason: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: network.isConnected ? "wifi" : "wifi.slash")
+                    .foregroundStyle(canvas.textSecondary)
+                Text(reason)
+                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body, weight: .medium))
+                    .foregroundStyle(canvas.textPrimary)
+            }
+            if network.isWaitingForWiFi {
+                Text("Downloads continue automatically on Wi-Fi.")
+                    .font(YomiTokens.Font.grotesk(13))
+                    .foregroundStyle(canvas.textSecondary)
+                // One-off: covers what's queued now, then the setting applies again.
+                Button("Download on cellular now") {
+                    network.allowCellularForCurrentQueue()
+                }
+                .font(YomiTokens.Font.grotesk(14, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(canvas.surface1, in: RoundedRectangle(cornerRadius: YomiTokens.Radius.button))
+        .padding(.vertical, 8)
     }
 
     // MARK: - Section header
