@@ -8,13 +8,22 @@
 
 /* Begin PBXBuildFile section */
 		0E2B3AB22F658FC9006E6D41 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0E2B3AB12F658FC9006E6D41 /* GRDB */; };
-		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
-		3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */ = {isa = PBXBuildFile; productRef = 0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */; };
 		1EC7FBB55A0FC3E8F1211B76 /* PulseUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61D0474D93CEB0EF171D3949 /* PulseUI */; };
+		274F4DCE6FCF66961F6A14D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E2FE408826B57FBD0DE3A78D /* Foundation.framework */; };
+		3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */ = {isa = PBXBuildFile; productRef = 0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */; };
+		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DB2C53D86030B3A2FA45D469 /* ReaderUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */; };
+		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A17270B60CE47C8982D164D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0EE530C52F64CF600074B935 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0EE530CC2F64CF600074B935;
+			remoteInfo = Yomi;
+		};
 		AABB000DAABB000DAABB000D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0EE530C52F64CF600074B935 /* Project object */;
@@ -40,7 +49,10 @@
 
 /* Begin PBXFileReference section */
 		0EE530CD2F64CF600074B935 /* Yomi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yomi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		66F9E11E6FB28C90A19E1BBD /* YomiUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YomiUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReaderUITests.swift; sourceTree = "<group>"; };
 		AABB0001AABB0001AABB0001 /* YomiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = YomiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2FE408826B57FBD0DE3A78D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -64,27 +76,27 @@
 				Resources/royalroad.js,
 				Resources/scribblehub.js,
 				"Resources/test-source.js",
-				"design/DESIGN_HANDOFF.md",
-				"design/DESIGN_SYSTEM.md",
-				"design/DESIGN_RESEARCH.md",
+				design/DESIGN_HANDOFF.md,
+				design/DESIGN_SYSTEM.md,
+				design/DESIGN_RESEARCH.md,
 				"design/design_handoff_yomi/YOMI Screens.dc.html",
 				"design/design_handoff_yomi/ios-frame.jsx",
-				"design/design_handoff_yomi/support.js",
-				"design/design_handoff_yomi/HANDOFF_NOTES.md",
+				design/design_handoff_yomi/support.js,
+				design/design_handoff_yomi/HANDOFF_NOTES.md,
 				"design/design_handoff_yomi/assets/AppIcon-Ink.png",
 				"design/design_handoff_yomi/assets/AppIcon-Paper.png",
-				"design/icons/A1_layer_bg.png",
-				"design/icons/A1_layer_mark.png",
-				"design/icons/A1_layer_white.png",
+				design/icons/A1_layer_bg.png,
+				design/icons/A1_layer_mark.png,
+				design/icons/A1_layer_white.png,
 				"design/icons/AppIcon-Ink-1024.png",
 				"design/icons/AppIcon-Paper-1024.png",
-				"design/icons/ICONS_NOTES.md",
+				design/icons/ICONS_NOTES.md,
 				"design/icons/Y-outlined.svg",
-				"design/icons/icon_A1_principal.png",
-				"design/icons/icon_A3_alt.png",
-				"design/icons/icon_lavender.png",
-				"design/icons/icon_paper.png",
-				"design/icons/icon_teal.png",
+				design/icons/icon_A1_principal.png,
+				design/icons/icon_A3_alt.png,
+				design/icons/icon_lavender.png,
+				design/icons/icon_paper.png,
+				design/icons/icon_teal.png,
 				"design/icons/layers/Ink-bg.png",
 				"design/icons/layers/Ink-mark.png",
 				"design/icons/layers/Ink-white.png",
@@ -141,6 +153,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEFF5DA15E53E31195AAC540 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				274F4DCE6FCF66961F6A14D5 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -150,6 +170,8 @@
 				0EE530CF2F64CF600074B935 /* Yomi */,
 				AABB0009AABB0009AABB0009 /* YomiWidget */,
 				0EE530CE2F64CF600074B935 /* Products */,
+				169FB108E3FB1FC5355B7924 /* Frameworks */,
+				88CB4207B5E4E5BB4EAA62E3 /* YomiUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -158,13 +180,57 @@
 			children = (
 				0EE530CD2F64CF600074B935 /* Yomi.app */,
 				AABB0001AABB0001AABB0001 /* YomiWidget.appex */,
+				66F9E11E6FB28C90A19E1BBD /* YomiUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		169FB108E3FB1FC5355B7924 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F71699DF0BE86042827B7914 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		88CB4207B5E4E5BB4EAA62E3 /* YomiUITests */ = {
+			isa = PBXGroup;
+			children = (
+				7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */,
+			);
+			name = YomiUITests;
+			path = YomiUITests;
+			sourceTree = "<group>";
+		};
+		F71699DF0BE86042827B7914 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				E2FE408826B57FBD0DE3A78D /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		076D76E53C1ED63F66BF07CB /* YomiUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5E3B76A8374B2D7C3CA63604 /* Build configuration list for PBXNativeTarget "YomiUITests" */;
+			buildPhases = (
+				BC633323A3790F08BFE23BAD /* Sources */,
+				EEFF5DA15E53E31195AAC540 /* Frameworks */,
+				B09A592C908DB185A9BEC4C8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				38F9DB960310E78B3B8E9B2D /* PBXTargetDependency */,
+			);
+			name = YomiUITests;
+			productName = YomiUITests;
+			productReference = 66F9E11E6FB28C90A19E1BBD /* YomiUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		0EE530CC2F64CF600074B935 /* Yomi */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0EE530D82F64CF610074B935 /* Build configuration list for PBXNativeTarget "Yomi" */;
@@ -210,8 +276,6 @@
 				AABB0009AABB0009AABB0009 /* YomiWidget */,
 			);
 			name = YomiWidget;
-			packageProductDependencies = (
-			);
 			productName = YomiWidget;
 			productReference = AABB0001AABB0001AABB0001 /* YomiWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -244,7 +308,7 @@
 			mainGroup = 0EE530C42F64CF600074B935;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */,
+				0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */,
 			);
@@ -255,6 +319,7 @@
 			targets = (
 				0EE530CC2F64CF600074B935 /* Yomi */,
 				AABB0002AABB0002AABB0002 /* YomiWidget */,
+				076D76E53C1ED63F66BF07CB /* YomiUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -268,6 +333,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AABB0005AABB0005AABB0005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B09A592C908DB185A9BEC4C8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -313,9 +385,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BC633323A3790F08BFE23BAD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DB2C53D86030B3A2FA45D469 /* ReaderUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		38F9DB960310E78B3B8E9B2D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Yomi;
+			target = 0EE530CC2F64CF600074B935 /* Yomi */;
+			targetProxy = A17270B60CE47C8982D164D2 /* PBXContainerItemProxy */;
+		};
 		AABB000CAABB000CAABB000C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AABB0002AABB0002AABB0002 /* YomiWidget */;
@@ -480,7 +566,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = Yomi/Yomi-Release.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Yomi/Yomi-Release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -500,6 +586,41 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		42BEDE71682668281F611BD0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = pacodealer.YomiUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Yomi;
+			};
+			name = Debug;
+		};
+		4FED33E5037B610D6E2AF7E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = pacodealer.YomiUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Yomi;
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -576,6 +697,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		5E3B76A8374B2D7C3CA63604 /* Build configuration list for PBXNativeTarget "YomiUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4FED33E5037B610D6E2AF7E1 /* Release */,
+				42BEDE71682668281F611BD0 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AABB0008AABB0008AABB0008 /* Build configuration list for PBXNativeTarget "YomiWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -588,20 +718,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */ = {
+		0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 7.0.0;
-			};
-		};
-		9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/onevcat/Kingfisher";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 8.0.0;
 			};
 		};
 		30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */ = {
@@ -612,23 +734,31 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */;
+			productName = Pulse;
+		};
 		0E2B3AB12F658FC9006E6D41 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */;
+			package = 0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
 		};
 		514D11379D494BB1B5834DDA /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
-		};
-		0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */;
-			productName = Pulse;
 		};
 		61D0474D93CEB0EF171D3949 /* PulseUI */ = {
 			isa = XCSwiftPackageProductDependency;

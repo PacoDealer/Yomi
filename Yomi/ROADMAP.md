@@ -56,7 +56,17 @@ gesture design; infinite-scroll data model; SwiftUI/iOS performance + measuremen
 come from the JS bridge built on main (800 ms opening a novel), the novel detail list rendering ~880 rows eagerly
 and re-rendering under the reader, and `WKWebView.init` on main; Browse is slow because the Keiyoushi JVM runs
 interpreted (one core pinned for the whole load). Bug #1 reproduced on device. Order revised in §23.6.
-Still to do in step 0: test target + failing tests for #1 and #3.
+Tests (step 0, second half): `YomiUITests` target (in the Yomi scheme) + DEBUG `-yomiReaderFixture` (opens the
+reader on a 3-chapter offline novel, `Features/Reader/ReaderFixture.swift`). Run:
+`xcodebuild test -scheme Yomi -destination 'id=F31CC190-186D-4598-9ED8-225821907550' -only-testing:YomiUITests`.
+- `testShortDragDoesNotOpenMenu` **FAILS** — bug #3 reproduced (a 4 %-of-screen drag opens the menu).
+- `testNextChapterShowsNewText` **passes** — bug #1 does NOT reproduce in isolation, even after reading to the end
+  (preload cache). So §23.1's cache-hit theory is not sufficient. Martin reproduced it on device (run 4). Differences
+  left: library novel (download-ahead running), reader pushed from NovelDetailView (which re-renders under the reader,
+  §23.6), real network. Next: extend the fixture to go through NovelDetailView with an in-library novel.
+- A11y bug found: the faded-out reader overlay (opacity 0) stays in the accessibility tree — `.accessibilityHidden`
+  on it has no effect (glass content). VoiceOver can reach invisible controls. Fix in step 4 (remove it from the tree
+  when hidden); tests read a DEBUG `reader.menuState` marker meanwhile.
 
 ## Backlog — novel reader parity with ArcReader (S126, 2026-09-24)
 

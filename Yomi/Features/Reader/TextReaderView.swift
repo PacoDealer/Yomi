@@ -230,6 +230,14 @@ struct TextReaderView: View {
                 chapterFinishedBanner
             }
 
+            #if DEBUG
+            // UI tests read the menu state here: the faded-out overlay stays in the accessibility tree (S129).
+            Color.clear.frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("reader.menuState")
+                .accessibilityValue(showOverlay ? "open" : "closed")
+            #endif
+
             TextReaderOverlayView(
                 novel:                novel,
                 chapter:              activeChapter,
