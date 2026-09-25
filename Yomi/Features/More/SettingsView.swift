@@ -222,6 +222,9 @@ struct SettingsView: View {
             rowDivider()
             navRow("Customize tabs") { CustomizeTabsView() }
             rowDivider()
+            toggleRow("Download only on Wi-Fi", isOn: $settings.downloadOnlyOnWiFi, subtitle: "Downloads wait for Wi-Fi instead of using cellular data or a personal hotspot, and pause in Low Data Mode. Reading is never blocked.")
+                .onChange(of: settings.downloadOnlyOnWiFi) { _, _ in NetworkMonitor.shared.settingsChanged() }
+            rowDivider()
             toggleRow("Delete after reading", isOn: $settings.deleteDownloadAfterReading, subtitle: "Removes downloaded files when you finish a chapter")
             rowDivider()
             HStack {
@@ -586,7 +589,9 @@ private struct NovelReaderSettingsView: View {
             } header: {
                 Text("Offline")
             } footer: {
-                Text("While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection.")
+                Text(settings.downloadOnlyOnWiFi
+                     ? "While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection. Only on Wi-Fi — see Settings → Download only on Wi-Fi."
+                     : "While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection.")
             }
 
             Section("Text-to-Speech") {

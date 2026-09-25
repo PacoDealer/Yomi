@@ -154,6 +154,8 @@ struct YomiApp: App {
             // fail loudly here, at the real point of failure, instead of downstream with no context.
             fatalError("Failed to open or migrate the Yomi database: \(error)")
         }
+        // Start watching the network now, so the first download already knows whether it's on Wi-Fi.
+        _ = NetworkMonitor.shared
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
         LNReaderHarness.startIfRequested()

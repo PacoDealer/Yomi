@@ -1916,3 +1916,13 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Download-ahead goes to the front of the queue**, or a whole-novel download starves the chapter the reader needs next.
 - mobile-mcp: `mobile_long_press_on_screen_at_coordinates` on a List row registered as a tap (opened the reader);
   use the ⋯ → Select chapters menu to enter selection mode in tests.
+- **"Wi-Fi only" means `NWPath.isExpensive || isConstrained`, not "interface is Wi-Fi".** A personal hotspot is Wi-Fi
+  and still spends someone's cellular plan; Low Data Mode is the user asking apps to hold back on any network.
+- **Gate the queue, not the request.** Plugin fetches go through JSBridge's shared session, so per-request
+  `allowsExpensiveNetworkAccess` isn't reachable; both queues instead `await` a monitor between items and keep
+  everything queued, which also makes "resume on Wi-Fi" free.
+- **A one-off "use cellular" must expire** (here: when both queues drain), or it silently becomes the setting.
+- **The simulator is always on the Mac's network** — DEBUG launch arg `-yomiSimulateCellular` fakes a metered path.
+- mobile-mcp: switches near the top of Settings sit under the floating glass nav bar, and the list scrolls between
+  a list-elements call and the tap, so taps land on neighbouring rows. Verify toggles by reading the switch's
+  `value` afterwards, never by assuming the tap landed.

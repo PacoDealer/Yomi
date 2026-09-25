@@ -692,6 +692,10 @@ struct MangaDetailView: View {
             .presentationDetents([.medium, .large])
         }
         .yomiToast($toastMessage)
+        .yomiToast(Binding(
+            get: { NetworkMonitor.shared.queuedNotice },
+            set: { NetworkMonitor.shared.queuedNotice = $0 }
+        ), isError: false)
         // A partially-failed download no longer marks itself "Downloaded" silently (#149) —
         // surface the failure here too, since this is where downloads are usually started.
         .onChange(of: DownloadManager.shared.failureMessage) { _, message in

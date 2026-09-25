@@ -443,6 +443,15 @@ import Observation
         didSet { defaults.set(ttsSpeechRate, forKey: "ttsSpeechRate") }
     }
 
+    // MARK: - Downloads
+
+    /// Manga + novel downloads, download-ahead and background downloads wait for a non-metered network
+    /// (not cellular, not a personal hotspot, not Low Data Mode). On by default: users shouldn't find
+    /// their data plan spent by something they didn't watch happen. Reading is never gated.
+    var downloadOnlyOnWiFi: Bool {
+        didSet { defaults.set(downloadOnlyOnWiFi, forKey: "downloadOnlyOnWiFi") }
+    }
+
     // MARK: - Novel downloads
 
     /// How many chapters past the open one the novel reader keeps downloaded (library novels only).
@@ -562,6 +571,7 @@ import Observation
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
         novelDownloadAhead       = d.object(forKey: "novelDownloadAhead")       as? Int ?? 5
+        downloadOnlyOnWiFi       = d.object(forKey: "downloadOnlyOnWiFi")       as? Bool ?? true
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
         // opdsPassword: migrate any legacy UserDefaults value to Keychain, then load from Keychain.

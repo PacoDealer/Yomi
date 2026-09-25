@@ -579,6 +579,13 @@ NovelDetailView (selection bar / ⋯ Download) or TextReaderView.loadContent (do
 Reading: TextReaderView.loadContent / preload → NovelDownloadStore.content(...) ?? bridge.parseChapter(...)
 No DB column: downloaded = file exists (path-keyed, because NovelChapter.id is index-based).
 
+### Download network gate (S127b)
+NetworkMonitor (NWPathMonitor) → isConnected / isExpensive (cellular, personal hotspot) / isConstrained (Low Data Mode)
+downloadsAllowed = connected && (!AppSettings.downloadOnlyOnWiFi || !metered || cellularAllowedForCurrentQueue)
+DownloadManager.processQueue / NovelDownloadManager.run → await waitUntilDownloadsAllowed() before each item
+(continuations resumed on path change, setting change, or "Download on cellular now"); queueDrained() withdraws the
+one-off cellular permission. Reader loads are never gated; TextReaderView preload skips in Low Data Mode.
+
 ### Tracker OAuth (S115 — generalized from MAL-only; each tracker's own redirect host routes here)
 <Tracker>Service.authorizationURL()
 → MAL: PKCE plain code_verifier → yomi://mal/callback
