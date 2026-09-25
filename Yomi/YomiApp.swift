@@ -142,8 +142,23 @@ struct YomiApp: App {
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var settings = AppSettings.shared
-    @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding
-    @State private var isLocked = AppSettings.shared.appLockEnabled
+    @State private var showOnboarding = !AppSettings.shared.hasSeenOnboarding && !Self.readerFixture
+    @State private var isLocked = AppSettings.shared.appLockEnabled && !Self.readerFixture
+
+    #if DEBUG
+    private static var readerFixture: Bool { ReaderFixture.isRequested }
+    #else
+    private static let readerFixture = false
+    #endif
+
+    /// The app, or the UI-test reader fixture when launched with `-yomiReaderFixture` (Debug only).
+    @ViewBuilder private var rootView: some View {
+        #if DEBUG
+        if Self.readerFixture { ReaderFixture.RootView() } else { ContentView() }
+        #else
+        ContentView()
+        #endif
+    }
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -189,7 +204,7 @@ struct YomiApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            rootView
                 .preferredColorScheme(settings.colorScheme)
                 .tint(Color(hex: settings.accentColor))
                 .fullScreenCover(isPresented: Binding(
