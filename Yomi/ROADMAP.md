@@ -75,7 +75,8 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 - [x] Download novel chapters / whole novel for offline reading (S127 — selection bar Download/Delete, ⋯ → Download: next 10 unread / all unread / all)
 - [x] **Download ahead** (keep next 5/10/20/30 chapters on device as you read) (S127 — Settings → Novels → Offline, default 5, library novels only)
 - [ ] Remove read chapters (keep last N; keep bookmarked/highlighted)
-- [ ] Auto-download new chapters; Wi-Fi only (not in S127: downloads use any network)
+- [x] Wi-Fi only (S127b — app-wide "Download only on Wi-Fi", default on, manga + novels)
+- [ ] Auto-download new chapters (novels)
 
 **Library / discovery**
 - [ ] "Picking up where you left off" card showing **CH x / total** + % for novels
@@ -106,7 +107,19 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
   queued; Next 10 unread → 25–34; select 25+26 → Download disabled, Delete removed both files and icons; Downloads
   lists "Novel · 8 chapters · 249 KB". **Not verified**: reading with the network actually off, the in-progress
   Downloads row, the Settings picker UI.
-- Not in this pass: Wi-Fi only, auto-download new chapters, remove-read-chapters.
+- Not in this pass: auto-download new chapters, remove-read-chapters.
+- **S127b — "Download only on Wi-Fi"** (Martin: don't spend users' cellular data). `Core/NetworkMonitor.swift`
+  (`NWPathMonitor`): metered = `isExpensive` (cellular **or personal hotspot**) or `isConstrained` (Low Data Mode).
+  `AppSettings.downloadOnlyOnWiFi`, **default on**, Settings → Data. Covers manga + novel downloads, download-ahead
+  and background downloads; both queues `await waitUntilDownloadsAllowed()` between items (never mid-chapter), keep
+  the items queued and resume on their own when Wi-Fi returns. Downloads screen: "Waiting for Wi-Fi" banner +
+  one-off **Download on cellular now** (withdrawn when both queues drain). Toast "Queued · waiting for Wi-Fi" on the
+  detail screens. Reading is never gated; the 70 % next-chapter preload is skipped only in Low Data Mode. Until the
+  first path update arrives the network counts as unknown and nothing downloads. DEBUG launch arg
+  `-yomiSimulateCellular` makes the simulator look metered. **Sim-verified**: queued → nothing downloaded, banner +
+  row "Waiting for Wi-Fi", toast, one-off cellular downloaded the 2 queued then was withdrawn (next 847 waited),
+  toggling the setting off resumed at once. Toggling it back on wasn't clickable through mobile-mcp (switch under the
+  floating nav / list scrolls under the tap) — same gate as the first case, not separately seen.
 
 ## Prior state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, novel-library bug)
 

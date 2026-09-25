@@ -55,6 +55,7 @@ import SwiftUI
               !items.contains(where: { $0.chapter.id == chapter.id })
         else { return }
         items.append(QueueItem(chapter: chapter, manga: manga, bridge: bridge))
+        NetworkMonitor.shared.noteQueued()
         queue = items.map(\.chapter)
         queueMangas = items.map { $0.manga }
         processQueue()
@@ -129,18 +130,38 @@ import SwiftUI
 
     // MARK: - Process Queue
 
+    /// True while the queue is held back by the Wi-Fi-only setting (or no connection). The waiting
+    /// item stays in `queue` — nothing is "active" until the network allows it.
+    var isWaitingForNetwork: Bool = false
+
     private func processQueue() {
-        guard !isRunning, !items.isEmpty else { return }
-        let item = items.removeFirst()
-        queue = items.map(\.chapter)
-        queueMangas = items.map { $0.manga }
+        guard !isRunning else { return }
+        guard !items.isEmpty else {
+            NetworkMonitor.shared.queueDrained()
+            return
+        }
         isRunning = true
-        activeChapter = item.chapter
-        activeManga = item.manga
-        activeChapterId = item.chapter.id
-        progress[item.chapter.id] = 0.0
 
         currentTask = Task {
+            // Pause between chapters, not mid-chapter: a switch to cellular holds the next one.
+            if !NetworkMonitor.shared.downloadsAllowed {
+                isWaitingForNetwork = true
+                await NetworkMonitor.shared.waitUntilDownloadsAllowed()
+                isWaitingForNetwork = false
+            }
+            // Everything may have been cancelled while waiting.
+            guard !items.isEmpty else {
+                isRunning = false
+                processQueue()
+                return
+            }
+            let item = items.removeFirst()
+            queue = items.map(\.chapter)
+            queueMangas = items.map { $0.manga }
+            activeChapter = item.chapter
+            activeManga = item.manga
+            activeChapterId = item.chapter.id
+            progress[item.chapter.id] = 0.0
             await performDownload(item)
             processQueue()
         }

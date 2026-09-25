@@ -43,6 +43,9 @@ All 16 screens designed and confirmed. Concept: **"reading instrument / living a
 chapter path under `Documents/NovelDownloads/`, no DB column/migration; reader reads local first and keeps the next N
 chapters downloaded (`AppSettings.novelDownloadAhead`, default 5, library novels only); detail selection bar
 Download/Delete + ⋯ → Download; Downloads screen lists novels. Sim-verified end to end except network-off reading.
+Also **"Download only on Wi-Fi"** (`Core/NetworkMonitor.swift`, `AppSettings.downloadOnlyOnWiFi`, default on):
+manga + novel downloads wait on cellular/hotspot/Low Data Mode and resume on Wi-Fi; one-off "Download on cellular now"
+on the Downloads screen; reading never gated. Simulate in the sim with launch arg `-yomiSimulateCellular` (DEBUG).
 Next migration prefix still `v23_`. Next from the backlog: infinite scroll, then TTS (Martin picks).
 
 ## Prior state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, ArcReader backlog)
