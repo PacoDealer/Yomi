@@ -31,6 +31,8 @@ struct NovelDetailView: View {
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
     @State private var chapterSearchText: String = ""
+    @State private var downloadedIds: Set<String> = []
+    private var downloads: NovelDownloadManager { NovelDownloadManager.shared }
 
     @Environment(\.yomiCanvas) private var canvas
     @Environment(\.dismiss) private var dismiss
@@ -278,6 +280,19 @@ struct NovelDetailView: View {
             }
         }
         .onChange(of: isLoadingChapters) { _, loading in
+            if !loading { refreshDownloaded() }
+        }
+        .onChange(of: downloads.completedCount) { _, _ in
+            if let saved = downloads.lastSaved, saved.novelId == novel.id {
+                downloadedIds.insert(saved.chapterId)
+            }
+        }
+        .onChange(of: downloads.finishedBatchCount) { _, _ in refreshDownloaded() }
+        .yomiToast(Binding(
+            get: { NovelDownloadManager.shared.failureMessage },
+            set: { NovelDownloadManager.shared.failureMessage = $0 }
+        ))
+        .onChange(of: isLoadingChapters) { _, loading in
             guard !loading, let resume = resumeChapter else { return }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
@@ -334,6 +349,23 @@ struct NovelDetailView: View {
                 .disabled(chapters.isEmpty)
 
                 if !chapters.isEmpty {
+                    Menu {
+                        Button("Next 10 unread") {
+                            download(Array(chapters.filter { !$0.isRead }.prefix(10)))
+                        }
+                        Button("All unread") { download(chapters.filter { !$0.isRead }) }
+                        Button("All chapters") { download(chapters) }
+                    } label: {
+                        Label("Download", systemImage: "arrow.down.circle")
+                    }
+                    if !downloadedIds.isEmpty {
+                        Button(role: .destructive) {
+                            downloads.deleteAll(novelId: novel.id)
+                            downloadedIds = []
+                        } label: {
+                            Label("Delete downloads", systemImage: "trash")
+                        }
+                    }
                     Divider()
                     Button {
                         markAllChapters(read: true)
@@ -637,6 +669,15 @@ struct NovelDetailView: View {
                         .frame(width: 6, height: 6)
                 }
                 NovelChapterRow(chapter: chapter)
+                Spacer(minLength: 0)
+                if downloads.isPending(chapterId: chapter.id) {
+                    ProgressView().controlSize(.mini)
+                } else if downloadedIds.contains(chapter.id) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .accessibilityLabel("Downloaded")
+                }
             }
         }
         .buttonStyle(.plain)
@@ -950,9 +991,58 @@ extension NovelDetailView {
                 .frame(maxWidth: .infinity)
             }
             .disabled(selectedChapterIds.isEmpty)
+
+            Button {
+                download(chapters.filter { selectedChapterIds.contains($0.id) })
+                endSelection()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "arrow.down.circle")
+                    Text("Download").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.subtracting(downloadedIds).isEmpty)
+
+            Button {
+                let doomed = chapters.filter { selectedChapterIds.contains($0.id) && downloadedIds.contains($0.id) }
+                downloads.delete(chapters: doomed, novelId: novel.id)
+                downloadedIds.subtract(doomed.map(\.id))
+                endSelection()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "trash")
+                    Text("Delete").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.isDisjoint(with: downloadedIds))
         }
         .padding(.vertical, 12)
         .background(.bar)
+    }
+
+    private func endSelection() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.spring(duration: 0.2)) {
+            isSelectingChapters = false
+            selectedChapterIds = []
+        }
+    }
+
+    private func download(_ targets: [NovelChapter]) {
+        guard !targets.isEmpty else { return }
+        downloads.enqueue(targets, novel: novel)
+    }
+
+    private func refreshDownloaded() {
+        let novelId = novel.id
+        let chs = chapters
+        Task {
+            downloadedIds = await Task.detached(priority: .utility) {
+                NovelDownloadStore.downloadedChapterIds(novelId: novelId, chapters: chs)
+            }.value
+        }
     }
 
     /// Marks every chapter before the single selected one (in reading order, ignoring the current
