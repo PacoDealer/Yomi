@@ -37,7 +37,15 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S125 — 2026-09-24 · one Extensions screen, Browse by type, novel-repo research)
+## Current state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, ArcReader backlog)
+
+**S126** — `wetriedtls.js` on Firebase (Martin's novel source), Read before / Select range / Invert on chapter
+lists (`1f61fdb`), and a real bug fixed: hearting a novel then opening a chapter silently removed it from the
+library (stale `novel` copy in `NovelDetailView.toggleLibrary`). **The ArcReader-parity backlog is in
+`Yomi/ROADMAP.md` → "Backlog — novel reader parity with ArcReader" — work from that list, don't re-derive it.**
+Martin picks the next item; suggested: novel downloads + download-ahead, then infinite scroll, then TTS.
+
+## Prior state (post S125 — 2026-09-24 · one Extensions screen, Browse by type, novel-repo research)
 
 **S125 (2026-09-24)** — Martin's feedback (he read in ArcReader for its translations, not Yomi): Browse was messy.
 Commit `5ba8c7f`:

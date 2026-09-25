@@ -21,7 +21,85 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## Current state (post S124 — 2026-09-24 · Keiyoushi extensions inside Yomi, on-device)
+## Backlog — novel reader parity with ArcReader (S126, 2026-09-24)
+
+Martin reads novels in ArcReader today; he sent 24 screenshots of it (reader settings, TTS, audio, downloads,
+library, sources) so this list exists and doesn't have to be re-derived. Unchecked = not in Yomi yet. Suggested
+order from S126: **offline + preload first** (loading is where ArcReader feels smoother), then infinite scroll, then
+TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headline item across all of this.
+
+**Chapter list (Tachimanga)**
+- [x] Read before / Select range / Select all / Invert (S126, `1f61fdb`)
+- [ ] Bookmark a chapter (+ bookmark filter) — needs a `v23_` migration on `chapter` + `novel_chapter`, CloudKit mapping
+- [ ] Download from the selection bar for novels (needs novel downloads, below)
+
+**Reader — Text**
+- [ ] Font browser beyond serif/sans (ArcReader lists Google Fonts with a live preview; bundled fonts at least: Newsreader, Lora, Quicksand…)
+- [ ] Letter spacing (Tight / Normal / Loose) separate from line height
+- [ ] Font size as a number readout (ArcReader shows "20")
+
+**Reader — Look**
+- [ ] More themes (ArcReader: Light, Sage, Void, E-ink, Sepia, Dark, AMOLED) + **custom themes** ("New")
+- [ ] Background textures (Midnight, Ember, Rose, Cream, Paper, Dusk, Slate, Forest, Vignette, Parchment, Linen)
+
+**Reader — Reading**
+- [ ] **Pages mode** (paged, with chapter line on top + page number at bottom, each hideable) alongside Scroll
+- [ ] **Infinite scroll** into the next chapter (Off = chapter ends at its last line with Next waiting)
+- [ ] Tap zones: Bottom only / Top + bottom / Off, and **tap scroll** amount (Short / Half / Full, slider %, keeps last lines visible)
+- [ ] Swipe left/right to change chapter (toggle)
+- [ ] On-screen clock (Off / Top / Bottom)
+- [ ] Chapter length readout: Off / Words / **Time left** (estimated from the reader's own pace)
+- [ ] Toolbar opens on 1 tap / 2 taps
+- [ ] Italic dialogue + drop cap (both toggles; drop cap scroll mode only)
+- [ ] Customizable toolbar buttons
+- [ ] Reload chapter (refetch when text looks wrong); report chapter
+- [ ] Skeleton loading state ("Extracting chapter content…" + tips) instead of a spinner
+
+**Text selection ("hold selection" default action)**
+- [ ] Highlight, Copy, **Translate**, **Quick translate**, **Dictionary**, Speak, Listen from here, Pronounce, Replace
+- [ ] **Term replacement** list (rename a term everywhere — fixes inconsistent MTL/fan-TL names)
+
+**Text-to-speech**
+- [ ] Voice picker (system voices) + premium neural voices (ArcReader: sherpa-onnx, 140 downloadable voices — §22.11)
+- [ ] Speed presets 0.75×–3×
+- [ ] Auto-advance chapters (offline if downloaded, stream otherwise)
+- [ ] Play alongside other apps' audio vs. own lock-screen/headphone controls
+- [ ] Full-screen player option; **tap a paragraph to jump**; dim other paragraphs; follow position Center/Top
+- [ ] Pronunciation text filters
+- [ ] Sentence/paragraph highlight while reading (Yomi today speaks the whole chapter as one utterance)
+
+**Audio experience**
+- [ ] Ambient sounds + background music (start with the reader, shuffle, duck under narration)
+
+**Downloads (novels have none today)**
+- [ ] Download novel chapters / whole novel for offline reading
+- [ ] **Download ahead** (keep next 5/10/20/30 chapters on device as you read)
+- [ ] Remove read chapters (keep last N; keep bookmarked/highlighted)
+- [ ] Auto-download new chapters; Wi-Fi only
+
+**Library / discovery**
+- [ ] "Picking up where you left off" card showing **CH x / total** + % for novels
+- [ ] **Other sources** for the same novel, sorted by chapter count (migrate/global-search per title)
+- [ ] Add a novel by pasting its URL / from an in-app browser ("Add Novel" sheet)
+- [ ] Separate Novels / Books (EPUB import) shelves
+
+**Notifications / community** (lower priority)
+- [ ] Reading reminders + streak nudge, new-chapter and download-complete notifications (some exist — audit)
+- [ ] Per-chapter comments + ratings (ArcReader runs its own Supabase backend — out of scope without a server)
+
+---
+
+## Current state (post S126 — 2026-09-24 · WeTried plugin, Tachimanga chapter selection, novel-library bug)
+
+- New Firebase plugin `wetriedtls.js` (HeanCMS JSON API; v1.0.2 retries search with curly apostrophes) — Martin
+  reads *A Regressor's Tale of Cultivation* there. Copy-URL install (not on the instant-install allowlist).
+- `1f61fdb`: Read before / Select range / Invert on manga + novel detail; bulk mark-read batched.
+- **Bug fixed**: `NovelDetailView.toggleLibrary` upserted a copy, so opening any chapter afterwards
+  (`touchLastReadAt`) wrote `inLibrary=false` back — heart then read silently dropped the novel. Chapters on screen
+  are now persisted on add. Verified against the simulator's `yomi.db`; Martin confirmed Read before on device.
+- ArcReader parity backlog above.
+
+## Prior state (post S124 — 2026-09-24 · Keiyoushi extensions inside Yomi, on-device)
 
 **S124 (2026-09-24) — KEIYOUSHI RUNS INSIDE YOMI ON MARTIN'S iPHONE, no server.** Commits `c3c202b`…`680d9b2`.
 1. **PoC Phase 1 passed** on the iPhone 17 (lab app `Labs/YomiBridgeLab`, table in `KEIYOUSHI_POC.md`). iOS HotSpot
