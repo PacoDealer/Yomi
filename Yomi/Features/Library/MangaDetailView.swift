@@ -300,7 +300,9 @@ struct MangaDetailView: View {
                     }
 
                     // Start / Resume reading button
-                    if !isLoadingChapters && !chapters.isEmpty && canOpenReader {
+                    // Saved chapters are shown while a refresh runs (isLoadingChapters stays true), so gate on
+                    // having chapters, not on the refresh finishing.
+                    if !chapters.isEmpty && canOpenReader {
                         Button {
                             if let ch = resumeChapter {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -363,7 +365,7 @@ struct MangaDetailView: View {
 
             // MARK: Chapters
             Section {
-                if isLoadingChapters {
+                if isLoadingChapters && chapters.isEmpty {
                     HStack {
                         Spacer()
                         ProgressView()
@@ -1180,6 +1182,15 @@ struct MangaDetailView: View {
         let sourceId = manga.sourceId
         let mangaPath = manga.path
         let mangaId = manga.id
+
+        // Library manga: show the saved chapter list at once; every path below refreshes it from the source
+        // (opening took ~470 ms on device and far longer for Keiyoushi sources under the JVM, RESEARCH §23.6).
+        if manga.inLibrary && chapters.isEmpty {
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+            }.value
+            if !saved.isEmpty { chapters = saved }
+        }
 
         // A Suwayomi-sourced manga has no JS plugin at all — its `sourceId` ("suwayomi_{id}") can
         // never match an `ExtensionManager.installed` entry, so it used to fall into the
