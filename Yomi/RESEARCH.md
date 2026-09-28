@@ -23,6 +23,8 @@ This file is the single source of truth for all Yomi research. It replaces all p
 15. [App Store Strategy for Plugin-Based Apps](#15-app-store-strategy-for-plugin-based-apps)
 20. [Competitor Deep-Dive & Architecture Comparison (S114, 2026-08-18)](#20-competitor-deep-dive--architecture-comparison-s114-2026-08-18)
 22. [Direction Reset — Sources, Hosting, Performance, Design, New Competitors (S122, 2026-09-23)](#22-direction-reset--sources-hosting-performance-design-new-competitors-s122-2026-09-23)
+23. [S128 audit + research — reader feel and app smoothness (2026-09-25)](#23-s128-audit--research--reader-feel-and-app-smoothness-2026-09-25)
+24. [Discord community research — Mihon, LNReader, Tachimanga (S130, 2026-09-26/28)](#24-discord-community-research--mihon-lnreader-tachimanga-s130-2026-092628)
 
 ---
 
@@ -1612,6 +1614,100 @@ LNReader reader JS: github.com/lnreader/lnreader `assets/reader/js/core.js`; inf
 cross-chapter continuous scroll). Kingfisher #2058, #1917, Cheat-Sheet wiki (downsampling). Apple Developer Forums
 threads 729491, 775509. Sarunw "display HTML in UILabel/UITextView" (HTML importer main-thread note).
 
+
+## 24. Discord community research — Mihon, LNReader, Tachimanga (S130, 2026-09-26/28)
+
+Source: exports of the three Discord servers (2025-09-26 → 2026-09-26; Mihon `chat` and Tachimanga `chat` only the last
+6 months). **Local only, never commit them** — they are other people's messages. Raw JSON, a compact text copy
+and a full-text index live in `~/discord-exports/` (see its `README.md` for how to search). 185,731 messages: Mihon
+146,859 · LNReader 35,791 · Tachimanga 3,081. Everything below is what people *said* on Discord, not verified elsewhere.
+The export got the Discord account disabled; **do not re-run it** — missing channels are pasted by hand (§24.7).
+
+### 24.1 Competitors doing what Yomi does
+
+- **TachiyomiAZ iOS** (fork maintainer az4521, mostly AI-written): Aidoku's UI + Suwayomi compat layer + an
+  interpreter-only JVM running Mihon `.jar` extensions on iOS — the same approach as Yomi's Keiyoushi runtime. GitHub
+  release `ios-nightly` 2026-09-19 (`az4521/TachiyomiAZ`). He says the Mihon team endorses it; iOS 15+. He also says
+  Aidoku's extension runner is not FOSS, so no fork can reuse Aidoku extensions.
+- **Mihon for iOS (long-term).** Admin Antsy is making the code Kotlin Multiplatform and removing okhttp/injekt from
+  the extension lib ("WebView passed by the context"). Asked whether Mihon iOS will run the `.jar` extensions:
+  "potentially not… I'll have to see if wasm comes first or I finish the app first" (2026-08-15). Patreon post "iOS
+  groundwork" 2026-09-18; moderators insist it is very long-term. **Risk for Yomi:** the `.jar` format may not be the
+  future extension format — keep Yomi's extension layer swappable.
+- **LNReader will not ship iOS.** Its devs own no Apple devices; an old half-working iOS build was never maintained
+  (2025-10 → 2026-04). The iOS slot for an LNReader-plugin novel reader is open.
+
+### 24.2 How Tachimanga works (from its release notes and owner replies)
+
+- Its runtime imitates Android APIs one at a time: build449 added `Bitmap.setPixels`, `Rect.set`, the Protobuf
+  singleton and fixed `VerifyError`/`NoClassDefFoundError`; build506 fixed missing `url` in `WebViewClient`
+  callbacks and custom User-Agents in WebView. Supports extension lib 1.6 (`getMangaUpdate`, one call for manga +
+  chapters). Expect Yomi's runtime to need the same kind of per-API patching.
+- Pushes fixes without an App Store update ("wait a minute for the patch to download and apply").
+- iPad lag (ProMotion, iPad mini A17 Pro) was Flutter's Metal layer — fixed with a Labs toggle + an FPS monitor.
+- Discord automod deletes the word "extension" (staff: to cut down source-support requests).
+- **Backup format:** `.tmb` is a zip containing a plain, unencrypted SQLite `tachimanga.db` (owner, 2026-07-21). It
+  also exports Tachiyomi-format backups. → A "switch from Tachimanga" importer in Yomi is feasible (Madomi has one).
+- Monetization: Premium subscription/lifetime + ads for free users; TestFlight slots only for sponsors/translators or
+  a monthly 100-slot drop.
+
+### 24.3 Tachimanga pain points (517 support/suggestion threads, by title)
+
+| Theme | ~Threads | Notes |
+|---|---|---|
+| Cloudflare / blocked / HTTP errors | 94 | Staff answer: "not an app issue, use a VPN or change the User-Agent" |
+| Premium, purchases, ads | 80 | 18+ ads, ads after paying, restore purchase failing, Premium-gated features |
+| Reader / UI | 52 | iPad lag, wide pages, tap zones |
+| Sync / backup / data loss | 42 | "Sync stuck at 20%", "90% of my library is gone" |
+| Tracking | 24 | AniList outages |
+| Downloads | 23 | "Cannot alloc memory" on iOS 26 |
+
+### 24.4 What iOS users ask for most (Tachimanga `app-suggestions`, by reactions)
+
+1. Hidden / locked categories (90)
+2. One library entry merged across several sources or scanlation groups (68)
+3. MangaBaka tracker (open API) (48)
+4. Updates list grouped by title (38)
+5. Library grouping beyond manual categories (35)
+6. Real positional bookmarks (31)
+7. End-to-end encrypted sync (26)
+8. Exclude a broken source from library updates (25)
+
+Smaller: child mode, keep last N chapters when auto-deleting, scanlator filters, per-title notifications, custom
+User-Agent, other cloud backup targets, border crop, paper-colour whites.
+
+### 24.5 Novel readers (LNReader)
+
+- Pain points: TTS (voices, chunking, repeated paragraphs), backup/restore and v1→v2 migration crashes, **infinite
+  scroll** (several threads — same as Martin's S128 ask), WTR-Lab / NovelUpdates breaking (login or captcha),
+  crashes when offline.
+- Cloudflare advice from contributors: use the WebView's own User-Agent, re-solve the challenge in the WebView, then
+  restart. Some sites (WTR-Lab) expire cookies in ~3 min.
+- Plugins use both cheerio and htmlparser2 directly; contributors say most plugin time is spent in cheerio.
+  **Yomi check:** already bundles real cheerio 1.2.0 + htmlparser2 + dayjs (`Resources/yomi-js-libs.js`), so the
+  §22 fake-cheerio concern is resolved.
+- A contributor's Mihon-based novel fork (`mrissaoussama/mihonnovel`) lists what novel users want: translation
+  (LibreTranslate / AI APIs, auto-translate downloads), a JSON selector-based custom source builder, EPUB
+  import/export, auto-scroll, infinite scroll, TTS, alternative titles, bulk URL import.
+
+### 24.6 Mihon (mostly Android users)
+
+Most-discussed support topics: downloads (2,619 hits), Cloudflare (1,398), crashes (1,320), backup/restore (863),
+storage (780), extension repos (709). Mostly Android-specific (storage access, WebView version), so Tachimanga is the
+better proxy for iOS users. Mihon support will not help with Tachimanga or Aidoku backups.
+
+### 24.7 Gaps — channels not exported (paste by hand if needed)
+
+| Server | Channel | Why |
+|---|---|---|
+| Mihon | Mihon / mihon-updates | Never ran (substitute: `~/discord-exports/github/mihon-releases.md`) |
+| Mihon | Development / dev-app, dev-ext-api, dev-design, dev-image-decoder, dev-website | Forbidden (role-gated) |
+| Mihon | Info / faq, Info / extension-recommendations | Token invalidated when the account was disabled |
+| Mihon | Archive / dev-mihonx, Archive / dev-random | Token invalidated |
+| Tachimanga | app-suggestions | Partial: 319 threads found, export crashed at thread "Monthly , weekly insights" (474 msgs indexed) |
+
+Most useful to paste: **mihon-updates** (Antsy's iOS/extension-API plans) and **Info / faq**.
+
 ---
 
-*End of RESEARCH.md — last compiled S128, 2026-09-25 (§23)*
+*End of RESEARCH.md — last compiled S130, 2026-09-28 (§24)*
