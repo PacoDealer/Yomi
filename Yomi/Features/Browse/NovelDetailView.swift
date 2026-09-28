@@ -867,6 +867,18 @@ struct NovelDetailView: View {
         let path = novel.path
         let sourceId = novel.sourceId
 
+        // Library novels: show the saved chapter list at once and refresh from the source behind it
+        // (the network fetch took 1.7–2 s on device, RESEARCH §23.6).
+        if novel.inLibrary {
+            let saved = await Task.detached(priority: .userInitiated) {
+                (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            }.value
+            if !saved.isEmpty {
+                chapters = saved
+                isLoadingChapters = false
+            }
+        }
+
         // Always resolve a fresh bridge — reusing a bridge from SourceBrowseView risks
         // JSContext thread-safety issues when the context was last used on a different thread.
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
