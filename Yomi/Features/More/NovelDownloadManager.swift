@@ -224,7 +224,7 @@ nonisolated enum NovelDownloadStore {
             let sourceId = novel.sourceId
             if bridges[sourceId] == nil,
                let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
-                bridges[sourceId] = ExtensionManager.shared.bridge(for: ext)
+                bridges[sourceId] = await ExtensionManager.shared.loadBridge(for: ext)
             }
             guard let bridge = bridges[sourceId] else {
                 active = nil

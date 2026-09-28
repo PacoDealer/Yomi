@@ -556,7 +556,7 @@ struct LibraryView: View {
         }.value
         for (manga, unread) in mangasAndChapters {
             guard let ext = installed.first(where: { $0.id == manga.sourceId }),
-                  let bridge = em.bridge(for: ext) else { continue }
+                  let bridge = await em.loadBridge(for: ext) else { continue }
             unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
         }
         withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }

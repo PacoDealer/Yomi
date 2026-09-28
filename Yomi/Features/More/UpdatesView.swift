@@ -174,7 +174,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         // fetch failure, so it isn't reported as one.
         guard let ext else { return false }
 
-        let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
+        let bridge = await ExtensionManager.shared.loadBridge(for: ext)
         let remoteChapters = await Task.detached(priority: .background) {
             return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
         }.value
@@ -244,7 +244,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let ext = allInstalled.first(where: { $0.id == sourceId })
         guard let ext else { return false }
 
-        let bridge = await MainActor.run { ExtensionManager.shared.bridge(for: ext) }
+        let bridge = await ExtensionManager.shared.loadBridge(for: ext)
         let source = await Task.detached(priority: .background) {
             bridge?.parseNovel(path: novelPath)
         }.value

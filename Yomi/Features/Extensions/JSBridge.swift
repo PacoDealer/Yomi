@@ -49,6 +49,11 @@ final class JSBridge {
     // via nonisolated methods — never from the main actor.
     nonisolated(unsafe) private let context: JSContext
 
+    // Bridges are cached per source (ExtensionManager.bridge(for:)), so several screens can share one.
+    // Plugin calls pass results through JS globals (__lnr_result…) across separate evaluateScript calls,
+    // so every public entry point holds this lock to keep one caller's result from leaking into another's.
+    nonisolated private let callLock = NSRecursiveLock()
+
     // Set by getChapterList() for Mangayomi plugins — detail metadata extracted
     // from the same getDetail() call so MangaDetailView can update synopsis/cover/status.
     nonisolated(unsafe) var lastMangayomiMeta: (summary: String?, status: String?, coverURL: URL?)? = nil
@@ -74,6 +79,7 @@ final class JSBridge {
 
     /// true when the loaded script exposes a `plugin` global with `popularNovels` (LNReader format)
     nonisolated var isLNReaderPlugin: Bool {
+        callLock.lock(); defer { callLock.unlock() }
         guard
             let plugin = context.objectForKeyedSubscript("plugin"),
             !plugin.isUndefined, !plugin.isNull,
@@ -85,6 +91,7 @@ final class JSBridge {
 
     /// true when the plugin exposes a Mangayomi-format `source` object (detected by __mangayomiSource global)
     nonisolated var isMangayomiPlugin: Bool {
+        callLock.lock(); defer { callLock.unlock() }
         guard
             let flag = context.objectForKeyedSubscript("__mangayomiSource"),
             !flag.isUndefined, !flag.isNull
@@ -1303,6 +1310,7 @@ final class JSBridge {
     // MARK: - Plugin API — Manga (Format A / C / D)
 
     nonisolated func getMangaList(page: Int, sourceId: String) -> [Manga] {
+        callLock.lock(); defer { callLock.unlock() }
         if isMangayomiPlugin {
             return callMangayomiGetList(method: "getPopular", page: page, sourceId: sourceId)
         }
@@ -1314,6 +1322,7 @@ final class JSBridge {
 
     /// Returns the latest-updated manga list. Returns [] if the plugin doesn't support it.
     nonisolated func getLatestManga(page: Int, sourceId: String) -> [Manga] {
+        callLock.lock(); defer { callLock.unlock() }
         if isMangayomiPlugin {
             guard let methodVal = context.objectForKeyedSubscript("__mgy_latestMethod"),
                   !methodVal.isUndefined, !methodVal.isNull,
@@ -1332,6 +1341,7 @@ final class JSBridge {
 
     /// True if this plugin supports a latest-updates feed.
     nonisolated var supportsLatest: Bool {
+        callLock.lock(); defer { callLock.unlock() }
         if isMangayomiPlugin {
             guard let flag = context.objectForKeyedSubscript("__mgy_hasLatest"),
                   !flag.isUndefined, !flag.isNull else { return false }
@@ -1342,6 +1352,7 @@ final class JSBridge {
     }
 
     nonisolated func getChapterList(mangaPath: String, mangaId: String) -> [Chapter] {
+        callLock.lock(); defer { callLock.unlock() }
         if isMangayomiPlugin {
             context.setObject(mangaPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
             // getDetail → extract chapters in JS to avoid toDictionary() type-cast failures
@@ -1410,6 +1421,7 @@ final class JSBridge {
     }
 
     nonisolated func getPageList(chapterPath: String) -> [String] {
+        callLock.lock(); defer { callLock.unlock() }
         if isMangayomiPlugin {
             context.setObject(chapterPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
             context.evaluateScript("""
@@ -1482,6 +1494,7 @@ final class JSBridge {
     /// Returns the URL string for the chapter's comment/discussion page, or nil if the plugin
     /// doesn't implement `getDiscussionURL(chapterPath)`.
     nonisolated func getDiscussionURL(chapterPath: String) -> URL? {
+        callLock.lock(); defer { callLock.unlock() }
         guard
             let fn = context.objectForKeyedSubscript("getDiscussionURL"),
             !fn.isUndefined, !fn.isNull, fn.isObject
@@ -1504,6 +1517,7 @@ final class JSBridge {
     /// URL segment) can't resolve one. Returns nil rather than guessing; callers should hide the
     /// icon in that case instead of showing a dead link.
     nonisolated func resolveSourceURL(path: String) -> URL? {
+        callLock.lock(); defer { callLock.unlock() }
         guard !path.isEmpty else { return nil }
         if path.hasPrefix("http://") || path.hasPrefix("https://") {
             return URL(string: path)
@@ -1517,6 +1531,7 @@ final class JSBridge {
     // MARK: - Search
 
     nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {
+        callLock.lock(); defer { callLock.unlock() }
         if isLNReaderPlugin { return [] }
         if isMangayomiPlugin {
             context.setObject(query as AnyObject, forKeyedSubscript: "__mgy_q" as NSString)
@@ -1584,7 +1599,8 @@ final class JSBridge {
     /// What the last LNReader plugin call left in `__lnr_result`, for diagnosing an empty result that came with no
     /// error: "undefined" usually means a promise that never settled.
     nonisolated var lastResultSummary: String {
-        context.evaluateScript("""
+        callLock.lock(); defer { callLock.unlock() }
+        return context.evaluateScript("""
         (function(r) {
             if (r === undefined) return 'undefined (promise never settled?)';
             if (r === null) return 'null';
@@ -1596,12 +1612,14 @@ final class JSBridge {
 
     /// Why the last LNReader plugin call failed (a thrown error or rejected promise), if it did.
     nonisolated var lastPluginError: String? {
+        callLock.lock(); defer { callLock.unlock() }
         guard let value = context.objectForKeyedSubscript("__lnr_reject_reason"), !value.isUndefined, !value.isNull
         else { return nil }
         return value.toString()
     }
 
     nonisolated func popularNovels(page: Int) -> [NovelItem] {
+        callLock.lock(); defer { callLock.unlock() }
         context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
         // LNReader popularNovels(page, options) — pass plugin's own filter defaults so
         // t.filters.genres.value / t.filters.type.value don't throw on null.
@@ -1621,6 +1639,7 @@ final class JSBridge {
 
     /// Fetches the latest-updated novel list from an LNReader plugin.
     nonisolated func latestNovels(page: Int) -> [NovelItem] {
+        callLock.lock(); defer { callLock.unlock() }
         context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
         context.evaluateScript("""
         __lnr_opts = {
@@ -1634,6 +1653,7 @@ final class JSBridge {
     }
 
     nonisolated func searchNovels(query: String, page: Int) -> [NovelItem] {
+        callLock.lock(); defer { callLock.unlock() }
         context.setObject(query as AnyObject, forKeyedSubscript: "__lnr_q" as NSString)
         context.setObject(page as AnyObject,  forKeyedSubscript: "__lnr_p" as NSString)
         callPluginMethod("searchNovels", argGlobals: ["__lnr_q", "__lnr_p"])
@@ -1641,6 +1661,7 @@ final class JSBridge {
     }
 
     nonisolated func parseNovel(path: String) -> SourceNovel? {
+        callLock.lock(); defer { callLock.unlock() }
         context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
         callPluginMethod("parseNovel", argGlobals: ["__lnr_path"])
         guard let dict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any] else { return nil }
@@ -1681,6 +1702,7 @@ final class JSBridge {
     }
 
     nonisolated func parseChapter(path: String) -> String {
+        callLock.lock(); defer { callLock.unlock() }
         context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
         callPluginMethod("parseChapter", argGlobals: ["__lnr_path"])
         return context.objectForKeyedSubscript("__lnr_result")?.toString() ?? ""

@@ -1205,7 +1205,7 @@ struct MangaDetailView: View {
 
         isLoadingChapters = true
 
-        let loadedBridge = ExtensionManager.shared.bridge(for: ext)
+        let loadedBridge = await ExtensionManager.shared.loadBridge(for: ext)
         let (loadedChapters, mangayomiMeta) = await Task.detached(priority: .userInitiated) {
             let chapters = loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
             let meta = loadedBridge?.lastMangayomiMeta
