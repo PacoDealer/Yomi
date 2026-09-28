@@ -1631,8 +1631,9 @@ The export got the Discord account disabled; **do not re-run it** — missing ch
   Aidoku's extension runner is not FOSS, so no fork can reuse Aidoku extensions.
 - **Mihon for iOS (long-term).** Admin Antsy is making the code Kotlin Multiplatform and removing okhttp/injekt from
   the extension lib ("WebView passed by the context"). Asked whether Mihon iOS will run the `.jar` extensions:
-  "potentially not… I'll have to see if wasm comes first or I finish the app first" (2026-08-15). Patreon post "iOS
-  groundwork" 2026-09-18; moderators insist it is very long-term. **Risk for Yomi:** the `.jar` format may not be the
+  "potentially not… I'll have to see if wasm comes first or I finish the app first" (2026-08-15). Patreon post
+  "AntsyLetter #2: Designers and iOS groundwork" 2026-08-03 (S131 correction: 2026-09-18 is only when a user asked about
+  it); moderators insist it is very long-term. **Risk for Yomi:** the `.jar` format may not be the
   future extension format — keep Yomi's extension layer swappable.
 - **LNReader will not ship iOS.** Its devs own no Apple devices; an old half-working iOS build was never maintained
   (2025-10 → 2026-04). The iOS slot for an LNReader-plugin novel reader is open.
@@ -1648,6 +1649,13 @@ The export got the Discord account disabled; **do not re-run it** — missing ch
 - Discord automod deletes the word "extension" (staff: to cut down source-support requests).
 - **Backup format:** `.tmb` is a zip containing a plain, unencrypted SQLite `tachimanga.db` (owner, 2026-07-21). It
   also exports Tachiyomi-format backups. → A "switch from Tachimanga" importer in Yomi is feasible (Madomi has one).
+- **2026 roadmap** (`app-dev`, posted 2026-02-18; the owner says it is a vision, not a promise). Done: bulk migration,
+  Liquid Glass, wide-page detection in double-page layout, auto read mode, "smarter updates". Planned: previous chapter
+  when scrolling up, a modern reader UI, **AI reader features** (copy text from pages, in-page translation, AI image
+  upscaling), two-way tracking + auto-bind + importing titles from trackers, better Komga/Kavita/Suwayomi support,
+  background auto-updates, a redesigned updates page, daily/monthly reading stats.
+- Owner (2025-10-28): iOS 26 background downloads stopped on all his devices until he reset the phone — worth
+  remembering if Yomi's background downloads fail on iOS 26.
 - Monetization: Premium subscription/lifetime + ads for free users; TestFlight slots only for sponsors/translators or
   a monthly 100-slot drop.
 
@@ -1696,18 +1704,36 @@ Most-discussed support topics: downloads (2,619 hits), Cloudflare (1,398), crash
 storage (780), extension repos (709). Mostly Android-specific (storage access, WebView version), so Tachimanga is the
 better proxy for iOS users. Mihon support will not help with Tachimanga or Aidoku backups.
 
+**Extension API timeline** (from `mihon-updates`, pasted S131):
+- 2024-02: every repo must ship `repo.json` (`meta.name`, `shortName`, `website`, `signingKeyFingerprint` = SHA-256 of
+  the signing cert, lowercase, no colons). Repos without one are not recognised.
+- 2025-02: the team dropped extensions-lib 1.6 in favour of "MihonX" — not backward compatible, but 1.4 extensions stay
+  supported through a bridge "for a long while".
+- 2026-06-28: **tachiyomix 1.6** released (`mihonapp/tachiyomix`): the source API goes "full coroutines", plus the
+  **tachiyomix index**, a new extension *store* index format (spec: `tachiyomix/tree/1.6.0/index`). **Verified S131:** Keiyoushi's `index.pb`
+  (gunzipped, 696 KB) decodes as this schema's `Index` message: name "Keiyoushi", badgeLabel "KEI", signingKey
+  `9add655a…4da2`, contact website `keiyoushi.github.io`. The schema §22.2 said was missing is
+  `mihonapp/tachiyomix/index/index.proto` (proto3; the spec says hosts must also accept its JSON form, gzip optional). Yomi's Keiyoushi runtime must read this index and host 1.6
+  (suspend-function) sources, not only 1.4.
+- Mihon fetches the chapter list even for manga marked "licensed" (2024-09); an extension that wants to block it must
+  throw.
+- Small idea from `programming` (2026-09-15): Mihon's local source now takes chapter dates from the CBZ's
+  `ComicInfo.xml` (Year/Month/Day) instead of the file's modified date. Yomi's local import could do the same.
+
 ### 24.7 Gaps — channels not exported (paste by hand if needed)
 
 | Server | Channel | Why |
 |---|---|---|
-| Mihon | Mihon / mihon-updates | Never ran (substitute: `~/discord-exports/github/mihon-releases.md`) |
+| Mihon | Mihon / mihon-updates | Pasted by hand S131 → `~/discord-exports/pasted/` (full history, 2024-02 → 2026-08) |
+| Mihon | Mihon / programming | In the index, plus a 2026-09-12→15 paste in `pasted/` |
 | Mihon | Development / dev-app, dev-ext-api, dev-design, dev-image-decoder, dev-website | Forbidden (role-gated) |
 | Mihon | Info / faq, Info / extension-recommendations | Token invalidated when the account was disabled |
 | Mihon | Archive / dev-mihonx, Archive / dev-random | Token invalidated |
 | Tachimanga | app-suggestions | Partial: 319 threads found, export crashed at thread "Monthly , weekly insights" (474 msgs indexed) |
 
-Most useful to paste: **mihon-updates** (Antsy's iOS/extension-API plans) and **Info / faq**.
+Most useful left to paste: **Info / faq**. Tachimanga `app-dev` IS exported, but it only has 4 owner posts after
+2025-09-26; older posts (2023–2025) were outside the export window.
 
 ---
 
-*End of RESEARCH.md — last compiled S130, 2026-09-28 (§24)*
+*End of RESEARCH.md — last compiled S131, 2026-09-28 (§24)*
