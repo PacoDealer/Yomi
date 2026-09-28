@@ -596,11 +596,12 @@ struct NovelDetailView: View {
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
-                if displayedChapters.isEmpty && !chapterSearchText.isEmpty {
+                let shown = displayedChapters
+                if shown.isEmpty && !chapterSearchText.isEmpty {
                     Text("No chapters matching \"\(chapterSearchText)\"")
                         .font(.subheadline).foregroundStyle(.secondary)
                 } else {
-                    ForEach(displayedChapters, id: \.id) { chapter in
+                    ForEach(shown, id: \.id) { chapter in
                         chapterRow(chapter)
                             .id("ch_\(chapter.id)")
                     }
@@ -674,14 +675,8 @@ struct NovelDetailView: View {
                 }
                 NovelChapterRow(chapter: chapter)
                 Spacer(minLength: 0)
-                if downloads.isPending(chapterId: chapter.id) {
-                    ProgressView().controlSize(.mini)
-                } else if downloadedIds.contains(chapter.id) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(canvas.textSecondary)
-                        .accessibilityLabel("Downloaded")
-                }
+                NovelChapterDownloadBadge(chapterId: chapter.id,
+                                          isDownloaded: downloadedIds.contains(chapter.id))
             }
         }
         .buttonStyle(.plain)
@@ -1147,5 +1142,25 @@ private struct NovelChapterRow: View {
                 return b
             }()
         )
+    }
+}
+
+/// The per-row download indicator. It reads the download queue itself so that only the rows re-render while
+/// downloads run (the reader's download-ahead included); reading it in NovelDetailView's body made every queue
+/// change rebuild the whole ~880-row chapter list under the open reader (RESEARCH §23.6).
+private struct NovelChapterDownloadBadge: View {
+    let chapterId: String
+    let isDownloaded: Bool
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        if NovelDownloadManager.shared.isPending(chapterId: chapterId) {
+            ProgressView().controlSize(.mini)
+        } else if isDownloaded {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+                .accessibilityLabel("Downloaded")
+        }
     }
 }
