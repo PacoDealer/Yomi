@@ -187,15 +187,32 @@ final class ExtensionManager {
 
     // MARK: - Bridge
 
-    /// Returns a JSBridge instance for the given installed extension.
-    /// nonisolated so it can be called from Task.detached without actor hopping.
+    /// Returns the shared JSBridge for an installed extension, building it on first use.
+    /// Building one costs ~800 ms on device (new JSContext + ~450 KB of bundled libs, RESEARCH §23.6), so
+    /// callers should reach this off the main actor. Cached per source and rebuilt when the script file
+    /// changes (install/update rewrites it). JSBridge serializes its own calls, so sharing is safe.
     nonisolated func bridge(for ext: Extension) -> JSBridge? {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let localURL = docs
             .appendingPathComponent("Extensions", isDirectory: true)
             .appendingPathComponent("\(ext.id).js")
-        return JSBridge(scriptURL: localURL)
+        let stamp = (try? FileManager.default.attributesOfItem(atPath: localURL.path)[.modificationDate]) as? Date
+        guard let stamp else { return nil }
+        Self.bridgeCacheLock.lock(); defer { Self.bridgeCacheLock.unlock() }
+        if let cached = Self.bridgeCache[ext.id], cached.stamp == stamp { return cached.bridge }
+        guard let built = JSBridge(scriptURL: localURL) else { return nil }
+        Self.bridgeCache[ext.id] = (stamp, built)
+        return built
     }
+
+    /// `bridge(for:)` from a main-actor caller without blocking the UI on a first build.
+    nonisolated func loadBridge(for ext: Extension) async -> JSBridge? {
+        await Task.detached(priority: .userInitiated) { self.bridge(for: ext) }.value
+    }
+
+    // Held while building, so two screens opening the same source build it once.
+    nonisolated private static let bridgeCacheLock = NSLock()
+    nonisolated(unsafe) private static var bridgeCache: [String: (stamp: Date, bridge: JSBridge)] = [:]
 
     // MARK: - Helpers
 

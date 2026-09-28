@@ -283,7 +283,7 @@ private struct ContinueHeroCard: View {
             let mangaId = manga.id
 
             guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
-                  let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
+                  let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return }
 
             let fetchedChapters = await Task.detached(priority: .userInitiated) {
                 bridge.getChapterList(mangaPath: mangaPath, mangaId: mangaId)
@@ -338,7 +338,7 @@ private struct ContinueHeroCard: View {
             guard !chapters.isEmpty else { return }
 
             guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
-                  let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
+                  let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return }
 
             let resumeChapter: NovelChapter?
             if let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 }) {
@@ -471,7 +471,7 @@ private struct ContinueReadingCell: View {
         let mangaId = manga.id
 
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
-              let bridge = ExtensionManager.shared.bridge(for: ext) else { return }
+              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return }
 
         let fetchedChapters = await Task.detached(priority: .userInitiated) {
             bridge.getChapterList(mangaPath: mangaPath, mangaId: mangaId)
@@ -638,7 +638,7 @@ private struct ContinueReadingNovelCell: View {
 
         let bridge: JSBridge?
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
-            bridge = ExtensionManager.shared.bridge(for: ext)
+            bridge = await ExtensionManager.shared.loadBridge(for: ext)
         } else {
             bridge = nil
         }

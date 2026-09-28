@@ -875,7 +875,7 @@ struct NovelDetailView: View {
         // Always resolve a fresh bridge — reusing a bridge from SourceBrowseView risks
         // JSContext thread-safety issues when the context was last used on a different thread.
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
-            bridge = ExtensionManager.shared.bridge(for: ext)
+            bridge = await ExtensionManager.shared.loadBridge(for: ext)
         }
 
         guard let b = bridge else {
