@@ -21,6 +21,18 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S132 — Research audit + UX/UI evidence review (2026-09-29, research only)
+
+Martin (going to sleep): check whether the research was actually applied, re-verify it against trustworthy sources,
+and research UX/UI for novels + manga/manhwa/manhua (reviews, Reddit, GitHub, studies). Output: **RESEARCH.md §25**.
+No code changed; the S128 batch plan below is unchanged (next = step 4 reader controller).
+For Martin to dissect next session — §25.10 ranked list (not scheduled yet):
+1. Reader typography pass (Dynamic-Type default, `max-width` column, paragraph/letter/word spacing, `hyphens`, fonts).
+2. Pages mode for novels (option). 3. First-run setup that does the work + fix stale "More → Plugins" copy.
+4. Accessibility baseline (Dynamic Type, Reduce Motion, overlay a11y). 5. Scheduled local auto-backup + sync status.
+6. Tachimanga `.tmb` + local CBZ/EPUB import. 7. Tachimanga v5 manga-reader parity items. 8. TTS highlight +
+auto-advance. 9. Streak repair. 10. App Store copy per §25.7. 11. XCTHitchMetric gates. 12. Spanish localization.
+
 ## S128 — Martin's field report + plan (2026-09-25)
 
 **Rule for this phase: no fixes until the audit + research are done; then fix everything together** (Martin).

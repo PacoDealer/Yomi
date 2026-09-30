@@ -1,6 +1,8 @@
 # YOMI — Research de diseño, UX/UI y competencia
 _Investigación para decidir la dirección visual. Julio 2026._
 
+> ⚠️ **Auditado S132 (2026-09-29) contra fuentes primarias — ver `RESEARCH.md` §25.1.** Datos que NO se sostienen: "1.5:1" de NN/g (§5, no está en el artículo), "+70 %/89 %" de personalización (§6, son stats de marketing, no de personalización de UI), "41 % más salteadas" y "+20 %/−30 %" (§7, sin fuente), "+60/40/30 %" de gamificación (§9, blogs de vendors). Lo que sí se sostiene y la evidencia nueva está en §25.3–25.5.
+
 ---
 
 ## 0. Resumen ejecutivo (leé esto primero)
