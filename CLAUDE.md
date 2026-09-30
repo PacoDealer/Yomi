@@ -35,9 +35,20 @@ just can't authenticate until filled in.
 
 ## Design track (S82-S95 — all 12 blocks complete)
 
-All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body). Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
+All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body) — *S132: the design said Newsreader, but the code uses Georgia (`TextReaderView.fontFamilyCSS`) and `useSystemFont` defaults on since S122; see RESEARCH §25.2.* Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S127 — 2026-09-25 · novel downloads + download-ahead)
+## Current state (post S132 — 2026-09-29 · research audit + UX/UI evidence review, NO code changes)
+
+**S132** (overnight, Martin asleep) — re-checked all Yomi research against primary sources and extended it:
+**`Yomi/RESEARCH.md` §25** (claims audit table, "was it applied?" table, reading science for novels, manga/manhwa
+evidence, cross-app review/GitHub/Reddit findings, new competitor **Eclipse**, corrected App Store reading, ranked
+recommendations for Martin to dissect). Headlines: several §4/DESIGN_RESEARCH numbers were unsourced or misattributed
+(NN/g "1.5:1", "41 % skipped", "+60 % streaks", personalization stats); App Store "primary purpose" test is DPLA
+§3.3.1(B), not 2.5.2, and Guideline 4.7 now covers JS plug-ins; app has **no Dynamic Type**, no reader `max-width`,
+no `hyphens` with justify, stale onboarding copy ("More → Plugins"). The S128 batch plan (step 4 reader controller)
+is still next; §25.10 is a separate list for Martin to rank.
+
+## Prior state (post S127 — 2026-09-25 · novel downloads + download-ahead)
 
 **S127** — novel chapters download for offline reading (`Features/More/NovelDownloadManager.swift`): files keyed by
 chapter path under `Documents/NovelDownloads/`, no DB column/migration; reader reads local first and keeps the next N

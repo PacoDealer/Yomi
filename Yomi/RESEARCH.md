@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-09-24 (S125 §22.14 novel source ecosystems; S122 §22 direction reset corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-09-29 (S132 §25 audits §4, §5 and design/DESIGN_RESEARCH.md against primary sources — read §25 before trusting any number in §4; S122 §22 corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 
@@ -25,6 +25,7 @@ This file is the single source of truth for all Yomi research. It replaces all p
 22. [Direction Reset — Sources, Hosting, Performance, Design, New Competitors (S122, 2026-09-23)](#22-direction-reset--sources-hosting-performance-design-new-competitors-s122-2026-09-23)
 23. [S128 audit + research — reader feel and app smoothness (2026-09-25)](#23-s128-audit--research--reader-feel-and-app-smoothness-2026-09-25)
 24. [Discord community research — Mihon, LNReader, Tachimanga (S130, 2026-09-26/28)](#24-discord-community-research--mihon-lnreader-tachimanga-s130-2026-092628)
+25. [S132 — Research audit + evidence review: reading science, UX/UI, community, App Store (2026-09-29)](#25-s132--research-audit--evidence-review-reading-science-uxui-community-app-store-2026-09-29)
 
 ---
 
@@ -185,7 +186,7 @@ What users universally want:
 ---
 
 ## 4. UX & Reading Science
-✅ RESEARCHED (S19–S24, 2026-04-14)
+✅ RESEARCHED (S19–S24, 2026-04-14) — ⚠️ **audited S132: several numbers here are unsourced or misread (letter spacing, sepia radiance, #121212). See §25.1 before using this section.**
 
 ### Typography Optima (WCAG-confirmed)
 
@@ -261,7 +262,7 @@ against the live current guideline text — see below)
   - App description clearly states this ✅ (in S33 draft)
 - Yomi's NSFW toggle + isNSFW extension flag is compliant.
 
-### Plugin/Extension System (Guideline 2.5.2) — corrected S104
+### Plugin/Extension System (Guideline 2.5.2) — corrected S104 — ⚠️ re-corrected S132: the "primary purpose" test is in the DPLA §3.3.1(B), not 2.5.2; Guideline 4.7 now covers JS plug-ins (§25.7)
 - Apple does NOT allow third-party plugins that download additional native code.
 - **The old "JavaScriptCore/WebKit named exemption" is stale.** Apple rewrote 2.5.2 engine-agnostic in
   2017 — the current text (fetched live from developer.apple.com, S104) has no named-engine carve-out:
@@ -719,7 +720,7 @@ LNReader plugins are TypeScript → transpiled JS bundles. They run in Yomi's ex
 - **Embedded JVM** running Kotlin extensions: ✅ Tachimanga is on App Store.
 - **Downloading JS scripts at runtime** from user-provided URLs: ✅ Paperback, Yomi do this.
 
-**Guideline 2.5.2** ("Apps should not download, install, or execute code which introduces or changes features or functionality of the app") has a JS/WebKit exemption. The key: scripts must not change the app's **primary purpose** — in Yomi's case the primary purpose IS reading from sources, so adding sources via scripts is consistent with the purpose.
+**Guideline 2.5.2** ("Apps should not download, install, or execute code which introduces or changes features or functionality of the app") has a JS/WebKit exemption. ⚠️ *S132: outdated — no such exemption in current 2.5.2; see §25.7 (DPLA §3.3.1(B) + Guideline 4.7).* The key: scripts must not change the app's **primary purpose** — in Yomi's case the primary purpose IS reading from sources, so adding sources via scripts is consistent with the purpose.
 
 ### How approved apps frame it (language to copy)
 - **Paperback**: "Supports an extensive scripting API using TypeScript/JavaScript to extend app functionality" + "Set up and choose what repos or extensions you'd prefer"
@@ -1736,4 +1737,284 @@ Most useful left to paste: **Info / faq**. Tachimanga `app-dev` IS exported, but
 
 ---
 
-*End of RESEARCH.md — last compiled S131, 2026-09-28 (§24)*
+## 25. S132 — Research audit + evidence review: reading science, UX/UI, community, App Store (2026-09-29)
+
+Martin's ask (overnight, S132): go through all Yomi research, check whether it was actually applied, re-verify every
+claim against real sources (twice, not once; ask who wrote it and why), and extend it with new UX/UI research for
+novels, manga, manhwa and manhua. **Research only — no code changed.** Raw notes (with every URL and quote) were kept
+in the session scratchpad; everything that mattered is here.
+
+**How claims were checked.** Primary source first (the paper, Apple's own page, the App Store API, GitHub's API).
+A claim that only appears in blogs, content farms, or AI-written "statistics" pages is marked UNSOURCED even if many
+pages repeat it. Every source gets its interest noted where it has one (vendor stats, lobby-hosted PDFs, company
+blogs about their own features). Verdicts: ✅ verified · ⚠️ partly true / needs nuance · ❌ wrong, misattributed, or
+unsourced.
+
+### 25.1 Claims audit — what the older docs said vs. what the sources say
+
+| Claim (where) | Verdict | What the source actually says |
+|---|---|---|
+| Font size 16–18 px optimal; Yomi 18 pt ✅ (§4, DESIGN_RESEARCH §7) | ⚠️ | Rello, Pielot & Marcos, CHI 2016 (n=104, eye-tracking): readability and comprehension rise up to 18 pt, best at 18–26 pt — but on a **17-inch desktop monitor** reading Wikipedia; the authors say phones need their own studies. Apple HIG: iOS body default **17 pt**, minimum 11 pt, "for custom and system fonts". 18 pt is a sensible default; the real gap is that it doesn't follow the user's Dynamic Type (§25.2). |
+| 50–75 characters per line, "66 ideal" (§4, DS §4) | ⚠️ | Ranges come from typographers (Bringhurst, Ruder 50–60), not experiments. Experiments disagree: Dyson & Kipping 1998 — 100 CPL read **faster** than 25 CPL; Dyson & Haselgrove 2001 — 55 CPL gave **better comprehension** than 100; Bernard 2002 — 45/76/132 no difference; people *prefer* shorter lines (Dyson 2004 review, *Behaviour & IT*). Honest rule: keep lines ≤ ~75–80 CPL for comfort and comprehension; WCAG 1.4.8 (AAA) says ≤ 80. On a phone Yomi's lines are ~40 CPL (fine); on iPad/landscape they are ~130–150 CPL (too long). |
+| "Lines > 80 chars skipped 41 % more" (DESIGN_RESEARCH §7, attributed to Baymard) | ❌ | Baymard's article (Edward Scott, 2022-05-10) contains no "41 %" — checked the page text. Misattributed, likely AI-generated. Baymard's own 50–75 rests on Emil Ruder + qualitative e-commerce testing, and Baymard sells paid research. |
+| "Good typography = +20 % accuracy, −30 % fatigue" (DESIGN_RESEARCH §7) | ❌ | Only found in blogs citing an unnamed "university research". Unsourced. |
+| Line height 1.4–1.6× "WCAG-confirmed" (§4) | ⚠️ | WCAG 1.4.12 (AA) is a **tolerance** rule: content must survive a user forcing line 1.5×, paragraph 2×, letter 0.12×, word 0.16×. It is not a design target. WCAG 1.4.8 (AAA): "a mechanism is available" for line spacing ≥ 1.5 and paragraph spacing ≥ 1.5× line spacing. Rello 2016: 0.8 and 1.8 marginally worse, 1.0/1.4 fine. Yomi's 1.6 is fine. |
+| "Letter spacing ≥ 0.12× optimal" (§4 table) | ❌ | Misread of WCAG 1.4.12 (see above). The real evidence for letter spacing is Zorzi et al. 2012 *PNAS* (94 dyslexic children, +2.5 pt spacing → faster, more accurate) — a reason to offer a spacing control, not to set it by default. |
+| Sepia "~25 % lower radiance, reduces eye strain" (§4) | ❌ | No primary source found. Sepia is a comfort/preference theme, not a proven eye-health measure. |
+| "#121212 beats pure black for readability" (§4) | ⚠️ | It's Material Design's convention (elevation + avoiding OLED black smear), not a readability study. OLED smear on true black is real (visible on iPhone OLEDs while scrolling). Yomi's AMOLED reader theme is `#0A0A0A` (near-black) — a sensible compromise already. |
+| Dark mode reduces eye strain / saves battery | ⚠️ | Reading performance is **better with dark text on light** (Piepenbrock, Mayr & Buchner 2013/2014, *Ergonomics* / *Human Factors*: better proofreading and acuity, especially at small sizes; replicated in VR by Luzsa & Mayr 2025). Fatigue studies are small and mixed (Sengsoon 2025, n=30: no difference in visual fatigue). Battery: Purdue, MobiSys 2021 — dark mode saves 39–47 % display power at 100 % brightness but only **3–9 %** at typical indoor brightness. Offer dark themes for comfort and night, don't claim health or battery benefits. |
+| Warm/yellow tones help at night | ⚠️ | Fan et al. 2024 *Sensors*: under dark backgrounds, yellow text caused the least fatigue, red the most. But Nagare et al. 2019 (*Lighting Res. & Tech.*): iPad Night Shift **did not** reduce melatonin suppression — brightness matters, colour alone doesn't. Chang et al. 2015 *PNAS* (n=12, full-brightness iPad, 4 h/night) showed e-readers delay sleep vs print. A warm theme is comfort; dimming is what reduces light. |
+| Serif helps long-form reading (DS §4) | ⚠️ | No reliable serif-vs-sans effect on screens. Wallace et al. 2022 *ACM TOCHI* (16 fonts, hundreds of readers): each person's fastest vs slowest font differed by **35 % in reading speed with no comprehension loss**, and the best font differs per person. Supports **font choice**, not a specific serif. |
+| OpenDyslexic as an accessibility font (DS §4) | ❌ as evidence / ✅ as preference | Wery & Diliberto 2017 (*Annals of Dyslexia*), Kuster et al. 2018 (n=170), Rello & Baeza-Yates 2013: no speed/accuracy benefit. Spacing is what helps. Offer it only because some readers prefer it. |
+| Liquid Glass fails at "1.5:1 contrast" (DESIGN_RESEARCH §5, attributed to NN/g) | ❌ number / ✅ gist | NN/g "Liquid Glass Is Cracked, and Usability Suffers in iOS 26" (Raluca Budiu, 2025-10-10) — confirmed: low contrast over images, smaller/crowded targets, controls that move and collapse, tiring animation. **The page contains no "1.5:1".** Apple itself added Settings → Display & Brightness → Liquid Glass **Clear / Tinted** in iOS 26.1 (Nov 2025) for more opacity and contrast. |
+| "70 % expect personalization, 89 % of marketers…" (DESIGN_RESEARCH §6) | ❌ as used | McKinsey 2021 "71 % expect personalized interactions" is about **marketing** (tailored offers, recommendations) — not reader customization. McKinsey sells personalization consulting; the 89 % stat is from a marketing vendor. The case for deep reader customization stands on better evidence: Wallace 2022 (per-person best font), and competitors adding it under demand (Tachimanga v5.0 added custom reading backgrounds). |
+| Streaks +60 %, leaderboards +40 %, badges +30 % (DESIGN_RESEARCH §9) | ❌ | Traced to loyalty-software vendor blogs; no primary data. Real evidence: Duolingo's own blog (company interest, correlational: 7-day streak users 3.6× more likely to finish a course; Streak Wager A/B +14 % day-7 retention) and **Silverman & Barasch 2023, *J. Consumer Research* 49(6)** (7 studies): showing an intact streak increases continued use vs a broken one; the drop after a break is **smaller when people can repair the streak**. |
+| Netflix: 80 % of viewing comes from recommendations (DESIGN_RESEARCH §8) | ✅ but weak analogy | Gomez-Uribe & Hunt 2015 *ACM TMIS* — true. But Netflix has a catalogue and ML on millions of users; Yomi has neither. It doesn't justify an editorial home by itself. |
+| App Store 2.5.2 has a "primary purpose" test (§5, S104) | ❌ corrected | Live Guidelines (updated **June 8, 2026**): 2.5.2 says apps may not "download, install, or execute code which introduces or changes features or functionality of the app" — no primary-purpose wording. The primary-purpose test is in the **Developer Program License Agreement §3.3.1(B)**: interpreted code may be downloaded if it (a) doesn't change the primary purpose, (b) doesn't bypass signing/sandbox/security, (c) doesn't create a storefront for other apps. And Guideline **4.7** now explicitly covers "HTML5 and JavaScript … plug-ins" with duties 4.7.1–4.7.5 (see §25.7). |
+| Tachimanga 4.8★ ~4.9k reviews (DESIGN_RESEARCH §1) | ✅ updated | App Store API 2026-09-29: 4.76★ / 5,396 (US), v5.0 (2026-09-06). |
+| Novel reader uses Newsreader serif (CLAUDE.md design summary) | ❌ doc vs code | `TextReaderView.fontFamilyCSS` uses **Georgia** ("Serif") or `-apple-system`. Newsreader is not bundled. |
+
+### 25.2 Was it applied? — research recommendations vs. the code (checked 2026-09-29, HEAD `ec13d2b`)
+
+| Recommendation (source doc) | In the code? | Where / note |
+|---|---|---|
+| Novel defaults 18 pt / 1.6 line height / Sepia flagship / left-aligned | ✅ | `AppSettings` defaults, `DesignTokens.ReaderDefaults`, `TextReaderView.styledHTML` |
+| Enforce measure (≤ 75–80 CPL) on iPad/landscape (DS §4, DESIGN_RESEARCH §7) | ❌ | `body` has no `max-width`; only 8/16/24 pt side padding. iPad landscape ≈ 130–160 CPL (estimate: ~1,340 pt of text at ~8.5 pt per Georgia character). |
+| Paragraph spacing ≈ 1× font size (DS §4) | ⚠️ | `p { margin: 0 0 0.75em }` |
+| Font choice beyond serif/sans, incl. dyslexia font (DS §4, ArcReader backlog) | ❌ | Georgia vs system only |
+| Letter/word spacing control | ❌ | none (ArcReader backlog item) |
+| Justify option | ✅ but | `novelJustifyText` exists; **no `hyphens:auto`** → justified ~40-CPL phone lines get large word gaps (the one case where justification is known to read worse). |
+| Dynamic Type / Bold Text support (Apple HIG) | ❌ | Zero `dynamicTypeSize`/`UIFontMetrics`/`@ScaledMetric` in the app. 197 `YomiTokens.Font.grotesk(size)` + 38 `.system(size:)` fixed sizes; reader px ignores the system text size. 189 places use text styles (those scale). |
+| Avoid light font weights (HIG) | ⚠️ | `YomiTokens.Font.groteskPS = "SpaceGrotesk-Light"` default instance (only used when `useSystemFont` is off; default is on since S122). |
+| Reduce Motion | ❌ | no `accessibilityReduceMotion` checks; 59 `withAnimation` calls |
+| True black + dark grey themes (§4) | ✅ | Reader: Dark `#1C1C1E`, AMOLED `#0A0A0A`; chrome: Midnight `#000` |
+| Reader contrast ≥ 7:1 (HIG dark-mode page) | ✅ | Computed: Light 17.0, Sepia 14.1, Warm 9.2, Dark 13.9, AMOLED 15.0 |
+| Liquid Glass only on floating chrome, never over text (DESIGN_RESEARCH §5) | ⚠️ | Reader overlay uses glass; the S129 a11y bug (invisible overlay still in the VoiceOver tree) is open. Check under iOS 26.1 **Tinted**, Reduce Transparency, Increase Contrast. |
+| Pages mode for novels (§4 "scroll or paginated") | ❌ | not built (ArcReader backlog) |
+| Estimated time left per chapter (§4) | ❌ | not built |
+| TTS with highlight (§4) | ⚠️ | one utterance per chapter, no highlight (backlog) |
+| Streaks / Insights, gentle (DESIGN_RESEARCH §9) | ✅ | `InsightsView` computes from the local DB (works offline — the Kindle failure mode doesn't apply). No streak repair/freeze. |
+| Reduce first-plugin friction / guided onboarding (DESIGN_RESEARCH §10.6) | ❌ + bug | `OnboardingView` is a 3-card deck that says **"Go to More → Plugins"** — stale since S125 moved Extensions to Browse. No one-tap setup. |
+| Novels as list layout (§4 "List preferred for novels") | ⚠️ | global grid/list toggle, not per type |
+| iCloud sync | ⚠️ | built S103, blocked on paid Developer Program (Known Issue #47) |
+| Volume-button page turn (§2 table) | ❌ | not found |
+| Tachimanga/Tachiyomi import | ⚠️ | `.tachibk` import+export ✅; Tachimanga `.tmb` (zip + SQLite, §24.2) ❌ |
+| Local CBZ/EPUB import | ❌ | OPDS/Komga only |
+
+### 25.3 Reading science for the novel reader — what the evidence supports
+
+1. **Size:** default 18 pt is fine (Apple 17 pt body; Rello 2016 ≥ 18 pt on desktop). Better: start from the
+   user's Dynamic Type body size and scale the reader font with it, so people who set large text system-wide get it
+   in Yomi on first open. Keep the range wide (Apple asks for ≥ 200 % enlargement).
+2. **Line length:** cap the text column (`max-width` ≈ 34–38em, centered) so iPad/landscape lines stay ≤ ~75 CPL;
+   phones are already fine. WCAG 1.4.8 accepts it as a setting, but a sane default cap costs nothing.
+3. **Leading and paragraphs:** 1.4–1.6 is safe; extremes (≤ 1.0, ≥ 1.8) read worse. Offer the spacing presets that
+   exist, add paragraph spacing and letter/word spacing (spacing is the one typographic change with dyslexia evidence).
+4. **Fonts:** no universal best font; individual differences are large (35 %). Offer a curated set (system SF,
+   **New York** — Apple's own serif, reachable in the web view as CSS `ui-serif` — Georgia, a humanist sans, a slab or Literata-style book face,
+   plus OpenDyslexic/Atkinson Hyperlegible for preference) and let users import a font (LNReader #1626 asks for it).
+5. **Justification:** default left-aligned (WCAG 1.4.8); if justified, turn on hyphenation (`hyphens:auto` + the
+   right `lang`), otherwise rivers on narrow phone lines.
+6. **Themes:** keep light/sepia/dark/near-black; add custom colours (Tachimanga v5 did). Light themes read best in lit
+   rooms; dark for night comfort. Don't market any theme as eye-health or battery.
+7. **Scroll vs pages:** a 2026 network meta-analysis (Clinton-Lisell & Litzinger, *Educ. Inf. Technol.*, 56 studies)
+   found paper beats screens **only when scrolling was needed** (g 0.35–0.48); without scrolling, no reliable
+   difference (g 0.03–0.12). Sanchez & Wiley 2009: scrolling hurts comprehension of complex text, mostly for lower
+   working-memory readers. But for **narrative** text (novels) screen reading shows no deficit at all (Schwabe et al.
+   2022, *Media Psychology*, 32 studies; Delgado et al. 2018: narrative g ≈ 0.01). → Infinite scroll is fine for
+   web novels; **Pages mode is still worth building as an option** (it's the evidence-backed choice for dense text).
+8. **Listening:** reading and listening give the same comprehension overall (Clinton-Lisell 2022 *Review of Educ.
+   Research*, 46 studies, g = 0.07; Rogowsky et al. 2016). TTS is a real way to read fiction, not only an
+   accessibility add-on — sentence highlighting (reading-while-listening) and auto-advance matter.
+9. **Night:** offer auto-switch to a dark theme at night and a brightness/dim control; don't claim sleep benefits.
+
+### 25.4 Manga / manhwa / manhua reader — what the evidence and users say
+
+- **Page vs guided vs single-panel:** Chen, Chen & Zheng 2026 (*SAGE Open*, survey n=84 + experiment n=24): guided
+  view helped readers with **low** visual-language fluency; **fluent** comic readers preferred full pages; single-frame
+  was easiest but least beautiful. Yomi's audience is fluent → full page default is right; panel view is an
+  optional extra at most (Panels.app users complain it's unreliable; a Medium critic calls guided view destructive to
+  page composition — opinion).
+- **Reading order:** Cohn 2013 / Cohn & Campbell 2015 (*Applied Cognitive Psychology*) and Kirtley 2023 (eye-tracking):
+  readers follow a Z-path (mirrored in manga) but layout (blockage, gaps, overlaps) changes the order — automatic panel
+  slicing easily gets it wrong.
+- **Long strip (manhwa/manhua):** avoid 1-px seams between stitched images when zooming (Readest #6484); on iPad don't
+  blow small images up to full width (blurry) — offer a max-width / original-size option (older Tachimanga iPad
+  complaint); respect the safe area (WEBTOON 1★: content under the notch).
+- **What readers ask for (GitHub 👍, 2026-09-29):** Mihon — cross-device sync (52), double page (30), multiple sources
+  for one title (15), two-way tracker sync (14), and a **performance regression** issue (13: "update negatively
+  impacted the reader's fluidity"). Komikku — MangaBaka tracker (16), merged series (14), smarter duplicate-chapter
+  skipping across scanlators (13), web-page-like navigation in long strip (10), e-reader mode without animations (8).
+  Paperback — scroll into next chapter (9), ProMotion 120 Hz (3). Aidoku — iCloud sync status icon (10), automatic
+  backups (8), auto-download new chapters (7). Tachimanga Discord (§24.4) — hidden/locked categories (90), one entry
+  across sources (68), MangaBaka (48).
+- **Tachimanga v5.0 (2026-09-06)** shipped: MangaUpdates/Bangumi/MangaBaka trackers, Komga/Kavita/Suwayomi tracking,
+  custom reading backgrounds, **separate tap zones for paged vs webtoon**, press-and-hold scroll with swipe speed
+  control. That's the current bar on iOS.
+
+### 25.5 What people love and hate — across apps (App Store reviews, GitHub, Reddit, Discord §24)
+
+Review mining: Apple's public review feed, "most helpful", ≤ 200 per app, US only — a biased sample (loud users,
+one country), useful for themes, not percentages.
+
+**Five cross-app laws** (each seen in 3+ unrelated apps):
+1. **Don't churn the UI.** The most-upvoted Kindle review (367/385 helpful) is about a forced redesign; MANGA Plus
+   ("Please change back the Browse screen"), WEBTOON ("New UI is not the move", "App overhaul 👎"), Apple Books ("GIVE US
+   THE OLD VERSION BACK"), Panels ("continuously making unnecessary changes"). Yomi has changed Browse/design several
+   times — before 1.0 that's fine; after release, move things rarely and keep old habits working.
+2. **Never paywall what used to be free.** Tachimanga (10 downloads/day, auto-delete behind Premium, confirm on every
+   delete), Panels ("continue to next comic" moved to paid), Royal Road (downloads paywalled + noisy ads).
+3. **Never lose the library.** Apple Books' top complaint is items vanishing with sync (70/116 helpful); Panels
+   "downloads broke with 75 GB"; Tachimanga Discord "90 % of my library is gone". Automatic local backups + clear sync
+   status (Aidoku #510) are trust features.
+4. **Slowness after updates kills goodwill.** Tachimanga v4.4 and v4.20 reviews ("pages take 30 s", "used to be the
+   best, now it's slow"), Mihon #3017, Royal Road "slower than a snail". Same as Martin's S128 report.
+5. **Empty-shell setup is where extension readers lose people.** Paperback (4.29★): "setup instructions terrible",
+   "requires Discord for instructions", "repos don't work". Tachimanga 5★ reviews still say "after setup" and "looked
+   up a tutorial on YT". Eclipse users: "every repo I tried says unavailable".
+
+**What gets praised:** a reader that "just works" after setup, offline downloads, trackers, collections/categories,
+smooth transitions ("the transition and the vibe is really clean and seamless" — Eclipse thread), no intrusive ads
+(ads only at launch), free sync. Novel readers: paste-a-link import ("adding novels I've had open in my browser has
+been pretty breezy" — ArcReader thread), clean chapter text (garbled HTML is a top complaint), voices beyond US English,
+choosing translation groups, removing sources. Kindle: a reading streak lost after a day offline earns a 1★.
+
+### 25.6 Competitor updates (App Store lookup API, 2026-09-29)
+
+- **Eclipse – Manga Reader** — **new, not in earlier docs.** App Store id6779430885, seller Vratislav Vacula, released
+  2026-06-18, v3.1 (2026-09-17), 4.45★/11, **93 MB**, iOS 16.4+, free + one-time "Pro" support purchase. Reddit launch
+  post r/mangapiracy `1v4sucd` (301 votes/200 comments): runs "Tachiyomi/Mihon repos", free iCloud sync, Komga/OPDS/local,
+  stats, backups to/from Android readers, "not vibe coded… 8 months" (dev says AI helped). Complaints: Keiyoushi
+  sources fail Cloudflare where Tachimanga works; first-time users confused adding repos; crash importing a Tachimanga
+  backup. **How it runs Mihon extensions is UNVERIFIED** (93 MB suggests no embedded JVM). Its App Store description never
+  mentions sources — only local files, Komga, backups, sync.
+- **Tachimanga** v5.0, 4.76★/5,396, 229 MB; App Store description also mentions only ZIP/CBZ/EPUB + Komga.
+- **Readest** (open-source e-reader) is on iOS: 4.52★/180. **Moon+ Reader** appeared on iOS (2026-08, 2 ratings).
+- **Paperback** App Store build last updated 2025-02-28 (19 months stale), 4.29★/636.
+- ArcReader v1.2.4 (2026-09-29), 4.9★/40; Madomi 444 MB, 3.41★/22.
+- Official apps for context: WEBTOON 4.77★/511k, Shonen Jump 4.89★/260k, MANGA Plus **3.81★** (slow, redesigns, can't
+  see which titles have new chapters).
+
+### 25.7 App Store — corrected reading of the rules (live text, 2026-09-29)
+
+- Cite **DPLA §3.3.1(B)** (interpreted code: same primary purpose, no security bypass, no storefront) and **Guideline
+  4.7** (JavaScript plug-ins allowed, developer responsible) — not a "primary purpose" clause in 2.5.2, which doesn't
+  exist in the current text.
+- **4.7 duties** if Yomi "offers" plug-ins: 4.7.1 privacy + a way to filter/report objectionable content; 4.7.2 no
+  exposing native platform APIs to the plug-in without Apple's permission (JSBridge exposes fetch/cookies/WebView —
+  arguably not "native platform APIs", but note it); 4.7.3 no sharing data/permissions without per-use consent; 4.7.4 an
+  index of the software with universal links; 4.7.5 identify software above the app's age rating + age gate (NSFW
+  sources). Whether user-added repos count as "offered in your app" is unclear; Yomi's own first-party catalog clearly
+  does.
+- **4.2.3(ii):** if the app must download resources to work on first launch, show the size and ask first (relevant to
+  the Keiyoushi runtime and neural TTS voices).
+- **2.1(a):** the reviewer must see a working app. Tachimanga and Eclipse both describe themselves as local-file/Komga
+  readers with backup import — they don't show a source browser as the pitch. Yomi's App Store description and review
+  notes should follow that pattern (local files + OPDS/Komga + backups first).
+- 5.2.2 (third-party content permission) is unchanged — still the real legal exposure (§5).
+
+### 25.8 General mobile UX and performance
+
+- **Onboarding:** NN/g ("Onboarding Tutorials vs. Contextual Help", "Mobile Tutorials: Wasted Effort?") — deck-of-cards
+  tutorials get skipped and forgotten; contextual tips at the moment of need work better. For Yomi the bigger issue is
+  §25.5 law 5: onboarding should *do* the first setup (add a starting repo/source list with one tap, or import a backup /
+  local files), not describe where the settings are.
+- **Touch:** Hoober 2013 (1,333 observations): 49 % one-handed, 36 % cradled, 15 % two thumbs; Hoober 2017: grips
+  change constantly and people are most accurate in the **center** — static "thumb zone" maps oversimplify. Keep the
+  center tap for the menu, large side zones, no tiny corner targets.
+- **Perceived speed:** skeleton screens vs spinners is mixed (Mejtoft et al. 2018 ECCE: skeletons felt faster; Viget
+  2017: skeletons felt slowest). The uncontroversial fix is showing cached content instantly (S131 step 3 did this for
+  detail screens).
+- **Apple's budgets** (WWDC transcripts): hitch time ratio < 5 ms/s good, 5–10 noticeable, > 10 critical (WWDC20 10077);
+  first frame at launch within 400 ms (WWDC19 423); `XCTHitchMetric` can gate UI tests (WWDC25 247). Use these as
+  pass/fail numbers when step 6 re-measures.
+- **iOS 26.1 Liquid Glass Tinted** exists because Clear hurt legibility — test Yomi's glass in both modes.
+
+### 25.9 Things Martin didn't ask about that matter
+
+1. **Dynamic Type is missing app-wide** (§25.2). Apple asks for it for custom fonts too; low-vision users and anyone
+   with larger system text get a fixed-size app. Reader font should start from it.
+2. **Reduce Motion and the invisible overlay in the VoiceOver tree** — accessibility debt in the reader.
+3. **Stale onboarding copy** ("More → Plugins") — a new user's first instruction points to a screen that moved.
+4. **Spanish localization.** Martin is Argentine; there are no `.xcstrings`/`.lproj` files. Localizing is also an App
+   Store discoverability lever (separate metadata per locale). UNVERIFIED: size of the effect for this category.
+5. **Library safety:** automatic local backups on a schedule + visible sync status, before CloudKit ships.
+6. **Import from Tachimanga (`.tmb` = zip + SQLite, §24.2) and local CBZ/EPUB** — Eclipse users ask for exactly this,
+   and it gives App Review a working app without any source.
+7. **Performance as a release gate** (Apple budgets above) — slowness after updates is the #4 cross-app complaint.
+8. **Legal:** the community itself warns "be careful including sources within the app instead of users importing
+   themselves since many manga apps have gotten popped" (ArcReader thread). Keep sources user-added.
+
+### 25.10 Ranked recommendations (for Martin to dissect next session — none implemented)
+
+Ordered by evidence strength × impact. Batch-pass items already planned in the S128 plan (reader controller,
+infinite scroll, swipe, tap fixes) are not repeated.
+
+1. **Reader typography pass:** Dynamic-Type-based default size; `max-width` column cap; paragraph spacing control;
+   letter/word spacing; `hyphens:auto` when justified; fonts: add New York + a few curated faces + import; fix the
+   CLAUDE.md "Newsreader" claim.
+2. **Pages mode for novels** as an option next to scroll/infinite scroll (§25.3.7).
+3. **First-run setup that does the work** (one-tap starter repo/list, backup import, local files) + fix the stale copy.
+4. **Accessibility baseline:** Dynamic Type in chrome (text styles or `relativeTo:`), Reduce Motion, overlay out of
+   the a11y tree, test under Liquid Glass Tinted / Increase Contrast.
+5. **Library safety:** scheduled local auto-backup + sync status.
+6. **Imports:** Tachimanga `.tmb`, local CBZ/EPUB (also the App Review story).
+7. **Manga reader parity with Tachimanga v5:** separate tap zones per mode, press-and-hold scroll, custom backgrounds,
+   long-strip max width on iPad, seam-free stitching.
+8. **TTS upgrade:** sentence highlight + auto-advance (evidence: listening ≈ reading).
+9. **Streak repair** (Silverman & Barasch) — keep streaks opt-in and quiet.
+10. **App Store copy + review notes** per §25.7 (local/Komga/backups framing; DPLA 3.3.1(B) + 4.7 wording).
+11. **Performance gates** in UI tests (XCTHitchMetric < 5 ms/s on reader scroll).
+12. **Spanish localization.**
+
+### 25.11 Still unverified / open
+
+- How Eclipse runs Mihon extensions; whether its "Tachiyomi/Mihon repos" support is on-device.
+- Whether user-added repos fall under Guideline 4.7's "software offered in your app".
+- Reading-while-listening meta-analysis (Clinton-Lisell, UND commons `ehb-fac/75`) — effect size not read.
+- Exact Instruments hang thresholds (≥ 250 ms hang) — not re-verified this session.
+- Reddit coverage is thin this session: old.reddit needs login in a private window, and new-Reddit pages load
+  comments lazily. Two threads read in full (Eclipse `1v4sucd`, ArcReader `1uzjuk8`); the rest comes from App Store
+  reviews, GitHub, and the §24 Discord exports.
+- `last30days` skill not used — it needs its interactive first-run setup (Martin's consent).
+
+### 25.12 Sources (primary first)
+
+Papers: Rello, Pielot & Marcos 2016 CHI "Make It Big!" (pielot.org/pubs/Rello2016-Fontsize.pdf) · Dyson 2004
+"How physical text layout affects reading from screen", *Behaviour & IT* 23(6) · Dyson & Haselgrove 2001 *IJHCS* ·
+Wallace et al. 2022 *ACM TOCHI* doi:10.1145/3502222 · Piepenbrock, Mayr, Mund & Buchner 2013 *Ergonomics* (PMID
+23654206); Piepenbrock, Mayr & Buchner 2014 *Human Factors* doi:10.1177/0018720813515509 · Luzsa & Mayr 2025 *Ergonomics*
+doi:10.1080/00140139.2025.2457470 · Sengsoon & Intaruk 2025 *IJERPH* doi:10.3390/ijerph22040609 · Fan et al. 2024
+*Sensors* doi:10.3390/s24113516 · Dash & Hu 2021 MobiSys "How much battery does dark mode save?" doi:10.1145/3458864.3467682 ·
+Chang et al. 2015 *PNAS* doi:10.1073/pnas.1418490112 · Nagare, Plitnick & Figueiro 2019 *Lighting Res. & Tech.* (PMID
+31191118) · Wery & Diliberto 2017 *Annals of Dyslexia* (PMID 26993270) · Kuster et al. 2018 *Annals of Dyslexia* ·
+Zorzi et al. 2012 *PNAS* doi:10.1073/pnas.1205566109 · Trollip & Sales 1986 *Human Factors* · Delgado et al. 2018
+*Educ. Research Review* 25:23–38 · Schwabe et al. 2022 *Media Psychology* doi:10.1080/15213269.2022.2070216 ·
+Clinton-Lisell & Litzinger 2026 *Educ. Inf. Technol.* doi:10.1007/s10639-025-13843-8 · Sanchez & Wiley 2009 *Human
+Factors* doi:10.1177/0018720809352788 (note: a public PDF copy is hosted by Two Sides NA, a paper-industry group) ·
+Clinton-Lisell 2022 *Review of Educ. Research* doi:10.3102/00346543211060871 · Rogowsky, Calhoun & Tallal 2016 *SAGE
+Open* doi:10.1177/2158244016669550 · Chen, Chen & Zheng 2026 *SAGE Open* doi:10.1177/21582440261416099 · Cohn 2013
+*Frontiers in Psychology*; Cohn & Campbell 2015 *ACP* doi:10.1002/acp.3086; Kirtley 2023 *ACP* doi:10.1002/acp.4018 ·
+Henchobdee & Teeravarunyou AHFE 2022 · Silverman & Barasch 2023 *J. Consumer Research* 49(6):1095 · Gomez-Uribe & Hunt
+2015 *ACM TMIS* doi:10.1145/2843948 · Mejtoft, Långström & Söderström 2018 ECCE doi:10.1145/3232078.3232086.
+
+Standards / platform: Apple HIG Typography, Dark Mode, Accessibility (developer.apple.com JSON, fetched 2026-09-29) ·
+WCAG 2.2 Understanding 1.4.8 and 1.4.12 (w3.org) · App Review Guidelines (updated 2026-06-08) · Apple Developer
+Program License Agreement §3.3.1(B) (current PDF) · Apple docs: `TranslationSession` (iOS 18+),
+`AVSpeechSynthesizer.PersonalVoiceAuthorizationStatus` (iOS 17+) · WWDC19 423, WWDC20 10076/10077, WWDC23 10248,
+WWDC25 247.
+
+Industry / UX (interest noted): NN/g — Budiu 2025 "Liquid Glass Is Cracked"; "Onboarding Tutorials vs. Contextual
+Help"; "Mobile Tutorials" (UX consultancy) · Hoober 2013 (A List Apart/UXmatters), 2017 "Design for Fingers, Touch,
+and People" (UXmatters) · Baymard 2022 line length (sells research) · McKinsey 2021 personalization (sells
+consulting) · Duolingo blog on streaks (own product) · MacRumors/Engadget/TechCrunch on iOS 26.1 Liquid Glass toggle.
+
+Community / data: App Store Search & Lookup API and customer-review RSS (2026-09-29) for Tachimanga, Eclipse,
+ArcReader, Madomi, Paperback, MANGA Plus, WEBTOON, Panels, Apple Books, Kindle, Royal Road, WebNovel · GitHub issue
+search sorted by 👍 for mihonapp/mihon, Aidoku/Aidoku, LNReader/lnreader, readest/readest, koreader/koreader,
+KotatsuApp/Kotatsu, komikku-app/komikku, kodjodevf/mangayomi, Paperback-iOS/app · Reddit r/mangapiracy `1v4sucd`
+(Eclipse launch) and `1uzjuk8` (ArcReader launch) · Discord exports (§24).
+
+---
+
+*End of RESEARCH.md — last compiled S132, 2026-09-29 (§25)*
