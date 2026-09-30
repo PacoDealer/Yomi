@@ -45,7 +45,9 @@ evidence, cross-app review/GitHub/Reddit findings, new competitor **Eclipse**, c
 recommendations for Martin to dissect). Headlines: several §4/DESIGN_RESEARCH numbers were unsourced or misattributed
 (NN/g "1.5:1", "41 % skipped", "+60 % streaks", personalization stats); App Store "primary purpose" test is DPLA
 §3.3.1(B), not 2.5.2, and Guideline 4.7 now covers JS plug-ins; app has **no Dynamic Type**, no reader `max-width`,
-no `hyphens` with justify, stale onboarding copy ("More → Plugins"). The S128 batch plan (step 4 reader controller)
+no `hyphens` with justify, stale onboarding copy ("More → Plugins"). Part 2 (§25.13, Reddit): Lipex already runs
+LNReader repos on the App Store; Keiyoushi officially supports only Android apps; bulk migration + lockable SFW mode
+moved up; volume-button page turns violate Guideline 2.5.9. The S128 batch plan (step 4 reader controller)
 is still next; §25.10 is a separate list for Martin to rank.
 
 ## Prior state (post S127 — 2026-09-25 · novel downloads + download-ahead)

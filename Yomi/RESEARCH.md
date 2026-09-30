@@ -152,7 +152,7 @@ What users universally want:
 | Scanlator filter | ✅ Implemented S39 |
 | iCloud sync | ❌ Not yet (future) |
 | Home screen widget | ❌ Not yet (future) |
-| Volume button page-turn | ❌ Not yet (future) |
+| Volume button page-turn | ❌ Not yet (future) — ⚠️ *S132: drop it; Guideline 2.5.9 rejects apps that alter the volume buttons (§25.13)* |
 | OPDS client (Kavita/Komga) | ❌ Not yet (future) |
 
 ---
@@ -1637,7 +1637,8 @@ The export got the Discord account disabled; **do not re-run it** — missing ch
   it); moderators insist it is very long-term. **Risk for Yomi:** the `.jar` format may not be the
   future extension format — keep Yomi's extension layer swappable.
 - **LNReader will not ship iOS.** Its devs own no Apple devices; an old half-working iOS build was never maintained
-  (2025-10 → 2026-04). The iOS slot for an LNReader-plugin novel reader is open.
+  (2025-10 → 2026-04). The iOS slot for an LNReader-plugin novel reader is open. ⚠️ *S132: no longer — Lipex (App Store,
+  2026-07) and Buny (TestFlight) now run LNReader-style repos on iOS; see §25.13.*
 
 ### 24.2 How Tachimanga works (from its release notes and owner replies)
 
@@ -1881,6 +1882,7 @@ choosing translation groups, removing sources. Kindle: a reading streak lost aft
 
 ### 25.6 Competitor updates (App Store lookup API, 2026-09-29)
 
+- **Novel readers — see §25.13:** Lipex (App Store, LNReader repos) and Buny (TestFlight) launched July 2026.
 - **Eclipse – Manga Reader** — **new, not in earlier docs.** App Store id6779430885, seller Vratislav Vacula, released
   2026-06-18, v3.1 (2026-09-17), 4.45★/11, **93 MB**, iOS 16.4+, free + one-time "Pro" support purchase. Reddit launch
   post r/mangapiracy `1v4sucd` (301 votes/200 comments): runs "Tachiyomi/Mihon repos", free iCloud sync, Komga/OPDS/local,
@@ -1947,6 +1949,9 @@ choosing translation groups, removing sources. Kindle: a reading streak lost aft
 
 ### 25.10 Ranked recommendations (for Martin to dissect next session — none implemented)
 
+*Updated by §25.13 (Reddit part 2): bulk migration + multi-source moves to #3, a lockable SFW mode to #5, and
+volume-button page turns are dropped (Guideline 2.5.9).*
+
 Ordered by evidence strength × impact. Batch-pass items already planned in the S128 plan (reader controller,
 infinite scroll, swipe, tap fixes) are not repeated.
 
@@ -1973,9 +1978,9 @@ infinite scroll, swipe, tap fixes) are not repeated.
 - Whether user-added repos fall under Guideline 4.7's "software offered in your app".
 - Reading-while-listening meta-analysis (Clinton-Lisell, UND commons `ehb-fac/75`) — effect size not read.
 - Exact Instruments hang thresholds (≥ 250 ms hang) — not re-verified this session.
-- Reddit coverage is thin this session: old.reddit needs login in a private window, and new-Reddit pages load
-  comments lazily. Two threads read in full (Eclipse `1v4sucd`, ArcReader `1uzjuk8`); the rest comes from App Store
-  reviews, GitHub, and the §24 Discord exports.
+- Reddit: covered in §25.13 (part 2, 18 threads read in full via old.reddit). Not covered: r/LightNovels,
+  r/noveltranslations, r/manga, r/manhwa at the same depth.
+- How Lipex and Buny run LNReader plugins (JavaScriptCore? WebView?) and how Mangra runs Mihon extensions.
 - `last30days` skill not used — it needs its interactive first-run setup (Martin's consent).
 
 ### 25.12 Sources (primary first)
@@ -2013,7 +2018,117 @@ Community / data: App Store Search & Lookup API and customer-review RSS (2026-09
 ArcReader, Madomi, Paperback, MANGA Plus, WEBTOON, Panels, Apple Books, Kindle, Royal Road, WebNovel · GitHub issue
 search sorted by 👍 for mihonapp/mihon, Aidoku/Aidoku, LNReader/lnreader, readest/readest, koreader/koreader,
 KotatsuApp/Kotatsu, komikku-app/komikku, kodjodevf/mangayomi, Paperback-iOS/app · Reddit r/mangapiracy `1v4sucd`
-(Eclipse launch) and `1uzjuk8` (ArcReader launch) · Discord exports (§24).
+(Eclipse launch) and `1uzjuk8` (ArcReader launch) · Discord exports (§24). Part 2 (§25.13): r/mangapiracy `1qi3occ`,
+`1s9ez7u`, `1va6lco`, `1v6cke5`, `1vcumoa`, `1uxms9y`, `1tnchbj`, `1j0ns1z`, `1rpb688`, `1v6n5vz`, `1t22o3x`, `1wm7nue`,
+`1wmtg2f`, `1wobnvr`, `1wajeog`, `1w52d59`, `1wqg7sb`, `1wi04gj`, `1wfmf2r`; r/Piracy `1sarlv7`, `1w8wju8` ·
+github/dmca `2026/03/2026-03-23-fakku.md`, `2026/07/2026-07-07-ridi-corporation.md`, `2026/08/2026-08-24-ridi.md` ·
+TuMangaOnline raid: elchapuzasinformatico.com (2026-04), en.wikipedia.org/wiki/TuMangaOnline · App Store Lookup API for
+Lipex (id6789770915) and Mangra (id6502868308).
+
+### 25.13 Reddit deep-dive — r/mangapiracy and r/Piracy (S132 part 2, 2026-09-29)
+
+Martin asked for Reddit specifically. Read through old.reddit in a regular (logged-in) Firefox window — the private
+window needed a login. Sampled: r/mangapiracy search "ios" (top of all time, ~100 threads), r/mangapiracy top of the
+last month (~100 threads), r/Piracy search "manga reader ios", and 18 threads read in full. Reddit users and app
+developers posting their own apps are not neutral sources — self-promotion is marked. Anything legal was checked
+outside Reddit.
+
+**What changes Yomi's strategy**
+
+1. **The "LNReader on iOS" gap is closing — two App-Store-style competitors appeared in July 2026.**
+   - **Lipex Light Novel Reader** (App Store id6789770915, solo dev, released 2026-07-17, v1.28 on 2026-08-31, 5.0★/9,
+     63 MB, free + cosmetic Pro subscription). Runs **LNReader plugin repos** ("the app ships empty and you connect the
+     community repos you want"; users are pointed to lnreader.app/plugins). Has themes, fonts, custom colours, a photo
+     behind the text, streaks/goals/home-screen widget/monthly "Wrapped" recap, offline + **EPUB export**, AniList/MAL/
+     Kitsu/MangaUpdates, natural-voice TTS, 35 languages, iPad with a **reader-width control**, in-app Cloudflare
+     verification. Its App Store description only says "Import and read light novels in EPUB format". Launch
+     `1v6cke5` (2026-07-25) and update `1vcumoa` (2026-08).
+   - **Buny** (buny.app, `1uxms9y`, 2026-07-15): "similar to LN-Reader", EPUB/PDF, iCloud sync, external sources, Kavita,
+     trackers — TestFlight via Discord, not App Store.
+   - → §24.1's "the iOS slot for an LNReader-plugin novel reader is open" is **no longer true**. Yomi's remaining
+     unique position is **manga + manhwa + novels in one polished app**, not "the only LNReader on iOS".
+2. **Keiyoushi officially supports only Android apps** (Keiyoushi Discord notice, last edited 2026-07-29, quoted in
+   `1va6lco`): extensions "fully dropped compatibility with outdated apps"; supported = Mihon, TachiyomiSY, Komikku;
+   Suwayomi "isn't compatible but v2.3.2243 should be able to view & access most"; everything else shows
+   "Obsolete"/"Orphaned". Tachimanga users broke until Tachimanga shipped an update. Also (`1w52d59`, 2026-09): mass
+   updates of 41 extensions at once to fix version numbers, and users stuck on "pending update" because the same repo
+   was added twice (the "yuzono" repo now points at Keiyoushi). → Yomi's Keiyoushi runtime must follow extension-lib
+   updates (1.6 / tachiyomix, §24.6) or every extension goes Obsolete overnight; and Yomi should **detect duplicate
+   repos** (same `repo.json` signing key / index name).
+3. **Source death is the #1 recurring event, and migration is the pain.** Bato (gone Jan 2026, revived as XBatCat —
+   `1qi3occ`, 809 pts, 851 comments), Comick, MangaDex purges (`1wajeog`: licensed series removed, only "release by
+   official publisher, Manga Plus" left; uploads revoked after DMCA `1wpqkjh`), Comix outages (6 threads in one month),
+   Tapas shutting down, TMO (Spanish) raided. Users: "Migrating out my 250+ list on Bato right is so ass", "90 % of my
+   library was Bato", people migrating 800–1,083 titles alphabetically by hand, "That's why I use multiple sources
+   after that". Yomi's `MigrateView` moves **one title at a time**. → **Bulk migration** ("move everything from source
+   X", auto-match by title, review list) and **more than one source per title** (Mihon #1837, Komikku merged series,
+   Tachimanga suggestion #2) are survival features, not extras.
+4. **Many iOS users fail at "add a repo".** "The whole extension repo thing doesn't work for me… it's tooooo
+   stressful" (`1wmtg2f`, 2026-09-21); a user whose all-in-one scraper app vanished from the App Store asks what to use
+   now; Eclipse and Lipex users ask "what repository can I use?". Confirms §25.5 law 5.
+5. **Parents want a lockable safe mode.** `1v6n5vz` (62 comments, iOS): Tachimanga's NSFW toggle "can't filter out
+   everything for sites that have the usual shonen manga mixed with other smut"; Comix filters by default "but you
+   can't lock it in". `1wi04gj` "Kids Friendly Mihon" (`ShakeyHands91/Kodomo`): an allow-list of 25 extensions —
+   **licensed publishers** (MANGA Plus, VIZ, K Manga, Manga UP!, Comikey, Mangamo, Comics Kingdom), official game comics,
+   free webcomics — because Mihon Nightly's new per-extension age-rating switch "is very easily turned off by a 10
+   year old". → A **PIN/Face ID-locked SFW mode with an allow-list**; the same "official & free sources" list is also
+   the safest default catalog to show App Review (§25.7, Guideline 4.7.5).
+6. **Legal climate hardened in 2026 (verified outside Reddit).**
+   - **TuMangaOnline (TMO)**, the largest Spanish-language manga site since 2014, dismantled by Spain's Policía
+     Nacional (announced 2026-04-22): 3 arrests in Almería, investigation since June 2025 driven by Korea's COA
+     (representing Kakao/Webtoon), >€400k in crypto seized (elchapuzasinformatico.com, Wikipedia "TuMangaOnline").
+     Relevant to Martin: Spanish-language sources are an active enforcement target.
+   - **FAKKU (via Remove Your Media LLC) DMCA to GitHub, 2026-03-23** (`github/dmca/2026/03/2026-03-23-fakku.md`, read):
+     §1201 notice against the **self-hosted readers** LANraragi and happypandax ("server software for managing downloaded
+     pirated content") and parts of gallery-dl. GitHub found no valid anti-circumvention claim but "other valid copyright
+     claim(s)". → Being "just a reader" is not a shield when the project ships plugins/metadata fetchers aimed at piracy
+     sites — Yomi's first-party catalog of scanlation sites (§5, S104) is the exposed part.
+   - RIDI's 2026-07-07 and 2026-08-24 GitHub notices targeted DRM removers only.
+   - Community's own read: shutdowns are driven by Korean publishers (Kakao); "Just don't try to monetize it, as soon
+     as money is involved these type of projects get DMCA'd pretty quickly" (ArcReader thread).
+7. **Volume-button page turns are not allowed on the App Store.** ArcReader added them on Android only ("iOS gives apps
+   no way to do this"). Guideline **2.5.9**: apps that "alter or disable the functions of standard switches, such as the
+   Volume Up/Down… will be rejected". Remove it from Yomi's future list (§2 table).
+
+**Smaller signals worth keeping**
+
+- **Trackers people actually use** (`1wqg7sb`, 2026-09): AniList (modern, more manhwa/manhua), MAL (legacy, anime-
+  adaptation discovery), **MangaUpdates** (22 years, tag system, some webtoons only there), **MangaBaka** (aggregator,
+  "largest manga library", staff: would open-source it rather than shut down, no-piracy policy so no DMCA exposure),
+  Kitsu (no origin rules). Yomi has MAL/AniList/Shikimori/Bangumi — MangaUpdates and MangaBaka are the gaps (Tachimanga
+  v5.0 added both).
+- **Stats per title:** a Mihon user envies Tachimanga's per-series time read (`1rpb688`); a Lipex user asks for the same.
+  Yomi's Insights shows a "most read" top list; per-title time on the detail screen is not there.
+- **Comments:** "Comments are one of my favorite parts" (69 pts) vs "Comments are trash" (−17) — sites win on community;
+  a moderated in-app social layer is a legal/moderation burden (Guideline 1.2/4.7.1). Cheap middle ground: a button that
+  opens the chapter's comment section in the WebView. A thoughtful reply in the same thread: put "exportable reading
+  progress, a clear offline state, and separate interface/content language controls ahead of comments".
+- **Tap a speech bubble to zoom** (`1wfmf2r`, Mihon fork prototype with on-device bubble detection): positive reception
+  ("feature I sorely miss from Google Books"), but users want it as tap-to-zoom, not forced bubble-by-bubble. Fits
+  Chen et al. 2026 (guided view helps less fluent readers).
+- **Aidoku's reputation:** Mihon staff recommend it for iOS; praised for tracking ("update your library chapters based on
+  your AniList") and a built-in upscaler on iPad; still sideload/TestFlight only.
+- **Tachimanga free-tier locks** (`1s9ez7u`, 2026-04): MAL/AniList sync, background download, multi-chapter download,
+  double page are Premium; one ad at launch is tolerated.
+- **Novel readers often just use EPUB** in Apple Books/ReadEra/Lithium/Moon+ (`1tnchbj`) → EPUB import *and* export
+  matter for Yomi's novel side (Lipex has export).
+- **Nostalgia for Manga Rock's page-flip animation** (386 pts: "such a nice quality of life feature"). Panels users also
+  ask for page curl (§25.5). A page-curl option for paged manga/novels has real fans.
+- **Other new names** (not investigated): Mangra (App Store "Manga Translator – Mangra", 4.16★/94; claims to run
+  Mihon/Tachimanga/Paperback extensions + AI translation; its supportive replies look like shills), Inkdex, Sora,
+  Suwatte, Yomotsu (Mihon fork with AI translation), Uchiyomi (self-hosted webtoon server), torika.app (local reader),
+  MangaPin (4.87★/5.6k) and "Manga Reader" (4.5★/18k) — App Store apps with built-in sources.
+- **Self-promotion noise:** the ArcReader developer recommends his app in unrelated threads; Mangra's thread has
+  one-line "best of the best!" replies. Discount developer comments accordingly.
+
+**Changes to the §25.10 ranking** — add and move up:
+- **Bulk migration + multiple sources per title** → rank 3 (after typography and pages mode).
+- **Lockable SFW/kids mode with an allow-list** (+ "official & free" starter catalog, which doubles as the App Review
+  story) → rank 5.
+- **Keiyoushi extension-lib tracking + duplicate-repo detection** → attach to the Keiyoushi runtime work.
+- **MangaUpdates + MangaBaka trackers**, **EPUB export for novels**, **per-title reading time**, **tap-to-zoom bubbles**,
+  **page-curl option** → mid/low.
+- **Remove "volume-button page turn"** from every list (Guideline 2.5.9).
 
 ---
 
