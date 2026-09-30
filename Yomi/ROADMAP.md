@@ -32,6 +32,9 @@ For Martin to dissect next session — §25.10 ranked list (not scheduled yet):
 4. Accessibility baseline (Dynamic Type, Reduce Motion, overlay a11y). 5. Scheduled local auto-backup + sync status.
 6. Tachimanga `.tmb` + local CBZ/EPUB import. 7. Tachimanga v5 manga-reader parity items. 8. TTS highlight +
 auto-advance. 9. Streak repair. 10. App Store copy per §25.7. 11. XCTHitchMetric gates. 12. Spanish localization.
+Part 2 (Reddit, §25.13): **Lipex** (App Store, July 2026) now runs LNReader repos on iOS; Keiyoushi supports only
+Android apps since 2026-07-29; bulk migration + multi-source per title and a PIN-locked SFW mode move up; volume-button
+page turns are banned by Guideline 2.5.9; TMO (Spanish) raided Apr 2026, FAKKU DMCA'd self-hosted readers Mar 2026.
 
 ## S128 — Martin's field report + plan (2026-09-25)
 
