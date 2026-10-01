@@ -34,13 +34,18 @@ enum ReaderFixture {
 
     struct RootView: View {
         @State private var bridge: JSBridge? = ReaderFixture.prepare()
+        // The reader starts pushed on top of a home screen, so swipe-back has somewhere to go.
+        @State private var path = ["reader"]
         var body: some View {
-            NavigationStack {
-                if let bridge {
-                    TextReaderView(novel: ReaderFixture.novel, bridge: bridge, chapters: ReaderFixture.chapters)
-                } else {
-                    Text("Reader fixture failed to start")
-                }
+            NavigationStack(path: $path) {
+                Text("Fixture home")
+                    .navigationDestination(for: String.self) { _ in
+                        if let bridge {
+                            TextReaderView(novel: ReaderFixture.novel, bridge: bridge, chapters: ReaderFixture.chapters)
+                        } else {
+                            Text("Reader fixture failed to start")
+                        }
+                    }
             }
         }
     }

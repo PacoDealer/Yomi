@@ -185,6 +185,7 @@ struct ChapterReaderView: View {
             )
         }
         .navigationBarHidden(true)
+        .swipeBackEnabled()
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .tabBar)

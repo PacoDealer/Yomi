@@ -59,6 +59,7 @@ struct SettingsView: View {
         }
         .background(canvas.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .swipeBackEnabled()
         .overlay(alignment: .top) { glassNavBar }
         .sheet(isPresented: $showAddRepo) { addRepoSheet }
     }

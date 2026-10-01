@@ -81,6 +81,7 @@ struct InsightsView: View {
         }
         .background(canvas.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .swipeBackEnabled()
         .overlay(alignment: .top) { glassNavBar }
         .task { await loadStats() }
     }
