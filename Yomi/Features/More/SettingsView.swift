@@ -582,6 +582,19 @@ private struct NovelReaderSettingsView: View {
             }
 
             Section {
+                Toggle("Infinite scroll", isOn: $settings.novelInfiniteScroll)
+                Toggle("Swipe to change chapter", isOn: $settings.novelSwipeChapters)
+                Picker("Show menu with", selection: $settings.novelMenuTaps) {
+                    Text("One tap").tag(1)
+                    Text("Two taps").tag(2)
+                }
+            } header: {
+                Text("Reading")
+            } footer: {
+                Text("Infinite scroll carries on into the next chapter when you reach the end. Swipe left for the next chapter, right for the previous one.")
+            }
+
+            Section {
                 Picker("Download ahead", selection: $settings.novelDownloadAhead) {
                     Text("Off").tag(0)
                     ForEach([5, 10, 20, 30], id: \.self) { Text("\($0) chapters").tag($0) }

@@ -33,19 +33,30 @@ struct TextReaderView: View {
     let novel: Novel
     let bridge: JSBridge
     let chapters: [NovelChapter]
+    private let startIndex: Int
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) private var requestReview
 
     @State private var shouldRequestReview = false
 
+    /// The chapter being read — with infinite scroll, the one under the reading line.
     @State private var currentChapterIndex: Int
-    @State private var rawContent: String = ""
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
+    @State private var didStart = false
+    /// False until the first chapter opens, so that open doesn't flush a session that never started.
+    @State private var didStartReading = false
 
-    // Background preload of the next chapter's content — avoids a full network-fetch stall on
-    // every chapter nav, matching the manga reader's S109-111 boundary-preload intent.
+    // One web view for the reader's lifetime; chapters are sections inside it (NovelReaderWeb.swift).
+    @State private var controller = NovelReaderController()
+    /// HTML of the chapters currently in the document, by chapter id (TTS reads from here).
+    @State private var loadedContent: [String: String] = [:]
+    /// Bumped on every whole-document load, so a slow fetch for a chapter the user already left is dropped.
+    @State private var loadGeneration = 0
+    @State private var isAppending = false
+
+    // Background preload of the next chapter for Next/swipe when infinite scroll is off.
     @State private var chapterContentCache: [String: String] = [:]
     @State private var preloadingChapterIds: Set<String> = []
 
@@ -60,11 +71,10 @@ struct TextReaderView: View {
     @State private var showOverlay = true
     @State private var showFinishedBanner = false
     @State private var sessionStart: Date = Date()
-    @State private var readingTimer: Timer? = nil
     @State private var lastKnownScrollPercent: Double? = nil
-    /// Last value actually written to the DB — the autosave skips ticks that haven't moved a
+    /// Last value actually written to the DB per chapter — the autosave skips ticks that haven't moved a
     /// meaningful distance from it (Known Issue #142).
-    @State private var lastPersistedScrollPercent: Double = -1
+    @State private var lastPersistedScrollPercent: [String: Double] = [:]
     @State private var sourceURL: URL? = nil
     @State private var showSourceSheet = false
 
@@ -76,7 +86,8 @@ struct TextReaderView: View {
         self.novel   = novel
         self.bridge  = bridge
         self.chapters = chapters
-        _currentChapterIndex = State(initialValue: startIndex)
+        self.startIndex = min(max(startIndex, 0), max(chapters.count - 1, 0))
+        _currentChapterIndex = State(initialValue: self.startIndex)
     }
 
     // MARK: - Computed
@@ -92,70 +103,36 @@ struct TextReaderView: View {
             : "-apple-system, \"Helvetica Neue\", sans-serif"
     }
 
-    /// Full HTML document with viewport meta tag — fixes the large-margin bug caused by
-    /// WKWebView's default 980px virtual viewport when no viewport tag is present.
-    private var styledHTML: String {
+    /// Reader-settings stylesheet. Applied once at load and again only when a setting changes.
+    private var readerCSS: String {
         let fs  = Int(fontSize)
         let ls  = String(format: "%.2f", lineSpacing)
-        let bg  = novelTheme.bg
-        let fg  = novelTheme.fg
         let lnk = AppSettings.shared.accentColor
-        let hp  = hPadding
-
-        let css = """
-            * { box-sizing: border-box; }
-            html, body { margin: 0; padding: 0; }
+        return """
+            html, body { background: \(novelTheme.bg); }
             body {
                 font-family: \(fontFamilyCSS);
                 font-size: \(fs)px;
                 line-height: \(ls);
                 text-align: \(justifyText ? "justify" : "start");
-                padding: 24px \(hp)px 200px \(hp)px;
-                background: \(bg);
-                color: \(fg);
+                color: \(novelTheme.fg);
                 -webkit-text-size-adjust: 100%;
                 word-break: break-word;
                 overflow-wrap: break-word;
             }
-            p {
-                margin: 0 0 0.75em 0;
-            }
-            img {
-                max-width: 100%;
-                height: auto;
-                display: block;
-                margin: 0.5em auto;
-            }
-            a {
-                color: \(lnk);
-                text-decoration: none;
-            }
-            a svg, a svg path, a svg polygon, a svg rect {
-                fill: \(lnk);
-                stroke: \(lnk);
-            }
+            #yomi-chapters { padding: 24px \(hPadding)px 200px \(hPadding)px; }
+            p { margin: 0 0 0.75em 0; }
+            a { color: \(lnk); text-decoration: none; }
+            a svg, a svg path, a svg polygon, a svg rect { fill: \(lnk); stroke: \(lnk); }
             svg { fill: currentColor; }
-            h1, h2, h3 {
-                margin: 0.5em 0 0.4em 0;
-                line-height: 1.3;
-            }
+            h1, h2, h3 { margin: 0.5em 0 0.4em 0; line-height: 1.3; }
             """
+    }
 
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-            <style>
-            \(css)
-            </style>
-            </head>
-            <body>
-            \(rawContent)
-            </body>
-            </html>
-            """
+    private var readerOptions: NovelReaderController.Options {
+        .init(infinite: AppSettings.shared.novelInfiniteScroll,
+              swipe: AppSettings.shared.novelSwipeChapters,
+              taps: AppSettings.shared.novelMenuTaps == 2 ? 2 : 1)
     }
 
     // MARK: - Body
@@ -165,65 +142,30 @@ struct TextReaderView: View {
             Color(novelTheme.uiColor)
                 .ignoresSafeArea()
 
-            if isLoading {
-                ProgressView()
-                    .tint(novelTheme.isDark ? .white : .gray)
-            } else if let error = errorMessage {
-                Text(error)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding()
-            } else {
-                ReaderWebView(
-                    html: styledHTML,
-                    onTap: {
-                        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
-                    },
-                    onReadComplete: {
-                        if !AppSettings.shared.isIncognito {
-                            let chapterId = activeChapter.id
-                            let novelId = novel.id
-                            Task {
-                                try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId)
-                                await MainActor.run {
-                                    if AppSettings.shared.recordChapterRead() {
-                                        shouldRequestReview = true
-                                    }
-                                }
-                            }
-                            if AppSettings.shared.trackerAutoUpdate {
-                                let novelTitle = novel.title
-                                let chapNum = Int(activeChapter.chapterNumber ?? 0)
-                                Task {
-                                    for tracker in TrackerManager.loggedInTrackers {
-                                        if let trackerId = await tracker.searchManga(title: novelTitle) {
-                                            await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
-                    },
-                    restoreScrollPercent: activeChapter.lastScrollPercent,
-                    onScrollUpdate: { pct in
-                        lastKnownScrollPercent = pct
-                        if pct >= 0.7 { preloadNextChapterIfNeeded() }
-                        guard !AppSettings.shared.isIncognito else { return }
-                        // The JS side already debounces to ~400ms, but each persist is still 2-3
-                        // write transactions, and a resume position is worthless below its own
-                        // rounding error — so only write when the position actually moved ≥1%
-                        // (Known Issue #142). `.onDisappear` below always writes the final value,
-                        // so nothing is lost by skipping the ticks in between.
-                        guard abs(pct - lastPersistedScrollPercent) >= 0.01 else { return }
-                        lastPersistedScrollPercent = pct
-                        let cid = activeChapter.id
-                        Task.detached(priority: .background) {
-                            try? NovelQueries.updateScrollPercent(chapterId: cid, percent: pct)
-                        }
-                    }
-                )
+            // Always mounted: changing chapter never depends on SwiftUI rebuilding the web view (bug #1).
+            ReaderWebView(controller: controller, css: readerCSS, options: readerOptions)
                 .ignoresSafeArea()
+
+            if isLoading || errorMessage != nil {
+                ZStack {
+                    Color(novelTheme.uiColor).ignoresSafeArea()
+                    if let error = errorMessage {
+                        VStack(spacing: 14) {
+                            Text(error)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try again") { openChapter(currentChapterIndex, restorePercent: 0) }
+                                .buttonStyle(.bordered)
+                        }
+                        .padding()
+                    } else {
+                        ProgressView()
+                            .tint(novelTheme.isDark ? .white : .gray)
+                    }
+                }
+                // Tapping the placeholder still toggles the menu, so Back is always reachable.
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() } }
             }
 
             if showFinishedBanner {
@@ -231,43 +173,53 @@ struct TextReaderView: View {
             }
 
             #if DEBUG
-            // UI tests read the menu state here: the faded-out overlay stays in the accessibility tree (S129).
+            // UI tests read the menu state here.
             Color.clear.frame(width: 1, height: 1)
                 .accessibilityElement()
                 .accessibilityIdentifier("reader.menuState")
                 .accessibilityValue(showOverlay ? "open" : "closed")
             #endif
 
-            TextReaderOverlayView(
-                novel:                novel,
-                chapter:              activeChapter,
-                currentChapterIndex:  currentChapterIndex,
-                chapters:             chapters,
-                progress:             lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0,
-                fontSize:             $fontSize,
-                lineSpacing:          $lineSpacing,
-                novelTheme:           $novelTheme,
-                fontFamily:           $fontFamily,
-                justifyText:          $justifyText,
-                hPadding:             $hPadding,
-                showOverlay:          $showOverlay,
-                isSpeaking:           $isSpeaking,
-                hasPrevChapter:       hasPrevChapter,
-                hasNextChapter:       hasNextChapter,
-                sourceURL:            sourceURL,
-                onDismiss:            { dismiss() },
-                onPrevChapter:        { navigateToChapter(currentChapterIndex - 1) },
-                onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
-                onJumpToChapter:      { navigateToChapter($0) },
-                onToggleTTS:          { toggleTTS() },
-                onViewSource:         { showSourceSheet = true }
-            )
+            // Not rendered at all while hidden: a faded-out glass overlay stayed in the accessibility tree,
+            // so VoiceOver could reach invisible controls (S129).
+            if showOverlay {
+                TextReaderOverlayView(
+                    novel:                novel,
+                    chapter:              activeChapter,
+                    currentChapterIndex:  currentChapterIndex,
+                    chapters:             chapters,
+                    progress:             lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0,
+                    fontSize:             $fontSize,
+                    lineSpacing:          $lineSpacing,
+                    novelTheme:           $novelTheme,
+                    fontFamily:           $fontFamily,
+                    justifyText:          $justifyText,
+                    hPadding:             $hPadding,
+                    showOverlay:          $showOverlay,
+                    isSpeaking:           $isSpeaking,
+                    hasPrevChapter:       hasPrevChapter,
+                    hasNextChapter:       hasNextChapter,
+                    sourceURL:            sourceURL,
+                    onDismiss:            { dismiss() },
+                    onPrevChapter:        { navigateToChapter(currentChapterIndex - 1) },
+                    onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
+                    onJumpToChapter:      { navigateToChapter($0) },
+                    onToggleTTS:          { toggleTTS() },
+                    onViewSource:         { showSourceSheet = true }
+                )
+                .transition(.opacity)
+            }
         }
         .navigationBarHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(novelTheme.colorScheme)
-        .task(id: activeChapter.id) { await loadContent() }
+        .task {
+            guard !didStart, !chapters.isEmpty else { return }
+            didStart = true
+            controller.onEvent = { handle($0) }
+            openChapter(startIndex, restorePercent: chapters[startIndex].lastScrollPercent ?? 0)
+        }
         .task(id: activeChapter.id) {
             let path = activeChapter.path
             let b = bridge
@@ -291,10 +243,7 @@ struct TextReaderView: View {
         .onChange(of: shouldRequestReview) { _, should in
             if should { requestReview(); shouldRequestReview = false }
         }
-        .onAppear {
-            sessionStart  = Date()
-            readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
-        }
+        .onAppear { sessionStart = Date() }
         .onDisappear {
             stopTTS()
             flushScrollPercent()
@@ -343,11 +292,85 @@ struct TextReaderView: View {
         }
     }
 
+    // MARK: - Reader events
+
+    private func handle(_ event: NovelReaderController.Event) {
+        switch event {
+        case .tap:
+            withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+        case .swipe(let next):
+            navigateToChapter(currentChapterIndex + (next ? 1 : -1))
+        case .current(let id):
+            guard let idx = chapters.firstIndex(where: { $0.id == id }), idx != currentChapterIndex else { return }
+            // Infinite scroll crossed into another chapter: close out the old one, no reload.
+            flushReadingTime()
+            showFinishedBanner = false
+            currentChapterIndex = idx
+            lastKnownScrollPercent = nil
+            enterChapter()
+        case .progress(let id, let pct):
+            if id == activeChapter.id {
+                lastKnownScrollPercent = pct
+                if pct >= 0.7 && !AppSettings.shared.novelInfiniteScroll { preloadNextChapterIfNeeded() }
+            }
+            persistScrollPercent(pct, chapterId: id)
+        case .complete(let id):
+            chapterCompleted(id)
+        case .needNext(let afterId):
+            appendChapter(after: afterId)
+        case .dropped(let id):
+            loadedContent.removeValue(forKey: id)
+        }
+    }
+
+    private func chapterCompleted(_ id: String) {
+        guard let chapter = chapters.first(where: { $0.id == id }) else { return }
+        if !AppSettings.shared.isIncognito {
+            let novelId = novel.id
+            Task {
+                try? NovelQueries.markRead(chapterId: id, novelId: novelId)
+                await MainActor.run {
+                    if AppSettings.shared.recordChapterRead() {
+                        shouldRequestReview = true
+                    }
+                }
+            }
+            if AppSettings.shared.trackerAutoUpdate {
+                let novelTitle = novel.title
+                let chapNum = Int(chapter.chapterNumber ?? 0)
+                Task {
+                    for tracker in TrackerManager.loggedInTrackers {
+                        if let trackerId = await tracker.searchManga(title: novelTitle) {
+                            await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
+                        }
+                    }
+                }
+            }
+        }
+        // With infinite scroll the next chapter is already coming up below; only say so at the very end.
+        let isLast = chapter.id == chapters.last?.id
+        if id == activeChapter.id && (!AppSettings.shared.novelInfiniteScroll || isLast) {
+            withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
+        }
+    }
+
     // MARK: - Scroll Position
+
+    private func persistScrollPercent(_ pct: Double, chapterId: String) {
+        guard !AppSettings.shared.isIncognito else { return }
+        // Only write when the position actually moved ≥1% (Known Issue #142); `.onDisappear` and chapter
+        // changes always write the final value.
+        guard abs(pct - (lastPersistedScrollPercent[chapterId] ?? -1)) >= 0.01 else { return }
+        lastPersistedScrollPercent[chapterId] = pct
+        Task.detached(priority: .background) {
+            try? NovelQueries.updateScrollPercent(chapterId: chapterId, percent: pct)
+        }
+    }
 
     private func flushScrollPercent() {
         guard !AppSettings.shared.isIncognito, let pct = lastKnownScrollPercent else { return }
         let cid = activeChapter.id
+        lastPersistedScrollPercent[cid] = pct
         Task.detached(priority: .background) {
             try? NovelQueries.updateScrollPercent(chapterId: cid, percent: pct)
         }
@@ -356,9 +379,8 @@ struct TextReaderView: View {
     // MARK: - Reading Time
 
     private func flushReadingTime() {
-        readingTimer?.invalidate()
-        readingTimer = nil
         let elapsed = Int(Date().timeIntervalSince(sessionStart))
+        sessionStart = Date()
         guard !AppSettings.shared.isIncognito, elapsed > 3 else { return }
         let cid = activeChapter.id
         let nid = novel.id
@@ -369,40 +391,105 @@ struct TextReaderView: View {
 
     // MARK: - Navigate
 
+    /// Next / Previous / swipe / the Chapters sheet.
     private func navigateToChapter(_ index: Int) {
-        // Re-selecting the already-open chapter (e.g. tapping it in the Chapters sheet) must be a
-        // no-op — otherwise currentChapterIndex is reassigned the SAME value, activeChapter.id
-        // never changes, .task(id: activeChapter.id) never re-runs, and isLoading (already false)
-        // never gets cleared, since nothing set it back to true either. Soft-locks the reader on a
-        // permanent spinner. See finding #92.
-        guard index >= 0, index < chapters.count, index != currentChapterIndex else { return }
+        // Re-selecting the open chapter is a no-op (finding #92) — unless its load failed.
+        guard index >= 0, index < chapters.count, index != currentChapterIndex || errorMessage != nil else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         showFinishedBanner = false
-        stopTTS()
-        flushScrollPercent()
-        // Credit the chapter as read if the user was already effectively done (matches the JS
-        // 90%-scroll completion threshold in ReaderWebView) before navigating away — but an
-        // unconditional mark-read here contradicted that intentional mechanism for a barely-
-        // started chapter. See finding #91.
+        // Already in the document below (infinite scroll)? Scroll to it; the `current` event does the rest.
+        let target = chapters[index]
+        if errorMessage == nil, !isLoading, index > currentChapterIndex, loadedContent[target.id] != nil {
+            controller.scrollToChapter(id: target.id)
+            return
+        }
+        // Credit the chapter being left as read if the user was effectively done with it (matches the
+        // 90% `complete` threshold), not unconditionally (finding #91).
         let wasNearComplete = (lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0) >= 0.9
-        lastKnownScrollPercent = nil
-        lastPersistedScrollPercent = -1
-        flushReadingTime()
-        sessionStart  = Date()
-        readingTimer  = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in }
         if wasNearComplete && !AppSettings.shared.isIncognito {
             let chapterId = activeChapter.id
             let novelId = novel.id
             Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
         }
-        rawContent    = ""
-        isLoading     = true
-        errorMessage  = nil
+        openChapter(index, restorePercent: 0)
+    }
+
+    /// Replaces the document with one chapter. The web view stays; only its content changes.
+    private func openChapter(_ index: Int, restorePercent: Double) {
+        guard index >= 0, index < chapters.count else { return }
+        stopTTS()
+        if didStartReading { flushScrollPercent(); flushReadingTime() }
+        didStartReading = true
+        loadGeneration += 1
+        let generation = loadGeneration
+        let chapter = chapters[index]
         currentChapterIndex = index
-        // Evict any preloaded content we're not about to use — a jump-to-chapter can strand a
-        // preload for the chapter that used to be "next".
-        let targetId = chapters[index].id
-        chapterContentCache = chapterContentCache.filter { $0.key == targetId }
+        lastKnownScrollPercent = nil
+        isLoading = true
+        errorMessage = nil
+        isAppending = false
+        // Evict preloaded content we're not about to use — a jump can strand the old "next" (#94).
+        chapterContentCache = chapterContentCache.filter { $0.key == chapter.id }
+        enterChapter()
+        Task {
+            let perf = Perf.begin("NovelChapter")
+            let html = await content(for: chapter)
+            perf.end()
+            guard generation == loadGeneration else { return }
+            if html.isEmpty {
+                errorMessage = "Unable to load chapter content. The source may be temporarily unavailable."
+                isLoading = false
+                return
+            }
+            loadedContent = [chapter.id: html]
+            controller.show(id: chapter.id, title: chapter.name, html: html, restorePercent: restorePercent)
+            isLoading = false
+        }
+    }
+
+    /// Infinite scroll asked for the chapter after `afterId`.
+    private func appendChapter(after afterId: String) {
+        guard let idx = chapters.firstIndex(where: { $0.id == afterId }) else { return }
+        guard idx + 1 < chapters.count else {
+            controller.appendUnavailable(retry: false)
+            return
+        }
+        guard !isAppending else { return }
+        isAppending = true
+        let generation = loadGeneration
+        let next = chapters[idx + 1]
+        Task {
+            let html = await content(for: next)
+            guard generation == loadGeneration else { return }
+            isAppending = false
+            if html.isEmpty {
+                controller.appendUnavailable(retry: true)
+                return
+            }
+            loadedContent[next.id] = html
+            controller.append(id: next.id, title: next.name, html: html)
+        }
+    }
+
+    /// Bookkeeping when a chapter becomes the one being read.
+    private func enterChapter() {
+        sessionStart = Date()
+        // Download-ahead first, so the next chapters are fetching while this one is read.
+        NovelDownloadManager.shared.downloadAhead(novel: novel, chapters: chapters,
+                                                  after: currentChapterIndex,
+                                                  count: AppSettings.shared.novelDownloadAhead)
+    }
+
+    /// Preloaded → downloaded → source.
+    private func content(for chapter: NovelChapter) async -> String {
+        if let cached = chapterContentCache.removeValue(forKey: chapter.id) { return cached }
+        let path = chapter.path
+        let novelId = novel.id
+        let b = bridge
+        return await Task.detached(priority: .userInitiated) {
+            NovelDownloadStore.content(novelId: novelId, chapterPath: path)
+                ?? b.parseChapter(path: path)
+        }.value
     }
 
     // MARK: - Preload
@@ -418,15 +505,13 @@ struct TextReaderView: View {
         let path = next.path
         let nextId = next.id
         let novelId = novel.id
+        let b = bridge
         Task.detached(priority: .background) {
             let html = NovelDownloadStore.content(novelId: novelId, chapterPath: path)
-                ?? bridge.parseChapter(path: path)
+                ?? b.parseChapter(path: path)
             await MainActor.run {
                 preloadingChapterIds.remove(nextId)
-                // Only cache if this chapter is still legitimately "next" — a jump-to-chapter's
-                // cache-eviction filter (navigateToChapter) may have run while this fetch was in
-                // flight, and a late write here would silently re-insert a now-irrelevant chapter
-                // right after that eviction ran. See finding #94.
+                // Only cache if this chapter is still "next" — a jump may have evicted it meanwhile (#94).
                 guard !html.isEmpty, nextChapterForPreload?.id == nextId else { return }
                 chapterContentCache[nextId] = html
             }
@@ -444,8 +529,8 @@ struct TextReaderView: View {
     }
 
     private func startTTS() {
-        guard !rawContent.isEmpty else { return }
-        let plain = rawContent
+        guard let html = loadedContent[activeChapter.id], !html.isEmpty else { return }
+        let plain = html
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
             .replacingOccurrences(of: "&nbsp;", with: " ")
             .replacingOccurrences(of: "&amp;", with: "&")
@@ -470,240 +555,6 @@ struct TextReaderView: View {
         ttsDelegate?.synthesizer?.stopSpeaking(at: .immediate)
         ttsDelegate = nil
         isSpeaking = false
-    }
-
-    // MARK: - Load Content
-
-    private func loadContent() async {
-        let perf = Perf.begin("NovelChapter")
-        defer { perf.end() }
-        isLoading    = true
-        errorMessage = nil
-        rawContent   = ""
-        let cid = activeChapter.id
-        // Download-ahead first, so the next chapters are fetching while this one loads.
-        NovelDownloadManager.shared.downloadAhead(novel: novel, chapters: chapters,
-                                                  after: currentChapterIndex,
-                                                  count: AppSettings.shared.novelDownloadAhead)
-        if let cached = chapterContentCache.removeValue(forKey: cid) {
-            rawContent = cached
-            isLoading = false
-            return
-        }
-        let path = activeChapter.path
-        let novelId = novel.id
-        let html = await Task.detached(priority: .userInitiated) {
-            NovelDownloadStore.content(novelId: novelId, chapterPath: path)
-                ?? bridge.parseChapter(path: path)
-        }.value
-
-        if html.isEmpty {
-            errorMessage = "Unable to load chapter content. The source may be temporarily unavailable."
-        } else {
-            rawContent = html
-        }
-        isLoading = false
-    }
-}
-
-// MARK: - ReaderWebView
-
-struct ReaderWebView: UIViewRepresentable {
-    let html: String
-    let onTap: () -> Void
-    let onReadComplete: () -> Void
-    var restoreScrollPercent: Double? = nil
-    var onScrollUpdate: ((Double) -> Void)? = nil
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap, onReadComplete: onReadComplete,
-                    restoreScrollPercent: restoreScrollPercent,
-                    onScrollUpdate: onScrollUpdate)
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.dataDetectorTypes = []
-        // Non-persistent store prevents iOS from matching scroll state from a previous
-        // chapter (all chapters share nil/about:blank baseURL) and showing the
-        // "Restore scroll position" callout on every new chapter load.
-        config.websiteDataStore = .nonPersistent()
-
-        config.userContentController.add(context.coordinator, name: "readComplete")
-        config.userContentController.add(context.coordinator, name: "scrollPosition")
-
-        let setupJS = WKUserScript(source: """
-            (function() {
-                if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
-
-                // Fire readComplete at 90% scroll
-                var fired = false;
-                window.addEventListener('scroll', function() {
-                    if (fired) return;
-                    var ratio = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
-                    if (ratio >= 0.9) {
-                        fired = true;
-                        window.webkit.messageHandlers.readComplete.postMessage('done');
-                    }
-                }, { passive: true });
-
-                // A chapter short enough to fit the viewport (interludes, teasers, author's-note-
-                // only chapters — common in web-novel sources) never scrolls, so the 'scroll'
-                // listener above never fires at all — mark/progress tracking would otherwise stay
-                // permanently stuck at 0% for it. Treat "nothing to scroll" as fully read. Checked
-                // both immediately and on 'load' since images/fonts can still be resizing the
-                // layout when this script runs (injectionTime: .atDocumentEnd). See finding #93.
-                function checkNoScrollNeeded() {
-                    if (fired) return;
-                    if (document.body.scrollHeight <= window.innerHeight) {
-                        fired = true;
-                        window.webkit.messageHandlers.readComplete.postMessage('done');
-                        window.webkit.messageHandlers.scrollPosition.postMessage(1);
-                    }
-                }
-                checkNoScrollNeeded();
-                window.addEventListener('load', checkNoScrollNeeded, { passive: true });
-
-                // Debounced scroll position save (400 ms)
-                var scrollTimer = null;
-                window.addEventListener('scroll', function() {
-                    if (scrollTimer) clearTimeout(scrollTimer);
-                    scrollTimer = setTimeout(function() {
-                        var maxScroll = document.body.scrollHeight - window.innerHeight;
-                        var pct = maxScroll > 0 ? window.scrollY / maxScroll : 0;
-                        window.webkit.messageHandlers.scrollPosition.postMessage(pct);
-                    }, 400);
-                }, { passive: true });
-            })();
-            """, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        config.userContentController.addUserScript(setupJS)
-
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.backgroundColor = .clear
-        webView.isOpaque        = false
-        webView.scrollView.backgroundColor = .clear
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-        webView.navigationDelegate = context.coordinator
-
-        let tap = UITapGestureRecognizer(target: context.coordinator,
-                                         action: #selector(Coordinator.handleTap))
-        tap.delegate = context.coordinator
-        webView.addGestureRecognizer(tap)
-
-        webView.loadHTMLString(html, baseURL: nil)
-        return webView
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.onScrollUpdate = onScrollUpdate
-
-        guard !html.isEmpty else { return }
-
-        // Re-inject only the <style> block to avoid a full page reload
-        if let styleStart = html.range(of: "<style>"),
-           let styleEnd   = html.range(of: "</style>") {
-            let styleContent = String(html[styleStart.lowerBound...styleEnd.upperBound])
-            // Backslash must be escaped first so it doesn't double-escape the backtick/$ escapes
-            // added after it. `$` needs escaping too, not just backtick — this is a JS template
-            // literal, and an unescaped `${...}` inside styleContent would be evaluated as a JS
-            // expression instead of rendered as literal CSS. See finding #107.
-            let escaped = styleContent
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "`",  with: "\\`")
-                .replacingOccurrences(of: "$",  with: "\\$")
-            let js = """
-            (function() {
-                var existing = document.querySelector('style');
-                if (existing) {
-                    existing.outerHTML = `\(escaped)`;
-                } else {
-                    document.head.insertAdjacentHTML('beforeend', `\(escaped)`);
-                }
-            })();
-            """
-            webView.evaluateJavaScript(js)
-        }
-    }
-
-    // MARK: - Coordinator
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHandler, WKNavigationDelegate {
-        let onTap: () -> Void
-        let onReadComplete: () -> Void
-        var onScrollUpdate: ((Double) -> Void)?
-        private let restoreScrollPercent: Double?
-        private var hasRestored = false
-
-        init(onTap: @escaping () -> Void, onReadComplete: @escaping () -> Void,
-             restoreScrollPercent: Double?, onScrollUpdate: ((Double) -> Void)?) {
-            self.onTap = onTap
-            self.onReadComplete = onReadComplete
-            self.restoreScrollPercent = restoreScrollPercent
-            self.onScrollUpdate = onScrollUpdate
-        }
-
-        @objc func handleTap() { onTap() }
-
-        // MARK: WKNavigationDelegate — block navigation out of the reader
-        //
-        // rawContent is raw HTML scraped from arbitrary third-party novel sites, inserted
-        // unsanitized into styledHTML and loaded with full JS execution and no CSP. Without this,
-        // any <a href> or JS redirect embedded in that scraped content (ads, promotional links, a
-        // compromised source page) could navigate this WKWebView to an arbitrary URL with zero
-        // interception. Our own loadHTMLString(_:baseURL: nil) call resolves to about:blank with
-        // no request URL — anything else is a real navigation attempt and gets cancelled. See
-        // finding #95.
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            let url = navigationAction.request.url
-            if url == nil || url?.absoluteString == "about:blank" {
-                decisionHandler(.allow)
-            } else {
-                decisionHandler(.cancel)
-            }
-        }
-
-        // MARK: WKNavigationDelegate — restore scroll after page load
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard !hasRestored else { return }
-            hasRestored = true
-            webView.scrollView.setContentOffset(.zero, animated: false)
-            // Strip any "Restore scroll position" element injected by the source website.
-            let cleanupJS = """
-            (function() {
-                var tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-                var node;
-                while ((node = tw.nextNode())) {
-                    if (node.textContent.trim() === 'Restore scroll position') {
-                        var p = node.parentElement;
-                        if (p) { p.remove(); }
-                        break;
-                    }
-                }
-            })();
-            """
-            webView.evaluateJavaScript(cleanupJS)
-            guard let pct = restoreScrollPercent, pct > 0.01 else { return }
-            let js = """
-            (function() {
-                var maxScroll = document.body.scrollHeight - window.innerHeight;
-                if (maxScroll > 0) { window.scrollTo(0, \(pct) * maxScroll); }
-            })();
-            """
-            webView.evaluateJavaScript(js)
-        }
-
-        // MARK: WKScriptMessageHandler
-        func userContentController(_ userContentController: WKUserContentController,
-                                   didReceive message: WKScriptMessage) {
-            if message.name == "readComplete" { onReadComplete() }
-            if message.name == "scrollPosition", let pct = message.body as? Double {
-                DispatchQueue.main.async { self.onScrollUpdate?(pct) }
-            }
-        }
-
-        func gestureRecognizer(_ gr: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
     }
 }
 
@@ -1048,9 +899,6 @@ struct TextReaderOverlayView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
         }
-        .opacity(showOverlay ? 1 : 0)
-        .allowsHitTesting(showOverlay)
-        .animation(.easeInOut(duration: 0.2), value: showOverlay)
     }
 }
 

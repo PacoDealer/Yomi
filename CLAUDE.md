@@ -37,7 +37,14 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body) — *S132: the design said Newsreader, but the code uses Georgia (`TextReaderView.fontFamilyCSS`) and `useSystemFont` defaults on since S122; see RESEARCH §25.2.* Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S132 — 2026-09-29 · research audit + UX/UI evidence review, NO code changes)
+## Current state (post S133 — 2026-09-30 · batch step 4: novel reader controller)
+
+**S133** — novel reader rebuilt around one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`):
+fixes Next-chapter-does-nothing (#1) and short-drag-opens-menu (#3), adds infinite scroll (#2, default on) and swipe
+prev/next (#4), 1/2-tap menu option (Settings → Novels → Reading), hidden overlay out of the a11y tree. `YomiUITests`
+5/5 pass. Details: ROADMAP "S133". Next: Martin ranks RESEARCH §25.10, reinstall on his phone, then batch step 5.
+
+## Prior state (post S132 — 2026-09-29 · research audit + UX/UI evidence review, NO code changes)
 
 **S132** (overnight, Martin asleep) — re-checked all Yomi research against primary sources and extended it:
 **`Yomi/RESEARCH.md` §25** (claims audit table, "was it applied?" table, reading science for novels, manga/manhwa

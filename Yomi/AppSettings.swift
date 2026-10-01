@@ -452,6 +452,23 @@ import Observation
         didSet { defaults.set(downloadOnlyOnWiFi, forKey: "downloadOnlyOnWiFi") }
     }
 
+    // MARK: - Novel reader behaviour (S133)
+
+    /// Scrolling past the end of a chapter continues straight into the next one.
+    var novelInfiniteScroll: Bool {
+        didSet { defaults.set(novelInfiniteScroll, forKey: "novelInfiniteScroll") }
+    }
+
+    /// A horizontal swipe on the page opens the next (swipe left) / previous (swipe right) chapter.
+    var novelSwipeChapters: Bool {
+        didSet { defaults.set(novelSwipeChapters, forKey: "novelSwipeChapters") }
+    }
+
+    /// Taps needed to show/hide the reader menu: 1 or 2.
+    var novelMenuTaps: Int {
+        didSet { defaults.set(novelMenuTaps, forKey: "novelMenuTaps") }
+    }
+
     // MARK: - Novel downloads
 
     /// How many chapters past the open one the novel reader keeps downloaded (library novels only).
@@ -571,6 +588,9 @@ import Observation
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
         novelDownloadAhead       = d.object(forKey: "novelDownloadAhead")       as? Int ?? 5
+        novelInfiniteScroll      = d.object(forKey: "novelInfiniteScroll")      as? Bool ?? true
+        novelSwipeChapters       = d.object(forKey: "novelSwipeChapters")       as? Bool ?? true
+        novelMenuTaps            = d.object(forKey: "novelMenuTaps")            as? Int ?? 1
         downloadOnlyOnWiFi       = d.object(forKey: "downloadOnlyOnWiFi")       as? Bool ?? true
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
