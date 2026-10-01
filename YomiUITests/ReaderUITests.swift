@@ -122,4 +122,13 @@ final class ReaderUITests: XCTestCase {
         closeMenu()
         XCTAssertFalse(nextButton.exists, "hidden menu is still reachable by VoiceOver")
     }
+
+    /// Martin (S134): "a swipe to go back, like Apple's". The readers hide the navigation bar, which switches off
+    /// the system edge swipe; `.swipeBackEnabled()` restores it. A drag from the left edge must leave the reader.
+    func testEdgeSwipeGoesBack() {
+        launch(infiniteScroll: true)
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5)).withOffset(CGVector(dx: 2, dy: 0))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+        XCTAssertTrue(app.staticTexts["Fixture home"].waitForExistence(timeout: 3), "edge swipe did not go back")
+    }
 }

@@ -182,6 +182,7 @@ private struct AboutView: View {
         }
         .background(canvas.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .swipeBackEnabled()
         .overlay(alignment: .top) {
             HStack {
                 Button { dismiss() } label: {

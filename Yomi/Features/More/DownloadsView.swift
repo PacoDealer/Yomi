@@ -234,6 +234,7 @@ struct DownloadsView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .swipeBackEnabled()
         .overlay(alignment: .top) { glassNavBar }
         .task { await vm.load() }
         .onChange(of: dm.completedDownloadCount) { _, _ in
