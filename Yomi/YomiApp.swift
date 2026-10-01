@@ -185,6 +185,10 @@ struct YomiApp: App {
         //    cookie CFBypassView wrote there.
         let uaModifier = AnyModifier { request in
             var request = request
+            // Keiyoushi covers come straight from the source's CDN and may need its Referer/Origin (S134).
+            for (name, value) in KeiyoushiCovers.shared.headers(for: request.url) {
+                request.setValue(value, forHTTPHeaderField: name)
+            }
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
             return request
         }
