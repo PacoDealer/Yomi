@@ -211,6 +211,7 @@ struct TextReaderView: View {
             }
         }
         .navigationBarHidden(true)
+        .swipeBackEnabled()
         .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(novelTheme.colorScheme)
