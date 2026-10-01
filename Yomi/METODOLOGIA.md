@@ -1926,3 +1926,17 @@ previously here was removed during the 2026-08-04 doc restructure.
 - mobile-mcp: switches near the top of Settings sit under the floating glass nav bar, and the list scrolls between
   a list-elements call and the tap, so taps land on neighbouring rows. Verify toggles by reading the switch's
   `value` afterwards, never by assuming the tap landed.
+
+## Technical learnings — S133 novel reader controller (2026-09-30)
+
+- **Don't let a UIViewRepresentable's content depend on SwiftUI rebuilding it.** The old reader only showed a new
+  chapter when an `isLoading` render tore the web view down; a fast load skipped that render. Keep one view and push
+  content into it imperatively (`callAsyncJavaScript(_:arguments:in:in:)` — arguments are passed as JS values, no
+  string escaping).
+- **Taps in a scrolling web view: use DOM `click`, not a native recognizer with simultaneous recognition.** WebKit
+  doesn't fire `click` after a scroll; add a >8 px move / fling-stop guard. `cursor:pointer` on the container makes
+  iOS dispatch click on plain text; `touch-action: manipulation` removes the double-tap-zoom delay.
+- **XCUITest launch args are parsed as plist values**: `-flag NO` is the string "NO"; `object(forKey:) as? Bool`
+  ignores it and the default wins. Pass `<false/>` / `<integer>1</integer>`.
+- mobile-mcp: a swipe starting low on the screen can register as the iOS home gesture (app goes to background, not a
+  crash — check `launchctl list` before assuming one).

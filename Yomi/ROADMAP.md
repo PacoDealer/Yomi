@@ -21,6 +21,28 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S133 — Batch step 4: novel reader controller (2026-09-30)
+
+The novel reader keeps **one WKWebView** for its lifetime; chapters are `<section data-id>` blocks put there by a JS
+controller (`Features/Reader/NovelReaderWeb.swift`: `NovelReaderController` + `ReaderWebView` + `NovelReaderScript`).
+- **#1 Next chapter does nothing** — fixed by design: changing chapter calls `yomi.show(...)` on the same web view;
+  nothing depends on SwiftUI tearing the view down any more. Loading/error show as an overlay above it (+ Try again).
+- **#3 short scroll opens the menu** — taps are DOM `click` (WebKit sends none after a scroll), ignored after a move
+  >8 px, a fling-stop (scroll <150 ms before the touch) or with a text selection. Native tap recognizer removed.
+  Option: one or two taps (Settings → Reader → Novels → Show menu with).
+- **#2 infinite scroll** (default on, toggle in the same screen): near the end (1.5 screens left) JS posts `needNext`,
+  Swift appends the next chapter under a "CHAPTER N" divider; `current` events move the overlay/progress/reading time
+  to the chapter under the reading line (30 % down) without a reload; `complete` (90 % seen) is per chapter; more
+  than 4 chapters → the oldest far-above one is dropped on scroll idle with scroll compensation.
+- **#4 swipe** left = next, right = previous (horizontal >25 % width and >2× vertical, <800 ms, not from the left
+  24 px, not zoomed, no selection). Toggle in settings.
+- Style is only re-sent when the CSS string changes (was every scroll tick). Hidden overlay is no longer rendered
+  (VoiceOver could reach it). Dead `readingTimer` removed.
+Tests: `YomiUITests` 5/5 pass (Next, short drag, infinite scroll, swipe, hidden menu out of the a11y tree). Note:
+launch-arg booleans must be plist (`<false/>`) — `"NO"` arrives as a string and `as? Bool` drops it.
+Sim-checked visually (divider, footer switching CH. 001 ↔ 002). Not yet on device; scroll-compensation on drop and
+memory with long real chapters are unverified (§23.3). Next: Martin ranks §25.10, reinstall on his phone, then step 5.
+
 ## S132 — Research audit + UX/UI evidence review (2026-09-29, research only)
 
 Martin (going to sleep): check whether the research was actually applied, re-verify it against trustworthy sources,
