@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Kingfisher
 
 // MARK: - Bridge response models (M-Extension-Server's JManga / JChapter / JPage)
 
@@ -12,6 +13,8 @@ nonisolated struct KeiyoushiManga: Decodable, Sendable {
     let genre: String?
     let status: Int?
     let thumbnail_url: String?
+    /// The bridge's image-proxy URL for the cover (our server patch); a fallback, see `KeiyoushiCovers`.
+    let thumbnail_proxy_url: String?
 }
 
 nonisolated struct KeiyoushiMangaPage: Decodable, Sendable {
@@ -94,16 +97,37 @@ final class KeiyoushiBridge {
     // MARK: Source API
 
     func popular(sourceId: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await call(sourceId: sourceId, method: "getPopularManga", params: ["page": page])
+        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getPopularManga", params: ["page": page]))
     }
 
     func latest(sourceId: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await call(sourceId: sourceId, method: "getLatestManga", params: ["page": page])
+        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getLatestManga", params: ["page": page]))
     }
 
     func search(sourceId: String, query: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await call(sourceId: sourceId, method: "getSearchManga",
-                       params: ["page": page, "search": query, "filterList": [Any]()])
+        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getSearchManga",
+                                                      params: ["page": page, "search": query, "filterList": [Any]()]))
+    }
+
+    private var imageHeaders: [String: [String: String]] = [:]   // sourceId → the source's request headers
+
+    /// Records each cover's headers and proxy fallback before the page is shown (see `KeiyoushiCovers`).
+    private func withCovers(_ sourceId: String, _ page: KeiyoushiMangaPage) async -> KeiyoushiMangaPage {
+        await rememberCovers(sourceId, page.mangas ?? [])
+        return page
+    }
+
+    private func rememberCovers(_ sourceId: String, _ mangas: [KeiyoushiManga]) async {
+        if imageHeaders[sourceId] == nil {
+            // headersManga returns [name, value, name, value…]. User-Agent stays Yomi's (Kingfisher sets it).
+            let flat = (try? await call(sourceId: sourceId, method: "headersManga", params: [:]) as [String]) ?? []
+            var headers: [String: String] = [:]
+            for i in stride(from: 0, to: flat.count - 1, by: 2) where flat[i].lowercased() != "user-agent" {
+                headers[flat[i]] = flat[i + 1]
+            }
+            imageHeaders[sourceId] = headers
+        }
+        KeiyoushiCovers.shared.remember(mangas, headers: imageHeaders[sourceId] ?? [:])
     }
 
     func supportsLatest(sourceId: String) async -> Bool {
@@ -111,7 +135,10 @@ final class KeiyoushiBridge {
     }
 
     func details(sourceId: String, mangaURL: String) async throws -> KeiyoushiManga {
-        try await call(sourceId: sourceId, method: "getDetailsManga", params: ["mangaData": ["url": mangaURL]])
+        let manga: KeiyoushiManga = try await call(sourceId: sourceId, method: "getDetailsManga",
+                                                   params: ["mangaData": ["url": mangaURL]])
+        await rememberCovers(sourceId, [manga])
+        return manga
     }
 
     func chapters(sourceId: String, mangaURL: String) async throws -> [KeiyoushiChapter] {
@@ -276,5 +303,63 @@ enum KeiyoushiMapping {
 
     nonisolated static func genres(_ raw: String?) -> [String] {
         (raw ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+}
+
+// MARK: - Covers loaded natively
+
+/// Keiyoushi covers are downloaded by Kingfisher straight from the source's CDN, not through the bridge's image
+/// proxy: the embedded JVM has no hardware crypto, so it spent up to 8 s decrypting one 5 MB cover (S134, measured
+/// on Martin's iPhone 17) and ~7 s of CPU per Browse page. Sources often want their own headers (Referer, Origin)
+/// on image requests — kept here per cover host, persisted so library covers still get them after a relaunch.
+/// The proxy URL is kept for this launch as a fallback for covers that only load through the extension.
+nonisolated final class KeiyoushiCovers: @unchecked Sendable {
+    static let shared = KeiyoushiCovers()
+
+    private static let defaultsKey = "keiyoushiCoverHeaders"
+    private let lock = NSLock()
+    private var headersByHost: [String: [String: String]]
+    private var proxyByCover: [URL: URL] = [:]
+
+    private init() {
+        headersByHost = UserDefaults.standard.dictionary(forKey: Self.defaultsKey) as? [String: [String: String]] ?? [:]
+    }
+
+    /// Headers to add to an image request for `url` (empty for hosts no Keiyoushi source uses).
+    func headers(for url: URL?) -> [String: String] {
+        guard let host = url?.host else { return [:] }
+        return lock.withLock { headersByHost[host] ?? [:] }
+    }
+
+    /// The bridge's proxy URL for a cover, if this launch saw one.
+    func proxy(for url: URL?) -> URL? {
+        guard let url else { return nil }
+        return lock.withLock { proxyByCover[url] }
+    }
+
+    func remember(_ mangas: [KeiyoushiManga], headers: [String: String]) {
+        lock.withLock {
+            var changed = false
+            for m in mangas {
+                guard let cover = m.thumbnail_url.flatMap(URL.init(string:)) else { continue }
+                if let proxy = m.thumbnail_proxy_url.flatMap(URL.init(string:)) { proxyByCover[cover] = proxy }
+                if let host = cover.host, !headers.isEmpty, headersByHost[host] != headers {
+                    headersByHost[host] = headers
+                    changed = true
+                }
+            }
+            if changed { UserDefaults.standard.set(headersByHost, forKey: Self.defaultsKey) }
+        }
+    }
+
+    /// Covers saved before S134 point at the bridge's proxy (`http://127.0.0.1:<port>/image/<token>`), which dies
+    /// with the launch that issued it.
+    static func isProxyURL(_ url: URL?) -> Bool { url?.host == "127.0.0.1" && url?.path.hasPrefix("/image/") == true }
+}
+
+extension KFImage {
+    /// Falls back to the Keiyoushi bridge's image proxy when a cover won't load directly (see `KeiyoushiCovers`).
+    func keiyoushiCoverFallback(_ url: URL?) -> KFImage {
+        alternativeSources(KeiyoushiCovers.shared.proxy(for: url).map { [.network($0)] })
     }
 }

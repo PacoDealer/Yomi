@@ -13,6 +13,7 @@ struct CoverImage: View {
 
     var body: some View {
         KFImage(url)
+            .keiyoushiCoverFallback(url)
             .placeholder { Rectangle().fill(canvas.surface2) }
             .fade(duration: 0.2)
             .resizable()

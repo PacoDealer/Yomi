@@ -1608,6 +1608,30 @@ Revised fix priority for the batched pass: (1) bridge off main + cached per sour
 list + stop invalidating it from the reader, (3) detail screens DB-first, (4) reader controller (fixes #1 #3 #4 #2),
 (5) Keiyoushi page cost under Zero, (6) the rest of §23.2.
 
+**Step 5 result (S134, 2026-10-01): the Keiyoushi Browse cost was covers, not pages.** Method: Java thread dumps
+from the phone (`devicectl device process signal --signal SIGQUIT` → the JVM prints every thread with `cpu=` to the
+`--console` stream — works in the embedded Zero VM and doesn't kill the app), then a diagnostic OkHttp network
+interceptor (`WireStatsInterceptor`, server patch, off unless `-Dyomi.wireStats=true`) logging bytes per request.
+- The thread `OkHttp api.asurascans.com` (HTTP/2 reader) burned **4.6 s CPU for the first page and ~7 s per page
+  after**; every sample was AES-GCM (`GHASH.blockMult`, `AES_Crypt.implEncryptBlock`) — Java TLS with no hardware
+  crypto, interpreted. Same 4 pages on Mac `-Xint`: 139 ms on that thread.
+- The API pages themselves are ~19 KB br each (0.17–0.8 s). The bytes were **covers**: M-Extension-Server rewrites
+  every `thumbnail_url` to its own image proxy (`MihonImageProxy.registerPoster`), so Kingfisher pulled each cover
+  through the JVM — Asura covers are 0.15–5.4 MB, ~25 MB for 3 pages, up to **8.2 s per cover**. The proxy URLs
+  also carry a per-launch port + token, so Kingfisher's disk cache never hit across launches, and library entries
+  saved with one died at the next launch.
+- Fix: server patch keeps `thumbnail_url` original and adds `thumbnail_proxy_url`; Yomi (`KeiyoushiCovers`) loads
+  covers natively with the source's own headers (`headersManga`: Referer/Origin, persisted per cover host) and uses
+  the proxy only as a Kingfisher `alternativeSources` fallback. `MangaDetailView` replaces stale proxy covers.
+  **After: same 3-page Asura run, the connection thread used 61 ms CPU (was 26.9 s), no cover went through the JVM.**
+- Not fixed, same cause: **manga reader pages from Keiyoushi sources still go through the proxy** (`fetchPage`) and
+  are decrypted in Java — expect seconds per page image. Unlike covers they can't simply go native: some extensions
+  descramble pages in an OkHttp interceptor. Measure in step 6; candidate fix = native fetch when the extension
+  registers no image interceptor, or route the JVM's HTTPS through URLSession.
+- Smaller, measured on Mac `-Xint`: Keiyoushi's `parseAs` reads JSON with `decodeFromBufferedSource`
+  (code-point-at-a-time over okio, ~30 % of warm-call samples); `decodeFromString(source.readUtf8())` is 1.6× faster
+  (38 → 24 ms for 64 KB). Not done — small next to the above.
+
 ### 23.5 Sources
 
 LNReader reader JS: github.com/lnreader/lnreader `assets/reader/js/core.js`; infinite-scroll requests lnreader

@@ -1,16 +1,19 @@
 diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
-index f7a664c..e404f46 100644
+index f7a664c..d82b70d 100644
 --- a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
 +++ b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
-@@ -10,6 +10,7 @@ package eu.kanade.tachiyomi.network
+@@ -10,8 +10,10 @@ package eu.kanade.tachiyomi.network
  
  import android.content.Context
  import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 +import eu.kanade.tachiyomi.network.interceptor.NoZstdInterceptor
  import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
  import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
++import eu.kanade.tachiyomi.network.interceptor.WireStatsInterceptor
  import okhttp3.Cache
-@@ -30,6 +31,7 @@ class NetworkHelper(
+ import okhttp3.OkHttpClient
+ import java.nio.file.Files
+@@ -30,6 +32,7 @@ class NetworkHelper(
                  .addInterceptor(UncaughtExceptionInterceptor())
                  .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
                  .addInterceptor(CloudflareInterceptor())
@@ -18,6 +21,14 @@ index f7a664c..e404f46 100644
                  .connectTimeout(30, TimeUnit.SECONDS)
                  .readTimeout(30, TimeUnit.SECONDS)
                  .callTimeout(2, TimeUnit.MINUTES)
+@@ -39,6 +42,7 @@ class NetworkHelper(
+                         maxSize = 5L * 1024 * 1024, // 5 MiB
+                     ),
+                 )
++        if (System.getProperty("yomi.wireStats") == "true") builder.addNetworkInterceptor(WireStatsInterceptor())
+         builder.build()
+     }
+ 
 diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/NoZstdInterceptor.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/NoZstdInterceptor.kt
 new file mode 100644
 index 0000000..204cd1d
@@ -49,6 +60,70 @@ index 0000000..204cd1d
 +        val builder = request.newBuilder()
 +        if (kept.isEmpty()) builder.removeHeader("Accept-Encoding") else builder.header("Accept-Encoding", kept.joinToString(", "))
 +        return chain.proceed(builder.build())
++    }
++}
+diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WireStatsInterceptor.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WireStatsInterceptor.kt
+new file mode 100644
+index 0000000..964bc3d
+--- /dev/null
++++ b/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WireStatsInterceptor.kt
+@@ -0,0 +1,58 @@
++package eu.kanade.tachiyomi.network.interceptor
++
++import okhttp3.Interceptor
++import okhttp3.Response
++import okhttp3.ResponseBody
++import okhttp3.ResponseBody.Companion.asResponseBody
++import okio.Buffer
++import okio.ForwardingSource
++import okio.buffer
++
++/**
++ * Yomi diagnostic (S134): logs, per network request, protocol, TLS cipher, bytes received on the wire
++ * (before decompression) and time to the last byte. Enabled with
++ * -Dyomi.wireStats=true; prints "YOMI-WIRE ..." lines to stderr.
++ */
++class WireStatsInterceptor : Interceptor {
++    override fun intercept(chain: Interceptor.Chain): Response {
++        val request = chain.request()
++        val start = System.nanoTime()
++        val response = chain.proceed(request)
++        val headersMs = (System.nanoTime() - start) / 1_000_000
++        val body = response.body
++        val handshake = response.handshake
++        val tag =
++            "${request.method} ${request.url.host}${request.url.encodedPath} ${response.protocol} " +
++                "${handshake?.tlsVersion?.javaName ?: "-"} ${handshake?.cipherSuite?.javaName ?: "-"} " +
++                "status=${response.code} enc=${response.header("Content-Encoding") ?: "-"} headersMs=$headersMs"
++        val counting =
++            object : ForwardingSource(body.source()) {
++                var bytes = 0L
++                var done = false
++
++                override fun read(
++                    sink: Buffer,
++                    byteCount: Long,
++                ): Long {
++                    val n = super.read(sink, byteCount)
++                    if (n > 0) bytes += n else report()
++                    return n
++                }
++
++                override fun close() {
++                    report()
++                    super.close()
++                }
++
++                fun report() {
++                    if (done) return
++                    done = true
++                    System.err.println(
++                        "YOMI-WIRE $tag wireBytes=$bytes totalMs=${(System.nanoTime() - start) / 1_000_000}",
++                    )
++                }
++            }
++        val wrapped: ResponseBody = counting.buffer().asResponseBody(body.contentType(), body.contentLength())
++        return response.newBuilder().body(wrapped).build()
 +    }
 +}
 diff --git a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
@@ -104,3 +179,41 @@ index c9c373a..98ed5c8 100644
  
              // Load extension sources
              val loadedSource = loadExtensionSources(jarFile, className, tempApkFile)
+diff --git a/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt b/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt
+index c799ac0..b15c34f 100644
+--- a/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt
++++ b/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt
+@@ -401,15 +401,17 @@ object MihonInvoker {
+             } else {
+                 { _: okhttp3.OkHttpClient, _: String -> null }
+             }
++        // Yomi patch: keep the original cover URL so the app can download it natively (iOS TLS is hardware
++        // accelerated; this interpreter decrypts in plain Java, up to 8 s for a 5 MB cover) and offer the proxy
++        // only as a fallback.
+         return converted.copy(
+-            thumbnail_url =
++            thumbnail_proxy_url =
+                 MihonImageProxy.registerPoster(
+                     source,
+                     converted.title,
+                     thumbnailUrl,
+                     fallbackResolver,
+-                )
+-                    ?: thumbnailUrl,
++                ),
+         )
+     }
+ 
+diff --git a/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt b/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt
+index da5ebd4..df0ec10 100644
+--- a/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt
++++ b/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt
+@@ -44,6 +44,8 @@ data class JManga(
+     val status: Int,
+     val thumbnail_url: String?,
+     val initialized: Boolean,
++    // Yomi patch: the local image-proxy URL for the cover, kept next to the original instead of replacing it.
++    val thumbnail_proxy_url: String? = null,
+ )
+ 
+ data class JAnime(

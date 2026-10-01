@@ -169,6 +169,7 @@ struct MangaDetailView: View {
                     Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
                 } else {
                     KFImage(manga.coverURL)
+                        .keiyoushiCoverFallback(manga.coverURL)
                         .placeholder { canvas.surface1 }
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -1406,7 +1407,9 @@ struct MangaDetailView: View {
             if !genres.isEmpty, manga.genres.isEmpty { manga.genres = genres }
             let status = KeiyoushiMapping.status(detail.status)
             if status != .unknown { manga.status = status }
-            if manga.coverURL == nil, let cover = detail.thumbnail_url.flatMap({ URL(string: $0) }) {
+            // Also replaces a pre-S134 cover that points at the bridge's per-launch image proxy.
+            if manga.coverURL == nil || KeiyoushiCovers.isProxyURL(manga.coverURL),
+               let cover = detail.thumbnail_url.flatMap({ URL(string: $0) }) {
                 manga.coverURL = cover
             }
         }

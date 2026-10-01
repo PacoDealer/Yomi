@@ -121,6 +121,7 @@ struct MangaCoverCell: View {
                         .aspectRatio(2 / 3, contentMode: .fill)
                 } else {
                     KFImage(manga.coverURL)
+                        .keiyoushiCoverFallback(manga.coverURL)
                         .placeholder { SkeletonView(showIcon: false) }
                         .fade(duration: 0.2)
                         .resizable()
@@ -277,6 +278,7 @@ struct MangaListRow: View {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
                     KFImage(manga.coverURL)
+                        .keiyoushiCoverFallback(manga.coverURL)
                         .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
