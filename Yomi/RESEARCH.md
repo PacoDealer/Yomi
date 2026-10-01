@@ -1632,6 +1632,23 @@ interceptor (`WireStatsInterceptor`, server patch, off unless `-Dyomi.wireStats=
   (code-point-at-a-time over okio, ~30 % of warm-call samples); `decodeFromString(source.readUtf8())` is 1.6× faster
   (38 → 24 ms for 64 KB). Not done — small next to the above.
 
+**Step 6 (S134, in progress).** Same phone, Release, `perf-traces/s134-*.trace`.
+| Run | Hitches (total / worst) | Hangs | Notes |
+|---|---|---|---|
+| 1 Library scroll | 7 / 67 ms / 13 ms (was 19 / 221 / 17) | 0 | |
+| 2 Browse MangaFire + Asura (after step 5) | 78 / 1296 ms / 100 ms (was 14 / 171 / 17) | 338, 288 ms | KeiyoushiPage 418 ms |
+Run 2 is worse because covers now actually arrive (before, most never finished through the JVM) — at full size. Both
+hangs: main mostly blocked, the rest decoding **PNG** in `CA::Render::prepare_image` ← `_SwiftUIProxyImage`:
+Kingfisher stores WebP covers in its disk cache as PNG and returns an undecoded image, so a multi-megapixel decode
+landed on main at render time (§23.2 #3, now measured). Fix (`coverSized()` in `Core/CoverImage.swift`):
+`DownsamplingImageProcessor` 180×270 pt at display scale + `backgroundDecode()` on every cover `KFImage`.
+**Not yet re-measured** — next: redo run 2, then 3 (open library titles), 4 (novel reader + Next), and new 5
+(Keiyoushi manga reader pages — still through the JVM proxy).
+Tooling notes (also in `scripts/perf/record.sh`): xctrace needs a live CoreDevice tunnel or it fails "Timed out waiting
+for device to boot" — hold one with `devicectl device notification observe --name x --session-timeout 7200 &`
+(`--timeout` alone exits at 300 s); it resolves `--attach` by pid or by name inconsistently, so the script tries both
+and warns when a trace has < 200 samples (idle/background app — one S134 run recorded 13).
+
 ### 23.5 Sources
 
 LNReader reader JS: github.com/lnreader/lnreader `assets/reader/js/core.js`; infinite-scroll requests lnreader
