@@ -138,6 +138,7 @@ struct OPDSBrowseView: View {
         HStack(spacing: 12) {
             if let coverURL = OPDSService.shared.coverURL(for: entry) {
                 KFImage(coverURL)
+                    .coverSized()
                     .placeholder { Image(systemName: "folder").foregroundStyle(canvas.textSecondary) }
                     .fade(duration: 0.2)
                     .resizable()
@@ -207,6 +208,7 @@ struct OPDSBrowseView: View {
             HStack(spacing: 12) {
                 if let coverURL = OPDSService.shared.coverURL(for: entry) {
                     KFImage(coverURL)
+                        .coverSized()
                         .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
@@ -282,6 +284,7 @@ struct OPDSItemDetailView: View {
                     HStack(alignment: .top, spacing: 16) {
                         if let coverURL = OPDSService.shared.coverURL(for: entry) {
                             KFImage(coverURL)
+                                .coverSized()
                                 .placeholder { canvas.surface2 }
                                 .fade(duration: 0.2)
                                 .resizable()

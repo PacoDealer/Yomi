@@ -213,6 +213,7 @@ private struct ContinueHeroCard: View {
                     .task { await sampleAmbient(from: uiImage) }
             } else {
                 KFImage(item.coverURL)
+                    .coverSized()
                     .onSuccess { result in
                         Task.detached(priority: .background) {
                             await sampleAmbient(from: result.image)

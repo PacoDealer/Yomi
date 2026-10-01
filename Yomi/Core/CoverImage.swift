@@ -13,6 +13,7 @@ struct CoverImage: View {
 
     var body: some View {
         KFImage(url)
+            .coverSized()
             .keiyoushiCoverFallback(url)
             .placeholder { Rectangle().fill(canvas.surface2) }
             .fade(duration: 0.2)
@@ -38,5 +39,17 @@ extension View {
             .aspectRatio(2 / 3, contentMode: .fit)
             .overlay { self }
             .clipped()
+    }
+}
+
+extension KFImage {
+    /// Covers never show larger than a ~160 × 240 pt grid cell (the detail backdrop is blurred), but sources ship
+    /// them at up to 5 MB / several megapixels. Full-size images were decoded on the main thread at render time
+    /// (Kingfisher stores WebP in its disk cache as PNG and hands back an undecoded image) — the two hangs in the
+    /// S134 Browse trace. Downsample to display size and decode off the main thread.
+    func coverSized() -> KFImage {
+        setProcessor(DownsamplingImageProcessor(size: CGSize(width: 180, height: 270)))
+            .scaleFactor(UITraitCollection.current.displayScale)
+            .backgroundDecode()
     }
 }

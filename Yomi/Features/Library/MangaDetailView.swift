@@ -169,6 +169,7 @@ struct MangaDetailView: View {
                     Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
                 } else {
                     KFImage(manga.coverURL)
+                        .coverSized()
                         .keiyoushiCoverFallback(manga.coverURL)
                         .placeholder { canvas.surface1 }
                         .resizable()

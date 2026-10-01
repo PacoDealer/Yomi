@@ -703,6 +703,7 @@ private struct NovelLibraryListRow: View {
                     Image(uiImage: uiImage).resizable().scaledToFill()
                 } else {
                     KFImage(novel.coverURL)
+                        .coverSized()
                         .placeholder { canvas.surface2 }
                         .fade(duration: 0.2)
                         .resizable()
