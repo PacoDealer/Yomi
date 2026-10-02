@@ -1637,6 +1637,11 @@ interceptor (`WireStatsInterceptor`, server patch, off unless `-Dyomi.wireStats=
 |---|---|---|---|
 | 1 Library scroll | 7 / 67 ms / 13 ms (was 19 / 221 / 17) | 0 | |
 | 2 Browse MangaFire + Asura (after step 5) | 78 / 1296 ms / 100 ms (was 14 / 171 / 17) | 338, 288 ms | KeiyoushiPage 418 ms |
+| 2 again, S135, after `coverSized()` | 28 / 525 ms / 183 ms | 282, 263 ms | hangs = Kingfisher disk-cache read+decode on main (`loadDiskFileSynchronously`) → `d15f611` |
+| 3 Open library titles, S136 | 24 / 400 ms / **17 ms** (was 33 / 592 / 83) | **0** (was 801, 722, 326) | OpenManga 0.88–1.28 s, OpenNovel 2.0–2.3 s — NOT comparable to baseline: since step 3 these intervals span the background source refresh, while the saved list shows first. No signpost marks "chapters visible" yet. |
+| 4 Novel reader + Next, S136 | 5 / 83 ms / 17 ms (was 20 / 538 / 142) | **410 ms** (was 589, 541, 263, 262) | NovelChapter first open 803 ms, then Next ×7 = 2–9 ms. OpenNovel 1.6 s |
+| 5 Keiyoushi manga reader (Asura), S136 | 5 / 1000 ms / **333 ms**, 4 > 100 ms | 345, 322 ms | no page signposts yet |
+| 2 again, S136, after `d15f611` | 32 / 583 ms / **50 ms**, none > 100 ms | **0** | KeiyoushiPage n=22, median ~650 ms, 4.1 / 5.9 s outliers (JVM, first page per source) |
 Run 2 is worse because covers now actually arrive (before, most never finished through the JVM) — at full size. Both
 hangs: main mostly blocked, the rest decoding **PNG** in `CA::Render::prepare_image` ← `_SwiftUIProxyImage`:
 Kingfisher stores WebP covers in its disk cache as PNG and returns an undecoded image, so a multi-megapixel decode
@@ -1644,6 +1649,20 @@ landed on main at render time (§23.2 #3, now measured). Fix (`coverSized()` in 
 `DownsamplingImageProcessor` 180×270 pt at display scale + `backgroundDecode()` on every cover `KFImage`.
 **Not yet re-measured** — next: redo run 2, then 3 (open library titles), 4 (novel reader + Next), and new 5
 (Keiyoushi manga reader pages — still through the JVM proxy).
+**S136 (2026-10-02): runs 2–5 re-measured on HEAD `d15f611`.** Runs 1–3 have no hangs left. Two remain:
+- **Run 4, 410 ms, main thread BUSY (309/309 samples Running) on the first chapter open** from NovelDetailView:
+  ~73 ms navigation push/transition, ≥ 50 ms `NovelDetailView.chaptersSection` + `chapterRow` re-evaluated during
+  the push, ~80 samples of SwiftUI List re-diffing (`UpdateCollectionViewListCoordinator` / `ForEachState`) — the
+  detail's chapter list rebuilt under the reader — and ~25 ms `WKWebView.init`. Next chapter after that = 2–9 ms.
+- **Run 5, 345 + 322 ms, main thread BLOCKED (1–2 samples each) inside a CA commit.** Meanwhile the other threads
+  were: `deflate`/`png_*` (Kingfisher's `DefaultCacheSerializer` re-encodes WebP pages as PNG for the disk cache —
+  WebP is `.unknown` to it), WebP decode (`VP8*`, `WebPReadPlugin`) of full-size pages, and the JVM
+  (`BytecodeInterpreter`, pages still via the proxy). Reader `KFImage`s (`MangaPageView`, both `pageImage`s in
+  `ChapterReaderView`) have no `backgroundDecode`, no `loadDiskFileSynchronously(false)`, no downsampling.
+- Signpost gaps: OpenManga/OpenNovel now span the background refresh (not "chapters visible"); reader pages have none.
+- Analysis scripts used: main-thread stacks inside each hang + other threads' leaf frames (resolve `ref=` frames in
+  the `time-profile` export; the frame list is under `tagged-backtrace/backtrace`).
+
 Tooling notes (also in `scripts/perf/record.sh`): xctrace needs a live CoreDevice tunnel or it fails "Timed out waiting
 for device to boot" — hold one with `devicectl device notification observe --name x --session-timeout 7200 &`
 (`--timeout` alone exits at 300 s); it resolves `--attach` by pid or by name inconsistently, so the script tries both
