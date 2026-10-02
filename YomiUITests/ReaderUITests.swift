@@ -11,10 +11,11 @@ final class ReaderUITests: XCTestCase {
 
     /// `-key value` launch arguments land in UserDefaults' argument domain, which AppSettings reads. Values are
     /// parsed as plist: "NO" would arrive as a string (and `as? Bool` ignores it), `<false/>` as a boolean.
-    private func launch(infiniteScroll: Bool) {
+    private func launch(infiniteScroll: Bool, extra: [String] = []) {
         app = XCUIApplication()
         app.launchArguments = ["-yomiReaderFixture", "-novelInfiniteScroll", infiniteScroll ? "<true/>" : "<false/>",
-                               "-novelSwipeChapters", "<true/>", "-novelMenuTaps", "<integer>1</integer>"]
+                               "-novelSwipeChapters", "<true/>", "-novelMenuTaps", "<integer>1</integer>",
+                               "-novelReadingMode", "scroll"] + extra
         app.launch()
         XCTAssertTrue(text("Fixture chapter 1, paragraph 1.").waitForExistence(timeout: 10), "fixture chapter 1 never showed")
     }
@@ -146,5 +147,70 @@ final class ReaderUITests: XCTestCase {
                                                         evaluatedWith: marker)], timeout: 3) == .completed
         XCTAssertTrue(applied, "reader font is \(marker.value as? String ?? "?"), expected literata")
         XCTAssertTrue(text("Fixture chapter 1, paragraph 1.").exists, "chapter text vanished after a font change")
+    }
+
+    // MARK: Pages mode (S136, RESEARCH §25.10 #2)
+
+    private func launchPages(continueIntoNext: Bool = true) {
+        launch(infiniteScroll: false, extra: ["-novelReadingMode", "pages",
+                                              "-novelPagesContinue", continueIntoNext ? "<true/>" : "<false/>"])
+        if menuState == "open" { closeMenu() }
+    }
+
+    /// DEBUG marker in TextReaderView: "page/pages" of the chapter on screen.
+    private func waitForPage(_ value: String, timeout: TimeInterval = 3) -> Bool {
+        XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", value),
+                                         evaluatedWith: app.otherElements["reader.page"])], timeout: timeout) == .completed
+    }
+
+    private func tapEdge(right: Bool) {
+        app.webViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: right ? 0.9 : 0.1, dy: 0.5)).tap()
+    }
+
+    func testPagesTapsTurnPagesAndMiddleOpensMenu() {
+        launchPages()
+        XCTAssertTrue(waitForPage("1/4"), "first page: \(app.otherElements["reader.page"].value as? String ?? "?")")
+        tapEdge(right: true)
+        XCTAssertTrue(waitForPage("2/4"), "right edge tap didn't turn to page 2")
+        XCTAssertEqual(menuState, "closed", "a page-turn tap opened the menu")
+        tapEdge(right: false)
+        XCTAssertTrue(waitForPage("1/4"), "left edge tap didn't turn back")
+        app.webViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(waitForMenu("open"), "middle tap should open the menu")
+    }
+
+    func testPagesSwipeTurnsPage() {
+        launchPages()
+        XCTAssertTrue(waitForPage("1/4"))
+        app.webViews.firstMatch.swipeLeft()
+        XCTAssertTrue(waitForPage("2/4"), "a swipe didn't turn the page")
+        XCTAssertTrue(text("Fixture chapter 1, paragraph").exists, "a page swipe changed chapter")
+    }
+
+    func testPagesContinueIntoNextChapter() {
+        launchPages()
+        // Chapter 1 has 4 pages and chapter 2 (with its title) 5, so "1/5" means chapter 2's first page is on screen.
+        // (isHittable can't judge text in an off-screen column — XCUITest throws "activation point invalid".)
+        let marker = app.otherElements["reader.page"]
+        for _ in 0..<8 where (marker.value as? String) != "1/5" { tapEdge(right: true); sleep(1) }
+        XCTAssertTrue(waitForPage("1/5"), "paging never reached chapter 2's first page")
+        XCTAssertTrue(text("Fixture chapter 2, paragraph 1.").exists, "chapter 2 text missing")
+    }
+
+    func testPagesWithoutContinueEndOnNextChapterPage() {
+        launchPages(continueIntoNext: false)
+        let next = app.webViews.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "Next chapter")).firstMatch
+        for _ in 0..<8 where !next.isHittable { tapEdge(right: true); sleep(1) }
+        XCTAssertTrue(next.isHittable, "no Next chapter page at the end of the chapter")
+        XCTAssertFalse(text("Fixture chapter 2, paragraph 1.").exists, "chapter 2 was appended with continue off")
+        next.tap()
+        XCTAssertTrue(text("Fixture chapter 2, paragraph 1.").waitForExistence(timeout: 5), "Next chapter page didn't open chapter 2")
+    }
+
+    func testPagesEdgeSwipeGoesBack() {
+        launchPages()
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5)).withOffset(CGVector(dx: 2, dy: 0))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+        XCTAssertTrue(app.staticTexts["Fixture home"].waitForExistence(timeout: 3), "edge swipe did not go back in pages mode")
     }
 }

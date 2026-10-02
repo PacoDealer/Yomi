@@ -71,6 +71,9 @@ struct TextReaderView: View {
     @State private var letterSpacing: Int      = AppSettings.shared.novelLetterSpacing
 
     @State private var showOverlay = true
+    /// Pages mode: chapter name + "page / pages" drawn above and below the text (S136).
+    @State private var pageInfo: PageInfo? = nil
+    struct PageInfo: Equatable { var chapterName: String; var page: Int; var pages: Int }
     @State private var showFinishedBanner = false
     @State private var sessionStart: Date = Date()
     @State private var lastKnownScrollPercent: Double? = nil
@@ -126,6 +129,7 @@ struct TextReaderView: View {
             : "text-align: start;"
         return """
             \(font.fontFaceCSS)
+            :root { --m: \(hPadding)px; }
             html, body { background: \(novelTheme.bg); }
             body {
                 font-family: \(font.css);
@@ -149,10 +153,19 @@ struct TextReaderView: View {
             """
     }
 
+    private var pagesMode: Bool { AppSettings.shared.novelReadingMode == "pages" }
+
+    /// Whether reaching a chapter's end flows into the next one: infinite scroll in scroll mode, "Continue into
+    /// next chapter" in pages mode (separate settings, Martin's call).
+    private var continuesIntoNext: Bool {
+        pagesMode ? AppSettings.shared.novelPagesContinue : AppSettings.shared.novelInfiniteScroll
+    }
+
     private var readerOptions: NovelReaderController.Options {
-        .init(infinite: AppSettings.shared.novelInfiniteScroll,
+        .init(infinite: continuesIntoNext,
               swipe: AppSettings.shared.novelSwipeChapters,
-              taps: AppSettings.shared.novelMenuTaps == 2 ? 2 : 1)
+              taps: AppSettings.shared.novelMenuTaps == 2 ? 2 : 1,
+              pages: pagesMode)
     }
 
     // MARK: - Body
@@ -165,6 +178,10 @@ struct TextReaderView: View {
             // Always mounted: changing chapter never depends on SwiftUI rebuilding the web view (bug #1).
             ReaderWebView(controller: controller, css: readerCSS, options: readerOptions, lang: sourceLanguage)
                 .ignoresSafeArea()
+
+            if pagesMode, let info = pageInfo, !isLoading, errorMessage == nil {
+                pageIndicator(info)
+            }
 
             if isLoading || errorMessage != nil {
                 ZStack {
@@ -283,6 +300,32 @@ struct TextReaderView: View {
         }
     }
 
+    // MARK: - Pages mode indicator
+
+    /// Chapter name at the top, "12 / 30" at the bottom — in the space the pages-mode CSS leaves free
+    /// (34 px + safe area each side), so it never covers text.
+    private func pageIndicator(_ info: PageInfo) -> some View {
+        VStack {
+            Text(info.chapterName)
+                .lineLimit(1)
+                .padding(.top, 6)
+            Spacer()
+            Text("\(info.page) / \(info.pages)")
+                .monospacedDigit()
+                .padding(.bottom, 6)
+        }
+        .font(YomiTokens.Font.mono(11))
+        .foregroundStyle(Color(hex: novelTheme.fg).opacity(0.5))
+        .padding(.horizontal, 24)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Page \(info.page) of \(info.pages), \(info.chapterName)")
+        #if DEBUG
+        .accessibilityIdentifier("reader.page")
+        .accessibilityValue("\(info.page)/\(info.pages)")
+        #endif
+    }
+
     // MARK: - Chapter Finished Banner
 
     @ViewBuilder private var chapterFinishedBanner: some View {
@@ -343,7 +386,7 @@ struct TextReaderView: View {
         case .progress(let id, let pct):
             if id == activeChapter.id {
                 lastKnownScrollPercent = pct
-                if pct >= 0.7 && !AppSettings.shared.novelInfiniteScroll { preloadNextChapterIfNeeded() }
+                if pct >= 0.7 && !continuesIntoNext { preloadNextChapterIfNeeded() }
             }
             persistScrollPercent(pct, chapterId: id)
         case .complete(let id):
@@ -352,6 +395,8 @@ struct TextReaderView: View {
             appendChapter(after: afterId)
         case .dropped(let id):
             loadedContent.removeValue(forKey: id)
+        case .page(let id, let page, let pages):
+            pageInfo = PageInfo(chapterName: chapters.first { $0.id == id }?.name ?? "", page: page, pages: pages)
         }
     }
 
@@ -379,9 +424,10 @@ struct TextReaderView: View {
                 }
             }
         }
-        // With infinite scroll the next chapter is already coming up below; only say so at the very end.
+        // With infinite scroll the next chapter is already coming up below; only say so at the very end. Pages mode
+        // without "continue" ends on its own Next chapter page, so the banner would just cover it.
         let isLast = chapter.id == chapters.last?.id
-        if id == activeChapter.id && (!AppSettings.shared.novelInfiniteScroll || isLast) {
+        if id == activeChapter.id && (isLast || (!continuesIntoNext && !pagesMode)) {
             withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
         }
     }
@@ -994,12 +1040,27 @@ extension TextReaderOverlayView {
     /// Same AppSettings values as Settings → Novels → Reading; the reader reads them live (`readerOptions`).
     var readingTab: some View {
         VStack(spacing: 10) {
-            Toggle(isOn: $settings.novelInfiniteScroll) {
-                Text("Infinite scroll").font(.subheadline)
+            HStack {
+                Text("Layout").font(.subheadline)
+                Spacer()
+                ReaderSegmentedControl(options: [("Scroll", "scroll"), ("Pages", "pages")],
+                                       selection: $settings.novelReadingMode,
+                                       accessibilityName: "Layout")
             }
-            .accessibilityHint("Carries on into the next chapter at the end of this one")
-            Toggle(isOn: $settings.novelSwipeChapters) {
-                Text("Swipe to change chapter").font(.subheadline)
+            if settings.novelReadingMode == "pages" {
+                // In pages mode a sideways swipe turns the page, so "swipe to change chapter" doesn't apply.
+                Toggle(isOn: $settings.novelPagesContinue) {
+                    Text("Continue into next chapter").font(.subheadline)
+                }
+                .accessibilityHint("Off: each chapter ends on a page with a Next chapter button")
+            } else {
+                Toggle(isOn: $settings.novelInfiniteScroll) {
+                    Text("Infinite scroll").font(.subheadline)
+                }
+                .accessibilityHint("Carries on into the next chapter at the end of this one")
+                Toggle(isOn: $settings.novelSwipeChapters) {
+                    Text("Swipe to change chapter").font(.subheadline)
+                }
             }
             HStack {
                 Text("Show menu with").font(.subheadline)

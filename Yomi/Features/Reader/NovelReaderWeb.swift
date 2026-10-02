@@ -24,12 +24,16 @@ final class NovelReaderController {
         case needNext(afterId: String)
         /// A chapter far above the reading position was removed from the document.
         case dropped(id: String)
+        /// Pages mode: the page on screen, 1-based within its chapter.
+        case page(id: String, page: Int, pages: Int)
     }
 
     struct Options: Equatable {
         var infinite: Bool
         var swipe: Bool
         var taps: Int
+        /// Pages mode (S136): text in screen-wide columns, turned by native scroll-view paging.
+        var pages: Bool = false
     }
 
     fileprivate weak var webView: WKWebView?
@@ -70,7 +74,8 @@ final class NovelReaderController {
     func setOptions(_ options: Options) {
         guard options != appliedOptions else { return }
         appliedOptions = options
-        call("yomi.setOptions(o)", ["o": ["infinite": options.infinite, "swipe": options.swipe, "taps": options.taps]])
+        call("yomi.setOptions(o)", ["o": ["infinite": options.infinite, "swipe": options.swipe, "taps": options.taps,
+                                          "pages": options.pages]])
     }
 
     fileprivate func markReady() {
@@ -108,12 +113,17 @@ final class NovelReaderController {
             if let id = body as? String { onEvent(.needNext(afterId: id)) }
         case "dropped":
             if let id = body as? String { onEvent(.dropped(id: id)) }
+        case "page":
+            if let d = body as? [String: Any], let id = d["id"] as? String,
+               let page = (d["page"] as? NSNumber)?.intValue, let pages = (d["pages"] as? NSNumber)?.intValue {
+                onEvent(.page(id: id, page: page, pages: pages))
+            }
         default:
             break
         }
     }
 
-    static let messageNames = ["ready", "tap", "swipe", "current", "progress", "complete", "needNext", "dropped"]
+    static let messageNames = ["ready", "tap", "swipe", "current", "progress", "complete", "needNext", "dropped", "page"]
 }
 
 // MARK: - ReaderWebView
@@ -153,12 +163,27 @@ struct ReaderWebView: UIViewRepresentable {
         controller.appliedCSS = css
         webView.loadHTMLString(NovelReaderScript.shell(css: css, lang: lang), baseURL: nil)
         controller.setOptions(options)
+        applyPaging(to: webView, context: context)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         controller.setStyle(css)
         controller.setOptions(options)
+        applyPaging(to: webView, context: context)
+    }
+
+    /// Pages mode turns pages with the scroll view's own paging, so a page follows the finger (Martin picked
+    /// "Slide"). Pinch zoom is off there: a zoomed page breaks the column layout (size is a setting instead).
+    private func applyPaging(to webView: WKWebView, context: Context) {
+        let scroll = webView.scrollView
+        if scroll.isPagingEnabled != options.pages {
+            scroll.isPagingEnabled = options.pages
+            scroll.showsHorizontalScrollIndicator = false
+            scroll.alwaysBounceVertical = !options.pages
+            scroll.pinchGestureRecognizer?.isEnabled = !options.pages
+        }
+        context.coordinator.yieldToEdgeSwipe(scroll)
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -170,6 +195,25 @@ struct ReaderWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         let controller: NovelReaderController
         init(controller: NovelReaderController) { self.controller = controller }
+
+        private weak var linkedPop: UIGestureRecognizer?
+
+        /// A drag that starts on the left screen edge is "back" (`.swipeBackEnabled()`), not a page turn: the
+        /// web view's pan waits for the navigation controller's edge recognizer to fail. Swipes that start
+        /// anywhere else turn pages — Apple Books' split. The recognizer exists only once the view is in a window.
+        func yieldToEdgeSwipe(_ scroll: UIScrollView) {
+            guard linkedPop == nil else { return }
+            var responder: UIResponder? = scroll
+            while let r = responder, !(r is UINavigationController) { responder = r.next }
+            guard let pop = (responder as? UINavigationController)?.interactivePopGestureRecognizer else {
+                DispatchQueue.main.async { [weak self, weak scroll] in
+                    if let self, let scroll, scroll.window != nil, self.linkedPop == nil { self.yieldToEdgeSwipe(scroll) }
+                }
+                return
+            }
+            scroll.panGestureRecognizer.require(toFail: pop)
+            linkedPop = pop
+        }
 
         // Chapter HTML is scraped from third-party sites. Our own loadHTMLString resolves to about:blank;
         // anything else (a link in the chapter, a redirect) is a real navigation and is cancelled (#95).
@@ -206,7 +250,7 @@ enum NovelReaderScript {
         <html\(langAttr)>
         <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
         <style id="yomi-base">\(baseCSS)</style>
         <style id="yomi-style">\(css)</style>
         </head>
@@ -233,16 +277,50 @@ enum NovelReaderScript {
             border-top-color: color-mix(in srgb, currentColor 20%, transparent);
         }
         img { max-width: 100%; height: auto; display: block; margin: 0.5em auto; }
+        .yomi-mark { height: 0; margin: 0; padding: 0; }
+        .yomi-end-card { display: none; }
+
+        /* Pages mode (S136): screen-wide columns, overflowing sideways; the scroll view pages through them.
+           Column k starts at m + k·100vw (padding m, column 100vw-2m, gap 2m), so every page is one screen
+           wide. --m (margin) comes from the reader stylesheet; top/bottom leave room for the native chapter name
+           and page number. */
+        /* overflow only on html (it propagates to the viewport, which the scroll view pages); on body too, body
+           would become its own scroll container and window.scrollX would never move. */
+        html.yomi-pages { height: 100%; overflow-y: hidden; }
+        html.yomi-pages body { height: 100%; }
+        html.yomi-pages #yomi-chapters {
+            height: 100vh; min-height: 0; max-width: none; margin: 0;
+            padding: calc(env(safe-area-inset-top) + 34px) var(--m) calc(env(safe-area-inset-bottom) + 34px) var(--m);
+            column-width: calc(100vw - 2 * var(--m)); column-gap: calc(2 * var(--m)); column-fill: auto;
+        }
+        html.yomi-pages .yomi-chapter { break-before: column; }
+        html.yomi-pages .yomi-chapter + .yomi-chapter { margin-top: 0; }
+        html.yomi-pages img {
+            break-inside: avoid; object-fit: contain;
+            max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 80px);
+        }
+        html.yomi-pages:not(.yomi-continue) .yomi-end-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1em;
+            break-before: column; height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 68px);
+            text-align: center; opacity: 0.8;
+        }
+        .yomi-end-card button {
+            font: inherit; color: inherit; background: color-mix(in srgb, currentColor 12%, transparent);
+            border: 0; border-radius: 999px; padding: 0.6em 1.4em; cursor: pointer;
+        }
         """
 
     /// The reader controller. Posts: ready, tap, swipe("next"|"prev"), current(id), progress({id,pct}),
-    /// complete(id), needNext(afterId), dropped(id).
+    /// complete(id), needNext(afterId), dropped(id), page({id,page,pages}).
+    /// Two layouts share one model — an ordered list of chapter sections and a reading position (chapter + percent):
+    /// scroll (vertical) and pages (S136: horizontal columns, one screen per page, paged natively by the scroll view).
     static let source = #"""
     (function () {
       'use strict';
       if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
       var root = document.getElementById('yomi-chapters');
-      var opts = { infinite: true, swipe: true, taps: 1 };
+      var html = document.documentElement;
+      var opts = { infinite: true, swipe: true, taps: 1, pages: false };
       var currentId = null;
       var completed = {};
       var askedAfter = null;       // last chapter id we asked Swift to append after
@@ -250,6 +328,7 @@ enum NovelReaderScript {
       var retryAt = 0;
       var progressTimer = null, trimTimer = null;
       var lastScrollAt = 0, touching = false;
+      var lastPage = null;         // "id:page/pages" last posted, to post page changes only
 
       function post(name, body) {
         try { window.webkit.messageHandlers[name].postMessage(body === undefined ? 1 : body); } catch (e) {}
@@ -266,6 +345,7 @@ enum NovelReaderScript {
         var s = document.createElement('section');
         s.className = 'yomi-chapter';
         s.dataset.id = ch.id;
+        var start = document.createElement('div'); start.className = 'yomi-mark yomi-start'; s.appendChild(start);
         if (withTitle && ch.title) {
           var t = document.createElement('div');
           t.className = 'yomi-chapter-title';
@@ -281,40 +361,98 @@ enum NovelReaderScript {
           if (n.textContent.trim() === 'Restore scroll position' && n.parentElement) { n.parentElement.remove(); break; }
         }
         s.appendChild(body);
+        var end = document.createElement('div'); end.className = 'yomi-mark yomi-end'; s.appendChild(end);
+        // Pages mode with "continue" off: the chapter ends on a page of its own with a Next chapter button.
+        var card = document.createElement('div');
+        card.className = 'yomi-end-card';
+        card.innerHTML = '<div>End of chapter</div><button type="button" class="yomi-next">Next chapter ›</button>';
+        s.appendChild(card);
         return s;
       }
 
-      // Percent through a chapter: 0 = its top at the top of the screen, 1 = its bottom at the bottom.
+      // ── Geometry ─────────────────────────────────────────────────────────
+      function pageW() { return window.innerWidth || 1; }
+      function pageNow() { return Math.round(window.scrollX / pageW()); }
+      function pageOf(el) { return Math.floor((el.getBoundingClientRect().left + window.scrollX + 1) / pageW()); }
+      // First and last page of a section (pages mode). The end card counts as a page when it's shown.
+      function span(s) {
+        var a = pageOf(s.querySelector(':scope > .yomi-start'));
+        var card = s.querySelector(':scope > .yomi-end-card');
+        var lastEl = card && card.offsetHeight > 0 ? card : s.querySelector(':scope > .yomi-end');
+        var b = Math.max(a, pageOf(lastEl));
+        return { a: a, b: b, n: b - a + 1 };
+      }
+      // Percent through a chapter. Scroll: 0 = its top at the top of the screen, 1 = its bottom at the bottom.
+      // Pages: first page = 0, last page = 1.
       function percentOf(s) {
+        if (opts.pages) {
+          var r = span(s);
+          return r.n <= 1 ? 1 : clamp((pageNow() - r.a) / (r.n - 1));
+        }
         var range = s.offsetHeight - window.innerHeight;
         if (range <= 0) return 1;
         return clamp((window.scrollY - s.offsetTop) / range);
+      }
+      function goTo(s, pct) {
+        if (opts.pages) {
+          var r = span(s);
+          window.scrollTo((r.a + Math.round(clamp(pct) * (r.n - 1))) * pageW(), 0);
+        } else {
+          var range = s.offsetHeight - window.innerHeight;
+          window.scrollTo(0, s.offsetTop + (pct > 0.01 && range > 0 ? pct * range : 0));
+        }
+      }
+      // The chapter being read: scroll = the one crossing a line 30 % down the screen; pages = the one on screen.
+      function currentSection(list) {
+        var cur = list[0];
+        if (opts.pages) {
+          var p = pageNow();
+          for (var i = 0; i < list.length; i++) { if (span(list[i]).a <= p) cur = list[i]; }
+        } else {
+          var line = window.scrollY + window.innerHeight * 0.3;
+          for (var k = 0; k < list.length; k++) { if (list[k].offsetTop <= line) cur = list[k]; }
+        }
+        return cur;
       }
 
       function update() {
         var list = sections();
         if (!list.length) return;
-        var y = window.scrollY, vh = window.innerHeight;
-        var line = y + vh * 0.3;
-        var cur = list[0];
-        for (var i = 0; i < list.length; i++) { if (list[i].offsetTop <= line) cur = list[i]; }
+        var cur = currentSection(list);
         if (cur.dataset.id !== currentId) {
           var prev = currentId ? find(currentId) : null;
           if (prev) post('progress', { id: prev.dataset.id, pct: percentOf(prev) });
           currentId = cur.dataset.id;
           post('current', currentId);
         }
-        for (var j = 0; j < list.length; j++) {
-          var s = list[j], id = s.dataset.id;
-          if (completed[id]) continue;
-          var seen = (y + vh - s.offsetTop) / Math.max(1, s.offsetHeight);
-          if (seen >= 0.9) { completed[id] = true; post('complete', id); }
-        }
-        if (opts.infinite && !noMore && Date.now() >= retryAt) {
-          var last = list[list.length - 1];
-          if (askedAfter !== last.dataset.id && y + vh > last.offsetTop + last.offsetHeight - vh * 1.5) {
+        var last = list[list.length - 1];
+        if (opts.pages) {
+          var p = pageNow(), r = span(cur);
+          var key = cur.dataset.id + ':' + (p - r.a + 1) + '/' + r.n;
+          if (key !== lastPage) { lastPage = key; post('page', { id: cur.dataset.id, page: p - r.a + 1, pages: r.n }); }
+          for (var j = 0; j < list.length; j++) {
+            var sj = list[j], idj = sj.dataset.id;
+            if (completed[idj]) continue;
+            var rj = span(sj);
+            if (p >= rj.b || (rj.n > 1 && (p - rj.a) / (rj.n - 1) >= 0.9)) { completed[idj] = true; post('complete', idj); }
+          }
+          if (opts.infinite && !noMore && Date.now() >= retryAt && askedAfter !== last.dataset.id && p >= span(last).b - 2) {
             askedAfter = last.dataset.id;
             post('needNext', askedAfter);
+          }
+        } else {
+          var y = window.scrollY, vh = window.innerHeight;
+          for (var m = 0; m < list.length; m++) {
+            var s = list[m], id = s.dataset.id;
+            if (completed[id]) continue;
+            var seen = (y + vh - s.offsetTop) / Math.max(1, s.offsetHeight);
+            if (seen >= 0.9) { completed[id] = true; post('complete', id); }
+          }
+          if (opts.infinite && !noMore && Date.now() >= retryAt) {
+            if (askedAfter !== last.dataset.id && y + vh > last.offsetTop + last.offsetHeight - vh * 1.5) {
+              askedAfter = last.dataset.id;
+              post('needNext', askedAfter);
+            }
           }
         }
         clearTimeout(progressTimer);
@@ -326,19 +464,27 @@ enum NovelReaderScript {
         trimTimer = setTimeout(trim, 700);
       }
 
-      // Keep at most ~4 chapters: drop ones well above the reader, only while nothing is moving,
-      // and shift the scroll position by the removed height so the text on screen doesn't jump.
+      // Keep at most ~4 chapters: drop ones well before the reader, only while nothing is moving, and shift the
+      // position by what was removed so the text on screen doesn't jump.
       function trim() {
         if (touching || Date.now() - lastScrollAt < 600) { trimTimer = setTimeout(trim, 700); return; }
         var list = sections();
         var cur = currentId ? find(currentId) : null;
         if (!cur || list.length <= 4) return;
         var first = list[0];
-        if (first === cur || first.offsetTop + first.offsetHeight > window.scrollY - window.innerHeight) return;
-        var before = cur.offsetTop;
+        if (first === cur) return;
         var id = first.dataset.id;
-        first.remove();
-        window.scrollBy(0, cur.offsetTop - before);
+        if (opts.pages) {
+          var r = span(first);
+          if (r.b >= pageNow() - 2) return;
+          first.remove();
+          window.scrollBy(-r.n * pageW(), 0);
+        } else {
+          if (first.offsetTop + first.offsetHeight > window.scrollY - window.innerHeight) return;
+          var before = cur.offsetTop;
+          first.remove();
+          window.scrollBy(0, cur.offsetTop - before);
+        }
         delete completed[id];
         post('dropped', id);
       }
@@ -350,8 +496,21 @@ enum NovelReaderScript {
         requestAnimationFrame(function () { scheduled = false; update(); });
       }
 
+      // A style, size or mode change re-lays out everything: keep the reader on the same spot of the same chapter.
+      function relayout(change) {
+        var c = currentId ? find(currentId) : null;
+        var pct = c ? percentOf(c) : 0;
+        change();
+        if (c) {
+          goTo(c, pct);
+          requestAnimationFrame(function () { goTo(c, pct); lastPage = null; update(); });
+        } else {
+          schedule();
+        }
+      }
+
       window.addEventListener('scroll', function () { lastScrollAt = Date.now(); schedule(); }, { passive: true });
-      window.addEventListener('resize', schedule, { passive: true });
+      window.addEventListener('resize', function () { relayout(function () {}); }, { passive: true });
       window.addEventListener('load', schedule, { passive: true });
 
       // ── Gestures ─────────────────────────────────────────────────────────
@@ -377,10 +536,11 @@ enum NovelReaderScript {
         if (Math.abs(touch.dx) > 8 || Math.abs(touch.dy) > 8) ignoreClick = true;
       }, { passive: true });
 
+      // Scroll mode only: a sideways swipe changes chapter. In pages mode the scroll view turns the page.
       function endTouch(cancelled) {
         touching = false;
         var t = touch; touch = null;
-        if (cancelled || !t || !opts.swipe || t.sel || zoomed() || hasSelection()) return;
+        if (cancelled || !t || opts.pages || !opts.swipe || t.sel || zoomed() || hasSelection()) return;
         var adx = Math.abs(t.dx), ady = Math.abs(t.dy);
         // Horizontal, clearly not a scroll, and not from the left edge (iOS uses it for "back").
         if (t.x > 24 && adx > Math.max(90, window.innerWidth * 0.25) && adx > 2 * ady && Date.now() - t.t < 800) {
@@ -390,32 +550,59 @@ enum NovelReaderScript {
       document.addEventListener('touchend', function () { endTouch(false); }, { passive: true });
       document.addEventListener('touchcancel', function () { endTouch(true); }, { passive: true });
 
-      document.addEventListener('click', function (e) {
-        if (e.target && e.target.closest && e.target.closest('a')) e.preventDefault();
-        if (ignoreClick) { ignoreClick = false; return; }
+      // Pages: one page back/forward. Past the first/last page of the document, the previous/next chapter.
+      function turn(dir) {
+        var p = pageNow() + dir;
+        var list = sections();
+        var lastPageIndex = list.length ? span(list[list.length - 1]).b : 0;
+        if (p < 0) { post('swipe', 'prev'); return; }
+        if (p > lastPageIndex) { post('swipe', 'next'); return; }
+        window.scrollTo({ left: p * pageW(), top: 0, behavior: 'smooth' });
+      }
+
+      function menuTap() {
         if (opts.taps === 2) {
           var now = Date.now();
           if (now - lastTapAt < 400) { lastTapAt = 0; post('tap'); } else { lastTapAt = now; }
           return;
         }
         post('tap');
+      }
+
+      document.addEventListener('click', function (e) {
+        if (e.target && e.target.closest && e.target.closest('a')) e.preventDefault();
+        if (ignoreClick) { ignoreClick = false; return; }
+        if (e.target && e.target.closest && e.target.closest('.yomi-next')) { post('swipe', 'next'); return; }
+        if (opts.pages) {
+          var w = window.innerWidth;
+          if (e.clientX < w * 0.3) { turn(-1); return; }
+          if (e.clientX > w * 0.7) { turn(1); return; }
+        }
+        menuTap();
       }, true);
 
       // ── API for Swift ────────────────────────────────────────────────────
       window.yomi = {
-        setStyle: function (css) { document.getElementById('yomi-style').textContent = css; schedule(); },
-        setOptions: function (o) { opts = o; schedule(); },
+        setStyle: function (css) {
+          relayout(function () { document.getElementById('yomi-style').textContent = css; });
+        },
+        setOptions: function (o) {
+          var modeChanged = !!o.pages !== !!opts.pages || !!o.infinite !== !!opts.infinite;
+          var apply = function () {
+            opts = o;
+            html.classList.toggle('yomi-pages', !!o.pages);
+            html.classList.toggle('yomi-continue', !!o.infinite);
+          };
+          if (modeChanged) { askedAfter = null; noMore = false; relayout(apply); } else { apply(); schedule(); }
+        },
         show: function (ch, pct) {
           root.innerHTML = '';
-          completed = {}; askedAfter = null; noMore = false; retryAt = 0; currentId = null;
+          completed = {}; askedAfter = null; noMore = false; retryAt = 0; currentId = null; lastPage = null;
           var s = build(ch, false);
           root.appendChild(s);
-          var go = function () {
-            var range = s.offsetHeight - window.innerHeight;
-            window.scrollTo(0, s.offsetTop + (pct > 0.01 && range > 0 ? pct * range : 0));
-          };
-          go();
-          requestAnimationFrame(function () { go(); update(); });
+          window.scrollTo(0, 0);
+          goTo(s, pct > 0.01 ? pct : 0);
+          requestAnimationFrame(function () { goTo(s, pct > 0.01 ? pct : 0); update(); });
         },
         append: function (ch) {
           if (find(ch.id)) return;
@@ -427,7 +614,7 @@ enum NovelReaderScript {
         },
         scrollToChapter: function (id) {
           var s = find(id);
-          if (s) window.scrollTo(0, s.offsetTop);
+          if (s) goTo(s, 0);
         }
       };
       post('ready');
