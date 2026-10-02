@@ -788,6 +788,7 @@ private struct MangaPageView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     KFImage(URL(string: url))
+                        .readerPage()
                         .placeholder {
                             ProgressView()
                                 .tint(.white)
@@ -958,6 +959,7 @@ struct WebtoonReaderView: View {
     @ViewBuilder
     private func pageImage(_ url: String) -> some View {
         KFImage(URL(string: url))
+            .readerPage()
             .placeholder {
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
@@ -1088,6 +1090,7 @@ struct ContinuousHorizontalReaderView: View {
     @ViewBuilder
     private func pageImage(_ url: String) -> some View {
         KFImage(URL(string: url))
+            .readerPage()
             .placeholder {
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))

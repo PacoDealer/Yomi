@@ -601,10 +601,12 @@ struct NovelDetailView: View {
                     Text("No chapters matching \"\(chapterSearchText)\"")
                         .font(.subheadline).foregroundStyle(.secondary)
                 } else {
-                    ForEach(shown, id: \.id) { chapter in
-                        chapterRow(chapter)
-                            .id("ch_\(chapter.id)")
-                    }
+                    NovelChapterList(chapters: shown,
+                                     isSelecting: isSelectingChapters,
+                                     selectedIds: selectedChapterIds,
+                                     downloadedIds: downloadedIds,
+                                     actions: chapterRowActions)
+                        .equatable()
                 }
             }
         } header: {
@@ -646,76 +648,50 @@ struct NovelDetailView: View {
         }
     }
 
-    @ViewBuilder private func chapterRow(_ chapter: NovelChapter) -> some View {
-        Button {
-            if isSelectingChapters {
-                withAnimation(.spring(duration: 0.15)) {
-                    if selectedChapterIds.contains(chapter.id) {
-                        selectedChapterIds.remove(chapter.id)
-                    } else {
-                        selectedChapterIds.insert(chapter.id)
-                    }
-                }
-            } else {
-                chapterForNav = chapter
-                touchLastReadAt()
-            }
-        } label: {
-            HStack(spacing: 10) {
+    /// What a chapter row does. Every closure only touches @State, whose storage outlives this struct copy, so
+    /// a NovelChapterList skipped by `.equatable()` still acts on current state.
+    private var chapterRowActions: NovelChapterList.Actions {
+        NovelChapterList.Actions(
+            tap: { chapter in
                 if isSelectingChapters {
-                    let isSelected = selectedChapterIds.contains(chapter.id)
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        // `canvas` was already in scope here and still bypassed (Known Issue #118).
-                        .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
-                        .font(.title3)
-                } else {
-                    Circle()
-                        .fill(chapter.isRead ? Color.clear : Color.accentColor)
-                        .frame(width: 6, height: 6)
-                }
-                NovelChapterRow(chapter: chapter)
-                Spacer(minLength: 0)
-                NovelChapterDownloadBadge(chapterId: chapter.id,
-                                          isDownloaded: downloadedIds.contains(chapter.id))
-            }
-        }
-        .buttonStyle(.plain)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if !isSelectingChapters {
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    toggleRead(chapter)
-                } label: {
-                    Label(chapter.isRead ? "Unread" : "Read",
-                          systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
-                }
-                .tint(chapter.isRead ? .orange : .green)
-                Button {
-                    guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
-                          pos > 0 else { return }
-                    let ids = chapters[0..<pos].filter { !$0.isRead }.map { $0.id }
-                    guard !ids.isEmpty else { return }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    let markSet = Set(ids)
-                    let novelId = novel.id
-                    Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0, novelId: novelId) } }
-                    chapters = chapters.map { ch in
-                        markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
+                    withAnimation(.spring(duration: 0.15)) {
+                        if selectedChapterIds.contains(chapter.id) {
+                            selectedChapterIds.remove(chapter.id)
+                        } else {
+                            selectedChapterIds.insert(chapter.id)
+                        }
                     }
-                } label: {
-                    Label("Mark previous", systemImage: "checkmark.circle")
+                } else {
+                    chapterForNav = chapter
+                    touchLastReadAt()
                 }
-                .tint(.blue)
+            },
+            toggleRead: { chapter in
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                toggleRead(chapter)
+            },
+            markPrevious: { chapter in
+                guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
+                      pos > 0 else { return }
+                let ids = chapters[0..<pos].filter { !$0.isRead }.map { $0.id }
+                guard !ids.isEmpty else { return }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                let markSet = Set(ids)
+                let novelId = novel.id
+                Task.detached { ids.forEach { try? NovelQueries.markRead(chapterId: $0, novelId: novelId) } }
+                chapters = chapters.map { ch in
+                    markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
+                }
+            },
+            startSelecting: { chapter in
+                guard !isSelectingChapters else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                withAnimation(.spring(duration: 0.2)) {
+                    isSelectingChapters = true
+                    selectedChapterIds = [chapter.id]
+                }
             }
-        }
-        .onLongPressGesture {
-            guard !isSelectingChapters else { return }
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.spring(duration: 0.2)) {
-                isSelectingChapters = true
-                selectedChapterIds = [chapter.id]
-            }
-        }
+        )
     }
 
     // MARK: - Formatting
@@ -1090,6 +1066,85 @@ extension NovelDetailView {
         withAnimation(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
+        }
+    }
+}
+
+// MARK: - NovelChapterList
+
+/// The chapter rows, as their own Equatable view. Any @State change on NovelDetailView re-runs its body — opening
+/// the reader sets `chapterForNav` — and with the rows built inline that rebuilt and re-diffed all ~880 of them
+/// during the push: most of a 410 ms hang on the first chapter open (S136, RESEARCH §23.6). `.equatable()` skips
+/// this view unless the rows' own inputs changed; the closures are left out of `==` on purpose.
+private struct NovelChapterList: View, Equatable {
+    struct Actions {
+        let tap: (NovelChapter) -> Void
+        let toggleRead: (NovelChapter) -> Void
+        let markPrevious: (NovelChapter) -> Void
+        let startSelecting: (NovelChapter) -> Void
+    }
+
+    let chapters: [NovelChapter]
+    let isSelecting: Bool
+    let selectedIds: Set<String>
+    let downloadedIds: Set<String>
+    let actions: Actions
+    @Environment(\.yomiCanvas) private var canvas
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.isSelecting == b.isSelecting && a.selectedIds == b.selectedIds
+            && a.downloadedIds == b.downloadedIds && a.chapters == b.chapters
+    }
+
+    var body: some View {
+        ForEach(chapters, id: \.id) { chapter in
+            row(chapter)
+                .id("ch_\(chapter.id)")
+        }
+    }
+
+    @ViewBuilder private func row(_ chapter: NovelChapter) -> some View {
+        Button {
+            actions.tap(chapter)
+        } label: {
+            HStack(spacing: 10) {
+                if isSelecting {
+                    let isSelected = selectedIds.contains(chapter.id)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        // Known Issue #118: canvas tokens, not system secondary.
+                        .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
+                        .font(.title3)
+                } else {
+                    Circle()
+                        .fill(chapter.isRead ? Color.clear : Color.accentColor)
+                        .frame(width: 6, height: 6)
+                }
+                NovelChapterRow(chapter: chapter)
+                Spacer(minLength: 0)
+                NovelChapterDownloadBadge(chapterId: chapter.id,
+                                          isDownloaded: downloadedIds.contains(chapter.id))
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isSelecting {
+                Button {
+                    actions.toggleRead(chapter)
+                } label: {
+                    Label(chapter.isRead ? "Unread" : "Read",
+                          systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
+                }
+                .tint(chapter.isRead ? .orange : .green)
+                Button {
+                    actions.markPrevious(chapter)
+                } label: {
+                    Label("Mark previous", systemImage: "checkmark.circle")
+                }
+                .tint(.blue)
+            }
+        }
+        .onLongPressGesture {
+            actions.startSelecting(chapter)
         }
     }
 }
