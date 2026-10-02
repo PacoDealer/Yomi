@@ -37,7 +37,15 @@ just can't authenticate until filled in.
 
 All 16 screens designed and confirmed. Concept: **"reading instrument / living archive"** — warm editorial canvas, covers + user accent are the only color, monospace catalog notation, ink/screentone signature. Confirmed: default accent **Vermilion `#E5473A`**, default canvas **Ink (`#14110F`)**, Space Grotesk (UI) + Space Mono (notation), Newsreader serif (novel body) — *S136: the novel reader now has a font list (`Features/Reader/ReaderFonts.swift`: Apple faces + bundled Literata/Newsreader/Atkinson Hyperlegible Next/OpenDyslexic, built by `scripts/build-reader-fonts.sh`); the default is still Georgia, and `useSystemFont` (UI font) defaults on since S122.* Design tokens live in `DesignTokens.swift`; canvas colors are wired app-wide via `\.yomiCanvas` environment (`CanvasEnvironment.swift`, set from `AppSettings.canvasColors`); notation helpers in `Notation.swift`; Appearance Studio in `AppearanceStudioView.swift`. **Full design spec**: `Yomi/design/design_handoff_yomi/YOMI Screens.dc.html` — 16 screens as HTML with inline CSS. App icon assets: `AppIcon-Ink.png` + `AppIcon-Paper.png` in `Yomi/design/design_handoff_yomi/assets/`. **All 12 blocks complete as of S95 (2026-08-05).** Blocks 1-5 screenshot-verified S85; Block 6 (Browse) S86; Block 7 (History) S91; Block 8 (Updates) S92; Block 9 (Downloads) S93; Block 10 (Insights) S94; Blocks 11-12 (More/Settings/Onboarding/empty states) S95. **S96 (2026-08-06): the full functional audit Martin asked for, done.** App Store screenshot work is unblocked. **S97-S98: Tachimanga feature-parity pass, complete — see below.**
 
-## Current state (post S133 — 2026-09-30 · batch step 4: novel reader controller)
+## Current state (post S136 — 2026-10-02 · perf batch done + reader typography pass)
+
+**S136** — batch step 6: perf runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6; `d15f611`, `2fe17c7`).
+§25.10 #1 typography pass: font list (`Features/Reader/ReaderFonts.swift`, bundled WOFF2 via `yomi-font://`),
+paragraph/letter spacing, column cap, hyphenation, Dynamic-Type default size; reader panel = nav + **Text · Look ·
+Reading** tabs, following the reader theme's colorScheme. UI tests 7/7. Details: ROADMAP "S136". Next: §25.10 #2
+pages mode, then #8 TTS, then #3 + #6.
+
+## Prior state (post S133 — 2026-09-30 · batch step 4: novel reader controller)
 
 **S133** — novel reader rebuilt around one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`):
 fixes Next-chapter-does-nothing (#1) and short-drag-opens-menu (#3), adds infinite scroll (#2, default on) and swipe
