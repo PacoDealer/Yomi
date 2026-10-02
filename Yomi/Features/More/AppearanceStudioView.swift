@@ -319,8 +319,9 @@ struct AppearanceStudioView: View {
             }
 
             Picker("Reading font", selection: $settings.novelFontFamily) {
-                Text("Serif (Newsreader)").tag("Serif")
-                Text("Sans").tag("System")
+                ForEach(ReaderFont.available) { font in
+                    Text(font.name).tag(font.id)
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -331,7 +332,7 @@ struct AppearanceStudioView: View {
                         .font(.custom(YomiTokens.Font.monoRegular, size: 13))
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: $settings.fontSize, in: 14...28, step: 1)
+                Slider(value: $settings.fontSize, in: 12...40, step: 1)
                     .tint(accent)
             }
             .padding(.vertical, 2)
@@ -436,7 +437,9 @@ struct AppearanceStudioView: View {
                 settings.canvas            = "Ink"
                 settings.accentColor       = "#E5473A"
                 settings.useSystemFont     = false
-                settings.novelFontFamily   = "Serif"
+                settings.novelFontFamily   = YomiTokens.ReaderDefaults.fontFamily
+                settings.novelParagraphSpacing = YomiTokens.ReaderDefaults.paragraphSpacing
+                settings.novelLetterSpacing    = 0
                 settings.fontSize          = YomiTokens.ReaderDefaults.fontSize
                 settings.lineSpacing       = YomiTokens.ReaderDefaults.lineSpacingNormal
                 settings.novelHorizontalPadding = 16

@@ -187,9 +187,20 @@ import Observation
         didSet { defaults.set(novelTheme, forKey: "novelTheme") }
     }
 
-    /// Font family for the novel reader: "System" | "Serif"
+    /// Novel reader font: a `ReaderFont.id` ("georgia", "new-york", "literata"…). Before S136 it was
+    /// "Serif" | "System"; init maps those to "georgia" | "system".
     var novelFontFamily: String {
         didSet { defaults.set(novelFontFamily, forKey: "novelFontFamily") }
+    }
+
+    /// Space after each paragraph in the novel reader, in em: 0.5 | 1.0 | 1.5.
+    var novelParagraphSpacing: Double {
+        didSet { defaults.set(novelParagraphSpacing, forKey: "novelParagraphSpacing") }
+    }
+
+    /// Letter spacing in the novel reader: -1 tight | 0 normal | 1 loose.
+    var novelLetterSpacing: Int {
+        didSet { defaults.set(novelLetterSpacing, forKey: "novelLetterSpacing") }
     }
 
     /// Justify paragraph text in the novel reader
@@ -501,7 +512,10 @@ import Observation
     private init() {
         let d = UserDefaults.standard
         readerMode              = d.string(forKey: "readerMode")             ?? "Manga (RTL)"
-        fontSize                = d.object(forKey: "fontSize")    as? Double ?? 18.0
+        // A fresh install starts from the system text size (18 pt at the default size, larger when the
+        // user has set larger text system-wide — RESEARCH §25.3). A saved size always wins.
+        fontSize                = d.object(forKey: "fontSize")    as? Double
+            ?? min(40, UIFontMetrics(forTextStyle: .body).scaledValue(for: 18).rounded())
         lineSpacing             = d.object(forKey: "lineSpacing") as? Double ?? 1.6
         theme                   = d.string(forKey: "theme")                  ?? "System"
         // canvas: migrate from legacy theme + pureBlack on first launch.
@@ -535,7 +549,13 @@ import Observation
         } else {
             novelTheme = "Light"
         }
-        novelFontFamily         = d.string(forKey: "novelFontFamily")              ?? "Serif"
+        switch d.string(forKey: "novelFontFamily") {
+        case nil, "Serif": novelFontFamily = "georgia"   // pre-S136 "Serif" was Georgia
+        case "System":     novelFontFamily = "system"
+        case let id?:      novelFontFamily = id
+        }
+        novelParagraphSpacing   = d.object(forKey: "novelParagraphSpacing") as? Double ?? 1.0
+        novelLetterSpacing      = d.object(forKey: "novelLetterSpacing") as? Int ?? 0
         novelJustifyText        = d.object(forKey: "novelJustifyText") as? Bool ?? false
         novelHorizontalPadding  = d.object(forKey: "novelHorizontalPadding") as? Int ?? 16
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")
