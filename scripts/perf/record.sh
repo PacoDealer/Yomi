@@ -26,7 +26,7 @@ for target in "$PID" Yomi "$PID" Yomi; do
   rm -rf "$OUT"
   echo "Recording Yomi (attach $target) for ${SECS}s — go"
   LOG=$(xcrun xctrace record --template 'Time Profiler' --instrument 'Points of Interest' --instrument 'Hitches' \
-    --device "$DEVICE_UDID" --time-limit "${SECS}s" --output "$OUT" --attach "$target" 2>&1 | grep -v "^$" | tail -2)
+    --device "$DEVICE_UDID" --time-limit "${SECS}s" --output "$OUT" --attach "$target" 2>&1 | grep -v "^$" | tail -2) || true   # a failed attempt must reach the retry, not kill the script
   echo "$LOG"
   [ -d "$OUT" ] && break
 done
