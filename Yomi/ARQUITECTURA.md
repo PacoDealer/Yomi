@@ -67,8 +67,9 @@ Yomi/
 │   │   │                            # Reading resume: after loadPages(), Task.detached reads chapter.progress, sets currentPage on MainActor (S22)
 │   │   │                            # MangaPageView: GeometryReader + DragGesture with clamping, guard scale > 1.0. Double-tap resets scale+offset (S22)
 │   │   │                            # Auto-mark read: last page reached OR (multi-page && ≥80% read). Incognito guard skips markChapterRead + updateProgress.
-│   │   ├── TextReaderView.swift     # Novel reader view: chapter state machine, overlay, TTS (S133)
-│   │   └── NovelReaderWeb.swift     # One persistent WKWebView + JS controller: sections, taps, swipe, infinite scroll (S133)
+│   │   ├── TextReaderView.swift     # Novel reader view: chapter state machine, readerCSS, TTS (S133); bottom panel = nav + Text/Look/Reading tabs, follows the reader theme's colorScheme (S136)
+│   │   ├── NovelReaderWeb.swift     # One persistent WKWebView + JS controller: sections, taps, swipe, infinite scroll (S133); registers yomi-font:// and sets <html lang> (S136)
+│   │   └── ReaderFonts.swift        # S136: ReaderFont catalog (Apple faces if installed + bundled WOFF2 in Resources/ReaderFonts), ReaderFontSchemeHandler, CoreText registration for panel previews
 │   │                                # Overlay: .opacity/.allowsHitTesting/.animation — smooth fade animation (S29). colorScheme: sepia→.light, dark→.dark, else .light (S29).
 │   ├── History/
 │   │   └── HistoryView.swift        # Real GRDB data (lastReadAt IS NOT NULL, DESC). ScrollView+LazyVStack (not List, S91 — N.11 spec), long-press .contextMenu to delete a row

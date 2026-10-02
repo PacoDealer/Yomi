@@ -1940,3 +1940,21 @@ previously here was removed during the 2026-08-04 doc restructure.
   ignores it and the default wins. Pass `<false/>` / `<integer>1</integer>`.
 - mobile-mcp: a swipe starting low on the screen can register as the iOS home gesture (app goes to background, not a
   crash — check `launchctl list` before assuming one).
+
+## Technical learnings — S136 perf step 6 + typography (2026-10-02)
+
+- **Hang analysis: busy vs blocked.** Count main-thread Time Profiler samples inside the hang window. Busy (~1/ms) →
+  read main's stacks. Blocked (1–2 samples) → look at what OTHER threads run meanwhile (S136 run 5: `deflate` =
+  PNG encoding). Export `time-profile`, resolve `ref=` frames, frames sit under `tagged-backtrace/backtrace`.
+- **Kingfisher's DefaultCacheSerializer re-encodes formats it doesn't know (WebP) as PNG.** Use
+  `preferCacheOriginalData = true` for un-processed images (reader pages). Not for processed (downsampled) covers.
+- **Any @State change re-runs the whole body**, incl. inline `ForEach` rows. Big lists → own `Equatable` view +
+  `.equatable()`, closures excluded from `==` (safe when they only touch @State storage).
+- **WKWebView can't see app-registered fonts** (separate WebContent process). Serve them via `WKURLSchemeHandler`;
+  font loads are CORS → `Access-Control-Allow-Origin: *`. Subresource loads aren't navigations, so a strict
+  `decidePolicyFor` stays intact. CoreText registers WOFF2 fine for SwiftUI previews.
+- **A root `.preferredColorScheme` overrides a pushed view's.** To theme one subtree, set `.environment(\.colorScheme, …)`.
+- **Inside Liquid Glass, semantic colours (`.primary`, systemBackground) get vibrancy and wash out to grey.** Use
+  fixed colours per scheme for solid selected states.
+- `hyphens:auto` needs `<html lang>`; LNReader catalogs store native names ("English") → `SourceLanguage.baseCode`.
+- simctl launch args for Int settings need `<integer>1</integer>` (a bare `1` is a string).

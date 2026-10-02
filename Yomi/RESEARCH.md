@@ -1847,11 +1847,11 @@ unsourced.
 | Recommendation (source doc) | In the code? | Where / note |
 |---|---|---|
 | Novel defaults 18 pt / 1.6 line height / Sepia flagship / left-aligned | ✅ | `AppSettings` defaults, `DesignTokens.ReaderDefaults`, `TextReaderView.styledHTML` |
-| Enforce measure (≤ 75–80 CPL) on iPad/landscape (DS §4, DESIGN_RESEARCH §7) | ❌ | `body` has no `max-width`; only 8/16/24 pt side padding. iPad landscape ≈ 130–160 CPL (estimate: ~1,340 pt of text at ~8.5 pt per Georgia character). |
-| Paragraph spacing ≈ 1× font size (DS §4) | ⚠️ | `p { margin: 0 0 0.75em }` |
-| Font choice beyond serif/sans, incl. dyslexia font (DS §4, ArcReader backlog) | ❌ | Georgia vs system only |
-| Letter/word spacing control | ❌ | none (ArcReader backlog item) |
-| Justify option | ✅ but | `novelJustifyText` exists; **no `hyphens:auto`** → justified ~40-CPL phone lines get large word gaps (the one case where justification is known to read worse). |
+| Enforce measure (≤ 75–80 CPL) on iPad/landscape (DS §4, DESIGN_RESEARCH §7) | ✅ S136 | `#yomi-chapters` max-width calc(36em + margins). Was: ❌ — `body` has no `max-width`; only 8/16/24 pt side padding. iPad landscape ≈ 130–160 CPL (estimate: ~1,340 pt of text at ~8.5 pt per Georgia character). |
+| Paragraph spacing ≈ 1× font size (DS §4) | ✅ S136 | S/M/L control, default 1em. Was: ⚠️ `p { margin: 0 0 0.75em }` |
+| Font choice beyond serif/sans, incl. dyslexia font (DS §4, ArcReader backlog) | ✅ S136 | Apple faces + Literata/Newsreader/Atkinson/OpenDyslexic (`ReaderFonts.swift`); no font import (Martin's call). Was: ❌ — Georgia vs system only |
+| Letter/word spacing control | ✅ S136 | Letters Tight/Normal/Loose (Loose adds word-spacing). Was: ❌ — none (ArcReader backlog item) |
+| Justify option | ✅ S136 | `hyphens:auto` + `<html lang>` when justified, confirmed on device. Was: ✅ but — `novelJustifyText` exists; **no `hyphens:auto`** → justified ~40-CPL phone lines get large word gaps (the one case where justification is known to read worse). |
 | Dynamic Type / Bold Text support (Apple HIG) | ❌ | Zero `dynamicTypeSize`/`UIFontMetrics`/`@ScaledMetric` in the app. 197 `YomiTokens.Font.grotesk(size)` + 38 `.system(size:)` fixed sizes; reader px ignores the system text size. 189 places use text styles (those scale). |
 | Avoid light font weights (HIG) | ⚠️ | `YomiTokens.Font.groteskPS = "SpaceGrotesk-Light"` default instance (only used when `useSystemFont` is off; default is on since S122). |
 | Reduce Motion | ❌ | no `accessibilityReduceMotion` checks; 59 `withAnimation` calls |
@@ -2022,7 +2022,7 @@ volume-button page turns are dropped (Guideline 2.5.9).*
 Ordered by evidence strength × impact. Batch-pass items already planned in the S128 plan (reader controller,
 infinite scroll, swipe, tap fixes) are not repeated.
 
-1. **Reader typography pass:** Dynamic-Type-based default size; `max-width` column cap; paragraph spacing control;
+1. ✅ **S136 done** (see §25.2 rows; ROADMAP S136). **Reader typography pass:** Dynamic-Type-based default size; `max-width` column cap; paragraph spacing control;
    letter/word spacing; `hyphens:auto` when justified; fonts: add New York + a few curated faces + import; fix the
    CLAUDE.md "Newsreader" claim.
 2. **Pages mode for novels** as an option next to scroll/infinite scroll (§25.3.7).

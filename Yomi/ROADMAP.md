@@ -21,6 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S136 — Batch step 6 done + typography pass (2026-10-02)
+
+**Step 6 (perf):** runs 2–5 re-measured on the iPhone 17 (RESEARCH §23.6). Fixed what they found: `d15f611` cover
+disk-cache reads off main; `2fe17c7` reader pages keep original bytes in Kingfisher's cache (it re-encoded WebP as
+PNG) + background decode, and NovelDetailView's chapter rows became an Equatable `NovelChapterList` (reader push
+re-diffed ~880 rows). **Runs 1–5 now have 0 hangs.** Open: Keiyoushi reader pages still via the JVM proxy.
+
+**§25.10 #1 typography pass (`bcb95d4`, `747e08f`), on Martin's phone:**
+- Fonts: Apple faces (System, New York, Georgia, Charter, Iowan, Palatino — only installed ones listed) + bundled
+  OFL Literata, Newsreader, Atkinson Hyperlegible Next, OpenDyslexic (732 KB WOFF2, `scripts/build-reader-fonts.sh`),
+  served to the web view as `yomi-font://` (`Features/Reader/ReaderFonts.swift`). "Serif"/"System" migrate.
+- Paragraph + letter spacing, size 12–40 with readout, ~36em column cap, hyphenation when justified (`<html lang>`
+  from the source — **Martin confirmed hyphens on device**), fresh installs start at the Dynamic Type body size.
+- **Reader panel redesigned (Martin's pick): nav + progress on top, then Text · Look · Reading tabs.** Reading tab =
+  infinite scroll / swipe / menu taps (same settings as Settings → Novels). Martin: tall on Text but fine.
+- Martin caught: the menu followed the **app** theme (root `.preferredColorScheme` wins); now the overlay gets the
+  reader theme's colorScheme, selected pills solid black/white.
+- UI tests 7/7 (new: Text tab font pick). Not checked: iPad column cap. Next: §25.10 #2 pages mode, then #8 TTS.
+
 ## S133 — Batch step 4: novel reader controller (2026-09-30)
 
 The novel reader keeps **one WKWebView** for its lifetime; chapters are `<section data-id>` blocks put there by a JS
