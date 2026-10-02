@@ -552,7 +552,7 @@ private struct NovelReaderSettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Font size: \(Int(settings.fontSize))pt")
                         .font(.subheadline)
-                    Slider(value: $settings.fontSize, in: 14...28, step: 1)
+                    Slider(value: $settings.fontSize, in: 12...40, step: 1)
                         .tint(Color(hex: settings.accentColor))
                 }
                 .padding(.vertical, 4)
@@ -565,8 +565,9 @@ private struct NovelReaderSettingsView: View {
                 )
 
                 Picker("Font family", selection: $settings.novelFontFamily) {
-                    Text("Serif (Georgia)").tag("Serif")
-                    Text("System").tag("System")
+                    ForEach(ReaderFont.available) { font in
+                        Text(font.name).tag(font.id)
+                    }
                 }
 
                 Picker("Default theme", selection: $settings.novelTheme) {

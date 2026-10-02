@@ -226,7 +226,8 @@ enum YomiTokens {
         static let lineSpacingTight:  Double = 1.3
         static let lineSpacingAiry:   Double = 2.0
         static let horizontalPadding: Int    = 16
-        static let fontFamily:        String = "Serif"
+        static let fontFamily:        String = "georgia"   // a ReaderFont.id (S136)
+        static let paragraphSpacing:  Double = 1.0         // em
     }
 
     // MARK: - Radius (DESIGN_SYSTEM §5)

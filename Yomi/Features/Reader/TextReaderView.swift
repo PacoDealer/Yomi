@@ -67,6 +67,8 @@ struct TextReaderView: View {
     @State private var fontFamily: String      = AppSettings.shared.novelFontFamily
     @State private var justifyText: Bool       = AppSettings.shared.novelJustifyText
     @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
+    @State private var paragraphSpacing: Double = AppSettings.shared.novelParagraphSpacing
+    @State private var letterSpacing: Int      = AppSettings.shared.novelLetterSpacing
 
     @State private var showOverlay = true
     @State private var showFinishedBanner = false
@@ -97,31 +99,49 @@ struct TextReaderView: View {
     private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
     private var nextChapterForPreload: NovelChapter? { hasNextChapter ? chapters[currentChapterIndex + 1] : nil }
 
-    private var fontFamilyCSS: String {
-        fontFamily == "Serif"
-            ? "Georgia, \"Times New Roman\", serif"
-            : "-apple-system, \"Helvetica Neue\", sans-serif"
+    /// The source's language as a base code, for hyphenation (`<html lang>`). LNReader catalogs store
+    /// native names ("English"), Yomi's own plugins codes ("en"); a multi-language source gives none.
+    private var sourceLanguage: String? {
+        guard let raw = ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId })?.language
+        else { return nil }
+        let code = SourceLanguage.baseCode(for: raw)
+        return code == "all" ? nil : code
     }
 
     /// Reader-settings stylesheet. Applied once at load and again only when a setting changes.
     private var readerCSS: String {
+        let font = ReaderFont.resolve(fontFamily)
         let fs  = Int(fontSize)
         let ls  = String(format: "%.2f", lineSpacing)
+        let ps  = String(format: "%.2f", paragraphSpacing)
         let lnk = AppSettings.shared.accentColor
+        let spacing: String = switch letterSpacing {
+        case ..<0: "letter-spacing: -0.01em;"
+        case 1...: "letter-spacing: 0.04em; word-spacing: 0.1em;"
+        default:   "letter-spacing: normal;"
+        }
+        // Justified ~40-character phone lines need hyphenation or they open wide word gaps (RESEARCH §25.3).
+        let align = justifyText
+            ? "text-align: justify; -webkit-hyphens: auto; hyphens: auto;"
+            : "text-align: start;"
         return """
+            \(font.fontFaceCSS)
             html, body { background: \(novelTheme.bg); }
             body {
-                font-family: \(fontFamilyCSS);
+                font-family: \(font.css);
                 font-size: \(fs)px;
                 line-height: \(ls);
-                text-align: \(justifyText ? "justify" : "start");
+                \(align)
+                \(spacing)
                 color: \(novelTheme.fg);
                 -webkit-text-size-adjust: 100%;
                 word-break: break-word;
                 overflow-wrap: break-word;
             }
-            #yomi-chapters { padding: 24px \(hPadding)px 200px \(hPadding)px; }
-            p { margin: 0 0 0.75em 0; }
+            /* The column is capped near 36em (~75 characters) so iPad and landscape lines stay readable. */
+            #yomi-chapters { padding: 24px \(hPadding)px 200px \(hPadding)px;
+                             max-width: calc(36em + \(2 * hPadding)px); margin: 0 auto; }
+            p { margin: 0 0 \(ps)em 0; }
             a { color: \(lnk); text-decoration: none; }
             a svg, a svg path, a svg polygon, a svg rect { fill: \(lnk); stroke: \(lnk); }
             svg { fill: currentColor; }
@@ -143,7 +163,7 @@ struct TextReaderView: View {
                 .ignoresSafeArea()
 
             // Always mounted: changing chapter never depends on SwiftUI rebuilding the web view (bug #1).
-            ReaderWebView(controller: controller, css: readerCSS, options: readerOptions)
+            ReaderWebView(controller: controller, css: readerCSS, options: readerOptions, lang: sourceLanguage)
                 .ignoresSafeArea()
 
             if isLoading || errorMessage != nil {
@@ -178,6 +198,10 @@ struct TextReaderView: View {
                 .accessibilityElement()
                 .accessibilityIdentifier("reader.menuState")
                 .accessibilityValue(showOverlay ? "open" : "closed")
+            Color.clear.frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("reader.fontFamily")
+                .accessibilityValue(ReaderFont.resolve(fontFamily).id)
             #endif
 
             // Not rendered at all while hidden: a faded-out glass overlay stayed in the accessibility tree,
@@ -195,6 +219,8 @@ struct TextReaderView: View {
                     fontFamily:           $fontFamily,
                     justifyText:          $justifyText,
                     hPadding:             $hPadding,
+                    paragraphSpacing:     $paragraphSpacing,
+                    letterSpacing:        $letterSpacing,
                     showOverlay:          $showOverlay,
                     isSpeaking:           $isSpeaking,
                     hasPrevChapter:       hasPrevChapter,
@@ -241,6 +267,8 @@ struct TextReaderView: View {
         .onChange(of: fontFamily)    { _, v in AppSettings.shared.novelFontFamily = v }
         .onChange(of: justifyText)  { _, v in AppSettings.shared.novelJustifyText = v }
         .onChange(of: hPadding)     { _, v in AppSettings.shared.novelHorizontalPadding = v }
+        .onChange(of: paragraphSpacing) { _, v in AppSettings.shared.novelParagraphSpacing = v }
+        .onChange(of: letterSpacing) { _, v in AppSettings.shared.novelLetterSpacing = v }
         .onChange(of: shouldRequestReview) { _, should in
             if should { requestReview(); shouldRequestReview = false }
         }
@@ -573,6 +601,8 @@ struct TextReaderOverlayView: View {
     @Binding var fontFamily:   String
     @Binding var justifyText:  Bool
     @Binding var hPadding:     Int
+    @Binding var paragraphSpacing: Double
+    @Binding var letterSpacing: Int
     @Binding var showOverlay: Bool
     @Binding var isSpeaking:  Bool
     var hasPrevChapter:       Bool = false
@@ -586,12 +616,22 @@ struct TextReaderOverlayView: View {
     var onViewSource:         (() -> Void)? = nil
 
     @State private var showChapterSheet = false
+    @State private var settings = AppSettings.shared
+    @AppStorage("novelPanelTab") private var panelTabRaw = ReaderPanelTab.text.rawValue
+
+    private var panelTab: ReaderPanelTab { ReaderPanelTab(rawValue: panelTabRaw) ?? .text }
 
     private let paddingOptions: [(label: String, value: Int)] = [
         ("Narrow", 8), ("Normal", 16), ("Wide", 28)
     ]
     private let lineSpacingOptions: [(label: String, value: Double)] = [
         ("Tight", 1.3), ("Normal", 1.6), ("Airy", 2.0)
+    ]
+    private let paragraphOptions: [(label: String, value: Double)] = [
+        ("Small", 0.5), ("Medium", 1.0), ("Large", 1.5)
+    ]
+    private let letterOptions: [(label: String, value: Int)] = [
+        ("Tight", -1), ("Normal", 0), ("Loose", 1)
     ]
 
     var body: some View {
@@ -702,197 +742,17 @@ struct TextReaderOverlayView: View {
 
             Spacer()
 
-            // ── Bottom bar — Liquid Glass ─────────────────────────────────
-            VStack(spacing: 14) {
-
-                // Row 1: Font size slider
-                HStack(spacing: 10) {
-                    Text("A").font(.caption).foregroundStyle(.secondary)
-                    YomiScrubber(
-                        value: $fontSize,
-                        range: 14...28,
-                        accessibilityLabelText: "Font size",
-                        accessibilityValueText: { "\(Int($0.rounded())) points" }
-                    )
-                    Text("A").font(.subheadline).fontWeight(.medium).foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-
-                // Row 2: Font family + justify + horizontal margin
-                HStack(spacing: 12) {
-                    Button {
-                        fontFamily = (fontFamily == "Serif") ? "System" : "Serif"
-                    } label: {
-                        Text("Aa")
-                            .font(fontFamily == "Serif"
-                                  ? .system(.subheadline, design: .serif).bold()
-                                  : .subheadline.bold())
-                            .foregroundStyle(fontFamily == "Serif" ? Color.primary : Color.primary.opacity(0.5))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.primary.opacity(fontFamily == "Serif" ? 0.18 : 0.06))
-                            .clipShape(Capsule())
-                    }
-                    // "Aa" reads as nothing useful to VoiceOver, and neither state is announced
-                    // without an explicit trait (Known Issue #121).
-                    .accessibilityLabel("Serif font")
-                    .accessibilityValue(fontFamily == "Serif" ? "On" : "Off")
-                    .accessibilityAddTraits(fontFamily == "Serif" ? .isSelected : [])
-
-                    Button { justifyText.toggle() } label: {
-                        Image(systemName: "text.justify")
-                            .font(.subheadline)
-                            .foregroundStyle(justifyText ? Color.primary : Color.primary.opacity(0.45))
-                            .frame(width: 34, height: 34)
-                            .background(Color.primary.opacity(justifyText ? 0.18 : 0.06))
-                            .clipShape(Circle())
-                    }
-                    .accessibilityLabel("Justify text")
-                    .accessibilityValue(justifyText ? "On" : "Off")
-                    .accessibilityAddTraits(justifyText ? .isSelected : [])
-
-                    Spacer()
-
-                    // Margin control: Narrow / Normal / Wide
-                    HStack(spacing: 0) {
-                        ForEach(paddingOptions, id: \.value) { opt in
-                            Button {
-                                hPadding = opt.value
-                            } label: {
-                                Text(opt.label)
-                                    .font(.caption2).fontWeight(.medium)
-                                    .foregroundStyle(hPadding == opt.value ? Color.black : Color.primary.opacity(0.7))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(hPadding == opt.value ? Color.white : Color.clear)
-                            }
-                            // "Narrow" alone doesn't say narrow *what* (Known Issue #121).
-                            .accessibilityLabel("Margins: \(opt.label)")
-                            .accessibilityAddTraits(hPadding == opt.value ? .isSelected : [])
-                        }
-                    }
-                    .background(Color.primary.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-                .padding(.horizontal, 20)
-
-                // Row 2b: Line spacing
-                HStack(spacing: 16) {
-                    Image(systemName: "text.alignleft")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Spacing")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    HStack(spacing: 0) {
-                        ForEach(lineSpacingOptions, id: \.label) { opt in
-                            Button {
-                                lineSpacing = opt.value
-                            } label: {
-                                Text(opt.label)
-                                    .font(.caption2).fontWeight(.medium)
-                                    .foregroundStyle(abs(lineSpacing - opt.value) < 0.05 ? Color.black : Color.primary.opacity(0.7))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(abs(lineSpacing - opt.value) < 0.05 ? Color.white : Color.clear)
-                            }
-                            .accessibilityLabel("Line spacing: \(opt.label)")
-                            .accessibilityAddTraits(abs(lineSpacing - opt.value) < 0.05 ? .isSelected : [])
-                        }
-                    }
-                    .background(Color.primary.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-                .padding(.horizontal, 20)
-
-                // Row 3: Theme swatches
-                HStack(spacing: 12) {
-                    Spacer()
-                    ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
-                        Button {
-                            novelTheme = theme
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(theme.swatchColor)
-                                    .frame(width: 30, height: 30)
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1)
-                                    )
-                                if novelTheme == theme {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(theme.isDark ? Color.white : Color.black)
-                                }
-                            }
-                        }
-                        // Selection here is conveyed by colour + a checkmark glyph only — neither
-                        // reaches VoiceOver without this (Known Issue #121).
-                        .accessibilityLabel("\(theme.rawValue) reading theme")
-                        .accessibilityAddTraits(novelTheme == theme ? .isSelected : [])
-                    }
-                    Spacer()
-                }
-
-                // Row 4: Prev / TTS / Next chapter
-                HStack(spacing: 0) {
-                    Button { onPrevChapter?() } label: {
-                        Image(systemName: "chevron.left.2")
-                            .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
-                            .frame(width: 56, height: 40)
-                    }
-                    .disabled(!hasPrevChapter)
-                    .accessibilityLabel("Previous chapter")
-
-                    Spacer()
-
-                    Button { onToggleTTS?() } label: {
-                        Image(systemName: isSpeaking ? "stop.circle.fill" : "play.circle")
-                            .font(.title2)
-                            .foregroundStyle(isSpeaking ? Color.accentColor : .secondary)
-                    }
-                    // The glyph is the only indication of speaking state (Known Issue #121).
-                    .accessibilityLabel(isSpeaking ? "Stop reading aloud" : "Read aloud")
-
-                    Spacer()
-
-                    Button { onNextChapter?() } label: {
-                        Image(systemName: "chevron.right.2")
-                            .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
-                            .frame(width: 56, height: 40)
-                    }
-                    .disabled(!hasNextChapter)
-                    .accessibilityLabel("Next chapter")
-                }
-                .padding(.horizontal, 8)
-
-                // Row 5: Chapter progress footer
-                if let num = chapter.chapterNumber {
-                    VStack(alignment: .leading, spacing: 7) {
-                        let pctText = Text(Notation.progress(progress)).foregroundStyle(Color.accentColor)
-                        Text("\(Notation.chapter(num)) · \(pctText)")
-                            .font(YomiTokens.Font.mono(12))
-                            .foregroundStyle(.secondary)
-
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.primary.opacity(0.1))
-                                Capsule().fill(Color.accentColor)
-                                    .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
-                            }
-                        }
-                        .frame(height: 3)
-                    }
-                    .padding(.top, 11)
-                    .padding(.horizontal, 20)
-                    .overlay(alignment: .top) {
-                        Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
-                            .padding(.horizontal, 20)
-                    }
+            // ── Bottom panel — Liquid Glass (S136 redesign) ────────────────
+            // Chapter nav + progress always on top; every reader setting one tab away below it, so nothing
+            // hides in a sheet or in the app's Settings screen.
+            VStack(spacing: 10) {
+                navigationRow
+                progressFooter
+                tabStrip
+                switch panelTab {
+                case .text:    textTab
+                case .look:    lookTab
+                case .reading: readingTab
                 }
             }
             .padding(.vertical, 14)
@@ -900,6 +760,292 @@ struct TextReaderOverlayView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
         }
+    }
+}
+
+// MARK: - Reader panel pieces (S136)
+
+enum ReaderPanelTab: String, CaseIterable {
+    case text = "Text", look = "Look", reading = "Reading"
+}
+
+extension TextReaderOverlayView {
+    var navigationRow: some View {
+        HStack(spacing: 0) {
+            Button { onPrevChapter?() } label: {
+                Image(systemName: "chevron.left.2")
+                    .font(.title3).fontWeight(.semibold)
+                    .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
+                    .frame(width: 56, height: 40)
+            }
+            .disabled(!hasPrevChapter)
+            .accessibilityLabel("Previous chapter")
+
+            Spacer()
+
+            Button { onToggleTTS?() } label: {
+                Label(isSpeaking ? "Stop" : "Listen",
+                      systemImage: isSpeaking ? "stop.circle.fill" : "play.circle")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(isSpeaking ? Color.accentColor : .primary)
+            }
+            // The glyph is the only indication of speaking state (Known Issue #121).
+            .accessibilityLabel(isSpeaking ? "Stop reading aloud" : "Read aloud")
+
+            Spacer()
+
+            Button { onNextChapter?() } label: {
+                Image(systemName: "chevron.right.2")
+                    .font(.title3).fontWeight(.semibold)
+                    .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
+                    .frame(width: 56, height: 40)
+            }
+            .disabled(!hasNextChapter)
+            .accessibilityLabel("Next chapter")
+        }
+        .padding(.horizontal, 8)
+    }
+
+    @ViewBuilder var progressFooter: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            let pctText = Text(Notation.progress(progress)).foregroundStyle(Color.accentColor)
+            if let num = chapter.chapterNumber {
+                Text("\(Notation.chapter(num)) · \(pctText)")
+                    .font(YomiTokens.Font.mono(12))
+                    .foregroundStyle(.secondary)
+            } else {
+                pctText.font(YomiTokens.Font.mono(12))
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.1))
+                    Capsule().fill(Color.accentColor)
+                        .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    var tabStrip: some View {
+        HStack(spacing: 4) {
+            ForEach(ReaderPanelTab.allCases, id: \.self) { tab in
+                let selected = panelTab == tab
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { panelTabRaw = tab.rawValue }
+                } label: {
+                    Text(tab.rawValue)
+                        .font(.subheadline.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Color.primary : Color.primary.opacity(0.6))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(Color.primary.opacity(selected ? 0.16 : 0), in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(tab.rawValue) settings")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Color.primary.opacity(0.06), in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.top, 2)
+    }
+
+    // MARK: Text
+
+    var textTab: some View {
+        VStack(spacing: 8) {
+            fontRow
+            sizeRow
+            ReaderSegmentedRow(title: "Line", options: lineSpacingOptions, selection: $lineSpacing,
+                               matches: { abs($0 - $1) < 0.05 }, accessibilityName: "Line spacing")
+            ReaderSegmentedRow(title: "Paragraph", options: paragraphOptions, selection: $paragraphSpacing,
+                               matches: { abs($0 - $1) < 0.05 }, accessibilityName: "Paragraph spacing")
+            ReaderSegmentedRow(title: "Letters", options: letterOptions, selection: $letterSpacing,
+                               accessibilityName: "Letter spacing")
+            // Margins + Justify share a row to keep the panel short (S136 screenshot: one row per setting
+            // covered half the screen).
+            HStack(spacing: 10) {
+                ReaderSegmentedControl(options: paddingOptions, selection: $hPadding, accessibilityName: "Margins")
+                Spacer()
+                Button { justifyText.toggle() } label: {
+                    Label("Justify", systemImage: "text.justify")
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(justifyText ? Color.black : Color.primary.opacity(0.75))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(justifyText ? Color.white : Color.primary.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Justify text")
+                .accessibilityValue(justifyText ? "On" : "Off")
+                .accessibilityHint("Aligns both edges and hyphenates long words")
+                .accessibilityAddTraits(justifyText ? .isSelected : [])
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private var fontRow: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ReaderFont.available) { font in
+                        let selected = ReaderFont.resolve(fontFamily).id == font.id
+                        Button { fontFamily = font.id } label: {
+                            Text(font.name)
+                                .font(font.previewFont(size: 15))
+                                .lineLimit(1)
+                                .foregroundStyle(selected ? Color.black : Color.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(selected ? Color.white : Color.primary.opacity(0.08), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .id(font.id)
+                        .accessibilityLabel("Font: \(font.name)")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .onAppear { proxy.scrollTo(ReaderFont.resolve(fontFamily).id, anchor: .center) }
+        }
+    }
+
+    private var sizeRow: some View {
+        HStack(spacing: 12) {
+            Text("Size").font(.subheadline).foregroundStyle(.secondary)
+            Spacer()
+            Button { fontSize = max(12, fontSize - 1) } label: {
+                Image(systemName: "textformat.size.smaller")
+                    .frame(width: 40, height: 32)
+                    .background(Color.primary.opacity(0.08), in: Capsule())
+            }
+            .disabled(fontSize <= 12)
+            .accessibilityLabel("Smaller text")
+            Text("\(Int(fontSize))")
+                .font(YomiTokens.Font.mono(15))
+                .frame(minWidth: 28)
+                .accessibilityLabel("Font size \(Int(fontSize)) points")
+            Button { fontSize = min(40, fontSize + 1) } label: {
+                Image(systemName: "textformat.size.larger")
+                    .frame(width: 40, height: 32)
+                    .background(Color.primary.opacity(0.08), in: Capsule())
+            }
+            .disabled(fontSize >= 40)
+            .accessibilityLabel("Larger text")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Look
+
+    var lookTab: some View {
+        HStack(spacing: 14) {
+            ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
+                Button { novelTheme = theme } label: {
+                    VStack(spacing: 5) {
+                        ZStack {
+                            Circle()
+                                .fill(theme.swatchColor)
+                                .frame(width: 36, height: 36)
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.3), lineWidth: 1))
+                            if novelTheme == theme {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(theme.isDark ? Color.white : Color.black)
+                            }
+                        }
+                        Text(theme.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(novelTheme == theme ? Color.primary : Color.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                // Selection is colour + a checkmark glyph only without this (Known Issue #121).
+                .accessibilityLabel("\(theme.rawValue) reading theme")
+                .accessibilityAddTraits(novelTheme == theme ? .isSelected : [])
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+
+    // MARK: Reading
+
+    /// Same AppSettings values as Settings → Novels → Reading; the reader reads them live (`readerOptions`).
+    var readingTab: some View {
+        VStack(spacing: 10) {
+            Toggle(isOn: $settings.novelInfiniteScroll) {
+                Text("Infinite scroll").font(.subheadline)
+            }
+            .accessibilityHint("Carries on into the next chapter at the end of this one")
+            Toggle(isOn: $settings.novelSwipeChapters) {
+                Text("Swipe to change chapter").font(.subheadline)
+            }
+            HStack {
+                Text("Show menu with").font(.subheadline)
+                Spacer()
+                ReaderSegmentedControl(options: [("One tap", 1), ("Two taps", 2)],
+                                       selection: $settings.novelMenuTaps,
+                                       accessibilityName: "Show menu with")
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+/// Title + segmented capsule — the reader panel's one control style for presets.
+private struct ReaderSegmentedRow<Value: Equatable>: View {
+    let title: String
+    let options: [(label: String, value: Value)]
+    @Binding var selection: Value
+    var matches: (Value, Value) -> Bool = { $0 == $1 }
+    let accessibilityName: String
+
+    var body: some View {
+        HStack {
+            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Spacer()
+            ReaderSegmentedControl(options: options, selection: $selection, matches: matches,
+                                   accessibilityName: accessibilityName)
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+private struct ReaderSegmentedControl<Value: Equatable>: View {
+    let options: [(label: String, value: Value)]
+    @Binding var selection: Value
+    var matches: (Value, Value) -> Bool = { $0 == $1 }
+    let accessibilityName: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options.indices, id: \.self) { i in
+                let opt = options[i]
+                let selected = matches(selection, opt.value)
+                Button { selection = opt.value } label: {
+                    Text(opt.label)
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(selected ? Color.black : Color.primary.opacity(0.75))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(selected ? Color.white : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                // A bare "Tight" doesn't say tight *what* (Known Issue #121).
+                .accessibilityLabel("\(accessibilityName): \(opt.label)")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .background(Color.primary.opacity(0.12), in: Capsule())
     }
 }
 
