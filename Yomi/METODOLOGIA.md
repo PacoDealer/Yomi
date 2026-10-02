@@ -1958,3 +1958,11 @@ previously here was removed during the 2026-08-04 doc restructure.
   fixed colours per scheme for solid selected states.
 - `hyphens:auto` needs `<html lang>`; LNReader catalogs store native names ("English") → `SourceLanguage.baseCode`.
 - simctl launch args for Int settings need `<integer>1</integer>` (a bare `1` is a string).
+- **Launch-argument settings shadow UserDefaults for the whole run** — a toggle "doesn't save" while its key was
+  passed as `-key value`. To test toggles, seed with `simctl spawn … defaults write` instead.
+- **Paged text in WKWebView:** CSS columns (`column-width: 100vw-2m; column-gap: 2m; padding 0 m` → stride exactly
+  100vw) + `scrollView.isPagingEnabled`. Put `overflow` on `html` only — on `body` too, body becomes its own scroll
+  container and `window.scrollX` never moves. Find a section's pages from zero-height marker divs' rects.
+- **Edge-back vs. horizontal pan:** `scrollView.panGestureRecognizer.require(toFail: nav.interactivePopGestureRecognizer)`.
+- XCUITest: `isHittable` throws for text in an off-screen CSS column ("activation point invalid") — assert on a
+  DEBUG marker (page/pages) instead.

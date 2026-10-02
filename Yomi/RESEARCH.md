@@ -1858,7 +1858,7 @@ unsourced.
 | True black + dark grey themes (§4) | ✅ | Reader: Dark `#1C1C1E`, AMOLED `#0A0A0A`; chrome: Midnight `#000` |
 | Reader contrast ≥ 7:1 (HIG dark-mode page) | ✅ | Computed: Light 17.0, Sepia 14.1, Warm 9.2, Dark 13.9, AMOLED 15.0 |
 | Liquid Glass only on floating chrome, never over text (DESIGN_RESEARCH §5) | ⚠️ | Reader overlay uses glass; the S129 a11y bug (invisible overlay still in the VoiceOver tree) is open. Check under iOS 26.1 **Tinted**, Reduce Transparency, Increase Contrast. |
-| Pages mode for novels (§4 "scroll or paginated") | ❌ | not built (ArcReader backlog) |
+| Pages mode for novels (§4 "scroll or paginated") | ✅ S136 | Reading → Layout → Pages (CSS columns + native paging), verified on device. Was: ❌ |
 | Estimated time left per chapter (§4) | ❌ | not built |
 | TTS with highlight (§4) | ⚠️ | one utterance per chapter, no highlight (backlog) |
 | Streaks / Insights, gentle (DESIGN_RESEARCH §9) | ✅ | `InsightsView` computes from the local DB (works offline — the Kindle failure mode doesn't apply). No streak repair/freeze. |
@@ -2025,7 +2025,7 @@ infinite scroll, swipe, tap fixes) are not repeated.
 1. ✅ **S136 done** (see §25.2 rows; ROADMAP S136). **Reader typography pass:** Dynamic-Type-based default size; `max-width` column cap; paragraph spacing control;
    letter/word spacing; `hyphens:auto` when justified; fonts: add New York + a few curated faces + import; fix the
    CLAUDE.md "Newsreader" claim.
-2. **Pages mode for novels** as an option next to scroll/infinite scroll (§25.3.7).
+2. ✅ **S136 done.** **Pages mode for novels** as an option next to scroll/infinite scroll (§25.3.7).
 3. **First-run setup that does the work** (one-tap starter repo/list, backup import, local files) + fix the stale copy.
 4. **Accessibility baseline:** Dynamic Type in chrome (text styles or `relativeTo:`), Reduce Motion, overlay out of
    the a11y tree, test under Liquid Glass Tinted / Increase Contrast.
