@@ -131,4 +131,20 @@ final class ReaderUITests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
         XCTAssertTrue(app.staticTexts["Fixture home"].waitForExistence(timeout: 3), "edge swipe did not go back")
     }
+
+    /// S136 typography pass: the panel's Text tab picks a bundled font and the reader applies it.
+    func testTextTabChangesFont() {
+        launch(infiniteScroll: false)
+        if menuState != "open" { app.webViews.firstMatch.tap() }
+        XCTAssertTrue(waitForMenu("open"))
+        app.buttons["Text settings"].tap()
+        let literata = app.buttons["Font: Literata"]
+        XCTAssertTrue(literata.waitForExistence(timeout: 3), "bundled font missing from the font row")
+        literata.tap()
+        let marker = app.otherElements["reader.fontFamily"]
+        let applied = XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", "literata"),
+                                                        evaluatedWith: marker)], timeout: 3) == .completed
+        XCTAssertTrue(applied, "reader font is \(marker.value as? String ?? "?"), expected literata")
+        XCTAssertTrue(text("Fixture chapter 1, paragraph 1.").exists, "chapter text vanished after a font change")
+    }
 }

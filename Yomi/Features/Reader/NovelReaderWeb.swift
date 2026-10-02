@@ -122,6 +122,8 @@ struct ReaderWebView: UIViewRepresentable {
     let controller: NovelReaderController
     let css: String
     let options: NovelReaderController.Options
+    /// BCP 47 language of the source, for `<html lang>` — WebKit only hyphenates justified text with one.
+    var lang: String? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(controller: controller) }
 
@@ -131,6 +133,7 @@ struct ReaderWebView: UIViewRepresentable {
         // Non-persistent store: all chapters share an about:blank origin, and a persistent one made iOS
         // offer "Restore scroll position" on every load.
         config.websiteDataStore = .nonPersistent()
+        config.setURLSchemeHandler(ReaderFontSchemeHandler(), forURLScheme: ReaderFontSchemeHandler.scheme)
         let proxy = MessageProxy(coordinator: context.coordinator)
         for name in NovelReaderController.messageNames {
             config.userContentController.add(proxy, name: name)
@@ -148,7 +151,7 @@ struct ReaderWebView: UIViewRepresentable {
 
         controller.webView = webView
         controller.appliedCSS = css
-        webView.loadHTMLString(NovelReaderScript.shell(css: css), baseURL: nil)
+        webView.loadHTMLString(NovelReaderScript.shell(css: css, lang: lang), baseURL: nil)
         controller.setOptions(options)
         return webView
     }
@@ -194,10 +197,13 @@ struct ReaderWebView: UIViewRepresentable {
 // MARK: - NovelReaderScript
 
 enum NovelReaderScript {
-    static func shell(css: String) -> String {
-        """
+    static func shell(css: String, lang: String? = nil) -> String {
+        // Only a plain language tag goes into the attribute ("multi" and anything odd are left out).
+        let langAttr = lang.flatMap { $0.range(of: #"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"#, options: .regularExpression) != nil
+                                      && $0 != "multi" ? " lang=\"\($0)\"" : nil } ?? ""
+        return """
         <!DOCTYPE html>
-        <html>
+        <html\(langAttr)>
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
