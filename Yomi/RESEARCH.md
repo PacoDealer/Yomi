@@ -1659,6 +1659,13 @@ landed on main at render time (§23.2 #3, now measured). Fix (`coverSized()` in 
   WebP is `.unknown` to it), WebP decode (`VP8*`, `WebPReadPlugin`) of full-size pages, and the JVM
   (`BytecodeInterpreter`, pages still via the proxy). Reader `KFImage`s (`MangaPageView`, both `pageImage`s in
   `ChapterReaderView`) have no `backgroundDecode`, no `loadDiskFileSynchronously(false)`, no downsampling.
+- **Fixed in `2fe17c7`, re-measured same day:** run 4 → 9 / 146 ms / 38 ms, **0 hangs**, first chapter open
+  NovelChapter 23 ms (rows moved into an Equatable `NovelChapterList`); run 5 → 3 / 29 ms / 13 ms, **0 hangs**
+  (`KFImage.readerPage()`: original-bytes cache serializer + backgroundDecode + async disk reads, full resolution
+  kept for zoom — Martin zooms detailed art). No `png_*`/`deflate` frames left in the run 5 trace.
+  **Step 6 result: runs 1–5 are hang-free on device.** Still open: Keiyoushi pages fetched through the JVM proxy
+  (background CPU, not a hang), first-page-per-source KeiyoushiPage 4–6 s.
+- Martin (S136): library titles' chapter lists appeared right away (run 3) — DB-first works as intended.
 - Signpost gaps: OpenManga/OpenNovel now span the background refresh (not "chapters visible"); reader pages have none.
 - Analysis scripts used: main-thread stacks inside each hang + other threads' leaf frames (resolve `ref=` frames in
   the `time-profile` export; the frame list is under `tagged-backtrace/backtrace`).
