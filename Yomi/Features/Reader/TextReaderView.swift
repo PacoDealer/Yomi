@@ -233,6 +233,9 @@ struct TextReaderView: View {
                     onToggleTTS:          { toggleTTS() },
                     onViewSource:         { showSourceSheet = true }
                 )
+                // The app root's .preferredColorScheme (app theme) wins over this view's, so the glass menu
+                // followed the app theme, not the reader theme the user picked under Look (Martin, S136).
+                .environment(\.colorScheme, novelTheme.colorScheme)
                 .transition(.opacity)
             }
         }
@@ -617,6 +620,7 @@ struct TextReaderOverlayView: View {
 
     @State private var showChapterSheet = false
     @State private var settings = AppSettings.shared
+    @Environment(\.colorScheme) var colorScheme
     @AppStorage("novelPanelTab") private var panelTabRaw = ReaderPanelTab.text.rawValue
 
     private var panelTab: ReaderPanelTab { ReaderPanelTab(rawValue: panelTabRaw) ?? .text }
@@ -765,6 +769,14 @@ struct TextReaderOverlayView: View {
 
 // MARK: - Reader panel pieces (S136)
 
+/// Selected controls are a solid inverted pill — black on light glass, white on dark — now that the panel follows
+/// the reader theme (S136: a fixed white pill vanished on Light). Fixed colours on purpose: semantic ones
+/// (`.primary`, systemBackground) get glass vibrancy and wash out to grey.
+enum ReaderPanelStyle {
+    static func selectedFill(_ scheme: ColorScheme) -> Color { scheme == .dark ? .white : .black }
+    static func selectedText(_ scheme: ColorScheme) -> Color { scheme == .dark ? .black : .white }
+}
+
 enum ReaderPanelTab: String, CaseIterable {
     case text = "Text", look = "Look", reading = "Reading"
 }
@@ -874,10 +886,10 @@ extension TextReaderOverlayView {
                 Button { justifyText.toggle() } label: {
                     Label("Justify", systemImage: "text.justify")
                         .font(.caption).fontWeight(.medium)
-                        .foregroundStyle(justifyText ? Color.black : Color.primary.opacity(0.75))
+                        .foregroundStyle(justifyText ? ReaderPanelStyle.selectedText(colorScheme) : Color.primary.opacity(0.75))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
-                        .background(justifyText ? Color.white : Color.primary.opacity(0.12), in: Capsule())
+                        .background(justifyText ? ReaderPanelStyle.selectedFill(colorScheme) : Color.primary.opacity(0.12), in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Justify text")
@@ -899,10 +911,10 @@ extension TextReaderOverlayView {
                             Text(font.name)
                                 .font(font.previewFont(size: 15))
                                 .lineLimit(1)
-                                .foregroundStyle(selected ? Color.black : Color.primary)
+                                .foregroundStyle(selected ? ReaderPanelStyle.selectedText(colorScheme) : Color.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
-                                .background(selected ? Color.white : Color.primary.opacity(0.08), in: Capsule())
+                                .background(selected ? ReaderPanelStyle.selectedFill(colorScheme) : Color.primary.opacity(0.08), in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .id(font.id)
@@ -1025,6 +1037,7 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
     @Binding var selection: Value
     var matches: (Value, Value) -> Bool = { $0 == $1 }
     let accessibilityName: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 0) {
@@ -1034,10 +1047,10 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
                 Button { selection = opt.value } label: {
                     Text(opt.label)
                         .font(.caption).fontWeight(.medium)
-                        .foregroundStyle(selected ? Color.black : Color.primary.opacity(0.75))
+                        .foregroundStyle(selected ? ReaderPanelStyle.selectedText(colorScheme) : Color.primary.opacity(0.75))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
-                        .background(selected ? Color.white : Color.clear, in: Capsule())
+                        .background(selected ? ReaderPanelStyle.selectedFill(colorScheme) : Color.clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 // A bare "Tight" doesn't say tight *what* (Known Issue #121).
