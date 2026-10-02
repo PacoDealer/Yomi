@@ -55,4 +55,21 @@ extension KFImage {
             .backgroundDecode()
             .loadDiskFileSynchronously(false)
     }
+
+    /// Reader pages keep full resolution (pinch-zoom up to 4× on detailed art), so no downsampling. What cost the
+    /// S136 Asura reader two ~330 ms hangs was elsewhere: `DefaultCacheSerializer` re-encodes any format it
+    /// doesn't know — WebP — as PNG before writing the disk cache (`deflate` on several threads), and pages were
+    /// decoded at render time. Store the downloaded bytes as-is (iOS decodes WebP natively), decode off main, and
+    /// read disk hits asynchronously.
+    func readerPage() -> KFImage {
+        serialize(by: Self.originalDataSerializer)
+            .backgroundDecode()
+            .loadDiskFileSynchronously(false)
+    }
+
+    private static let originalDataSerializer: DefaultCacheSerializer = {
+        var serializer = DefaultCacheSerializer()
+        serializer.preferCacheOriginalData = true
+        return serializer
+    }()
 }
