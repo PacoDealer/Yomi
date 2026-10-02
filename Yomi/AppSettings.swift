@@ -480,6 +480,17 @@ import Observation
         didSet { defaults.set(novelMenuTaps, forKey: "novelMenuTaps") }
     }
 
+    /// Novel reader layout (S136, RESEARCH §25.10 #2): "scroll" | "pages".
+    var novelReadingMode: String {
+        didSet { defaults.set(novelReadingMode, forKey: "novelReadingMode") }
+    }
+
+    /// Pages mode: turning past a chapter's last page continues into the next chapter. Off = the chapter ends on
+    /// a "Next chapter" page. Separate from `novelInfiniteScroll` (Martin's call).
+    var novelPagesContinue: Bool {
+        didSet { defaults.set(novelPagesContinue, forKey: "novelPagesContinue") }
+    }
+
     // MARK: - Novel downloads
 
     /// How many chapters past the open one the novel reader keeps downloaded (library novels only).
@@ -611,6 +622,8 @@ import Observation
         novelInfiniteScroll      = d.object(forKey: "novelInfiniteScroll")      as? Bool ?? true
         novelSwipeChapters       = d.object(forKey: "novelSwipeChapters")       as? Bool ?? true
         novelMenuTaps            = d.object(forKey: "novelMenuTaps")            as? Int ?? 1
+        novelReadingMode         = d.string(forKey: "novelReadingMode") == "pages" ? "pages" : "scroll"
+        novelPagesContinue       = d.object(forKey: "novelPagesContinue")       as? Bool ?? true
         downloadOnlyOnWiFi       = d.object(forKey: "downloadOnlyOnWiFi")       as? Bool ?? true
         opdsURL                  = d.string(forKey: "opdsURL")                  ?? ""
         opdsUsername             = d.string(forKey: "opdsUsername")             ?? ""
