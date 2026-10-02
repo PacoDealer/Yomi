@@ -42,8 +42,8 @@ All 16 screens designed and confirmed. Concept: **"reading instrument / living a
 **S136** — batch step 6: perf runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6; `d15f611`, `2fe17c7`).
 §25.10 #1 typography pass: font list (`Features/Reader/ReaderFonts.swift`, bundled WOFF2 via `yomi-font://`),
 paragraph/letter spacing, column cap, hyphenation, Dynamic-Type default size; reader panel = nav + **Text · Look ·
-Reading** tabs, following the reader theme's colorScheme. UI tests 7/7. Details: ROADMAP "S136". Next: §25.10 #2
-pages mode, then #8 TTS, then #3 + #6.
+Reading** tabs, following the reader theme's colorScheme. §25.10 #2 **Pages mode** (Reading → Layout; CSS columns +
+native paging; `novelReadingMode`, `novelPagesContinue`). UI tests 12/12. Details: ROADMAP "S136". Next: #8 TTS, then #3 + #6.
 
 ## Prior state (post S133 — 2026-09-30 · batch step 4: novel reader controller)
 

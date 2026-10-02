@@ -38,7 +38,15 @@ re-diffed ~880 rows). **Runs 1–5 now have 0 hangs.** Open: Keiyoushi reader pa
   infinite scroll / swipe / menu taps (same settings as Settings → Novels). Martin: tall on Text but fine.
 - Martin caught: the menu followed the **app** theme (root `.preferredColorScheme` wins); now the overlay gets the
   reader theme's colorScheme, selected pills solid black/white.
-- UI tests 7/7 (new: Text tab font pick). Not checked: iPad column cap. Next: §25.10 #2 pages mode, then #8 TTS.
+- UI tests 7/7 (new: Text tab font pick). Not checked: iPad column cap.
+
+**§25.10 #2 Pages mode (`bcd50c6`) — Martin on device: "works amazing", no cut lines/gaps, page info fine.**
+- Reading tab → Layout Scroll | Pages. CSS columns (one screen each) + `scrollView.isPagingEnabled` = slide that
+  follows the finger. Taps: left 30 % / right 30 % turn, middle = menu. Left-edge swipe = back (web view pan
+  requires the nav edge recognizer to fail); chapter-swipe setting hidden in Pages; pinch off.
+- "Continue into next chapter" (own setting `novelPagesContinue`, Martin's call) — off ends on a Next chapter page.
+- Chapter name top + "p / n" bottom drawn natively; size/style/mode changes keep the place (chapter + percent).
+- One JS controller for both layouts. UI tests 12/12 (5 new). Next: §25.10 #8 TTS (sentence highlight + auto-advance).
 
 ## S133 — Batch step 4: novel reader controller (2026-09-30)
 
