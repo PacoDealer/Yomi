@@ -33,9 +33,10 @@ struct OnboardingView: View {
 
                 OnboardingPage(
                     systemImage: "puzzlepiece.extension.fill",
-                    title: "Install a Plugin",
-                    description: "Yomi connects to content sources via user-installed plugins — browse the catalog to install your first one.",
-                    caption: "yomi-plugins.web.app",
+                    title: "Add a Repository",
+                    description: "Yomi comes with no sources. Paste a repository's link, then add the extensions you want from it.",
+                    caption: "How to find repositories",
+                    captionLink: kYomiSetupGuideURL,
                     buttonLabel: "Next",
                     pageIndex: 1,
                     onAction: { currentPage = 2 }
@@ -45,7 +46,7 @@ struct OnboardingView: View {
                 OnboardingPage(
                     systemImage: "checkmark.circle.fill",
                     title: "You're all set",
-                    description: "Go to More → Plugins to install your first source and start reading.",
+                    description: "Open Browse → Extensions to add your first repository and start reading.",
                     caption: nil,
                     buttonLabel: "Open Extensions",
                     pageIndex: 2,
@@ -79,6 +80,7 @@ private struct OnboardingPage: View {
     var accentSuffix: String? = nil
     let description: String
     let caption: String?
+    var captionLink: URL? = nil
     let buttonLabel: String
     let pageIndex: Int
     let onAction: () -> Void
@@ -135,7 +137,11 @@ private struct OnboardingPage: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
 
-                if let caption {
+                if let caption, let captionLink {
+                    Link(caption, destination: captionLink)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.accentColor)
+                } else if let caption {
                     Text(caption)
                         .font(YomiTokens.Font.mono(11))
                         .foregroundStyle(Self.tx.opacity(0.36))

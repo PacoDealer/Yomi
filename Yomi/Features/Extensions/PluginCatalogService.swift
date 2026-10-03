@@ -13,10 +13,15 @@ struct PluginCatalogEntry: Codable, Identifiable {
     let fileURL: String
     let isNSFW: Bool
     var repoURL: String = ""
-    var isNovel: Bool = false
+    /// "novel" or "manga". Optional in Yomi catalogs; LNReader catalogs are always novels.
+    var kind: String? = nil
+
+    var isNovel: Bool { kind == "novel" }
+    /// Novel or manga when the catalog says so, nil when it doesn't.
+    var knownIsNovel: Bool? { kind.map { $0 == "novel" } }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, version, language, description, iconURL, fileURL, isNSFW
+        case id, name, version, language, description, iconURL, fileURL, isNSFW, kind
     }
 }
 
@@ -25,7 +30,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
 struct PluginCatalogGroup: Identifiable {
     let name: String
     let entries: [PluginCatalogEntry]
-    var id: String { name }
+    var id: String { "\(entries[0].repoURL)\n\(name)" }
     var isMultiLang: Bool { entries.count > 1 }
     var primaryEntry: PluginCatalogEntry { entries[0] }
 }
@@ -52,7 +57,7 @@ private struct LNReaderEntry: Decodable {
             fileURL: url,
             isNSFW: false
         )
-        entry.isNovel = true
+        entry.kind = "novel"
         return entry
     }
 }
@@ -117,9 +122,10 @@ private struct MangayomiEntry: Decodable {
         let urls = AppSettings.shared.pluginCatalogURLs
             .compactMap { URL(string: $0) }
 
+        // No repositories is a normal state (fresh installs start with none, S140), not an error.
         guard !urls.isEmpty else {
             await MainActor.run {
-                errorMessage = "No catalog URLs configured"
+                entries = []
                 isLoading = false
             }
             return
@@ -170,6 +176,7 @@ private struct MangayomiEntry: Decodable {
             if merged.isEmpty {
                 errorMessage = "Could not load any catalog. Check your repository URLs."
             }
+            ExtensionManager.shared.relinkOrphanedTitles(catalog: merged)
         }
     }
 
@@ -221,12 +228,13 @@ private struct MangayomiEntry: Decodable {
         return false
     }
 
-    /// Groups entries by name (case-insensitive), sorted alphabetically.
-    /// Multi-language sources (same name, different lang) are collapsed into one group.
+    /// Groups entries by name (case-insensitive) within one repository, sorted alphabetically.
+    /// Multi-language sources (same name, different lang) are collapsed into one group; the same name in two
+    /// repositories stays two groups (merging them offered "English" twice, S140).
     var groupedEntries: [PluginCatalogGroup] {
         var groups: [String: [PluginCatalogEntry]] = [:]
         for entry in entries {
-            groups[entry.name.lowercased(), default: []].append(entry)
+            groups["\(entry.repoURL)\n\(entry.name.lowercased())", default: []].append(entry)
         }
         return groups.values
             .map { PluginCatalogGroup(name: $0[0].name, entries: $0.sorted { $0.language < $1.language }) }
@@ -238,7 +246,12 @@ private struct MangayomiEntry: Decodable {
         if repoURL.contains("yomi-plugins") { return "Yomi" }
         if repoURL.lowercased().contains("lnreader") { return "LNReader" }
         if repoURL.contains("mangayomi") { return "Mangayomi" }
-        return URL(string: repoURL)?.host.map { String($0.prefix(20)) } ?? ""
+        guard let url = URL(string: repoURL), let host = url.host else { return "" }
+        // A repository on GitHub is named by its owner ("keiyoushi"), not by the host every one of them shares.
+        let parts = url.pathComponents.filter { $0 != "/" }
+        if host.hasSuffix("github.io") { return String(host.split(separator: ".")[0]) }
+        if ["github.com", "raw.githubusercontent.com"].contains(host), let owner = parts.first { return owner }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     func invalidateCache() {

@@ -21,6 +21,41 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S140 — Extensions redesign + plugin update bug (2026-10-03)
+
+Martin's rules for Extensions (asked this session): **every repository needs a link** — fresh installs start with
+none and Yomi suggests none; once a repository is added, **every extension in it is one tap ("Add")**; delete =
+**swipe → red trash**, for installed extensions and for repositories (not the Sources tab). The onboarding links
+to the GitHub guide "if this respects the rules" → logged as a legal-pass question (KNOWN_ISSUES #170).
+Mid-session he asked to check whether updating extensions works — it didn't (#167).
+
+Built (simulator-verified on iPhone 17 Pro 26.3, **not on his phone yet**):
+- **Browse → Extensions** rewritten (`PluginsView.swift`): search, **Updates** (only when any, Update All),
+  **Installed** (count), **Available** (language menu in the title row). App Store-style rows: 44 pt icon, name,
+  one grey line ("English · Novels", "2 of 7 languages · Manga", "Version 1.0.2" on updates, repository name
+  only when two rows share a name), one grey pill with accent text (Add / Update / globe for languages). No
+  format tags, no versions. Section titles scroll with the rows (pinned plain-list headers drew over them).
+  Toolbar = one ⋯ menu: Add Repository, Repositories, Add Extension from Link, Show 18+ Extensions.
+- **Repositories** (`RepositoriesView`): in ⋯ and in **Settings → Sources & Servers → Repositories** (replaces
+  the old URL list there); name + extension count + link, swipe → red trash, Copy Link in the context menu.
+  `AddRepoSheet` = paste field + "How to find repositories" (README); no featured repos.
+- **No repository** = empty state (Add Repository pill + guide link) under the still-listed installed ones.
+- Fresh installs: `pluginCatalogURLs` defaults to `[]` (was the Yomi catalog). S104's `instantInstallSourceIDs`
+  allowlist and Copy-URL rows removed.
+- **Browse → Sources** + tab strip in the calm style: SF Pro, Library-style section titles ("Last Used",
+  "Manga 5"), 44 pt icons, "English · Manga · Keiyoushi". `SourceIconBadge` no longer widens on non-square icons.
+- Onboarding: "Add a Repository" page with the guide link; stale "More → Plugins" copy fixed (onboarding, search).
+- Repository names: GitHub-hosted repos are named by owner (`repoLabel`) — the phone's "github.com" row.
+- Catalog `kind` ("manga"/"novel") decoded; added to `Firebase/public/index.json` and deployed (#169).
+- **Update bug (#167)** fixed: update in place under the installed id + same-name copy cleanup +
+  `relinkOrphanedTitles`. Also #168 (same name in two repos merged). Keiyoushi updates were already correct
+  (replace by package name; not runnable on the sim).
+- UI tests 8/12 — the 4 Pages tests of #164, same as before.
+
+NEXT: reinstall on his phone (`build-personal.sh --release`; S138 profile expires ~Oct 9) and check that his
+WeTried titles survive the update + relink; then #165 Continue shelf →
+#166 History → remaining screens → TTS.
+
 ## S139 — MangaDetailView in the calm style (2026-10-03)
 
 Martin used the S138 calm build on his iPhone: "looks and feels much better". Two non-design notes, logged as

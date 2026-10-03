@@ -24,24 +24,26 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S139 — 2026-10-03)
+## Current state (S140 — 2026-10-03)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
-- **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere (`YomiTokens.Font` helpers return
-  system fonts), system neutrals, colour from covers, one accent, nothing on covers, plain `Notation`
-  (`chapterTitle`, `plainText` for source strings). Built: Library, NovelDetailView, **MangaDetailView (S139)** —
-  both details share the album header, `detailPillLabel()` pills, ⋯ menu, glass select bar. Martin approved the
-  calm look on device (S138 build). Still old style: Browse/Extensions, History/Updates/More.
-- **Agreed order:** Extensions redesign (repos into Settings, one list, no format tags, App Store-style rows) →
-  KNOWN_ISSUES #165 (Continue shelf = last novel + last manga only) → #166 (History, get specifics) → remaining
-  screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last.
-- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge (Keiyoushi/Suwayomi titles can't
-  download); Updates/Downloads not routed for Keiyoushi titles; no Mihon/Tachimanga backup import; no Dynamic
-  Type outside the reader; stale "More → Plugins" copy (`OnboardingView.swift:48`, `BrowseView.swift:676`);
-  GPLv3 NewPipe still in the extension-server jar; Pages-mode UI tests flaky on the sim (#164).
-- Phone has the S138 build, not S139. Personal build expires every 7 days (free team) —
+- **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere, system neutrals, colour from
+  covers, one accent, nothing on covers, plain `Notation`. Built: Library, Novel + Manga Detail, **Browse (Sources
+  + Extensions, S140)**. Still old style: History/Updates/More/Settings.
+- **Extensions (S140, Martin's rules):** no repositories on a fresh install, none suggested — the user pastes every
+  link; inside an added repository every extension is one tap "Add"; delete = swipe → red trash (extensions +
+  repositories). Repositories live in Browse ⋯ and Settings → Repositories (`RepositoriesView`). Updates keep the
+  installed plugin id (`ExtensionManager.update`); `relinkOrphanedTitles` repairs titles orphaned by the old path.
+- **Agreed order:** reinstall on phone + check WeTried titles survive → KNOWN_ISSUES #165 (Continue shelf) → #166
+  (History, get specifics) → remaining screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last
+  (incl. #170 guide link).
+- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge; Updates/Downloads not routed for
+  Keiyoushi titles; no Mihon/Tachimanga backup import; no Dynamic Type outside the reader; GPLv3 NewPipe still in the extension-server jar; Pages-mode UI
+  tests flaky on the sim (#164).
+- Phone has the S138 build, not S139/S140. Personal build expires every 7 days (free team) —
   `scripts/build-personal.sh` prints the real expiry; read it.
+- Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
 - Next GRDB migration prefix: **`v23_`**.
 
 ## Fresh clone
@@ -105,7 +107,7 @@ Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
 Yomi/Features/Keiyoushi/                  # JVM host, repository (index.pb), bridge, browse
-Yomi/Features/More/PluginsView.swift      # Browse → Extensions tab (repos, installed, available)
+Yomi/Features/More/PluginsView.swift      # Browse → Extensions tab + RepositoriesView, AddRepoSheet
 Yomi/Features/Browse/BrowseView.swift     # Sources · Extensions · Migrate
 Yomi/Features/Reader/NovelReaderWeb.swift, ReaderFonts.swift, ChapterReaderView.swift
 Yomi/Features/Browse/NovelDetailView.swift, Yomi/Features/Library/MangaDetailView.swift

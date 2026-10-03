@@ -29,8 +29,6 @@ private enum ConnectionTestStatus: Equatable {
 
 struct SettingsView: View {
     @State private var settings = AppSettings.shared
-    @State private var newRepoURL: String = ""
-    @State private var showAddRepo = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.yomiCanvas) private var canvas
@@ -61,7 +59,6 @@ struct SettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .swipeBackEnabled()
         .overlay(alignment: .top) { glassNavBar }
-        .sheet(isPresented: $showAddRepo) { addRepoSheet }
     }
 
     // MARK: - Glass nav bar
@@ -330,44 +327,9 @@ struct SettingsView: View {
                 .padding(.horizontal, 4)
 
             VStack(spacing: 0) {
-                ForEach(Array(settings.pluginCatalogURLs.enumerated()), id: \.element) { index, url in
-                    Text(url)
-                        .font(YomiTokens.Font.mono(12))
-                        .foregroundStyle(canvas.textSecondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .contentShape(Rectangle())
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                settings.pluginCatalogURLs.remove(at: index)
-                                PluginCatalogService.shared.invalidateCache()
-                            } label: {
-                                Label("Remove", systemImage: "trash")
-                            }
-                        }
-                    rowDivider()
+                navRow("Repositories", trailing: repositoryCount == 0 ? "None" : "\(repositoryCount)") {
+                    RepositoriesView()
                 }
-
-                Button {
-                    newRepoURL = ""
-                    showAddRepo = true
-                } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add repository")
-                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                        Spacer()
-                    }
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
                 rowDivider()
                 navRow("Suwayomi Server") { SuwayomiSettingsView() }
                 rowDivider()
@@ -375,57 +337,11 @@ struct SettingsView: View {
             }
             .background(canvas.surface1)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-
-            Text("Catalogs are merged. Duplicate plugin IDs: first catalog wins.")
-                .font(.caption)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 4)
         }
     }
 
-    private var addRepoSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Catalog URL") {
-                    TextField("https://example.com/index.json", text: $newRepoURL)
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                }
-                Section {
-                    Link(destination: URL(string: "https://github.com/PacoDealer/Yomi#plugin-repositories")!) {
-                        HStack {
-                            Label("Browse community repos", systemImage: "book")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } footer: {
-                    Text("Find repository URLs and setup instructions on GitHub.")
-                }
-            }
-            .navigationTitle("Add Repository")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showAddRepo = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        let trimmed = newRepoURL.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty, !settings.pluginCatalogURLs.contains(trimmed) {
-                            settings.pluginCatalogURLs.append(trimmed)
-                            PluginCatalogService.shared.invalidateCache()
-                        }
-                        showAddRepo = false
-                    }
-                    .disabled(newRepoURL.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-        .presentationDetents([.medium])
+    private var repositoryCount: Int {
+        settings.pluginCatalogURLs.count + (settings.keiyoushiRepoURL.isEmpty ? 0 : 1)
     }
 
     // MARK: - Advanced

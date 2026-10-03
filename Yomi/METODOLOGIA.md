@@ -2006,3 +2006,26 @@ previously here was removed during the 2026-08-04 doc restructure.
 - `Text(date, style: .relative)` reads "3 days, 2 hours"; `date.formatted(.relative(presentation: .named))`
   reads "3 days ago".
 
+
+## Technical learnings — S140 Extensions redesign + update bug (2026-10-03)
+
+- **"Does X work?" → reproduce with the user's real state, not a clean one.** The update bug only shows for a
+  plugin whose installed id differs from the catalog id (added by URL, or an old id scheme) — exactly Martin's
+  WeTried. Staging that state in the sim DB (rename the row id + script file + `novel.sourceId`) reproduced it and
+  then proved the fix in one tap.
+- **Check what references an id before letting it change.** Titles store the plugin id as `sourceId`; the update
+  path silently changed the id, and deleting the leftover "duplicate" orphaned the library. Grep the schema for
+  the column (`pragma_table_info`) before touching an id.
+- **Hash-derived ids are recoverable.** sha256(URL)/sha256(file name) prefixes let `relinkOrphanedTitles` map
+  orphans back without stored metadata — check `printf %s "$s" | shasum -a 256 | cut -c1-32` against the DB first.
+- **Plain `List` section headers pin and draw over rows** when the list has a clear background — put titles in
+  as ordinary rows (`listRowSeparator(.hidden)`) to make them scroll like the Library's.
+- **`.swipeActions` destructive buttons inherit the app-wide `.tint`** (blue trash) — add `.tint(.red)`.
+- **`scaledToFill()` inside a `ZStack` widens the stack to the image's aspect** and shifts the row; put the image
+  in an `.overlay` of a fixed-size shape instead.
+- **Building into `iOS/build/` on the Desktop failed CodeSign** ("resource fork, Finder information … not
+  allowed" — Finder xattrs). Build into `~/Library/Developer/Xcode/DerivedData/Yomi-S140` instead.
+- **Sim panel taps:** the first tap after a screen change or a Bash call is often dropped — tap, screenshot,
+  re-tap if nothing moved. XcodeBuildMCP `snapshot_ui` returned an empty tree for this app all session.
+- **Testing the empty state without reinstalling:** terminate, back up `Library/Preferences/pacodealer.Yomi.plist`,
+  `plutil -remove` the keys, `launchctl stop com.apple.cfprefsd.xpc.daemon`, launch; restore the same way.

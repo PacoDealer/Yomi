@@ -1,7 +1,7 @@
 import Kingfisher
 import SwiftUI
 
-// Keiyoushi (Mihon) extensions are installed from More → Extensions (PluginsView), next to Yomi's own plugins —
+// Keiyoushi (Mihon) extensions are added from Browse → Extensions (PluginsView), next to Yomi's own plugins —
 // this file holds the Keiyoushi-specific pieces those screens and Browse use.
 
 // MARK: - KeiyoushiLanguagesView
@@ -34,11 +34,11 @@ struct KeiyoushiLanguagesView: View {
                     } label: {
                         HStack {
                             Text(SourceLanguage.displayName(for: source.lang))
-                                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                                .font(.body)
                                 .foregroundStyle(canvas.textPrimary)
                             Spacer()
                             Text(source.lang.uppercased())
-                                .font(YomiTokens.Font.mono(11))
+                                .font(.footnote)
                                 .foregroundStyle(canvas.textSecondary)
                         }
                     }
@@ -101,7 +101,7 @@ struct KeiyoushiLanguageSheet: View {
                                     .foregroundStyle(canvas.textPrimary)
                                 Spacer()
                                 Text(lang.uppercased())
-                                    .font(YomiTokens.Font.mono(11))
+                                    .font(.footnote)
                                     .foregroundStyle(canvas.textSecondary)
                                 Image(systemName: selected.contains(lang) ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(selected.contains(lang) ? Color.accentColor : canvas.textSecondary)
@@ -148,85 +148,5 @@ struct KeiyoushiLanguageSheet: View {
             if !match.isEmpty { return match }
         }
         return langs
-    }
-}
-
-// MARK: - KeiyoushiExtensionRow
-
-/// A Keiyoushi extension in More → Extensions, installed or available.
-struct KeiyoushiExtensionRow: View {
-    let ext: KeiyoushiExtension
-    let installed: InstalledKeiyoushiExtension?
-    let update: KeiyoushiExtension?
-    let isBusy: Bool
-    let onInstall: () -> Void
-    let onUpdate: () -> Void
-    let onLanguages: () -> Void
-
-    private var subtitle: String {
-        let langs = Set(ext.sources.map(\.lang))
-        let langText: String
-        if let installed, langs.count > 1 {
-            langText = "\(Set(installed.enabledSources.map(\.lang)).count) of \(langs.count) langs"
-        } else if langs.count > 1 {
-            langText = "\(langs.count) langs"
-        } else {
-            langText = ext.lang.uppercased()
-        }
-        return "\(langText) · v\(installed?.info.versionName ?? ext.versionName)"
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            KFImage(URL(string: ext.iconURL))
-                .placeholder {
-                    Image(systemName: "puzzlepiece.extension")
-                        .resizable().aspectRatio(1, contentMode: .fit)
-                        .padding(8)
-                        .foregroundStyle(.secondary)
-                        .background(Color.secondary.opacity(0.12))
-                }
-                .fade(duration: 0.2)
-                .resizable()
-                .aspectRatio(1, contentMode: .fit)
-                .frame(width: 40, height: 40)
-                .cornerRadius(8)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(ext.name).font(.headline)
-                HStack(spacing: 5) {
-                    Text("Keiyoushi")
-                        .font(.caption2).fontWeight(.medium)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.12))
-                        .foregroundStyle(.secondary)
-                        .clipShape(Capsule())
-                    if ext.isNSFW { NSFWBadge() }
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if isBusy {
-                ProgressView().controlSize(.small)
-            } else if installed != nil {
-                if update != nil {
-                    Button("Update", action: onUpdate)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(.orange)
-                } else if Set(ext.sources.map(\.lang)).count > 1 {
-                    Button("Languages", action: onLanguages)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                }
-            } else {
-                Button(Set(ext.sources.map(\.lang)).count > 1 ? "Get" : "Install", action: onInstall)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
-        }
-        .padding(.vertical, 2)
     }
 }
