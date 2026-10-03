@@ -2,12 +2,33 @@ import SwiftUI
 import Kingfisher
 import CryptoKit
 
-// MARK: - UpdateEntry
+// MARK: - UpdateFeedEntry
 
-struct UpdateEntry: Identifiable {
-    let id: String   // manga.id + ":" + chapter.id
-    let manga: Manga
-    let chapter: Chapter
+struct UpdateFeedEntry: Identifiable {
+    enum Kind {
+        case manga(Manga, Chapter)
+        case novel(Novel, NovelChapter)
+    }
+    let kind: Kind
+    let fetchedAt: Date
+    var isRead: Bool
+
+    /// For ordering only. Keiyoushi chapters are stored without a number, so read it from "Chapter 101".
+    var chapterNumber: Double {
+        let (number, name): (Double?, String) = switch kind {
+        case .manga(_, let c): (c.chapterNumber, c.name)
+        case .novel(_, let c): (c.chapterNumber, c.name)
+        }
+        if let number { return number }
+        return name.firstMatch(of: /(?i)ch(?:apter)?\.?\s*(\d+(?:\.\d+)?)/).flatMap { Double($0.1) } ?? 0
+    }
+
+    var id: String {
+        switch kind {
+        case .manga(_, let c): return "manga-\(c.id)"
+        case .novel(_, let c): return "novel-\(c.id)"
+        }
+    }
 }
 
 // MARK: - Reader destinations
@@ -15,7 +36,7 @@ struct UpdateEntry: Identifiable {
 private struct MangaReaderDest: Identifiable, Hashable {
     let id = UUID()
     let manga: Manga
-    let bridge: JSBridge
+    let bridge: JSBridge?   // nil for Keiyoushi titles — the reader goes through the embedded JVM
     let chapters: [Chapter]
     let chapterIndex: Int
 
@@ -40,65 +61,53 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
     static let shared = UpdatesViewModel()
 
-    var groups: [(manga: Manga, chapters: [Chapter])] = []
-    var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
+    /// One row per chapter a refresh found in the last 30 days (v23 `fetchedAt`), newest first — Tachimanga's
+    /// feed (S141, Martin). Replaced "every unread chapter of a recently updated title", which listed 481
+    /// "new" chapters for a novel he was simply behind on.
+    var entries: [UpdateFeedEntry] = []
     var isRefreshing = false
 
     /// How many titles' chapter-list fetches failed outright during the last `refresh()`, as
     /// opposed to genuinely having nothing new. Reported in the refresh summary banner.
     var failedSourceChecks = 0
 
-    var totalCount: Int { groups.count + novelGroups.count }
+    /// Tab badge: new chapters not read yet.
+    var totalCount: Int { entries.filter { !$0.isRead }.count }
 
-    func markAllMangaChaptersRead(mangaId: String) {
-        guard let i = groups.firstIndex(where: { $0.manga.id == mangaId }) else { return }
-        let ids = groups[i].chapters.map { $0.id }
-        groups.remove(at: i)
-        // One transaction for the whole list instead of 4 per chapter (Known Issue #141).
-        Task.detached { try? ChapterQueries.setReadBatch(chapterIds: ids, mangaId: mangaId, isRead: true) }
-    }
-
-    func markAllNovelChaptersRead(novelId: String) {
-        guard let i = novelGroups.firstIndex(where: { $0.novel.id == novelId }) else { return }
-        let ids = novelGroups[i].chapters.map { $0.id }
-        novelGroups.remove(at: i)
-        Task.detached { try? NovelQueries.markReadBatch(chapterIds: ids, novelId: novelId) }
+    func markRead(_ entry: UpdateFeedEntry) {
+        guard let i = entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        entries[i].isRead = true
+        switch entry.kind {
+        case .manga(let manga, let chapter):
+            let mangaId = manga.id, ids = [chapter.id]
+            Task.detached { try? ChapterQueries.setReadBatch(chapterIds: ids, mangaId: mangaId, isRead: true) }
+        case .novel(let novel, let chapter):
+            let novelId = novel.id, ids = [chapter.id]
+            Task.detached { try? NovelQueries.markReadBatch(chapterIds: ids, novelId: novelId) }
+        }
     }
 
     func loadFromDB() async {
-        let (mangaResult, novelResult) = await Task.detached(priority: .userInitiated) {
-            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date.distantPast
-
-            // --- Manga ---
-            let mangas = (try? MangaQueries.fetchLibraryByLastUpdated()) ?? []
-            let recentMangas = mangas.filter { ($0.lastUpdatedAt ?? .distantPast) >= cutoff }
-            var mangaGroups: [(manga: Manga, chapters: [Chapter])] = []
-            for manga in recentMangas {
-                let unread = (try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []
-                if !unread.isEmpty {
-                    let sorted = unread.sorted { ($0.chapterNumber ?? 0) > ($1.chapterNumber ?? 0) }
-                    mangaGroups.append((manga: manga, chapters: sorted))
-                }
+        entries = await Task.detached(priority: .userInitiated) {
+            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
+            let mangas = Dictionary(((try? MangaQueries.fetchLibrary()) ?? []).map { ($0.id, $0) },
+                                    uniquingKeysWith: { a, _ in a })
+            let novels = Dictionary(((try? NovelQueries.fetchLibrary()) ?? []).map { ($0.id, $0) },
+                                    uniquingKeysWith: { a, _ in a })
+            var out: [UpdateFeedEntry] = []
+            for (ch, at) in (try? ChapterQueries.fetchRecentlyFetched(since: cutoff)) ?? [] {
+                guard let m = mangas[ch.mangaId] else { continue }
+                out.append(UpdateFeedEntry(kind: .manga(m, ch), fetchedAt: at, isRead: ch.isRead))
             }
-
-            // --- Novels ---
-            let novels = (try? NovelQueries.fetchLibrary()) ?? []
-            let recentNovels = novels.filter { ($0.lastUpdatedAt ?? .distantPast) >= cutoff }
-            var novelGroups: [(novel: Novel, chapters: [NovelChapter])] = []
-            for novel in recentNovels {
-                let all = (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
-                let unread = all.filter { !$0.isRead }
-                if !unread.isEmpty {
-                    let sorted = unread.sorted { ($0.chapterNumber ?? 0) > ($1.chapterNumber ?? 0) }
-                    novelGroups.append((novel: novel, chapters: sorted))
-                }
+            for (ch, at) in (try? NovelQueries.fetchRecentlyFetched(since: cutoff)) ?? [] {
+                guard let n = novels[ch.novelId] else { continue }
+                out.append(UpdateFeedEntry(kind: .novel(n, ch), fetchedAt: at, isRead: ch.isRead))
             }
-
-            return (mangaGroups, novelGroups)
+            // Newest first; within one refresh, highest chapter first (a plain sort shuffled 100 above 101).
+            return out.sorted { a, b in
+                a.fetchedAt != b.fetchedAt ? a.fetchedAt > b.fetchedAt : a.chapterNumber > b.chapterNumber
+            }
         }.value
-
-        groups = mangaResult
-        novelGroups = novelResult
     }
 
     /// Returns the number of newly-discovered unread chapters (manga + novel) found this refresh.
@@ -107,8 +116,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         guard !isRefreshing else { return 0 }
         isRefreshing = true
 
-        let oldChapterIds = Set(groups.flatMap { $0.chapters.map(\.id) })
-        let oldNovelChapterIds = Set(novelGroups.flatMap { $0.chapters.map(\.id) })
+        let oldIds = Set(entries.map(\.id))
 
         let (library, novelLibrary) = await Task.detached(priority: .userInitiated) {
             let manga = (try? MangaQueries.fetchLibrary()) ?? []
@@ -134,10 +142,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         await loadFromDB()
         isRefreshing = false
 
-        let newChapterIds = Set(groups.flatMap { $0.chapters.map(\.id) })
-        let newNovelChapterIds = Set(novelGroups.flatMap { $0.chapters.map(\.id) })
-        return newChapterIds.subtracting(oldChapterIds).count
-            + newNovelChapterIds.subtracting(oldNovelChapterIds).count
+        return Set(entries.map(\.id)).subtracting(oldIds).count
     }
 
     /// Returns `true` if the source's chapter-list fetch failed (as opposed to simply finding
@@ -191,6 +196,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: newChapters)
         try? MangaQueries.touchLastUpdated(mangaId: mangaId)
+        try? ChapterQueries.markFetched(ids: newChapters.map(\.id))
 
         if autoDownload, let bridge {
             await MainActor.run {
@@ -278,6 +284,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         try? NovelQueries.insertAllIgnoringConflicts(newChapters)
         try? NovelQueries.touchLastUpdated(novelId: novelId)
+        try? NovelQueries.markFetched(ids: newChapters.map(\.id))
 
         let title = novel.title
         let count = newChapters.count
@@ -293,73 +300,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 }
 
-// MARK: - UpdateFeedItem
-//
-// One row per title (manga or novel) with new chapters — consolidates the
-// old per-chapter row list into a single summary row, matching N.12.
-
-private struct UpdateFeedItem: Identifiable {
-    enum Kind {
-        case manga(Manga, [Chapter])   // chapters sorted by chapterNumber descending
-        case novel(Novel, [NovelChapter])
-    }
-
-    let kind: Kind
-
-    var id: String {
-        switch kind {
-        case .manga(let m, _): return "manga-\(m.id)"
-        case .novel(let n, _): return "novel-\(n.id)"
-        }
-    }
-
-    var title: String {
-        switch kind {
-        case .manga(let m, _): return m.title
-        case .novel(let n, _): return n.title
-        }
-    }
-
-    var lastUpdatedAt: Date? {
-        switch kind {
-        case .manga(let m, _): return m.lastUpdatedAt
-        case .novel(let n, _): return n.lastUpdatedAt
-        }
-    }
-
-    var count: Int {
-        switch kind {
-        case .manga(_, let chapters): return chapters.count
-        case .novel(_, let chapters): return chapters.count
-        }
-    }
-
-    /// "CH. 042" or "CH. 042–044" — chapters arrive sorted descending, so
-    /// `last` is the oldest new chapter and `first` the newest.
-    var note: String {
-        switch kind {
-        case .manga(_, let chapters):
-            guard let low = chapters.last?.chapterNumber, let high = chapters.first?.chapterNumber else {
-                return "\(count) new"
-            }
-            return Notation.chapterRange(low: low, high: high)
-        case .novel(_, let chapters):
-            guard let low = chapters.last?.chapterNumber, let high = chapters.first?.chapterNumber else {
-                return "\(count) new"
-            }
-            return Notation.chapterRange(low: low, high: high)
-        }
-    }
-
-    var isNovel: Bool {
-        if case .novel = kind { return true }
-        return false
-    }
-}
-
 private struct UpdateFeedGroup: Identifiable {
     let label: String
-    var items: [UpdateFeedItem]
+    var items: [UpdateFeedEntry]
     var id: String { label }
 }
 
@@ -373,23 +316,15 @@ struct UpdatesView: View {
     @State private var novelReaderDest: NovelReaderDest? = nil
     @State private var isLoadingReader = false
     @State private var refreshSummary: String? = nil
-
-    private var hasContent: Bool { !vm.groups.isEmpty || !vm.novelGroups.isEmpty }
+    private var hasContent: Bool { !vm.entries.isEmpty }
 
     private var groupedFeed: [UpdateFeedGroup] {
-        var buckets: [String: [UpdateFeedItem]] = [:]
-        for g in vm.groups {
-            let item = UpdateFeedItem(kind: .manga(g.manga, g.chapters))
-            buckets[Notation.dateGroupLabel(for: g.manga.lastUpdatedAt), default: []].append(item)
-        }
-        for g in vm.novelGroups {
-            let item = UpdateFeedItem(kind: .novel(g.novel, g.chapters))
-            buckets[Notation.dateGroupLabel(for: g.novel.lastUpdatedAt), default: []].append(item)
+        var buckets: [String: [UpdateFeedEntry]] = [:]
+        for entry in vm.entries {
+            buckets[Notation.dateGroupLabel(for: entry.fetchedAt), default: []].append(entry)
         }
         return Notation.dateGroupOrder.compactMap { key in
-            guard let arr = buckets[key], !arr.isEmpty else { return nil }
-            let sorted = arr.sorted { ($0.lastUpdatedAt ?? .distantPast) > ($1.lastUpdatedAt ?? .distantPast) }
-            return UpdateFeedGroup(label: key, items: sorted)
+            buckets[key].map { UpdateFeedGroup(label: key, items: $0) }
         }
     }
 
@@ -402,19 +337,19 @@ struct UpdatesView: View {
                     message: "Add titles to your library and refresh to check for new chapters."
                 )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(groupedFeed) { group in
+                // S141 calm pass: same plain list as History; swipe → Mark Read.
+                List {
+                    ForEach(groupedFeed) { group in
+                        Section {
                             sectionHeader(group.label)
                             ForEach(group.items) { item in
                                 itemRow(item)
-                                Divider().padding(.leading, 72)
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
                 }
+                .listStyle(.plain)
+                .yomiListCanvas()
                 .refreshable { await runRefresh() }
             }
         }
@@ -466,53 +401,57 @@ struct UpdatesView: View {
     // MARK: - Section header
 
     private func sectionHeader(_ label: String) -> some View {
-        Text(label.uppercased())
-            .font(YomiTokens.Font.mono(11))
-            .tracking(0.6)
-            .foregroundStyle(canvas.textSecondary)
-            .padding(.top, 18)
-            .padding(.bottom, 2)
+        Text(label)
+            .font(.title2.bold())
+            .foregroundStyle(canvas.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowInsets(EdgeInsets(top: 24, leading: YomiTokens.Layout.screenMargin,
+                                      bottom: 4, trailing: YomiTokens.Layout.screenMargin))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 
     // MARK: - Row
 
+    /// Tap = read that chapter (S141, Martin: Tachimanga's feed takes you straight in). Swipe → Mark Read.
     @ViewBuilder
-    private func itemRow(_ item: UpdateFeedItem) -> some View {
-        switch item.kind {
-        case .manga(let manga, let chapters):
-            UpdateRow(
-                title: item.title, coverURL: manga.coverURL, customCoverPath: manga.resolvedCustomCoverPath,
-                note: item.note, count: item.count, isLoadingReader: isLoadingReader,
-                destination: { MangaDetailView(manga: manga) },
-                onStartReading: {
-                    guard !isLoadingReader, let target = chapters.last else { return }
-                    Task { await loadMangaReader(manga: manga, chapter: target) }
-                }
-            )
-            .contextMenu {
+    private func itemRow(_ entry: UpdateFeedEntry) -> some View {
+        Group {
+            switch entry.kind {
+            case .manga(let manga, let chapter):
                 Button {
-                    vm.markAllMangaChaptersRead(mangaId: manga.id)
+                    guard !isLoadingReader else { return }
+                    Task { await loadMangaReader(manga: manga, chapter: chapter) }
                 } label: {
-                    Label("Mark all read", systemImage: "checkmark.circle.fill")
+                    UpdateRow(title: manga.title, coverURL: manga.coverURL,
+                              customCoverPath: manga.resolvedCustomCoverPath,
+                              chapter: Notation.chapterTitle(chapter.name, number: chapter.chapterNumber),
+                              isRead: entry.isRead)
+                }
+            case .novel(let novel, let chapter):
+                Button {
+                    guard !isLoadingReader else { return }
+                    Task { await loadNovelReader(novel: novel, chapter: chapter) }
+                } label: {
+                    UpdateRow(title: novel.title, coverURL: novel.coverURL,
+                              customCoverPath: novel.resolvedCustomCoverPath,
+                              chapter: Notation.chapterTitle(chapter.name, number: chapter.chapterNumber),
+                              isRead: entry.isRead)
                 }
             }
-        case .novel(let novel, let chapters):
-            UpdateRow(
-                title: item.title, coverURL: novel.coverURL, customCoverPath: novel.resolvedCustomCoverPath,
-                note: item.note, count: item.count, isLoadingReader: isLoadingReader,
-                destination: { NovelDetailView(novel: novel) },
-                onStartReading: {
-                    guard !isLoadingReader, let target = chapters.last else { return }
-                    Task { await loadNovelReader(novel: novel, chapter: target) }
+        }
+        .buttonStyle(.plain)
+        // On the row itself — inside the Button's label the List ignored them and drew separators (S141).
+        .listRowInsets(EdgeInsets(top: 6, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 6, trailing: YomiTokens.Layout.screenMargin))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !entry.isRead {
+                Button { vm.markRead(entry) } label: {
+                    Label("Mark Read", systemImage: "checkmark")
                 }
-            )
-            .contextMenu {
-                Button {
-                    vm.markAllNovelChaptersRead(novelId: novel.id)
-                } label: {
-                    Label("Mark all read", systemImage: "checkmark.circle.fill")
-                }
+                .tint(.gray)
             }
         }
     }
@@ -553,7 +492,7 @@ struct UpdatesView: View {
             return (br, chapters)
         }.value
 
-        guard let bridge else { return }
+        guard bridge != nil || KeiyoushiMapping.isKeiyoushiSourceId(sourceId) else { return }
         let sorted = allChapters.sorted { ($0.chapterNumber ?? 0) < ($1.chapterNumber ?? 0) }
         let index  = sorted.firstIndex(where: { $0.id == chapter.id }) ?? 0
         mangaReaderDest = MangaReaderDest(manga: manga, bridge: bridge, chapters: sorted, chapterIndex: index)
@@ -583,73 +522,45 @@ struct UpdatesView: View {
 
 // MARK: - UpdateRow
 
-private struct UpdateRow<Destination: View>: View {
+/// Cover, title, "Chapter 28" — dimmed once read, like Tachimanga. No separators (Martin, S141).
+private struct UpdateRow: View {
     let title: String
     let coverURL: URL?
     let customCoverPath: String?
-    let note: String
-    let count: Int
-    let isLoadingReader: Bool
-    @ViewBuilder let destination: () -> Destination
-    let onStartReading: () -> Void
+    let chapter: String
+    let isRead: Bool
 
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        HStack(spacing: 12) {
-            NavigationLink {
-                destination()
-            } label: {
-                HStack(spacing: 12) {
-                    Group {
-                        if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                                .coverAspectSized()
-                        } else {
-                            CoverImage(url: coverURL)
-                        }
-                    }
-                    .frame(width: 44)
-                    .cornerRadius(YomiTokens.Radius.thumb)
-                    .clipped()
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(title)
-                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                            .foregroundStyle(canvas.textPrimary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Text(note)
-                            .font(YomiTokens.Font.mono(12))
-                            .foregroundStyle(canvas.textSecondary)
-                            .lineLimit(1)
-                    }
+        HStack(spacing: 14) {
+            Group {
+                if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(2 / 3, contentMode: .fill)
+                        .coverAspectSized()
+                } else {
+                    CoverImage(url: coverURL)
                 }
             }
-            .buttonStyle(.plain)
+            .frame(width: 44)
+            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
+            .coverHairline(cornerRadius: YomiTokens.Radius.thumb)
 
-            Spacer(minLength: 8)
-
-            VStack(alignment: .trailing, spacing: 7) {
-                Text("\(count)")
-                    .font(YomiTokens.Font.mono(11, bold: true))
-                    .foregroundStyle(AppSettings.shared.accentForeground)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor, in: Capsule())
-
-                Button(action: onStartReading) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 19))
-                        .foregroundStyle(canvas.textSecondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(isLoadingReader)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                Text(chapter)
+                    .font(.subheadline)
+                    .foregroundStyle(canvas.textSecondary)
+                    .lineLimit(1)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 11)
+        .opacity(isRead ? 0.45 : 1)
         .contentShape(Rectangle())
     }
 }

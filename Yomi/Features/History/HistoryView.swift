@@ -103,6 +103,11 @@ struct HistoryView: View {
                                 sectionHeader(group.label)
                                 ForEach(group.items) { item in
                                     itemRow(item)
+                                        // Row-level: inside the Button's label the List ignored them (S141).
+                                        .listRowInsets(EdgeInsets(top: 7, leading: YomiTokens.Layout.screenMargin,
+                                                                  bottom: 7, trailing: YomiTokens.Layout.screenMargin))
+                                        .listRowBackground(Color.clear)
+                                        .listRowSeparator(.hidden)
                                         .modifier(DeleteSwipe(title: "Remove") { deleteItem(item) })
                                 }
                             }
@@ -179,6 +184,7 @@ struct HistoryView: View {
                     coverURL: manga.coverURL,
                     customCoverPath: manga.resolvedCustomCoverPath,
                     lastReadAt: manga.lastReadAt,
+                    readingSeconds: manga.readingSeconds,
                     subtitle: chapterSubtitles[manga.id],
                     isOpening: openingId == item.id
                 )
@@ -193,6 +199,7 @@ struct HistoryView: View {
                     coverURL: novel.coverURL,
                     customCoverPath: novel.resolvedCustomCoverPath,
                     lastReadAt: novel.lastReadAt,
+                    readingSeconds: novel.readingSeconds,
                     subtitle: chapterSubtitles[novel.id],
                     isOpening: openingId == item.id
                 )
@@ -310,17 +317,27 @@ struct HistoryView: View {
 
 // MARK: - HistoryRow
 
-/// Cover, title, "Chapter 722 · 32%", time — Apple Music's song-row rhythm (RESEARCH §26).
+/// Cover, title (2 lines), "Chapter 722 · 32%", "4h 7m read · 18:55" — a bit more about each title, like
+/// Tachimanga's History (S141, Martin), in the calm type; no separators.
 private struct HistoryRow: View {
     let title: String
     let coverURL: URL?
     let customCoverPath: String?
     let lastReadAt: Date?
+    let readingSeconds: Int
     let subtitle: String?
     var isOpening = false
 
     @Environment(\.yomiCanvas) private var canvas
     @State private var settings = AppSettings.shared
+
+    private var detail: String {
+        let time = Notation.readingTime(seconds: readingSeconds)
+        let when = lastReadAt.map {
+            Notation.historyTimestamp($0, use24Hour: settings.use24HourClock, dayFirst: settings.dateOrderDayFirst)
+        }
+        return [time.isEmpty ? nil : "\(time) read", when].compactMap { $0 }.joined(separator: " · ")
+    }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -334,15 +351,22 @@ private struct HistoryRow: View {
                     CoverImage(url: coverURL)
                 }
             }
-            .frame(width: 44)
-            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
-            .coverHairline(cornerRadius: YomiTokens.Radius.thumb)
+            .frame(width: 64)
+            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
+            .coverHairline()
+            .overlay {
+                if isOpening {
+                    ProgressView()
+                        .padding(8)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+            }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.body)
+                    .font(.body.weight(.medium))
                     .foregroundStyle(canvas.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 if let subtitle {
                     Text(subtitle)
                         .font(.subheadline)
@@ -350,29 +374,17 @@ private struct HistoryRow: View {
                         .foregroundStyle(canvas.textSecondary)
                         .lineLimit(1)
                 }
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(canvas.textSecondary)
+                        .lineLimit(1)
+                }
             }
-
-            Spacer(minLength: 8)
-
-            if isOpening {
-                ProgressView()
-            } else if let lastReadAt {
-                Text(Notation.historyTimestamp(
-                    lastReadAt,
-                    use24Hour: settings.use24HourClock,
-                    dayFirst: settings.dateOrderDayFirst
-                ))
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(canvas.textSecondary)
-            }
+            Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
-        .listRowInsets(EdgeInsets(top: 8, leading: YomiTokens.Layout.screenMargin,
-                                  bottom: 8, trailing: YomiTokens.Layout.screenMargin))
-        .listRowBackground(Color.clear)
-        .listRowSeparatorTint(canvas.hairline)
-        .alignmentGuide(.listRowSeparatorLeading) { _ in 58 }
     }
 }
 
