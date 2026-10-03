@@ -196,7 +196,9 @@ final class ExtensionManager {
             sourceIds:     ext.sourceIds
         ))
         guard errorMessage == nil else { return }
-        let copies = installed.filter { $0.id != ext.id && $0.name.lowercased() == ext.name.lowercased() }
+        let copies = installed.filter {
+            $0.id != ext.id && ($0.name.lowercased() == ext.name.lowercased() || entry.matches($0))
+        }
         for copy in copies where !((try? ExtensionQueries.hasTitles(sourceId: copy.id)) ?? true) {
             remove(copy)
         }
@@ -211,11 +213,9 @@ final class ExtensionManager {
         let orphans = used.subtracting(installedIds)
         guard !orphans.isEmpty else { return }
         for ext in installed {
-            guard let entry = catalog.first(where: { $0.id == ext.id })
-                    ?? catalog.first(where: { $0.name.lowercased() == ext.name.lowercased() }) else { continue }
-            let fileName = URL(string: entry.fileURL)?.deletingPathExtension().lastPathComponent ?? ""
-            let legacyIds = [sha256id(entry.fileURL), sha256id(fileName), entry.id, "com.yomi.\(fileName)"]
-            for old in Set(legacyIds) where old != ext.id && orphans.contains(old) {
+            guard let entry = catalog.first(where: { $0.installIds.contains(ext.id) })
+                    ?? catalog.first(where: { $0.matches(ext) }) else { continue }
+            for old in entry.installIds where old != ext.id && orphans.contains(old) {
                 try? ExtensionQueries.moveTitles(from: old, to: ext.id)
                 AppSettings.shared.recentSourceKeys = AppSettings.shared.recentSourceKeys.map {
                     $0 == BrowseSourceKey.plugin(old) ? BrowseSourceKey.plugin(ext.id) : $0

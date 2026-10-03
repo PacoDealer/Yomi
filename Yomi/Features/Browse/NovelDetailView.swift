@@ -295,8 +295,8 @@ struct NovelDetailView: View {
                 let fileURL = coversDir.appendingPathComponent("\(novel.id).jpg")
                 try? data.write(to: fileURL)
                 novel.customCoverPath = "Covers/\(novel.id).jpg"
-                let updated = novel
-                Task.detached { try? NovelQueries.upsert(updated) }
+                let novelId = novel.id
+                Task.detached { try? NovelQueries.updateCustomCover(novelId: novelId, path: "Covers/\(novelId).jpg") }
             }
         }
         .onChange(of: chapterForNav) { old, new in
@@ -765,8 +765,9 @@ struct NovelDetailView: View {
         // Persist the chapters already on screen, so read marks made right after adding stick —
         // otherwise they only exist in the DB after the next reload.
         let loaded = isInLibrary ? chapters : []
+        let inLibrary = isInLibrary
         await Task.detached(priority: .userInitiated) {
-            try? NovelQueries.upsert(updated)
+            try? NovelQueries.setInLibrary(updated, inLibrary)
             if !loaded.isEmpty { try? NovelQueries.insertAllIgnoringConflicts(loaded) }
         }.value
         if isInLibrary, let defaultCatId = AppSettings.shared.defaultCategoryId {
@@ -855,9 +856,9 @@ struct NovelDetailView: View {
 
     private func touchLastReadAt() {
         guard !AppSettings.shared.isIncognito else { return }
-        var updated = novel
-        updated.lastReadAt = Date()
-        Task.detached { try? NovelQueries.upsert(updated) }
+        // Column-only: a whole-row upsert wrote back this view's stale reading time/metadata (S141).
+        let snapshot = novel
+        Task.detached { try? NovelQueries.touchLastRead(snapshot) }
     }
 
     // MARK: - Load Chapters
@@ -952,7 +953,7 @@ struct NovelDetailView: View {
         // Persist updated metadata if in library
         if novel.inLibrary {
             let updated = novel
-            await Task.detached { try? NovelQueries.upsert(updated) }.value
+            await Task.detached { try? NovelQueries.updateSourceMetadata(updated) }.value
         }
 
         // Build chapters from remote source

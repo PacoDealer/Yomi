@@ -118,6 +118,8 @@ struct PluginsView: View {
     // MARK: Body
 
     var body: some View {
+        // Once per render — per row it rebuilt every Available group for each row and froze the list (S141).
+        let shared = sharedNames
         List {
             if embedded { searchRow }
             if !updateItems.isEmpty {
@@ -131,17 +133,17 @@ struct PluginsView: View {
                                 .buttonStyle(.borderless)
                         }
                     }
-                    ForEach(updateItems) { row($0) }
+                    ForEach(updateItems) { row($0, shared: shared) }
                 }
             }
             if !upToDateItems.isEmpty {
                 Section {
                     sectionHeader("Installed") { countLabel(upToDateItems.count) }
-                    ForEach(upToDateItems) { row($0) }
+                    ForEach(upToDateItems) { row($0, shared: shared) }
                 }
             }
             // Extensions already added stay listed (and deletable) even with every repository removed.
-            if hasRepositories { availableSection } else { noRepositories }
+            if hasRepositories { availableSection(shared: shared) } else { noRepositories }
         }
         .listStyle(.plain)
         .yomiListCanvas()
@@ -295,7 +297,7 @@ struct PluginsView: View {
     }
 
     @ViewBuilder
-    private var availableSection: some View {
+    private func availableSection(shared: Set<String>) -> some View {
         Section {
             sectionHeader("Available") { languageMenu }
             if (catalogService.isLoading || keiyoushi.isLoading) && availableItems.isEmpty {
@@ -324,7 +326,7 @@ struct PluginsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             } else {
-                ForEach(availableItems) { row($0) }
+                ForEach(availableItems) { row($0, shared: shared) }
             }
         }
     }
@@ -360,8 +362,8 @@ struct PluginsView: View {
     // MARK: Rows
 
     @ViewBuilder
-    private func row(_ item: ExtensionItem) -> some View {
-        let origin = sharedNames.contains(item.name.lowercased()) ? repoName(for: item) : nil
+    private func row(_ item: ExtensionItem, shared: Set<String>) -> some View {
+        let origin = shared.contains(item.name.lowercased()) ? repoName(for: item) : nil
         switch item {
         case .installed(let ext):
             let update = catalogService.availableUpdate(for: ext)
