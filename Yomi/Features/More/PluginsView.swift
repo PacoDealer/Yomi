@@ -640,12 +640,14 @@ struct PillButton: View {
 
 /// Swipe left → red trash.
 struct DeleteSwipe: ViewModifier {
+    /// "Remove" where the swipe only takes a row out of a list (History) and deletes nothing.
+    var title = "Delete"
     let action: () -> Void
 
     func body(content: Content) -> some View {
         content.swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: action) {
-                Label("Delete", systemImage: "trash")
+                Label(title, systemImage: "trash")
             }
             .tint(.red) // the app-wide accent tint would otherwise paint it blue
 

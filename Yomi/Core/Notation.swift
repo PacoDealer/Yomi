@@ -37,6 +37,15 @@ nonisolated enum Notation {
         }
     }
 
+    /// "Chapter 25: 5th Cycle's Dawn" / "Ch. 25" → "Chapter 25" — short enough to share a line with a
+    /// percentage (Continue shelf, History). Names without a leading number stay as they are.
+    static func shortChapter(_ name: String) -> String {
+        if let match = name.firstMatch(of: /^(Chapter|Ch\.?)\s*([\d.]+)/.ignoresCase()) {
+            return Double(match.output.2).map(chapter) ?? String(match.output.0)
+        }
+        return name
+    }
+
     /// "Chapter 42 · read to 68%" — in-progress chapter, for History rows.
     static func chapterReadTo(chapter: Double, fraction: Double) -> String {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
@@ -104,12 +113,12 @@ nonisolated enum Notation {
 
     // MARK: - History timestamp (adaptive)
 
-    /// "14:20"/"2:20 PM" today, "Mon" within the last week, "Jul 28"/"28 Jul" otherwise — for
-    /// History rows. `use24Hour`/`dayFirst` default to the app's original hardcoded format
+    /// "14:20"/"2:20 PM" today and yesterday (the row already sits under a "Yesterday" header — S141),
+    /// "Mon" within the last week, "Jul 28"/"28 Jul" otherwise — for History rows. `use24Hour`/`dayFirst` default to the app's original hardcoded format
     /// (24-hour clock, month-before-day) so existing callers are unaffected.
     static func historyTimestamp(_ date: Date, use24Hour: Bool = true, dayFirst: Bool = false) -> String {
         let cal = Calendar.current
-        if cal.isDateInToday(date) {
+        if cal.isDateInToday(date) || cal.isDateInYesterday(date) {
             let f = DateFormatter(); f.dateFormat = use24Hour ? "HH:mm" : "h:mm a"
             return f.string(from: date)
         }
