@@ -55,44 +55,36 @@ struct ContinueReadingRow: View {
                     .padding(.top, 12)
                     .padding(.bottom, 12)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(alignment: .top, spacing: YomiTokens.Layout.coverGutter) {
-                        ForEach(items) { item in
-                            switch item {
-                            case .manga(let manga):
-                                ContinueReadingCell(manga: manga)
-                            case .novel(let novel):
-                                ContinueReadingNovelCell(novel: novel)
-                            }
+                HStack(alignment: .top, spacing: YomiTokens.Layout.coverGutter) {
+                    ForEach(items) { item in
+                        switch item {
+                        case .manga(let manga):
+                            ContinueReadingCell(manga: manga)
+                        case .novel(let novel):
+                            ContinueReadingNovelCell(novel: novel)
                         }
                     }
-                    .padding(.horizontal, YomiTokens.Layout.screenMargin)
                 }
+                .padding(.horizontal, YomiTokens.Layout.screenMargin)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { Task { await loadItems() } }
     }
 
+    /// At most two titles: the last manga and the last novel read, most recent first (KNOWN_ISSUES #165 —
+    /// Martin wants "what I'm reading now", not a history row).
     private func loadItems() async {
         async let mangaFetch = Task.detached(priority: .userInitiated) {
-            (try? MangaQueries.fetchRecentlyRead(limit: 10)) ?? []
+            (try? MangaQueries.fetchRecentlyRead(limit: 1)) ?? []
         }.value
         async let novelFetch = Task.detached(priority: .userInitiated) {
-            (try? NovelQueries.fetchRecentlyRead(limit: 10)) ?? []
+            (try? NovelQueries.fetchRecentlyRead(limit: 1)) ?? []
         }.value
         let (mangas, novels) = await (mangaFetch, novelFetch)
 
         let merged: [ContinueItem] = (mangas.map { .manga($0) } + novels.map { .novel($0) })
-            .sorted {
-                switch ($0.lastReadAt, $1.lastReadAt) {
-                case let (a?, b?): return a > b
-                case (.some, .none): return true
-                default: return false
-                }
-            }
-            .prefix(10)
-            .map { $0 }
+            .sorted { ($0.lastReadAt ?? .distantPast) > ($1.lastReadAt ?? .distantPast) }
 
         await MainActor.run { items = merged }
     }
@@ -155,14 +147,14 @@ private struct ContinueShelfLabel: View {
                 .lineLimit(2, reservesSpace: true)
                 .padding(.top, 7)
 
-            if !meta.isEmpty {
-                Text(meta)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(canvas.textSecondary)
-                    .lineLimit(1)
-                    .padding(.top, 2)
-            }
+            // Always one line, even empty, so both shelf cells end at the same height (S141: a novel
+            // opened outside the library has no saved chapters and its bar sat a line higher).
+            Text(meta.isEmpty ? " " : meta)
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(canvas.textSecondary)
+                .lineLimit(1)
+                .padding(.top, 2)
 
             Capsule()
                 .fill(canvas.surface2)
@@ -298,6 +290,7 @@ private struct ContinueReadingNovelCell: View {
     @Environment(\.yomiCanvas) private var canvas
     @State private var isLoading = false
     @State private var navigateToReader = false
+    @State private var navigateToDetail = false
     @State private var readerBridge: JSBridge? = nil
     @State private var readerChapters: [NovelChapter] = []
     @State private var readerChapterIndex: Int = 0
@@ -339,6 +332,9 @@ private struct ContinueReadingNovelCell: View {
                 TextReaderView(novel: novel, bridge: bridge, chapters: readerChapters, startIndex: readerChapterIndex)
             }
         }
+        .navigationDestination(isPresented: $navigateToDetail) {
+            NovelDetailView(novel: novel)
+        }
     }
 
     private func openReader() async {
@@ -352,7 +348,12 @@ private struct ContinueReadingNovelCell: View {
             (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
         }.value
 
-        guard !chapters.isEmpty else { return }
+        // Read outside the library: no chapters were saved, so let the detail page load them (S141 — the
+        // cell used to do nothing).
+        guard !chapters.isEmpty else {
+            navigateToDetail = true
+            return
+        }
 
         let bridge: JSBridge?
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {

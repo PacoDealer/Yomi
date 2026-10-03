@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Observation
 
@@ -19,6 +20,30 @@ struct PluginCatalogEntry: Codable, Identifiable {
     var isNovel: Bool { kind == "novel" }
     /// Novel or manga when the catalog says so, nil when it doesn't.
     var knownIsNovel: Bool? { kind.map { $0 == "novel" } }
+
+    /// Ids this entry's plugin may be installed under: the catalog id, "Install from URL"'s sha256(file URL),
+    /// the old DEBUG seed's sha256(file name), and "com.yomi.<file name>". A plugin added by link also keeps the
+    /// name inside its script ("WeTried TLs" vs the catalog's "WeTried Translations"), so names alone miss it (S141).
+    /// Filled once by `fetchCatalog` (`withInstallIds()`): computing the hashes on every lookup froze the
+    /// Extensions list, which matches each catalog entry against each installed plugin per render (S141).
+    private(set) var installIds: Set<String> = []
+
+    func withInstallIds() -> PluginCatalogEntry {
+        var entry = self
+        let fileName = URL(string: fileURL)?.deletingPathExtension().lastPathComponent ?? ""
+        entry.installIds = [id, Self.sha256id(fileURL), Self.sha256id(fileName), "com.yomi.\(fileName)"]
+        return entry
+    }
+
+    /// The installed plugin is this entry: same id (any of `installIds`) or same name.
+    func matches(_ ext: Extension) -> Bool {
+        id == ext.id || installIds.contains(ext.id) || name.lowercased() == ext.name.lowercased()
+    }
+
+    static func sha256id(_ string: String) -> String {
+        let hash = SHA256.hash(data: Data(string.utf8))
+        return String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32))
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, version, language, description, iconURL, fileURL, isNSFW, kind
@@ -144,7 +169,7 @@ private struct MangayomiEntry: Decodable {
                         let (data, response) = try await URLSession.shared.data(for: request)
                         yomiLogNetwork(request, response: response, data: data)
                         let parsed = Self.parseEntries(from: data)
-                        return parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e }
+                        return parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e.withInstallIds() }
                     } catch {
                         return []
                     }
@@ -201,7 +226,7 @@ private struct MangayomiEntry: Decodable {
     // MARK: - Helpers
 
     func isInstalled(_ entry: PluginCatalogEntry) -> Bool {
-        ExtensionManager.shared.installed.contains(where: { $0.id == entry.id || $0.name == entry.name })
+        ExtensionManager.shared.installed.contains(where: entry.matches)
     }
 
     func isGroupInstalled(_ group: PluginCatalogGroup) -> Bool {
@@ -210,7 +235,7 @@ private struct MangayomiEntry: Decodable {
 
     /// Returns the catalog entry for an installed extension if a newer version is available.
     func availableUpdate(for ext: Extension) -> PluginCatalogEntry? {
-        let entry = entries.first(where: { $0.id == ext.id }) ?? entries.first(where: { $0.name == ext.name })
+        let entry = entries.first(where: { $0.installIds.contains(ext.id) }) ?? entries.first(where: { $0.matches(ext) })
         guard let entry else { return nil }
         return Self.isNewer(entry.version, than: ext.version) ? entry : nil
     }

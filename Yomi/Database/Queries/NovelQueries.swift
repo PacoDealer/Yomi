@@ -69,6 +69,19 @@ enum NovelQueries {
         }
     }
 
+    /// Sets lastReadAt to now, first saving the novel if it was never stored (opened from Browse) — without
+    /// overwriting any other column of an existing row.
+    nonisolated static func touchLastRead(_ novel: Novel) throws {
+        _ = try appDatabase.write { db in
+            var row = novel
+            try row.insert(db, onConflict: .ignore)
+            try Novel
+                .filter(Column("id") == novel.id)
+                .updateAll(db, [Column("lastReadAt").set(to: Date())])
+        }
+        markCloudDirty(.novel, key: novel.id)
+    }
+
     /// Sets lastReadAt to now for the given novel
     nonisolated static func touchLastRead(novelId: String) throws {
         _ = try appDatabase.write { db in
@@ -115,6 +128,47 @@ enum NovelQueries {
             try Novel
                 .filter(Column("id") == novelId)
                 .updateAll(db, [Column("readingStatus").set(to: status.rawValue)])
+        }
+        markCloudDirty(.novel, key: novelId)
+    }
+
+    /// Writes the source's synopsis/author/status/cover only. NovelDetailView used to `upsert` its whole
+    /// copy here, and that copy's `lastReadAt` dated from when the page opened — so every visit rewound the
+    /// novel in History behind chapters read since (S141, Martin: "opened RTOC, not in History").
+    nonisolated static func updateSourceMetadata(_ novel: Novel) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novel.id)
+                .updateAll(db, [
+                    Column("summary").set(to: novel.summary),
+                    Column("author").set(to: novel.author),
+                    Column("status").set(to: novel.status),
+                    Column("coverURL").set(to: novel.coverURL),
+                ])
+        }
+        markCloudDirty(.novel, key: novel.id)
+    }
+
+    /// Adds or removes a novel from the library without touching its other columns; inserts the row first
+    /// when the novel was never saved (opened from Browse).
+    nonisolated static func setInLibrary(_ novel: Novel, _ inLibrary: Bool) throws {
+        _ = try appDatabase.write { db in
+            var row = novel
+            row.inLibrary = inLibrary
+            try row.insert(db, onConflict: .ignore)
+            try Novel
+                .filter(Column("id") == novel.id)
+                .updateAll(db, [Column("inLibrary").set(to: inLibrary)])
+        }
+        markCloudDirty(.novel, key: novel.id)
+    }
+
+    /// Sets the user's custom cover path only.
+    nonisolated static func updateCustomCover(novelId: String, path: String?) throws {
+        _ = try appDatabase.write { db in
+            try Novel
+                .filter(Column("id") == novelId)
+                .updateAll(db, [Column("customCoverPath").set(to: path)])
         }
         markCloudDirty(.novel, key: novelId)
     }
