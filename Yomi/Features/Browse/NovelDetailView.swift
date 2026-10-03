@@ -134,8 +134,9 @@ struct NovelDetailView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.immediately)
         .onScrollGeometryChange(for: Bool.self) { geo in
-            geo.contentOffset.y + geo.contentInsets.top > 470
+            geo.contentOffset.y + geo.contentInsets.top > 410
         } action: { _, past in
             withAnimation(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
         }
@@ -148,6 +149,9 @@ struct NovelDetailView: View {
             : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(isSelectingChapters ? .visible : .hidden, for: .navigationBar)
+        // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
+        .navigationBarBackButtonHidden(isSelectingChapters)
+        .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
         .navigationDestination(item: $chapterForNav) { ch in
             if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
                 TextReaderView(novel: novel, bridge: b, chapters: chapters, startIndex: idx)
@@ -529,7 +533,8 @@ struct NovelDetailView: View {
     @ViewBuilder private var synopsisSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                if let summary = novel.summary, !summary.isEmpty {
+                if let rawSummary = novel.summary, !rawSummary.isEmpty {
+                    let summary = Notation.plainText(rawSummary)
                     VStack(alignment: .leading, spacing: 4) {
                         // Collapsed: one paragraph, so blank lines don't eat the three visible lines.
                         Text(synopsisExpanded ? summary
@@ -1229,7 +1234,7 @@ private struct NovelChapterRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(chapter.name)
+            Text(Notation.chapterTitle(chapter.name, number: chapter.chapterNumber))
                 .font(.body)
                 .foregroundStyle(chapter.isRead ? canvas.textSecondary : canvas.textPrimary)
                 .lineLimit(2)
@@ -1299,8 +1304,9 @@ private struct NovelChapterDownloadBadge: View {
 
 // MARK: - Detail pill buttons
 
-private extension Label where Title == Text, Icon == Image {
-    /// Apple Music's Play / Shuffle buttons: equal-width grey capsules, accent text (S138).
+extension Label where Title == Text, Icon == Image {
+    /// Apple Music's Play / Shuffle buttons: equal-width grey capsules, accent text (S138). Shared with
+    /// MangaDetailView.
     func detailPillLabel() -> some View {
         self
             .font(.body.weight(.semibold))

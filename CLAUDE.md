@@ -24,22 +24,24 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S138 — 2026-10-03)
+## Current state (S139 — 2026-10-03)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
-- **S138 design direction = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere (the
-  `YomiTokens.Font` helpers now return system fonts), system neutrals (Ink = black/#1C1C1E), colour comes from
-  covers, one accent, nothing drawn on covers, plain-text `Notation`. Built: Library + NovelDetailView.
-  Still old style: MangaDetailView, Browse/Extensions, History/Updates/More. `Yomi/design/` (Space Grotesk
-  "catalog" system) is superseded.
-- **Agreed order:** Martin reviews calm on device → MangaDetail → Extensions redesign (repos into Settings, one
-  list, no format tags) → remaining screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last.
-- Open gaps: Keiyoushi first page 4–6 s; Updates/Downloads not routed for Keiyoushi titles; no Mihon/
-  Tachimanga backup import; no Dynamic Type outside the reader; stale "More → Plugins" copy
-  (`OnboardingView.swift:48`, `BrowseView.swift:676`); GPLv3 NewPipe still in the extension-server jar;
-  4 Pages-mode UI tests fail on the sim (also on HEAD before S138 — KNOWN_ISSUES #164).
-- Personal build expires every 7 days (free team) — `scripts/build-personal.sh` prints the real expiry; read it.
+- **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere (`YomiTokens.Font` helpers return
+  system fonts), system neutrals, colour from covers, one accent, nothing on covers, plain `Notation`
+  (`chapterTitle`, `plainText` for source strings). Built: Library, NovelDetailView, **MangaDetailView (S139)** —
+  both details share the album header, `detailPillLabel()` pills, ⋯ menu, glass select bar. Martin approved the
+  calm look on device (S138 build). Still old style: Browse/Extensions, History/Updates/More.
+- **Agreed order:** Extensions redesign (repos into Settings, one list, no format tags, App Store-style rows) →
+  KNOWN_ISSUES #165 (Continue shelf = last novel + last manga only) → #166 (History, get specifics) → remaining
+  screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last.
+- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge (Keiyoushi/Suwayomi titles can't
+  download); Updates/Downloads not routed for Keiyoushi titles; no Mihon/Tachimanga backup import; no Dynamic
+  Type outside the reader; stale "More → Plugins" copy (`OnboardingView.swift:48`, `BrowseView.swift:676`);
+  GPLv3 NewPipe still in the extension-server jar; Pages-mode UI tests flaky on the sim (#164).
+- Phone has the S138 build, not S139. Personal build expires every 7 days (free team) —
+  `scripts/build-personal.sh` prints the real expiry; read it.
 - Next GRDB migration prefix: **`v23_`**.
 
 ## Fresh clone
