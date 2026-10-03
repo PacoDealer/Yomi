@@ -21,6 +21,35 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S137 — Workflow research + tooling cleanup (2026-10-03)
+
+Martin now reads light novels in Yomi daily (WeTried plugin). He asked for research on AI app development
+(tools, tricks, what we missed), design (Claude Design?), and why Extensions still feel disorganized
+(four repositories: Yomi, "github.com", LNReader, Keiyoushi). Agreed order: workflow fixes → design
+direction → Extensions redesign → TTS → first-run + imports → legal compliance last.
+
+Done this session:
+- **CLAUDE.md 273 KB / 1,490 lines → ~8 KB / 118 lines.** Anthropic's guidance is under 200 lines; the old
+  file (~68k tokens) loaded every session. Known Issues table moved verbatim to `Yomi/KNOWN_ISSUES.md`
+  (open rows listed at its top); all "Prior state" blocks + design-track note appended verbatim to
+  `Yomi/HISTORY.md`; MCP/tooling/key-path sections copied to `.claude/skills/yomi-sim/TOOLING-NOTES.md`.
+  New path-scoped rules: `.claude/rules/grdb.md`, `.claude/rules/plugins.md`. Session close now says to
+  *replace* "Current state", not append.
+- **XcodeBuildMCP**: `XCODEBUILDMCP_ENABLED_WORKFLOWS=simulator,simulator-management,ui-automation,device,
+  debugging,project-discovery,utilities,coverage` in user config (`~/.claude.json`). ui-automation was off,
+  which is the root of the mobile-mcp tap/swipe workarounds since S109 (#49).
+- **Apple Xcode MCP** added (`claude mcp add --transport stdio xcode -s user -- xcrun mcpbridge`): RenderPreview,
+  live diagnostics, DocumentationSearch. Needs Xcode open; takes effect after a Claude Code restart.
+
+Findings, not acted on yet:
+- "github.com" repository = `PluginCatalogService.repoLabel` host fallback for an unrecognised catalog URL
+  (phone not connected — actual URL unknown). Mihon/Aidoku keep repositories in Settings and show one source
+  list filtered by language; Yomi shows repos inline + "· YOMI PLUGIN / · KEIYOUSHI" tags.
+- Claude Design (Anthropic Labs, beta): use for 2–3 side-by-side directions of Library/Detail/Extensions from
+  real references — not to regenerate all 16 screens (feeding it the codebase re-extracts the Space Grotesk look).
+- Candidates: Paul Hudson / Antoine van der Lee SwiftUI agent skills (audit before installing), snapshot tests,
+  $99 Developer Program as a workflow fix (TestFlight, no 7-day expiry).
+
 ## S136 — Batch step 6 done + typography pass (2026-10-02)
 
 **Step 6 (perf):** runs 2–5 re-measured on the iPhone 17 (RESEARCH §23.6). Fixed what they found: `d15f611` cover

@@ -1966,3 +1966,13 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Edge-back vs. horizontal pan:** `scrollView.panGestureRecognizer.require(toFail: nav.interactivePopGestureRecognizer)`.
 - XCUITest: `isHittable` throws for text in an off-screen CSS column ("activation point invalid") — assert on a
   DEBUG marker (page/pages) instead.
+
+
+## Technical learnings — S137 workflow cleanup (2026-10-03)
+
+- **Audit the tooling config, not just the code.** XcodeBuildMCP had tap/swipe tools all along, behind a
+  disabled `ui-automation` workflow; four sessions (S109–S113) documented workarounds for a switch nobody
+  checked. When a tool "can't" do something, read its manifest/config before working around it.
+- **CLAUDE.md is a rulebook, not a log.** Appending a "Prior state" block every session grew it to 273 KB.
+  Narratives go to ROADMAP/HISTORY, bugs to KNOWN_ISSUES, file-specific rules to `.claude/rules/` with
+  `paths:` frontmatter (they load only when matching files are read/edited).

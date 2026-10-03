@@ -5,6 +5,15 @@ description: Build, install, launch, and screenshot the Yomi iOS app on its pinn
 
 # Running and inspecting Yomi in the simulator
 
+## S137 update — try XcodeBuildMCP UI automation first
+
+Since S137 XcodeBuildMCP runs with `ui-automation` enabled: `snapshot_ui` (accessibility tree with element
+refs), `tap` / `swipe` / `type_text` / `long_press` / `batch`, plus `screenshot`. These were OFF before,
+which is why every S98–S113 note below fights mobile-mcp's flaky taps and distance-ignoring swipes
+(Known Issue #49). Use them first; fall back to mobile-mcp only if they misbehave, and record which one
+worked in METODOLOGIA.md. For pure layout/design checks, Apple's `xcode` MCP `RenderPreview` renders a
+SwiftUI `#Preview` without launching the app at all. Old quirks + full tool notes: `TOOLING-NOTES.md`.
+
 ## Preferred path: mobile-mcp / XcodeBuildMCP
 
 If `mcp__mobile-mcp__*` or `mcp__XcodeBuildMCP__*` tools are available (check via
