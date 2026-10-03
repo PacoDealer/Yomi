@@ -175,6 +175,55 @@ final class ExtensionManager {
         }
     }
 
+    // MARK: - Update
+
+    /// Replaces an installed plugin's script with a catalog version, keeping the installed id. Titles store
+    /// their plugin id as `sourceId`, so installing the update under the catalog's id (which differs for
+    /// plugins added by URL or under an old id scheme) left them on the old script and the old row
+    /// asking for an update forever. Also retires same-name copies such an update made before, when no
+    /// title uses them.
+    func update(_ ext: Extension, to entry: PluginCatalogEntry) async {
+        guard let fileURL = URL(string: entry.fileURL) else { return }
+        await install(Extension(
+            id:            ext.id,
+            name:          ext.name,
+            version:       entry.version,
+            language:      ext.language,
+            iconURL:       entry.iconURL.flatMap { URL(string: $0) } ?? ext.iconURL,
+            sourceListURL: fileURL,
+            isInstalled:   true,
+            isNSFW:        entry.isNSFW,
+            sourceIds:     ext.sourceIds
+        ))
+        guard errorMessage == nil else { return }
+        let copies = installed.filter { $0.id != ext.id && $0.name.lowercased() == ext.name.lowercased() }
+        for copy in copies where !((try? ExtensionQueries.hasTitles(sourceId: copy.id)) ?? true) {
+            remove(copy)
+        }
+    }
+
+    /// Titles whose plugin row is gone but whose plugin is installed under another id — left behind when the old
+    /// update path installed a second copy and the user deleted the first (S140). Old ids are recomputable:
+    /// "Install from URL" used sha256(plugin URL), the DEBUG seed sha256(file name). Moves those titles over.
+    func relinkOrphanedTitles(catalog: [PluginCatalogEntry]) {
+        guard let used = try? ExtensionQueries.titleSourceIds() else { return }
+        let installedIds = Set(installed.map(\.id))
+        let orphans = used.subtracting(installedIds)
+        guard !orphans.isEmpty else { return }
+        for ext in installed {
+            guard let entry = catalog.first(where: { $0.id == ext.id })
+                    ?? catalog.first(where: { $0.name.lowercased() == ext.name.lowercased() }) else { continue }
+            let fileName = URL(string: entry.fileURL)?.deletingPathExtension().lastPathComponent ?? ""
+            let legacyIds = [sha256id(entry.fileURL), sha256id(fileName), entry.id, "com.yomi.\(fileName)"]
+            for old in Set(legacyIds) where old != ext.id && orphans.contains(old) {
+                try? ExtensionQueries.moveTitles(from: old, to: ext.id)
+                AppSettings.shared.recentSourceKeys = AppSettings.shared.recentSourceKeys.map {
+                    $0 == BrowseSourceKey.plugin(old) ? BrowseSourceKey.plugin(ext.id) : $0
+                }
+            }
+        }
+    }
+
     // MARK: - Remove
 
     /// Deletes the JS file and removes the extension from the database
