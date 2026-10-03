@@ -90,6 +90,59 @@ struct ContinueReadingRow: View {
     }
 }
 
+// MARK: - ResumeReading
+
+/// "Take me back to where I was" for one title — the chapter last touched, at its saved page/scroll position (the
+/// readers restore those). Shared by the Continue shelf and History (S141: Martin wants History taps to go
+/// straight into the chapter). Nil = nothing to resume from here (no saved chapters, plugin missing) → callers
+/// open the detail page instead, which loads the chapters.
+enum ResumeReading {
+    struct MangaTarget { let bridge: JSBridge?; let chapters: [Chapter]; let index: Int }
+    struct NovelTarget { let bridge: JSBridge; let chapters: [NovelChapter]; let index: Int }
+
+    static func manga(_ manga: Manga) async -> MangaTarget? {
+        let mangaId = manga.id
+        var chapters = await Task.detached(priority: .userInitiated) {
+            ((try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? [])
+                .sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
+        }.value
+        guard !chapters.isEmpty else { return nil }
+        // Same list the detail page reads from, so Next/Prev don't step through other groups' copies.
+        if UserDefaults.standard.object(forKey: "oneTranslationPerChapter") as? Bool ?? true {
+            chapters = MangaDetailView.oneTranslationPerChapter(
+                chapters, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(mangaId)"))
+        }
+        let touched = chapters.filter { $0.isRead || $0.lastPageRead > 0 || $0.progress > 0 }
+        let last = touched.max { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) }
+            ?? chapters.first { !$0.isRead }
+        let index = last.flatMap { l in chapters.firstIndex { $0.id == l.id } } ?? chapters.count - 1
+
+        // Keiyoushi titles read through the embedded JVM, not a JS plugin — the reader takes no bridge.
+        if KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
+            return MangaTarget(bridge: nil, chapters: chapters, index: index)
+        }
+        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId }),
+              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return nil }
+        return MangaTarget(bridge: bridge, chapters: chapters, index: index)
+    }
+
+    static func novel(_ novel: Novel) async -> NovelTarget? {
+        let novelId = novel.id
+        let chapters = await Task.detached(priority: .userInitiated) {
+            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+        }.value
+        guard !chapters.isEmpty,
+              let ext = ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId }),
+              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return nil }
+        // In progress, else first unread, else the last chapter — the detail page's Continue button.
+        let resume = chapters.first { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 }
+            ?? chapters.first { !$0.isRead }
+            ?? chapters.last
+        let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? 0
+        return NovelTarget(bridge: bridge, chapters: chapters, index: index)
+    }
+}
+
 // MARK: - ContinueShelfLabel
 
 /// Cover, title, "Chapter 25 · 3%" and a thin progress bar — shared by the manga and novel
@@ -107,15 +160,7 @@ private struct ContinueShelfLabel: View {
 
     private var meta: String {
         let percent = progress > 0 ? Notation.progress(progress) : nil
-        return [chapterName.map(Self.shortChapter), percent].compactMap { $0 }.joined(separator: " · ")
-    }
-
-    /// "Chapter 25: 5th Cycle's Dawn" / "Ch. 25" → "Chapter 25", so the percentage still fits on the line.
-    nonisolated static func shortChapter(_ name: String) -> String {
-        if let match = name.firstMatch(of: /^(Chapter|Ch\.?)\s*([\d.]+)/.ignoresCase()) {
-            return Double(match.output.2).map(Notation.chapter) ?? String(match.output.0)
-        }
-        return name
+        return [chapterName.map(Notation.shortChapter), percent].compactMap { $0 }.joined(separator: " · ")
     }
 
     var body: some View {
@@ -181,6 +226,7 @@ private struct ContinueReadingCell: View {
     @Environment(\.yomiCanvas) private var canvas
     @State private var isLoading = false
     @State private var navigateToReader = false
+    @State private var navigateToDetail = false
     @State private var readerBridge: JSBridge? = nil
     @State private var readerChapters: [Chapter] = []
     @State private var readerChapterIndex: Int = 0
@@ -216,68 +262,28 @@ private struct ContinueReadingCell: View {
             }
         }
         .navigationDestination(isPresented: $navigateToReader) {
-            if let bridge = readerBridge {
-                ChapterReaderView(
-                    manga: manga,
-                    bridge: bridge,
-                    chapters: readerChapters,
-                    chapterIndex: readerChapterIndex
-                )
-            }
+            ChapterReaderView(
+                manga: manga,
+                bridge: readerBridge,
+                chapters: readerChapters,
+                chapterIndex: readerChapterIndex
+            )
+        }
+        .navigationDestination(isPresented: $navigateToDetail) {
+            MangaDetailView(manga: manga)
         }
     }
 
     private func openReader() async {
         isLoading = true
         defer { isLoading = false }
-
-        let sourceId = manga.sourceId
-        let mangaPath = manga.path
-        let mangaId = manga.id
-
-        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }),
-              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return }
-
-        let fetchedChapters = await Task.detached(priority: .userInitiated) {
-            bridge.getChapterList(mangaPath: mangaPath, mangaId: mangaId)
-        }.value
-
-        let saved = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
-        guard !fetchedChapters.isEmpty || !saved.isEmpty else { return }
-
-        let chapters: [Chapter]
-        if fetchedChapters.isEmpty {
-            // Network failed — fall back to DB chapters
-            chapters = saved
-        } else {
-            let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
-            // See the manga branch above — `fetchedChapters` isn't guaranteed ascending.
-            chapters = fetchedChapters.map { ch -> Chapter in
-                guard let persisted = savedMap[ch.id] else { return ch }
-                var merged = ch
-                merged.isRead = persisted.isRead
-                merged.readingSeconds = persisted.readingSeconds
-                merged.progress = persisted.progress
-                return merged
-            }.sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
+        guard let target = await ResumeReading.manga(manga) else {
+            navigateToDetail = true
+            return
         }
-
-        let lastTouched = saved
-            .filter { $0.isRead || $0.progress > 0 }
-            .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
-            .first
-
-        let chapterIndex: Int
-        if let last = lastTouched,
-           let idx = chapters.firstIndex(where: { $0.id == last.id }) {
-            chapterIndex = idx
-        } else {
-            chapterIndex = chapters.count - 1
-        }
-
-        readerBridge = bridge
-        readerChapters = chapters
-        readerChapterIndex = chapterIndex
+        readerBridge = target.bridge
+        readerChapters = target.chapters
+        readerChapterIndex = target.index
         navigateToReader = true
     }
 }
@@ -340,50 +346,15 @@ private struct ContinueReadingNovelCell: View {
     private func openReader() async {
         isLoading = true
         defer { isLoading = false }
-
-        let novelId = novel.id
-        let sourceId = novel.sourceId
-
-        let chapters = await Task.detached(priority: .userInitiated) {
-            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
-        }.value
-
         // Read outside the library: no chapters were saved, so let the detail page load them (S141 — the
         // cell used to do nothing).
-        guard !chapters.isEmpty else {
+        guard let target = await ResumeReading.novel(novel) else {
             navigateToDetail = true
             return
         }
-
-        let bridge: JSBridge?
-        if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
-            bridge = await ExtensionManager.shared.loadBridge(for: ext)
-        } else {
-            bridge = nil
-        }
-        guard let b = bridge else { return }
-
-        // Resume: in-progress first, then first unread, then last chapter
-        let resumeChapter: NovelChapter?
-        if let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 }) {
-            resumeChapter = inProgress
-        } else if let firstUnread = chapters.first(where: { !$0.isRead }) {
-            resumeChapter = firstUnread
-        } else {
-            resumeChapter = chapters.last
-        }
-
-        let idx: Int
-        if let resume = resumeChapter,
-           let found = chapters.firstIndex(where: { $0.id == resume.id }) {
-            idx = found
-        } else {
-            idx = max(0, chapters.count - 1)
-        }
-
-        readerBridge = b
-        readerChapters = chapters
-        readerChapterIndex = idx
+        readerBridge = target.bridge
+        readerChapters = target.chapters
+        readerChapterIndex = target.index
         navigateToReader = true
     }
 }

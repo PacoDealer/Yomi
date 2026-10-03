@@ -328,7 +328,6 @@ struct MangaDetailView: View {
             await adoptSavedState()
             await loadChapters()
         }
-        .task { await touchLastRead() }
         .task { await loadCategories() }
         .task { computeStorageSize() }
         .task { notesText = manga.notes ?? "" }
@@ -1113,16 +1112,6 @@ struct MangaDetailView: View {
             print("toggleLibrary error: \(error)")
             toastMessage = "Couldn't update library"
             YomiHaptics.error()
-        }
-    }
-
-    // MARK: - Touch Last Read
-
-    private func touchLastRead() async {
-        guard manga.inLibrary, !AppSettings.shared.isIncognito else { return }
-        let mangaId = manga.id
-        Task.detached {
-            try? MangaQueries.touchLastRead(mangaId: mangaId)
         }
     }
 
