@@ -2,88 +2,52 @@ import SwiftUI
 
 // MARK: - MoreView
 //
-// Design spec: YOMI Screens.dc.html N.10 (More).
+// S142 calm pass (RESEARCH §26): large system title, plain rows like Apple Music's Library list — accent
+// SF Symbol, label, chevron. No cards, no mono headers, no separators (Martin, S141). Groups are separated by
+// space only: what you use while reading, your data, the app.
 
 struct MoreView: View {
     @Environment(\.yomiCanvas) private var canvas
+    @State private var downloads = DownloadManager.shared
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("More")
-                        .font(YomiTokens.Font.grotesk(26, weight: .medium))
-                        .foregroundStyle(canvas.textPrimary)
-                        .padding(.top, 8)
-
-                    card("APP") {
-                        MoreRow(icon: "gearshape", label: "Settings") { SettingsView() }
-                    }
-
-                    card("LIBRARY") {
-                        MoreRow(icon: "folder", label: "Categories") { CategoryView() }
-                    }
-
-                    card("READING") {
-                        MoreRow(icon: "chart.bar", label: "Insights") { InsightsView() }
-                    }
-
-                    card("TRACKING") {
-                        MoreRow(icon: "person.crop.circle.badge.checkmark", label: "Trackers") { TrackersView() }
-                    }
-
-                    card("DATA") {
-                        MoreRow(icon: "arrow.down.circle", label: "Downloads") { DownloadsView() }
-                        Divider().padding(.leading, 58).overlay(canvas.hairline)
-                        MoreRow(icon: "externaldrive", label: "Backup") { BackupView() }
-                        Divider().padding(.leading, 58).overlay(canvas.hairline)
-                        MoreRow(icon: "arrow.triangle.2.circlepath.icloud", label: "Sync") { CloudSyncView() }
-                    }
-
-                    card("ABOUT") {
-                        MoreRow(icon: "info.circle", label: "About", trailingText: appVersion) { AboutView() }
-                    }
+            List {
+                Section {
+                    MoreRow(icon: "arrow.down.circle", label: "Downloads",
+                            trailing: downloads.queue.isEmpty ? nil : "\(downloads.queue.count)") { DownloadsView() }
+                    MoreRow(icon: "folder", label: "Categories") { CategoryView() }
+                    MoreRow(icon: "chart.bar", label: "Insights") { InsightsView() }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                Section {
+                    MoreRow(icon: "person.crop.circle.badge.checkmark", label: "Trackers") { TrackersView() }
+                    MoreRow(icon: "externaldrive", label: "Backup") { BackupView() }
+                    MoreRow(icon: "arrow.triangle.2.circlepath.icloud", label: "Sync") { CloudSyncView() }
+                }
+                Section {
+                    MoreRow(icon: "gearshape", label: "Settings") { SettingsView() }
+                    MoreRow(icon: "info.circle", label: "About", trailing: appVersion) { AboutView() }
+                }
             }
-            .background(canvas.bg.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
+            .listStyle(.plain)
+            .listSectionSpacing(28)
+            .yomiListCanvas()
+            .navigationTitle("More")
         }
     }
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
     }
-
-    // MARK: - Card
-
-    @ViewBuilder
-    private func card<Content: View>(_ header: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(header)
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 8)
-
-            VStack(spacing: 0) {
-                content()
-            }
-            .background(canvas.surface1)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-    }
 }
 
 // MARK: - MoreRow
 
+/// Accent icon · label · optional grey trailing text · chevron. Shared by More and About.
 private struct MoreRow<Destination: View>: View {
     let icon: String
     let label: String
-    var badge: String? = nil
-    var trailingText: String? = nil
+    var trailing: String? = nil
     @ViewBuilder let destination: () -> Destination
 
     @Environment(\.yomiCanvas) private var canvas
@@ -92,43 +56,50 @@ private struct MoreRow<Destination: View>: View {
         NavigationLink {
             destination()
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 15))
-                    .foregroundStyle(canvas.textSecondary)
-                    .frame(width: 29, height: 29)
-                    .background(canvas.surface2, in: RoundedRectangle(cornerRadius: 8))
-
-                Text(label)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-
-                Spacer()
-
-                if let badge {
-                    Text(badge)
-                        .font(YomiTokens.Font.mono(11, bold: true))
-                        .foregroundStyle(AppSettings.shared.accentForeground)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor, in: Capsule())
-                }
-
-                if let trailingText {
-                    Text(trailingText)
-                        .font(YomiTokens.Font.mono(12))
-                        .foregroundStyle(canvas.textSecondary)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(canvas.textSecondary.opacity(0.5))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            MoreRowLabel(icon: icon, label: label, trailing: trailing)
         }
-        .buttonStyle(.plain)
+        .moreRowStyle()
+    }
+}
+
+private struct MoreRowLabel: View {
+    let icon: String?
+    let label: String
+    var trailing: String? = nil
+    var labelColor: Color? = nil
+
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        HStack(spacing: 14) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 28)
+            }
+            Text(label)
+                .font(.body)
+                .foregroundStyle(labelColor ?? canvas.textPrimary)
+            Spacer(minLength: 8)
+            if let trailing {
+                Text(trailing)
+                    .font(.body)
+                    .foregroundStyle(canvas.textSecondary)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+}
+
+private extension View {
+    func moreRowStyle() -> some View {
+        listRowInsets(EdgeInsets(top: 4, leading: YomiTokens.Layout.screenMargin,
+                                 bottom: 4, trailing: YomiTokens.Layout.screenMargin))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 }
 
@@ -136,119 +107,47 @@ private struct MoreRow<Destination: View>: View {
 
 private struct AboutView: View {
     @Environment(\.openURL) private var openURL
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                aboutCard("VERSION") {
-                    infoRow("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
-                    Divider().padding(.leading, 14).overlay(canvas.hairline)
-                    infoRow("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
-                }
-
-                aboutCard("LINKS") {
-                    linkRow("GitHub", url: "https://github.com/PacoDealer/Yomi")
-                    Divider().padding(.leading, 14).overlay(canvas.hairline)
-                    linkRow("Report a bug", url: "https://github.com/PacoDealer/Yomi/issues")
-                    Divider().padding(.leading, 14).overlay(canvas.hairline)
-                    linkRow("Privacy Policy", url: "https://yomi-plugins.web.app/privacy")
-                }
-
-                aboutCard("OPEN SOURCE") {
-                    NavigationLink {
-                        LicensesView()
-                    } label: {
-                        HStack {
-                            Text("Open Source Licenses")
-                                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                                .foregroundStyle(canvas.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(canvas.textSecondary.opacity(0.5))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
+        List {
+            Section {
+                MoreRowLabel(icon: nil, label: "Version",
+                             trailing: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                    .moreRowStyle()
+                MoreRowLabel(icon: nil, label: "Build",
+                             trailing: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
+                    .moreRowStyle()
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 60)
-            .padding(.bottom, 24)
-        }
-        .background(canvas.bg.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar)
-        .swipeBackEnabled()
-        .overlay(alignment: .top) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .glassChip()
-                Spacer()
-                Text("About")
-                    .font(YomiTokens.Font.grotesk(16, weight: .medium))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer()
-                Color.clear.frame(width: 44, height: 44)
+            Section {
+                linkRow("GitHub", icon: "chevron.left.forwardslash.chevron.right", url: "https://github.com/PacoDealer/Yomi")
+                linkRow("Report a Bug", icon: "ladybug", url: "https://github.com/PacoDealer/Yomi/issues")
+                linkRow("Privacy Policy", icon: "hand.raised", url: "https://yomi-plugins.web.app/privacy")
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
+            Section {
+                MoreRow(icon: "doc.text", label: "Open Source Licenses") { LicensesView() }
+            }
         }
+        .listStyle(.plain)
+        .listSectionSpacing(28)
+        .yomiListCanvas()
+        .navigationTitle("About")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    @ViewBuilder
-    private func aboutCard<Content: View>(_ header: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(header)
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 8)
-            VStack(spacing: 0) { content() }
-                .background(canvas.surface1)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    private func infoRow(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                .foregroundStyle(canvas.textPrimary)
-            Spacer()
-            Text(value)
-                .font(YomiTokens.Font.mono(13))
-                .foregroundStyle(canvas.textSecondary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    private func linkRow(_ label: String, url: String) -> some View {
+    private func linkRow(_ label: String, icon: String, url: String) -> some View {
         Button {
             if let u = URL(string: url) { openURL(u) }
         } label: {
             HStack {
-                Text(label)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(Color.accentColor)
-                Spacer()
+                MoreRowLabel(icon: icon, label: label)
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12))
-                    .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(canvas.textSecondary)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .moreRowStyle()
     }
 }
 
