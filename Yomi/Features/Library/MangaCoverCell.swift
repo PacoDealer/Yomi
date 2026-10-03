@@ -5,7 +5,6 @@ import Kingfisher
 
 struct MangaCoverCell: View {
     let manga: Manga
-    var catalogIndex: Int? = nil
     var isSelecting: Bool = false
     var isSelected: Bool = false
     var onLongPress: (() -> Void)? = nil
@@ -16,10 +15,8 @@ struct MangaCoverCell: View {
     @State private var unreadCount: Int = 0
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
-    @State private var readProgress: Double = 0   // 0.0 – 1.0, 0 = not started
     @State private var dbInLibrary: Bool = false
     @State private var currentReadingStatus: ReadingStatus = .none
-    @State private var lastReadChapterName: String? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -92,27 +89,43 @@ struct MangaCoverCell: View {
         .task(id: manga.id) {
             async let unread   = Task.detached { (try? ChapterQueries.fetchUnread(mangaId: manga.id))?.count ?? 0 }.value
             async let dlCount  = Task.detached { (try? ChapterQueries.downloadedCount(mangaId: manga.id)) ?? 0 }.value
-            async let allChaps = Task.detached { (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? [] }.value
             async let dbManga  = Task.detached { try? MangaQueries.fetchOne(id: manga.id) }.value
-            let (u, d, all, fetched) = await (unread, dlCount, allChaps, dbManga)
+            let (u, d, fetched) = await (unread, dlCount, dbManga)
             unreadCount            = u
             downloadedCount        = d
             dbInLibrary            = fetched?.inLibrary ?? false
             currentReadingStatus   = fetched?.readingStatus ?? manga.readingStatus
             sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
-            if !all.isEmpty {
-                let readCount = all.filter { $0.isRead }.count
-                readProgress = Double(readCount) / Double(all.count)
-            }
-            lastReadChapterName = all
-                .filter { $0.readAt != nil }
-                .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) })?
-                .name
         }
     }
 
+    /// One grey line under the title: "3 unread", "In library", or the source.
+    /// S138 calm design: nothing is drawn on the cover itself (RESEARCH §26).
+    private var metaLine: some View {
+        let showNew = unreadCount > 0 && AppSettings.shared.showUnreadBadge
+        let inLibraryHere = !manga.inLibrary && dbInLibrary
+        return HStack(spacing: 0) {
+            if showNew {
+                // Just the count — "902 unread · MangaDex" doesn't fit a 3-column cell.
+                Text("\(min(unreadCount, 999)) unread").foregroundStyle(Color.accentColor)
+            } else if inLibraryHere {
+                Text("In library").foregroundStyle(Color.accentColor)
+            } else if let name = sourceName {
+                Text(name)
+            }
+            if downloadedCount > 0 {
+                Text(" ")
+                Image(systemName: "arrow.down.circle")
+                    .accessibilityLabel("Downloaded")
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(canvas.textSecondary)
+        .lineLimit(1)
+    }
+
     private var cellContent: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
             Group {
                 if let customPath = manga.resolvedCustomCoverPath,
                    let uiImage = UIImage(contentsOfFile: customPath) {
@@ -130,92 +143,23 @@ struct MangaCoverCell: View {
                 }
             }
             .coverAspectSized()
-            .cornerRadius(YomiTokens.Radius.cover)
-            .overlay(alignment: .topLeading) {
-                if let catalogIndex, !isSelecting {
-                    Text(Notation.catalogIndex(catalogIndex))
-                        .font(YomiTokens.Font.mono(15, bold: true))
-                        .foregroundStyle(Color.accentColor)
-                        .padding(8)
-                }
-            }
-            .overlay(alignment: .topLeading) {
-                if !manga.inLibrary && dbInLibrary && !isSelecting {
-                    Image(systemName: "bookmark.fill")
-                        .font(.caption2)
-                        .foregroundStyle(AppSettings.shared.accentForeground)
-                        .padding(4)
-                        .background(Color.accentColor.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
-                        .padding(5)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if unreadCount > 0 && !isSelecting && AppSettings.shared.showUnreadBadge {
-                    Text("\(min(unreadCount, 999))")
-                        .font(YomiTokens.Font.mono(11, bold: true))
-                        .foregroundStyle(AppSettings.shared.accentForeground)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor)
-                        .clipShape(Capsule())
-                        .padding(6)
-                }
-            }
-            .overlay(alignment: .bottomLeading) {
-                if downloadedCount > 0 && !isSelecting {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(Color.black.opacity(0.55))
-                        .clipShape(Circle())
-                        .padding(4)
-                }
-            }
+            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
+            .coverHairline()
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
                         .fill(Color.accentColor.opacity(0.16))
                 }
             }
-            .overlay(alignment: .bottom) {
-                if !isSelecting {
-                    VStack(spacing: 0) {
-                        if let name = lastReadChapterName, readProgress > 0 {
-                            Text(name)
-                                .font(YomiTokens.Font.mono(11))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.black.opacity(0.60))
-                        }
-                        if readProgress > 0 && readProgress < 1 {
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: geo.size.width * readProgress, height: 3)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .frame(height: 3)
-                        }
-                    }
-                }
-            }
 
             Text(manga.title)
-                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                .font(.subheadline)
                 .lineLimit(2)
                 .foregroundStyle(canvas.textPrimary)
+                .padding(.top, 7)
 
-            if let name = sourceName {
-                Text(name)
-                    .font(YomiTokens.Font.grotesk(12))
-                    .foregroundStyle(canvas.textSecondary)
-                    .lineLimit(1)
-            }
+            metaLine
+                .padding(.top, 2)
         }
     }
 }

@@ -25,7 +25,8 @@ struct LibraryView: View {
     }
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 12), count: max(2, settings.libraryColumns))
+        Array(repeating: GridItem(.flexible(), spacing: YomiTokens.Layout.coverGutter, alignment: .top),
+              count: max(2, settings.libraryColumns))
     }
 
     var body: some View {
@@ -70,25 +71,26 @@ struct LibraryView: View {
                         }
                     }
                 } else if !hasAnyContent {
-                    ContentUnavailableView.search(text: viewModel.searchText)
+                    // Keep the chips here too, or an empty category leaves no way back to "All".
+                    VStack(spacing: 0) {
+                        categoryTabBar
+                        if viewModel.searchText.isEmpty {
+                            ContentUnavailableView("Nothing in this category",
+                                                   systemImage: "books.vertical",
+                                                   description: Text("Add titles to it from their detail page."))
+                        } else {
+                            ContentUnavailableView.search(text: viewModel.searchText)
+                        }
+                    }
                 } else {
                     ScrollView {
                         VStack(spacing: 0) {
+                            categoryTabBar
                             if !isSelecting { ContinueReadingRow() }
                             if !viewModel.displayedManga.isEmpty {
                                 // Show "Manga" header only when novels are also present
                                 if !viewModel.displayedNovels.isEmpty {
-                                    HStack(alignment: .lastTextBaseline) {
-                                        Text("Manga")
-                                            .font(YomiTokens.Font.grotesk(22, weight: .medium))
-                                            .foregroundStyle(canvas.textPrimary)
-                                        Spacer()
-                                        Text("\(viewModel.displayedManga.count)")
-                                            .font(YomiTokens.Font.mono(12))
-                                            .foregroundStyle(canvas.textSecondary)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 8)
+                                    LibrarySectionHeader(title: "Manga", count: viewModel.displayedManga.count)
                                 }
                                 if settings.libraryDisplayMode == "list" {
                                     LazyVStack(spacing: 0) {
@@ -155,11 +157,10 @@ struct LibraryView: View {
                                     }
                                     .padding(.horizontal, 16)
                                 } else {
-                                    LazyVGrid(columns: columns, spacing: 12) {
-                                        ForEach(Array(viewModel.displayedManga.enumerated()), id: \.element.id) { index, manga in
+                                    LazyVGrid(columns: columns, spacing: 20) {
+                                        ForEach(viewModel.displayedManga) { manga in
                                             MangaCoverCell(
                                                 manga: manga,
-                                                catalogIndex: index + 1,
                                                 isSelecting: isSelecting,
                                                 isSelected: selectedIds.contains(manga.id),
                                                 onLongPress: {
@@ -189,23 +190,12 @@ struct LibraryView: View {
                                             )
                                         }
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.top, 4)
+                                    .padding(.horizontal, YomiTokens.Layout.screenMargin)
                                 }
                             }
                             if !viewModel.displayedNovels.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack(alignment: .lastTextBaseline) {
-                                        Text("Novels")
-                                            .font(YomiTokens.Font.grotesk(22, weight: .medium))
-                                            .foregroundStyle(canvas.textPrimary)
-                                        Spacer()
-                                        Text("\(viewModel.displayedNovels.count)")
-                                            .font(YomiTokens.Font.mono(12))
-                                            .foregroundStyle(canvas.textSecondary)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, viewModel.displayedManga.isEmpty ? 8 : 16)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    LibrarySectionHeader(title: "Novels", count: viewModel.displayedNovels.count)
                                     if settings.libraryDisplayMode == "list" {
                                         LazyVStack(spacing: 0) {
                                             ForEach(viewModel.displayedNovels) { novel in
@@ -274,13 +264,12 @@ struct LibraryView: View {
                                         }
                                         .padding(.horizontal, 16)
                                     } else {
-                                        LazyVGrid(columns: columns, spacing: 12) {
-                                            ForEach(Array(viewModel.displayedNovels.enumerated()), id: \.element.id) { index, novel in
+                                        LazyVGrid(columns: columns, spacing: 20) {
+                                            ForEach(viewModel.displayedNovels) { novel in
                                                 NovelLibraryCoverCell(
                                                     novel: novel,
                                                     unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
                                                     onTap: { selectedNovel = novel; showNovelDetail = true },
-                                                    catalogIndex: index + 1,
                                                     isSelecting: isSelecting,
                                                     isSelected: selectedNovelIds.contains(novel.id),
                                                     onLongPress: {
@@ -311,11 +300,12 @@ struct LibraryView: View {
                                                 )
                                             }
                                         }
-                                        .padding(.horizontal, 12)
+                                        .padding(.horizontal, YomiTokens.Layout.screenMargin)
                                     }
                                 }
                             }
                         }
+                        .padding(.bottom, 24)
                     }
                     .refreshable { await viewModel.loadLibrary() }
                     .simultaneousGesture(
@@ -342,9 +332,6 @@ struct LibraryView: View {
             .navigationTitle(isSelecting
                 ? { let total = selectedIds.count + selectedNovelIds.count; return total == 0 ? "Select" : "\(total) selected" }()
                 : "Library")
-            .safeAreaInset(edge: .top, spacing: 0) {
-                categoryTabBar
-            }
             .searchable(text: $viewModel.searchText, prompt: "Search library")
             .toolbar {
                 if isSelecting {
@@ -568,7 +555,7 @@ struct LibraryView: View {
     private var categoryTabBar: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
+                HStack(spacing: 8) {
                     LibraryTab(
                         label: "All",
                         count: settings.showCategoryItemCounts ? viewModel.mangas.count + viewModel.novels.count : nil,
@@ -592,17 +579,18 @@ struct LibraryView: View {
                         showNewCategorySheet = true
                     } label: {
                         Image(systemName: "plus")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 44, height: 44)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(canvas.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .background(canvas.surface1, in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("New category")
                 }
-                .padding(.leading, 4)
+                .padding(.horizontal, YomiTokens.Layout.screenMargin)
+                .padding(.vertical, 8)
             }
-            .background(.bar)
-            .overlay(alignment: .bottom) { Divider() }
+            .background(canvas.bg)
             .onChange(of: viewModel.selectedCategoryId) { _, newId in
                 withAnimation(.easeInOut(duration: 0.2)) {
                     proxy.scrollTo(newId.map { "tab_\($0)" } ?? "tab_all", anchor: .center)
@@ -645,8 +633,36 @@ struct LibraryView: View {
     }
 }
 
+// MARK: - LibrarySectionHeader
+
+/// "Novels      2" — Apple Music-style section title (S138, RESEARCH §26).
+private struct LibrarySectionHeader: View {
+    let title: String
+    var count: Int? = nil
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(canvas.textPrimary)
+            Spacer()
+            if let count {
+                Text("\(count)")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(canvas.textSecondary)
+            }
+        }
+        .padding(.horizontal, YomiTokens.Layout.screenMargin)
+        .padding(.top, 28)
+        .padding(.bottom, 12)
+    }
+}
+
 // MARK: - LibraryTab
 
+/// Category chip: filled with the label colour when selected, quiet grey otherwise.
 private struct LibraryTab: View {
     let label: String
     var count: Int? = nil
@@ -656,24 +672,21 @@ private struct LibraryTab: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 0) {
-                HStack(spacing: 4) {
-                    Text(label)
-                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: isSelected ? .medium : .regular))
-                    if let count {
-                        Text("\(count)")
-                            .font(YomiTokens.Font.mono(11))
-                            .foregroundStyle(canvas.textSecondary.opacity(0.7))
-                    }
+            HStack(spacing: 5) {
+                Text(label)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                if let count {
+                    Text("\(count)")
+                        .monospacedDigit()
+                        .opacity(0.6)
                 }
-                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .fixedSize()
-                Rectangle()
-                    .fill(isSelected ? Color.accentColor : Color.clear)
-                    .frame(height: 2)
             }
+            .font(.subheadline)
+            .foregroundStyle(isSelected ? canvas.bg : canvas.textPrimary)
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .background(isSelected ? canvas.textPrimary : canvas.surface1, in: Capsule())
+            .fixedSize()
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
@@ -745,7 +758,6 @@ private struct NovelLibraryCoverCell: View {
     let novel: Novel
     let unreadCount: Int
     let onTap: () -> Void
-    var catalogIndex: Int? = nil
     var isSelecting: Bool = false
     var isSelected: Bool = false
     var onLongPress: (() -> Void)? = nil
@@ -756,14 +768,12 @@ private struct NovelLibraryCoverCell: View {
     @Environment(\.yomiCanvas) private var canvas
     @State private var sourceName: String? = nil
     @State private var settings = AppSettings.shared
-    @State private var readProgress: Double = 0
     @State private var currentReadingStatus: ReadingStatus = .none
-    @State private var lastReadChapterName: String? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
                 Group {
                     if let customPath = novel.customCoverPath,
                        let uiImage = UIImage(contentsOfFile: customPath) {
@@ -775,62 +785,8 @@ private struct NovelLibraryCoverCell: View {
                         CoverImage(url: novel.coverURL)
                     }
                 }
-                .cornerRadius(YomiTokens.Radius.cover)
-                .clipped()
-                .overlay(alignment: .topLeading) {
-                    if let catalogIndex, !isSelecting {
-                        Text(Notation.catalogIndex(catalogIndex))
-                            .font(YomiTokens.Font.mono(15, bold: true))
-                            .foregroundStyle(Color.accentColor)
-                            .padding(8)
-                    }
-                }
-                .overlay(alignment: .topTrailing) {
-                    VStack(spacing: 4) {
-                        // "NOVEL" badge — always shown for novels
-                        Text("NOVEL")
-                            .font(YomiTokens.Font.mono(10, bold: true))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
-                            .padding(.top, 6)
-                            .padding(.trailing, 6)
-                        if settings.showUnreadBadge && unreadCount > 0 {
-                            Text("\(min(unreadCount, 999))")
-                                .font(YomiTokens.Font.mono(11, bold: true))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Color.accentColor, in: Capsule())
-                                .padding(.trailing, 6)
-                        }
-                    }
-                }
-                .overlay(alignment: .bottom) {
-                    VStack(spacing: 0) {
-                        if let name = lastReadChapterName, readProgress > 0 {
-                            Text(name)
-                                .font(YomiTokens.Font.mono(11))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.black.opacity(0.60))
-                        }
-                        if readProgress > 0 && readProgress < 1 {
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: geo.size.width * readProgress, height: 3)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .frame(height: 3)
-                        }
-                    }
-                }
+                .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
+                .coverHairline()
                 .overlay {
                     if isSelected {
                         RoundedRectangle(cornerRadius: YomiTokens.Radius.cover)
@@ -839,16 +795,23 @@ private struct NovelLibraryCoverCell: View {
                 }
 
                 Text(novel.title)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.footnote))
+                    .font(.subheadline)
                     .lineLimit(2)
                     .foregroundStyle(canvas.textPrimary)
+                    .padding(.top, 7)
 
-                if let name = sourceName {
-                    Text(name)
-                        .font(YomiTokens.Font.grotesk(12))
-                        .foregroundStyle(canvas.textSecondary)
-                        .lineLimit(1)
+                // "5 unread" — S138: counts live under the cover, not on it.
+                HStack(spacing: 0) {
+                    if settings.showUnreadBadge && unreadCount > 0 {
+                        Text("\(min(unreadCount, 999)) unread").foregroundStyle(Color.accentColor)
+                    } else if let name = sourceName {
+                        Text(name)
+                    }
                 }
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+                .lineLimit(1)
+                .padding(.top, 2)
             }
         }
         .buttonStyle(.plain)
@@ -886,19 +849,8 @@ private struct NovelLibraryCoverCell: View {
         .task(id: novel.id) {
             sourceName = ExtensionManager.shared.installed
                 .first(where: { $0.id == novel.sourceId })?.name
-            let (chapters, fetched) = await (
-                Task.detached { (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? [] }.value,
-                Task.detached { try? NovelQueries.fetchOne(id: novel.id) }.value
-            )
-            if !chapters.isEmpty {
-                readProgress = Double(chapters.filter { $0.isRead }.count) / Double(chapters.count)
-            }
+            let fetched = await Task.detached { try? NovelQueries.fetchOne(id: novel.id) }.value
             currentReadingStatus = fetched?.readingStatus ?? novel.readingStatus
-            let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
-            let lastRead = chapters
-                .filter { $0.readAt != nil }
-                .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) })
-            lastReadChapterName = (inProgress ?? lastRead)?.name
         }
 
         if isSelecting {

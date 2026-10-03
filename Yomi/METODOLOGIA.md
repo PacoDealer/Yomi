@@ -1976,3 +1976,20 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **CLAUDE.md is a rulebook, not a log.** Appending a "Prior state" block every session grew it to 273 KB.
   Narratives go to ROADMAP/HISTORY, bugs to KNOWN_ISSUES, file-specific rules to `.claude/rules/` with
   `paths:` frontmatter (they load only when matching files are read/edited).
+
+
+## Technical learnings — S138 design direction (2026-10-03)
+
+- **Ask what "I like X" means before mapping features.** Martin's "I like Apple Music" was about its design
+  system (colour, spacing, calm), not pins or the mini-player — the first proposal mapped features and missed.
+- **Reference screenshots without logins:** the App Store lookup API (`itunes.apple.com/lookup?id=…` →
+  `screenshotUrls`; swap the `/…bb.jpg` size suffix for `1290x2796bb.jpg`) gives full-res marketing shots of any
+  app. Mobbin returns 403 to the built-in browser and WebFetch; DesignRush is agency concept work.
+- **Mock up with the user's real covers** (copied from the sim's Kingfisher cache) — flat colour blocks hid how
+  the design actually feels; Martin rejected the block version and approved the real-cover one.
+- **A plain `List` pins section headers.** With content running under the status bar (`ignoresSafeArea(.top)`)
+  the pinned header sat on the clock — use an ordinary row for a scroll-away title.
+- **XcodeBuildMCP `tap` that triggers a navigation push closes the MCP connection** (the tap still lands) and the
+  restarted server loses session defaults — set them with `persist: true`, or tap with the built-in simulator
+  panel (`mcp__Claude_Code_iOS_Simulator__control`), whose taps can register late.
+- Grid meta lines in a 3-column grid fit ~12 characters: "902 unread · MangaDex" truncates both halves.

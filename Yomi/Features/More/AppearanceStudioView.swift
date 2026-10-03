@@ -65,23 +65,23 @@ struct AppearanceStudioView: View {
                     .frame(width: 52, height: 74)
                     .overlay(
                         Text("C")
-                            .font(.custom(YomiTokens.Font.groteskFamily, size: 18).weight(.bold))
+                            .font(.system(size: 18).weight(.bold))
                             .foregroundStyle(canvas.textSecondary)
                     )
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("CONTINUE READING")
-                        .font(.custom(YomiTokens.Font.monoRegular, size: 10))
+                        .font(.system(size: 10).monospacedDigit())
                         .foregroundStyle(canvas.textSecondary)
                         .tracking(0.4)
 
                     Text("My Reading Title")
-                        .font(.custom(YomiTokens.Font.groteskFamily, size: 15).weight(.medium))
+                        .font(.system(size: 15).weight(.medium))
                         .foregroundStyle(canvas.textPrimary)
                         .lineLimit(1)
 
                     Text("CH. 042 · 68% · ◷ 8H")
-                        .font(.custom(YomiTokens.Font.monoRegular, size: 11))
+                        .font(.system(size: 11).monospacedDigit())
                         .foregroundStyle(canvas.textSecondary)
 
                     HStack(spacing: 10) {
@@ -99,7 +99,7 @@ struct AppearanceStudioView: View {
                             .frame(width: 58, height: 22)
                             .overlay(
                                 Text("Resume")
-                                    .font(.custom(YomiTokens.Font.groteskFamily, size: 11).weight(.medium))
+                                    .font(.system(size: 11).weight(.medium))
                                     .foregroundStyle(accentForeground)
                             )
                     }
@@ -119,7 +119,7 @@ struct AppearanceStudioView: View {
             Text("In quiet hours, words became worlds, and each page turned was a breath of a different life…")
                 .font(settings.useSystemFont
                       ? .system(size: 13)
-                      : .custom(YomiTokens.Font.groteskFamily, size: 13))
+                      : .system(size: 13))
                 .foregroundStyle(canvas.textPrimary)
                 .lineSpacing(3)
                 .lineLimit(2)
@@ -208,7 +208,7 @@ struct AppearanceStudioView: View {
                 }
 
                 Text(preset.name.uppercased())
-                    .font(.custom(YomiTokens.Font.monoRegular, size: 10))
+                    .font(.system(size: 10).monospacedDigit())
                     .foregroundStyle(isSelected ? accent : .secondary)
                     .tracking(0.3)
             }
@@ -228,7 +228,7 @@ struct AppearanceStudioView: View {
                     // AA contrast badge
                     let label = accentContrastLabel
                     Text(label)
-                        .font(.custom(YomiTokens.Font.monoBold, size: 11))
+                        .font(.system(size: 11, weight: .semibold).monospacedDigit())
                         .foregroundStyle(label == "Fail" ? .red : .green)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -280,7 +280,7 @@ struct AppearanceStudioView: View {
                     Text("Blend into surfaces")
                     Spacer()
                     Text("\(Int(settings.colorBlendLevel * 100))%")
-                        .font(.custom(YomiTokens.Font.monoRegular, size: 13))
+                        .font(.system(size: 13).monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
                 Slider(value: $settings.colorBlendLevel, in: 0...1)
@@ -313,11 +313,6 @@ struct AppearanceStudioView: View {
 
     private var typeSection: some View {
         Section("Type") {
-            Picker("UI font", selection: $settings.useSystemFont) {
-                Text("Space Grotesk").tag(false)
-                Text("System").tag(true)
-            }
-
             Picker("Reading font", selection: $settings.novelFontFamily) {
                 ForEach(ReaderFont.available) { font in
                     Text(font.name).tag(font.id)
@@ -329,7 +324,7 @@ struct AppearanceStudioView: View {
                     Text("Reader size")
                     Spacer()
                     Text("\(Int(settings.fontSize))pt")
-                        .font(.custom(YomiTokens.Font.monoRegular, size: 13))
+                        .font(.system(size: 13).monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
                 Slider(value: $settings.fontSize, in: 12...40, step: 1)
@@ -407,7 +402,7 @@ struct AppearanceStudioView: View {
                                         )
                                 )
                             Text(option.label)
-                                .font(.custom(YomiTokens.Font.monoRegular, size: 10))
+                                .font(.system(size: 10).monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -472,13 +467,13 @@ struct AppearanceStudioView: View {
                     .shadow(radius: 8)
 
                 Text(settings.accentColor.uppercased())
-                    .font(.custom(YomiTokens.Font.monoBold, size: 16))
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
 
                 // Contrast badge
                 let label = accentContrastLabel
                 Text("Contrast: \(label)")
-                    .font(.custom(YomiTokens.Font.monoRegular, size: 13))
+                    .font(.system(size: 13).monospacedDigit())
                     .foregroundStyle(label == "Fail" ? .red : .green)
 
                 Spacer()
