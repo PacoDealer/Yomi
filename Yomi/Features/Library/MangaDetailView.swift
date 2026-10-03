@@ -78,6 +78,10 @@ struct MangaDetailView: View {
     // AniList score
     @State private var aniListScore: Int? = nil
 
+    /// True once the header's buttons have scrolled away — the floating bar then gets a material
+    /// background and the title, like Apple Music's album pages.
+    @State private var scrolledPastHeader = false
+
     @Environment(\.yomiCanvas) private var canvas
     @Environment(\.dismiss) private var dismiss
 
@@ -150,423 +154,117 @@ struct MangaDetailView: View {
     private var preferredScanlatorKey: String { "preferredScanlator.\(manga.id)" }
 
     private var resumeButtonTitle: String {
-        guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
-        if let num = ch.chapterNumber {
-            let numStr = num.truncatingRemainder(dividingBy: 1) == 0
-                ? String(Int(num))
-                : String(format: "%.1f", num)
-            return "Resume Ch. \(numStr)"
-        }
-        return "Resume"
+        // "Continue" while chapters load, so the label doesn't flash "Start" → "Chapter 25".
+        if chapters.isEmpty { return "Continue" }
+        guard hasStartedReading, let ch = resumeChapter else { return "Start" }
+        if let num = ch.chapterNumber { return Notation.chapter(num) }
+        return "Continue"
     }
 
-    /// Full-bleed blurred cover backdrop with dark scrim, per DESIGN_SYSTEM §14.
-    private var backdrop: some View {
-        ZStack {
-            Group {
-                if let customPath = manga.resolvedCustomCoverPath,
-                   let uiImage = UIImage(contentsOfFile: customPath) {
-                    Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    KFImage(manga.coverURL)
-                        .coverSized()
-                        .keiyoushiCoverFallback(manga.coverURL)
-                        .placeholder { canvas.surface1 }
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                }
-            }
-            .blur(radius: 30)
-            .overlay(canvas.bg.opacity(0.3))
+    private var sourceName: String? {
+        ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
+    }
 
-            LinearGradient(
-                colors: [canvas.bg.opacity(0.15), canvas.bg.opacity(0.55), canvas.bg],
-                startPoint: .top, endPoint: .bottom
-            )
+    /// "Author · Ongoing · 142 chapters · 84%"
+    private var metaLine: String {
+        var parts: [String] = []
+        if let author = manga.author, !author.isEmpty { parts.append(author) }
+        if manga.status != .unknown { parts.append(Notation.status(manga.status.rawValue)) }
+        if !readingChapters.isEmpty { parts.append("\(readingChapters.count) chapters") }
+        if let score = aniListScore { parts.append("\(score)%") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// The rows on screen: sorted, filtered, scanlator-filtered and searched — before "Load more" paging. The
+    /// selection toolbar's range/all/invert work on the same list.
+    private var displayedChapters: [Chapter] {
+        let sorted: [Chapter]
+        switch chapterSortOption {
+        case .chapterNumber:
+            sorted = chaptersDescending ? Array(readingChapters.reversed()) : readingChapters
+        case .name:
+            sorted = readingChapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
         }
+        var result: [Chapter]
+        switch chapterFilter {
+        case .all:        result = sorted
+        case .unread:     result = sorted.filter { !$0.isRead }
+        case .downloaded: result = sorted.filter { $0.isDownloaded }
+        }
+        // In one-per-chapter mode the chips pick the *preferred* group (applied in readingChapters);
+        // only the classic mode filters the list down to a single group.
+        if !(oneTranslationPerChapter && hasDuplicateTranslations), let s = scanlatorFilter {
+            result = result.filter { $0.scanlator == s }
+        }
+        if !chapterSearchText.isEmpty {
+            result = result.filter { $0.name.localizedStandardContains(chapterSearchText) }
+        }
+        return result
+    }
+
+    private var visibleChapterOrder: [String] {
+        displayedChapters.prefix(displayedChapterCount).map(\.id)
+    }
+
+    /// Apple Music-style album backdrop: the cover blurred into a soft colour wash that fades into the
+    /// canvas (S138, RESEARCH §26) — same as NovelDetailView.
+    private var backdrop: some View {
+        Group {
+            if let customPath = manga.resolvedCustomCoverPath,
+               let uiImage = UIImage(contentsOfFile: customPath) {
+                Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                KFImage(manga.coverURL)
+                    .coverSized()
+                    .keiyoushiCoverFallback(manga.coverURL)
+                    .placeholder { canvas.bg }
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
+        }
+        .blur(radius: 60)
+        .saturation(1.4)
+        .opacity(0.55)
+        .mask(LinearGradient(colors: [.black, .black.opacity(0.6), .clear],
+                             startPoint: .top, endPoint: .bottom))
     }
 
     // MARK: - Body
 
     var body: some View {
         List {
-            // MARK: Header — DESIGN_SYSTEM §14: full-bleed blurred backdrop + overlapping thumb
-            Section {
-                VStack(alignment: .leading, spacing: 14) {
-                    ZStack(alignment: .bottomLeading) {
-                        backdrop
-                            .frame(height: 230)
-                            .clipped()
-
-                        HStack(alignment: .bottom, spacing: 14) {
-                            Group {
-                                if let customPath = manga.resolvedCustomCoverPath,
-                                   let uiImage = UIImage(contentsOfFile: customPath) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .aspectRatio(2 / 3, contentMode: .fill)
-                                } else {
-                                    CoverImage(url: manga.coverURL)
-                                }
-                            }
-                            .frame(width: 110, height: 162)
-                            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
-                            .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 6)
-
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(manga.title)
-                                    .font(YomiTokens.Font.grotesk(22, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(3)
-                                    .fixedSize(horizontal: false, vertical: true)
-
-                                if let author = manga.author, !author.isEmpty {
-                                    Text(author)
-                                        .font(YomiTokens.Font.grotesk(14))
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .lineLimit(1)
-                                }
-
-                                if let sourceName = ExtensionManager.shared.installed
-                                    .first(where: { $0.id == manga.sourceId })?.name {
-                                    Text(sourceName.uppercased())
-                                        .font(YomiTokens.Font.mono(11))
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .lineLimit(1)
-                                }
-
-                                HStack(spacing: 8) {
-                                    Text(Notation.status(manga.status.rawValue))
-                                        .font(YomiTokens.Font.mono(10))
-                                        .tracking(0.4)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 3)
-                                        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 4))
-
-                                    if let score = aniListScore {
-                                        Text("\(score)%")
-                                            .font(YomiTokens.Font.mono(11, bold: true))
-                                            .foregroundStyle(Color.accentColor)
-                                    }
-                                }
-                            }
-                            .padding(.bottom, 4)
-                        }
-                        .padding(.horizontal, 16)
-                        .offset(y: 12)
-                    }
-                    .padding(.bottom, 12)
-
-                    if manga.inLibrary {
-                        ReadingStatusMenu(readingStatus: manga.readingStatus) { newStatus in
-                            Task { await updateReadingStatus(newStatus) }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Genre chips
-                    if !manga.genres.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
-                                ForEach(manga.genres, id: \.self) { genre in
-                                    Text(genre)
-                                        .font(YomiTokens.Font.grotesk(12))
-                                        .foregroundStyle(canvas.textPrimary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(canvas.surface2, in: Capsule())
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                    }
-
-                    // Reading progress bar
-                    if !chapters.isEmpty {
-                        let readCount = readingChapters.filter { $0.isRead }.count
-                        if readCount > 0 {
-                            let totalSecs = chapters.reduce(0) { $0 + $1.readingSeconds }
-                            VStack(alignment: .leading, spacing: 3) {
-                                ProgressView(value: Double(readCount), total: Double(readingChapters.count))
-                                    .tint(.accentColor)
-                                let fraction = Double(readCount) / Double(readingChapters.count)
-                                let time = Notation.readingTime(seconds: totalSecs)
-                                let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
-                                Text("\(readCount) OF \(readingChapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
-                                    .font(YomiTokens.Font.mono(11))
-                                    .foregroundStyle(canvas.textSecondary)
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                    }
-
-                    // Start / Resume reading button
-                    // Saved chapters are shown while a refresh runs (isLoadingChapters stays true), so gate on
-                    // having chapters, not on the refresh finishing.
-                    if !chapters.isEmpty && canOpenReader {
-                        Button {
-                            if let ch = resumeChapter {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                chapterForNav = ch
-                            }
-                        } label: {
-                            HStack(spacing: 9) {
-                                Image(systemName: hasStartedReading ? "play.fill" : "book.fill")
-                                    .font(.system(size: 13))
-                                Text(resumeButtonTitle)
-                                    .font(YomiTokens.Font.grotesk(15, weight: .medium))
-                            }
-                            .foregroundStyle(AppSettings.shared.accentForeground)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 46)
-                            .background(Color.accentColor, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                    }
-                }
-                .padding(.vertical, 6)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
-            // MARK: Synopsis
-            Section("Synopsis") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(manga.summary ?? "No synopsis available.")
-                        .font(.subheadline)
-                        .lineLimit(synopsisExpanded ? nil : 4)
-                        .textSelection(.enabled)
-
-                    Button(synopsisExpanded ? "Less" : "More") {
-                        synopsisExpanded.toggle()
-                    }
-                    .font(.subheadline)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                }
-            }
-
-            // MARK: Notes
-            Section("Notes") {
-                if let notes = manga.notes, !notes.isEmpty {
-                    Text(notes)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                }
-                Button(manga.notes?.isEmpty == false ? "Edit note" : "Add a note") {
-                    notesText = manga.notes ?? ""
-                    showNotesSheet = true
-                }
-                .font(.subheadline)
-                .foregroundStyle(.tint)
-            }
-
-            // MARK: Chapters
-            Section {
-                if isLoadingChapters && chapters.isEmpty {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
-                } else if chapters.isEmpty {
-                    if let chapterLoadError {
-                        Text(chapterLoadError)
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        if keiyoushiCFURL != nil {
-                            Button {
-                                showCFBypass = true
-                            } label: {
-                                Label("Bypass Cloudflare", systemImage: "shield.slash")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId)
-                                && !KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
-                        Text("No source available for this manga.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
-                        VStack(spacing: 10) {
-                            Label("Cloudflare blocked this source.", systemImage: "shield.slash")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                            Button {
-                                showCFBypass = true
-                            } label: {
-                                Label("Bypass Cloudflare", systemImage: "shield.slash")
-                                    .font(.subheadline)
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .padding(.vertical, 4)
-                    } else {
-                        Text("No chapters found.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }
-                } else {
-                    scanlatorChipRow
-                    if chapters.count > 30 {
-                        HStack {
-                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.subheadline)
-                            TextField("Search chapters", text: $chapterSearchText)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                            if !chapterSearchText.isEmpty {
-                                Button { chapterSearchText = "" } label: {
-                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    }
-                    let sorted: [Chapter] = {
-                        switch chapterSortOption {
-                        case .chapterNumber:
-                            return chaptersDescending ? Array(readingChapters.reversed()) : readingChapters
-                        case .name:
-                            return readingChapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
-                        }
-                    }()
-                    let filtered: [Chapter] = {
-                        let base: [Chapter]
-                        switch chapterFilter {
-                        case .all:        base = sorted
-                        case .unread:     base = sorted.filter { !$0.isRead }
-                        case .downloaded: base = sorted.filter { $0.isDownloaded }
-                        }
-                        // In one-per-chapter mode the chips pick the *preferred* group (applied in readingChapters);
-                        // only the classic mode filters the list down to a single group.
-                        var result = oneTranslationPerChapter && hasDuplicateTranslations
-                            ? base
-                            : scanlatorFilter.map { s in base.filter { $0.scanlator == s } } ?? base
-                        if !chapterSearchText.isEmpty {
-                            result = result.filter { $0.name.localizedStandardContains(chapterSearchText) }
-                        }
-                        return result
-                    }()
-                    let visible = Array(filtered.prefix(displayedChapterCount).enumerated())
-                    ForEach(visible, id: \.element.id) { _, chapter in
-                        ChapterRow(
-                            chapter: chapter,
-                            manga: manga,
-                            bridge: bridge,
-                            isSelecting: isSelectingChapters,
-                            isSelected: selectedChapterIds.contains(chapter.id),
-                            onTap: {
-                                if isSelectingChapters {
-                                    withAnimation(.spring(duration: 0.15)) {
-                                        if selectedChapterIds.contains(chapter.id) {
-                                            selectedChapterIds.remove(chapter.id)
-                                        } else {
-                                            selectedChapterIds.insert(chapter.id)
-                                        }
-                                    }
-                                } else if canOpenReader {
-                                    chapterForNav = chapter
-                                }
-                            },
-                            onLongPress: {
-                                guard !isSelectingChapters else { return }
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                withAnimation(.spring(duration: 0.2)) {
-                                    isSelectingChapters = true
-                                    selectedChapterIds = [chapter.id]
-                                }
-                            },
-                            onToggleRead: {
-                                let id = chapter.id
-                                let mangaId = manga.id
-                                let newRead = !chapter.isRead
-                                Task.detached { try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: newRead) }
-                                chapters = chapters.map { ch in
-                                    ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
-                                }
-                            },
-                            onMarkPreviousRead: {
-                                let list = readingChapters
-                                guard let pos = list.firstIndex(where: { $0.id == chapter.id }),
-                                      pos > 0 else { return }
-                                let ids = list[0..<pos].filter { !$0.isRead }.map { $0.id }
-                                guard !ids.isEmpty else { return }
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                let markSet = Set(ids)
-                                let mangaId = manga.id
-                                Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, mangaId: mangaId, isRead: true) } }
-                                chapters = chapters.map { ch in
-                                    markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
-                                }
-                            }
-                        )
-                    }
-                    if filtered.count > displayedChapterCount {
-                        Button("Load \(min(50, filtered.count - displayedChapterCount)) more") {
-                            displayedChapterCount += 50
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(.tint)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                    } else if filtered.isEmpty && !chapterSearchText.isEmpty {
-                        Text("No chapters matching \"\(chapterSearchText)\"")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    } else if filtered.isEmpty && chapterFilter != .all {
-                        Text("No \(chapterFilter.rawValue.lowercased()) chapters")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-                }
-            } header: {
-                chapterSectionHeader
-            }
+            headerSection
+            synopsisSection
+            notesSection
+            chaptersSection
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.immediately)
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 410
+        } action: { _, past in
+            withAnimation(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
+        }
+        // The header's cover tint runs up under the status bar, like an Apple Music album page.
+        .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
+        .background(canvas.bg.ignoresSafeArea())
         .refreshable { await loadChapters() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(isSelectingChapters ? .visible : .hidden, for: .navigationBar)
+        // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
+        .navigationBarBackButtonHidden(isSelectingChapters)
+        .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
         .toolbar {
             if isSelectingChapters {
-                // Selection mode toolbar
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        withAnimation(.spring(duration: 0.2)) {
-                            isSelectingChapters = false
-                            selectedChapterIds = []
-                        }
-                    }
+                    Button("Cancel") { endSelection() }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    let sortedChapters: [Chapter] = {
-                        switch chapterSortOption {
-                        case .chapterNumber:
-                            return chaptersDescending ? Array(readingChapters.reversed()) : readingChapters
-                        case .name:
-                            return readingChapters.sorted { chaptersDescending ? $0.name > $1.name : $0.name < $1.name }
-                        }
-                    }()
-                    let filteredChapters: [Chapter] = {
-                        switch chapterFilter {
-                        case .all:        return sortedChapters
-                        case .unread:     return sortedChapters.filter { !$0.isRead }
-                        case .downloaded: return sortedChapters.filter { $0.isDownloaded }
-                        }
-                    }()
-                    let visibleOrder = filteredChapters.prefix(displayedChapterCount).map { $0.id }
+                    let visibleOrder = visibleChapterOrder
                     let visibleIds = Set(visibleOrder)
                     // Tachimanga's selection toolbar: range, all, invert.
                     Button {
@@ -709,7 +407,7 @@ struct MangaDetailView: View {
         }
     }
 
-    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
+    // MARK: - Glass nav bar (floating chrome over the backdrop; material + title once the header scrolls away)
 
     private var glassNavBar: some View {
         HStack(spacing: 10) {
@@ -720,6 +418,14 @@ struct MangaDetailView: View {
             .glassChip()
 
             Spacer()
+            if scrolledPastHeader {
+                Text(manga.title)
+                    .font(.headline)
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                    .transition(.opacity)
+            }
+            Spacer()
 
             Button {
                 Task { await toggleLibrary() }
@@ -728,14 +434,36 @@ struct MangaDetailView: View {
                     .foregroundStyle(manga.inLibrary ? Color.accentColor : .primary)
             }
             .glassChip()
+            .accessibilityLabel(manga.inLibrary ? "Remove from library" : "Add to library")
 
             Menu {
+                if manga.inLibrary {
+                    Picker(selection: Binding(
+                        get: { manga.readingStatus },
+                        set: { newStatus in Task { await updateReadingStatus(newStatus) } }
+                    )) {
+                        ForEach(ReadingStatus.allCases) { status in
+                            Label(status.label, systemImage: status.systemImage).tag(status)
+                        }
+                    } label: {
+                        Label("Reading status", systemImage: manga.readingStatus.systemImage)
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Button {
                     showCategorySheet = true
                 } label: {
                     Label("Edit categories", systemImage: "tag")
                 }
                 .disabled(!manga.inLibrary)
+
+                Button {
+                    notesText = manga.notes ?? ""
+                    showNotesSheet = true
+                } label: {
+                    Label(manga.notes?.isEmpty == false ? "Edit note" : "Add note", systemImage: "note.text")
+                }
 
                 Button {
                     showCoverPicker = true
@@ -753,9 +481,8 @@ struct MangaDetailView: View {
                 }
                 .disabled(chapters.isEmpty)
 
-                Divider()
-
                 if !chapters.isEmpty {
+                    Divider()
                     Button {
                         Task { await markAllChapters(read: true) }
                     } label: {
@@ -766,14 +493,6 @@ struct MangaDetailView: View {
                     } label: {
                         Label("Mark all as unread", systemImage: "circle")
                     }
-                    Divider()
-                }
-
-                Button(role: .destructive) {
-                    Task { await toggleLibrary() }
-                } label: {
-                    Label(manga.inLibrary ? "Remove from library" : "Add to library",
-                          systemImage: manga.inLibrary ? "heart.slash" : "heart")
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -782,136 +501,411 @@ struct MangaDetailView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
-    }
-
-    // MARK: - Chapter Section Header
-
-    private var chapterSectionHeader: some View {
-        HStack {
-            Text("Chapters")
-                .font(YomiTokens.Font.grotesk(15, weight: .semibold))
-            if !chapters.isEmpty {
-                let readCount = readingChapters.filter { $0.isRead }.count
-                if readCount > 0 {
-                    Text("\(readCount) / \(readingChapters.count)")
-                        .font(YomiTokens.Font.mono(12))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("(\(readingChapters.count))")
-                        .font(YomiTokens.Font.mono(12))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            if let size = storageSizeLabel {
-                Text("· \(size)")
-                    .font(YomiTokens.Font.mono(12))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-
-            // Filter menu
-            Menu {
-                ForEach(ChapterFilter.allCases, id: \.self) { filter in
-                    Button {
-                        chapterFilter = filter
-                        displayedChapterCount = 50
-                    } label: {
-                        HStack {
-                            Text(filter.rawValue)
-                            if chapterFilter == filter {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: chapterFilter == .all
-                      ? "line.3.horizontal.decrease"
-                      : "line.3.horizontal.decrease.circle.fill")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.tint)
-            }
-            .buttonStyle(.plain)
-
-            // Sort option + direction
-            Menu {
-                ForEach(ChapterSortOption.allCases, id: \.self) { option in
-                    Button {
-                        withAnimation(.spring(duration: 0.2)) { chapterSortOption = option }
-                    } label: {
-                        HStack {
-                            Text(option.rawValue)
-                            if chapterSortOption == option { Image(systemName: "checkmark") }
-                        }
-                    }
-                }
-                Divider()
-                Button {
-                    withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
-                } label: {
-                    Label(chaptersDescending ? "Descending" : "Ascending",
-                          systemImage: chaptersDescending ? "arrow.down" : "arrow.up")
-                }
-            } label: {
-                Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.tint)
-            }
-            .buttonStyle(.plain)
-
-            // Download menu
-            if let b = bridge, !chapters.isEmpty {
-                let unread = chapters.filter { !$0.isDownloaded && !$0.isRead }
-                let undownloaded = chapters.filter { !$0.isDownloaded }
-                Menu {
-                    if !unread.isEmpty {
-                        Button {
-                            unread.prefix(1).forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                        } label: {
-                            Label("Next chapter", systemImage: "arrow.down.circle")
-                        }
-                        if unread.count >= 5 {
-                            Button {
-                                unread.prefix(5).forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                            } label: {
-                                Label("Next 5 chapters", systemImage: "arrow.down.circle")
-                            }
-                        }
-                        if unread.count >= 10 {
-                            Button {
-                                unread.prefix(10).forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                            } label: {
-                                Label("Next 10 chapters", systemImage: "arrow.down.circle")
-                            }
-                        }
-                        Button {
-                            unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                        } label: {
-                            Label("All unread (\(unread.count))", systemImage: "arrow.down.to.line")
-                        }
-                        Divider()
-                    }
-                    if !undownloaded.isEmpty {
-                        Button {
-                            undownloaded.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                        } label: {
-                            Label("All chapters (\(undownloaded.count))", systemImage: "tray.and.arrow.down")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.tint)
-                }
-                .buttonStyle(.plain)
-                .disabled(undownloaded.isEmpty)
-                .opacity(undownloaded.isEmpty ? 0.3 : 1.0)
+        .padding(.bottom, 8)
+        .background {
+            if scrolledPastHeader {
+                Rectangle().fill(.bar).ignoresSafeArea(edges: .top)
+                    .transition(.opacity)
             }
         }
-        .textCase(nil)
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder private var headerSection: some View {
+        Section {
+            VStack(spacing: 0) {
+                Group {
+                    if let customPath = manga.resolvedCustomCoverPath,
+                       let uiImage = UIImage(contentsOfFile: customPath) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    } else {
+                        CoverImage(url: manga.coverURL)
+                    }
+                }
+                .frame(width: 200, height: 300)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .coverHairline(cornerRadius: 8)
+                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+                .padding(.top, 116)
+
+                Text(manga.title)
+                    .font(.title2.bold())
+                    .foregroundStyle(canvas.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 20)
+
+                if let sourceName {
+                    Text(sourceName)
+                        .font(.title3)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.top, 4)
+                }
+
+                if !metaLine.isEmpty {
+                    Text(metaLine)
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 6)
+                }
+
+                HStack(spacing: 12) {
+                    // Saved chapters are shown while a refresh runs (isLoadingChapters stays true), so gate on
+                    // having chapters, not on the refresh finishing.
+                    Button {
+                        if let ch = resumeChapter {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            chapterForNav = ch
+                        }
+                    } label: {
+                        Label(resumeButtonTitle, systemImage: "play.fill")
+                            .detailPillLabel()
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chapters.isEmpty || !canOpenReader)
+
+                    downloadMenu
+                }
+                .padding(.top, 20)
+            }
+            .padding(.horizontal, YomiTokens.Layout.screenMargin)
+            .frame(maxWidth: .infinity)
+            .background(alignment: .top) {
+                backdrop
+                    .frame(height: 580)
+                    .clipped()
+                    .allowsHitTesting(false)
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    /// The Download pill. Manga downloads go through the plugin's JSBridge, so Keiyoushi/Suwayomi titles
+    /// (no bridge) get a disabled pill.
+    @ViewBuilder private var downloadMenu: some View {
+        let unread = readingChapters.filter { !$0.isDownloaded && !$0.isRead }
+        let undownloaded = readingChapters.filter { !$0.isDownloaded }
+        Menu {
+            if let b = bridge {
+                if !unread.isEmpty {
+                    Button("Next chapter") { enqueue(unread.prefix(1), bridge: b) }
+                    if unread.count >= 5 {
+                        Button("Next 5 unread") { enqueue(unread.prefix(5), bridge: b) }
+                    }
+                    if unread.count >= 10 {
+                        Button("Next 10 unread") { enqueue(unread.prefix(10), bridge: b) }
+                    }
+                    Button("All unread (\(unread.count))") { enqueue(unread[...], bridge: b) }
+                }
+                Button("All chapters (\(undownloaded.count))") { enqueue(undownloaded[...], bridge: b) }
+                if storageSizeLabel != nil {
+                    Divider()
+                    Text("\(storageSizeLabel ?? "") downloaded")
+                }
+            }
+        } label: {
+            Label("Download", systemImage: "arrow.down")
+                .detailPillLabel()
+        }
+        .disabled(bridge == nil || undownloaded.isEmpty)
+    }
+
+    private func enqueue(_ targets: ArraySlice<Chapter>, bridge b: JSBridge) {
+        targets.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
+    }
+
+    @ViewBuilder private var synopsisSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                if let rawSummary = manga.summary, !rawSummary.isEmpty {
+                    let summary = Notation.plainText(rawSummary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Collapsed: one paragraph, so blank lines don't eat the three visible lines.
+                        Text(synopsisExpanded ? summary
+                             : summary.replacingOccurrences(of: #"\s*\n+\s*"#, with: " ", options: .regularExpression))
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textPrimary)
+                            .lineLimit(synopsisExpanded ? nil : 3)
+                            .textSelection(.enabled)
+                        Button(synopsisExpanded ? "Less" : "More") { synopsisExpanded.toggle() }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(canvas.textSecondary)
+                            .buttonStyle(.plain)
+                    }
+                }
+                if !manga.genres.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(manga.genres, id: \.self) { genre in
+                                Text(genre)
+                                    .font(.footnote)
+                                    .foregroundStyle(canvas.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(canvas.surface1, in: Capsule())
+                            }
+                        }
+                        .padding(.horizontal, YomiTokens.Layout.screenMargin)
+                    }
+                    .padding(.horizontal, -YomiTokens.Layout.screenMargin)
+                }
+            }
+            .padding(.top, 24)
+            .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                      bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    /// Only shown once a note exists — adding one lives in the ⋯ menu (S138: less on screen).
+    @ViewBuilder private var notesSection: some View {
+        if let notes = manga.notes, !notes.isEmpty {
+            Section {
+                Button {
+                    notesText = notes
+                    showNotesSheet = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Note")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(canvas.textSecondary)
+                        Text(notes)
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(12)
+                    .background(canvas.surface1, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+                .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                          bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    @ViewBuilder private var chaptersSection: some View {
+        Section {
+            chaptersHeaderRow
+            if isLoadingChapters && chapters.isEmpty {
+                HStack { Spacer(); ProgressView(); Spacer() }
+                    .padding(.vertical, 4)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else if chapters.isEmpty {
+                chaptersEmptyState
+                    .listRowInsets(EdgeInsets(top: 4, leading: YomiTokens.Layout.screenMargin,
+                                              bottom: 4, trailing: YomiTokens.Layout.screenMargin))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                scanlatorChipRow
+                if chapters.count > 30 {
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.subheadline)
+                        TextField("Search chapters", text: $chapterSearchText)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        if !chapterSearchText.isEmpty {
+                            Button { chapterSearchText = "" } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(canvas.surface1, in: Capsule())
+                    .listRowInsets(EdgeInsets(top: 4, leading: YomiTokens.Layout.screenMargin,
+                                              bottom: 8, trailing: YomiTokens.Layout.screenMargin))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+                let filtered = displayedChapters
+                ForEach(filtered.prefix(displayedChapterCount), id: \.id) { chapter in
+                    chapterRow(chapter)
+                }
+                Group {
+                    if filtered.count > displayedChapterCount {
+                        Button("Show \(min(50, filtered.count - displayedChapterCount)) more") {
+                            displayedChapterCount += 50
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                    } else if filtered.isEmpty && !chapterSearchText.isEmpty {
+                        Text("No chapters matching \"\(chapterSearchText)\"")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    } else if filtered.isEmpty && chapterFilter != .all {
+                        Text("No \(chapterFilter.rawValue.lowercased()) chapters")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    @ViewBuilder private var chaptersEmptyState: some View {
+        if let chapterLoadError {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(chapterLoadError)
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if keiyoushiCFURL != nil {
+                    Button {
+                        showCFBypass = true
+                    } label: {
+                        Label("Bypass Cloudflare", systemImage: "shield.slash")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId)
+                    && !KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
+            Text("No source available for this manga.")
+                .font(.subheadline).foregroundStyle(.secondary)
+        } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
+            VStack(spacing: 10) {
+                Label("Cloudflare blocked this source.", systemImage: "shield.slash")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Button {
+                    showCFBypass = true
+                } label: {
+                    Label("Bypass Cloudflare", systemImage: "shield.slash")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.vertical, 4)
+        } else {
+            Text("No chapters found.")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+
+    /// "Chapters   12 of 142 read" — a plain row, not a section header: a plain List pins headers, and
+    /// with the cover tint running under the status bar the pinned title sat on top of the clock.
+    @ViewBuilder private var chaptersHeaderRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("Chapters")
+                .font(.title2.bold())
+                .foregroundStyle(canvas.textPrimary)
+            if !readingChapters.isEmpty {
+                let readCount = readingChapters.filter { $0.isRead }.count
+                Text(readCount > 0 ? "\(readCount) of \(readingChapters.count) read" : "\(readingChapters.count)")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            Spacer()
+            if !chapters.isEmpty {
+                Menu {
+                    Picker("Show", selection: Binding(
+                        get: { chapterFilter },
+                        set: { chapterFilter = $0; displayedChapterCount = 50 }
+                    )) {
+                        Label("All chapters", systemImage: "list.bullet").tag(ChapterFilter.all)
+                        Label("Unread only", systemImage: "circle").tag(ChapterFilter.unread)
+                        Label("Downloaded", systemImage: "arrow.down.circle").tag(ChapterFilter.downloaded)
+                    }
+                    Picker("Sort by", selection: $chapterSortOption) {
+                        Label("Chapter number", systemImage: "number").tag(ChapterSortOption.chapterNumber)
+                        Label("Name", systemImage: "textformat").tag(ChapterSortOption.name)
+                    }
+                    Picker("Order", selection: $chaptersDescending) {
+                        Label("Newest first", systemImage: "arrow.down").tag(true)
+                        Label("Oldest first", systemImage: "arrow.up").tag(false)
+                    }
+                } label: {
+                    Image(systemName: chapterFilter != .all
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease.circle")
+                        .font(.title3)
+                        .foregroundStyle(chapterFilter != .all ? Color.accentColor : canvas.textSecondary)
+                }
+                .accessibilityLabel("Filter and sort")
+            }
+        }
+        .padding(.top, 28)
+        .padding(.bottom, 4)
+        .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private func chapterRow(_ chapter: Chapter) -> some View {
+        ChapterRow(
+            chapter: chapter,
+            manga: manga,
+            bridge: bridge,
+            isSelecting: isSelectingChapters,
+            isSelected: selectedChapterIds.contains(chapter.id),
+            showScanlator: !(oneTranslationPerChapter && hasDuplicateTranslations),
+            onTap: {
+                if isSelectingChapters {
+                    withAnimation(.spring(duration: 0.15)) {
+                        if selectedChapterIds.contains(chapter.id) {
+                            selectedChapterIds.remove(chapter.id)
+                        } else {
+                            selectedChapterIds.insert(chapter.id)
+                        }
+                    }
+                } else if canOpenReader {
+                    chapterForNav = chapter
+                }
+            },
+            onLongPress: {
+                guard !isSelectingChapters else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                withAnimation(.spring(duration: 0.2)) {
+                    isSelectingChapters = true
+                    selectedChapterIds = [chapter.id]
+                }
+            },
+            onToggleRead: {
+                let id = chapter.id
+                let mangaId = manga.id
+                let newRead = !chapter.isRead
+                Task.detached { try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: newRead) }
+                chapters = chapters.map { ch in
+                    ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
+                }
+            },
+            onMarkPreviousRead: {
+                let list = readingChapters
+                guard let pos = list.firstIndex(where: { $0.id == chapter.id }),
+                      pos > 0 else { return }
+                let ids = list[0..<pos].filter { !$0.isRead }.map { $0.id }
+                guard !ids.isEmpty else { return }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                let markSet = Set(ids)
+                let mangaId = manga.id
+                Task.detached { ids.forEach { try? ChapterQueries.setRead(chapterId: $0, mangaId: mangaId, isRead: true) } }
+                chapters = chapters.map { ch in
+                    markSet.contains(ch.id) ? { var c = ch; c.isRead = true; return c }() : ch
+                }
+            }
+        )
     }
 
     // MARK: - Scanlator Chip Row
@@ -922,85 +916,82 @@ struct MangaDetailView: View {
         if oneTranslationPerChapter && hasDuplicateTranslations {
             preferredScanlatorRow(available)
         } else if available.count > 1 || hasDuplicateTranslations {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    // `canvas` is already in scope on this view — the unselected tint was a
-                    // hardcoded `Color.gray` regardless of canvas (Known Issue #119).
-                    if hasDuplicateTranslations {
-                        Button("One per chapter") { oneTranslationPerChapter = true }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .tint(canvas.textSecondary)
-                    }
-                    Button("All") { scanlatorFilter = nil }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(scanlatorFilter == nil ? Color.accentColor : canvas.textSecondary)
-                    ForEach(available, id: \.self) { s in
-                        Button(s) {
-                            scanlatorFilter = scanlatorFilter == s ? nil : s
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(scanlatorFilter == s ? Color.accentColor : canvas.textSecondary)
+            chipScroller {
+                if hasDuplicateTranslations {
+                    chip("One per chapter", selected: false) { oneTranslationPerChapter = true }
+                }
+                chip("All", selected: scanlatorFilter == nil) { scanlatorFilter = nil }
+                ForEach(available, id: \.self) { s in
+                    chip(s, selected: scanlatorFilter == s) {
+                        scanlatorFilter = scanlatorFilter == s ? nil : s
                     }
                 }
-                .padding(.vertical, 2)
             }
-            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
         }
     }
 
     /// One-per-chapter mode: "All versions" leaves the mode; each group chip makes that group preferred (tap
     /// again to clear). Preference is per title.
     private func preferredScanlatorRow(_ available: [String]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                Button("All versions") {
-                    oneTranslationPerChapter = false
-                    scanlatorFilter = nil
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .tint(canvas.textSecondary)
-                .accessibilityHint("Shows every translation of each chapter")
-                ForEach(available, id: \.self) { group in
-                    Button {
-                        preferredScanlator = preferredScanlator == group ? nil : group
-                        UserDefaults.standard.set(preferredScanlator, forKey: preferredScanlatorKey)
-                    } label: {
-                        Label(group, systemImage: preferredScanlator == group ? "star.fill" : "star")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .tint(preferredScanlator == group ? Color.accentColor : canvas.textSecondary)
-                    .accessibilityLabel("Prefer \(group)")
-                    .accessibilityAddTraits(preferredScanlator == group ? .isSelected : [])
-                }
+        chipScroller {
+            chip("All versions", selected: false) {
+                oneTranslationPerChapter = false
+                scanlatorFilter = nil
             }
-            .padding(.vertical, 2)
+            .accessibilityHint("Shows every translation of each chapter")
+            ForEach(available, id: \.self) { group in
+                chip(group, systemImage: preferredScanlator == group ? "star.fill" : "star",
+                     selected: preferredScanlator == group) {
+                    preferredScanlator = preferredScanlator == group ? nil : group
+                    UserDefaults.standard.set(preferredScanlator, forKey: preferredScanlatorKey)
+                }
+                .accessibilityLabel("Prefer \(group)")
+                .accessibilityAddTraits(preferredScanlator == group ? .isSelected : [])
+            }
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
+    }
+
+    private func chipScroller<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) { content() }
+                .padding(.horizontal, YomiTokens.Layout.screenMargin)
+        }
+        .padding(.vertical, 2)
+        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    /// Same capsule as the genre chips; the selected one is filled with the accent (Library's filter chips).
+    private func chip(_ title: String, systemImage: String? = nil, selected: Bool,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+                Text(title)
+            }
+            .font(.footnote.weight(selected ? .semibold : .regular))
+            .foregroundStyle(selected ? AppSettings.shared.accentForeground : canvas.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(selected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(canvas.surface1),
+                        in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Selection Action Bar
 
     private var selectionActionBar: some View {
-        HStack(spacing: 0) {
-            // Mark read
-            Button {
+        let selected = chapters.filter { selectedChapterIds.contains($0.id) }
+        return HStack(spacing: 0) {
+            selectionButton("Read", systemImage: "checkmark.circle") {
                 Task { await markSelected(read: true) }
-            } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle")
-                    Text("Read").font(.caption2)
-                }
-                .frame(maxWidth: .infinity)
             }
             .disabled(selectedChapterIds.isEmpty)
 
             // Mihon/Tachimanga "mark previous as read": everything before the one selected chapter.
-            Button {
+            selectionButton("Read before", systemImage: "text.badge.checkmark") {
                 guard selectedChapterIds.count == 1, let id = selectedChapterIds.first,
                       let pos = readingChapters.firstIndex(where: { $0.id == id }) else { return }
                 // By chapter number across every translation, so hidden duplicate groups get marked too.
@@ -1012,71 +1003,52 @@ struct MangaDetailView: View {
                 }
                 selectedChapterIds = Set(earlier.filter { !$0.isRead }.map(\.id))
                 Task { await markSelected(read: true) }
-            } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "text.badge.checkmark")
-                    Text("Read before").font(.caption2)
-                }
-                .frame(maxWidth: .infinity)
             }
             .disabled(selectedChapterIds.count != 1)
 
-            // Mark unread
-            Button {
+            selectionButton("Unread", systemImage: "circle") {
                 Task { await markSelected(read: false) }
-            } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "circle")
-                    Text("Unread").font(.caption2)
-                }
-                .frame(maxWidth: .infinity)
             }
             .disabled(selectedChapterIds.isEmpty)
 
-            // Download selected
-            if let b = bridge {
-                Button {
-                    let toDownload = chapters.filter {
-                        selectedChapterIds.contains($0.id) && !$0.isDownloaded
-                    }
-                    toDownload.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
-                    withAnimation(.spring(duration: 0.2)) {
-                        isSelectingChapters = false
-                        selectedChapterIds = []
-                    }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: "arrow.down.circle")
-                        Text("Download").font(.caption2)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .disabled(selectedChapterIds.isEmpty)
+            selectionButton("Download", systemImage: "arrow.down.circle") {
+                guard let b = bridge else { return }
+                selected.filter { !$0.isDownloaded }
+                    .forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
+                endSelection()
             }
+            .disabled(bridge == nil || !selected.contains { !$0.isDownloaded })
 
-            // Delete selected downloads
-            Button(role: .destructive) {
-                let toDelete = chapters.filter {
-                    selectedChapterIds.contains($0.id) && $0.isDownloaded
-                }
-                toDelete.forEach { DownloadManager.shared.deleteDownload(chapter: $0) }
-                withAnimation(.spring(duration: 0.2)) {
-                    isSelectingChapters = false
-                    selectedChapterIds = []
-                }
+            selectionButton("Delete", systemImage: "trash") {
+                selected.filter(\.isDownloaded).forEach { DownloadManager.shared.deleteDownload(chapter: $0) }
+                endSelection()
                 Task { await loadChapters() }
-            } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "trash")
-                    Text("Delete").font(.caption2)
-                }
-                .frame(maxWidth: .infinity)
-                .foregroundStyle(.red)
             }
-            .disabled(selectedChapterIds.isEmpty)
+            .disabled(!selected.contains { $0.isDownloaded })
         }
         .padding(.vertical, 12)
-        .background(.bar)
+        .glassEffect(.regular, in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    private func selectionButton(_ title: String, systemImage: String,
+                                 action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                Text(title).font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func endSelection() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.spring(duration: 0.2)) {
+            isSelectingChapters = false
+            selectedChapterIds = []
+        }
     }
 
     // MARK: - Refresh Chapter States
@@ -1617,6 +1589,8 @@ struct MangaDetailView: View {
 
 // MARK: - ChapterRow
 
+/// Calm chapter row, same shape as NovelDetailView's: name + one detail line, download state and an accent
+/// unread dot on the right (S139). Downloading a single chapter = leading swipe or the select bar.
 private struct ChapterRow: View {
     // Ink and Midnight define deliberately different `textSecondary` (warm vs. cool) and both force
     // a dark colorScheme, so system `Color.secondary` erases that distinction (Known Issue #118).
@@ -1626,6 +1600,8 @@ private struct ChapterRow: View {
     let bridge: JSBridge?
     var isSelecting: Bool = false
     var isSelected: Bool = false
+    /// Off in one-translation-per-chapter mode, where the chips above already name the group.
+    var showScanlator: Bool = true
     var onTap: (() -> Void)? = nil
     var onLongPress: (() -> Void)? = nil
     var onToggleRead: (() -> Void)? = nil
@@ -1633,80 +1609,71 @@ private struct ChapterRow: View {
 
     private var dm: DownloadManager { DownloadManager.shared }
 
+    /// "Page 12" while in progress, then the scanlation group and when it was read.
+    private var detail: String? {
+        var parts: [String] = []
+        if chapter.lastPageRead > 0 && !chapter.isRead { parts.append("Page \(chapter.lastPageRead + 1)") }
+        if showScanlator, let s = chapter.scanlator, !s.isEmpty { parts.append(s) }
+        if chapter.isRead, let readAt = chapter.readAt {
+            parts.append("Read \(readAt.formatted(.relative(presentation: .named)))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            // Selection circle / unread dot
+        HStack(spacing: 12) {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                     .font(.title3)
-            } else {
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Notation.chapterTitle(chapter.name, number: chapter.chapterNumber))
+                    .font(.body)
+                    .foregroundStyle(chapter.isRead ? canvas.textSecondary : canvas.textPrimary)
+                    .lineLimit(2)
+                if let detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(canvas.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, 6)
+            Spacer(minLength: 0)
+
+            if chapter.isDownloaded {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+                    .accessibilityLabel("Downloaded")
+            } else if dm.activeChapterId == chapter.id {
+                ProgressView(value: dm.progress[chapter.id] ?? 0)
+                    .progressViewStyle(.circular)
+                    .controlSize(.mini)
+            } else if dm.queue.contains(where: { $0.id == chapter.id }) {
+                Image(systemName: "clock")
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+                    .accessibilityLabel("Queued")
+            }
+            if !chapter.isRead && !isSelecting {
                 Circle()
-                    .fill(chapter.isRead ? Color.clear : Color.accentColor)
-                    .frame(width: 6, height: 6)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(chapter.name)
-                        .font(YomiTokens.Font.grotesk(15))
-                        .foregroundStyle(chapter.isRead ? .secondary : .primary)
-                    if chapter.isDownloaded {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.tint)
-                    } else if dm.activeChapterId == chapter.id {
-                        ProgressView(value: dm.progress[chapter.id] ?? 0)
-                            .frame(width: 20)
-                    } else if dm.queue.contains(where: { $0.id == chapter.id }) {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                // Subtitle: date + page progress
-                HStack(spacing: 4) {
-                    if let readAt = chapter.readAt {
-                        Text(readAt, style: .relative)
-                            .font(YomiTokens.Font.mono(11))
-                            .foregroundStyle(.secondary)
-                    } else if let number = chapter.chapterNumber {
-                        let formatted = number.truncatingRemainder(dividingBy: 1) == 0
-                            ? "Chapter \(Int(number))"
-                            : String(format: "Chapter %.1f", number)
-                        Text(formatted)
-                            .font(YomiTokens.Font.mono(11))
-                            .foregroundStyle(.secondary)
-                    }
-                    if chapter.lastPageRead > 0 && !chapter.isRead {
-                        Text("· Page \(chapter.lastPageRead + 1)")
-                            .font(YomiTokens.Font.mono(11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .opacity(chapter.isRead ? 0.45 : 1.0)
-
-            Spacer()
-
-            // Per-chapter download button (only in normal mode, not downloading already)
-            if !isSelecting, let b = bridge, !chapter.isDownloaded,
-               dm.activeChapterId != chapter.id,
-               !dm.queue.contains(where: { $0.id == chapter.id }) {
-                Button {
-                    DownloadManager.shared.enqueue(chapter, manga: manga, bridge: b)
-                } label: {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel("Unread")
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
         .onLongPressGesture(minimumDuration: 0.4) { onLongPress?() }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .listRowSeparatorTint(canvas.hairline)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if !isSelecting {
                 if chapter.isDownloaded {
@@ -1715,9 +1682,8 @@ private struct ChapterRow: View {
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                } else {
+                } else if let b = bridge {
                     Button {
-                        guard let b = bridge else { return }
                         DownloadManager.shared.enqueue(chapter, manga: manga, bridge: b)
                     } label: {
                         Label("Download", systemImage: "arrow.down.circle")

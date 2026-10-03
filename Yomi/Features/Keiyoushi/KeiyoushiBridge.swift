@@ -97,15 +97,15 @@ final class KeiyoushiBridge {
     // MARK: Source API
 
     func popular(sourceId: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getPopularManga", params: ["page": page]))
+        await withCovers(sourceId, try await call(sourceId: sourceId, method: "getPopularManga", params: ["page": page]))
     }
 
     func latest(sourceId: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getLatestManga", params: ["page": page]))
+        await withCovers(sourceId, try await call(sourceId: sourceId, method: "getLatestManga", params: ["page": page]))
     }
 
     func search(sourceId: String, query: String, page: Int) async throws -> KeiyoushiMangaPage {
-        try await withCovers(sourceId, try await call(sourceId: sourceId, method: "getSearchManga",
+        await withCovers(sourceId, try await call(sourceId: sourceId, method: "getSearchManga",
                                                       params: ["page": page, "search": query, "filterList": [Any]()]))
     }
 

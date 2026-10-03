@@ -118,10 +118,10 @@ private struct ContinueShelfLabel: View {
         return [chapterName.map(Self.shortChapter), percent].compactMap { $0 }.joined(separator: " · ")
     }
 
-    /// "Chapter 25: 5th Cycle's Dawn" → "Chapter 25", so the percentage still fits on the line.
+    /// "Chapter 25: 5th Cycle's Dawn" / "Ch. 25" → "Chapter 25", so the percentage still fits on the line.
     nonisolated static func shortChapter(_ name: String) -> String {
-        if let match = name.firstMatch(of: /^(Chapter|Ch\.?)\s*[\d.]+/.ignoresCase()) {
-            return String(match.output.0)
+        if let match = name.firstMatch(of: /^(Chapter|Ch\.?)\s*([\d.]+)/.ignoresCase()) {
+            return Double(match.output.2).map(Notation.chapter) ?? String(match.output.0)
         }
         return name
     }
