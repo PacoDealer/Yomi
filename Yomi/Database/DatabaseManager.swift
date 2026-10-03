@@ -308,6 +308,17 @@ final class DatabaseManager {
                           on: "novel_chapter", columns: ["novelId", "isRead"], ifNotExists: true)
         }
 
+        // When a library refresh first saw a chapter — the Updates feed lists these, one row per chapter
+        // (S141, Martin: Tachimanga-style "Chapter 28", tap = read it). Not in the Chapter/NovelChapter
+        // structs on purpose: whole-row writes of those models then can't overwrite it.
+        migrator.registerMigration("v23_chapter_fetched_at") { db in
+            try db.alter(table: "chapter") { t in t.add(column: "fetchedAt", .datetime) }
+            try db.alter(table: "novel_chapter") { t in t.add(column: "fetchedAt", .datetime) }
+            try db.create(index: "idx_chapter_fetched", on: "chapter", columns: ["fetchedAt"], ifNotExists: true)
+            try db.create(index: "idx_novel_chapter_fetched", on: "novel_chapter",
+                          columns: ["fetchedAt"], ifNotExists: true)
+        }
+
         try migrator.migrate(db)
     }
 

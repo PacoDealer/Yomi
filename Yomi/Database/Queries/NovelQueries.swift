@@ -173,6 +173,30 @@ enum NovelQueries {
         markCloudDirty(.novel, key: novelId)
     }
 
+    // MARK: - NovelChapter: Updates feed
+
+    /// Stamps chapters a library refresh just found (`novel_chapter.fetchedAt`, v23).
+    nonisolated static func markFetched(ids: [String], at date: Date = Date()) throws {
+        guard !ids.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE novel_chapter SET fetchedAt = ? WHERE id IN (\(placeholders)) AND fetchedAt IS NULL",
+                           arguments: StatementArguments([date] as [DatabaseValueConvertible?]) + StatementArguments(ids))
+        }
+    }
+
+    /// Chapters of library novels found by a refresh since `since`, newest first.
+    nonisolated static func fetchRecentlyFetched(since: Date, limit: Int = 300) throws -> [(NovelChapter, Date)] {
+        try appDatabase.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT novel_chapter.* FROM novel_chapter JOIN novel ON novel.id = novel_chapter.novelId
+                WHERE novel_chapter.fetchedAt >= ? AND novel.inLibrary = 1
+                ORDER BY novel_chapter.fetchedAt DESC, novel_chapter.chapterNumber DESC LIMIT ?
+                """, arguments: [since, limit])
+            .map { (try NovelChapter(row: $0), $0["fetchedAt"] as Date) }
+        }
+    }
+
     // MARK: - NovelChapter: Read
 
     /// Returns all chapters for a novel ordered by chapter number ascending
