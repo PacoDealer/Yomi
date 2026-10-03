@@ -23,7 +23,7 @@ func handleBackgroundRefresh(_ task: BGAppRefreshTask) {
         scheduleBackgroundRefresh()
     }
     let refreshTask = Task {
-        await UpdatesViewModel.shared.refresh()
+        await UpdatesViewModel.shared.refresh(includeKeiyoushi: false)
         task.setTaskCompleted(success: true)
     }
     task.expirationHandler = {

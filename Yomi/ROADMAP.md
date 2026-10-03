@@ -21,6 +21,20 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S142 — Keiyoushi titles in Updates + Updates Summary (2026-10-03)
+
+- **#174 fixed** (Martin on device: "worked perfectly and quick too"): refresh checks Keiyoushi manga via
+  `KeiyoushiBridge.chapters` (same mapping/insert/`markFetched` as MangaDetailView/JS path), skip settings +
+  excluded categories kept (now evaluated once, off-main). Cost: Keiyoushi pool of 3, each extension's first
+  title alone (loads the APK); plugins pool of 6. Progress row "Checking n of N"; afterwards "Checked N titles ·
+  time · k failed ›" → **Updates Summary** sheet (Failed + reason, Retry Failed; Completed + new counts).
+- Baseline rule: a title with no saved chapters, or whose every chapter id changed at once, saves chapters but
+  doesn't stamp `fetchedAt` (no 800-row "new" floods). BGAppRefreshTask skips Keiyoushi (JVM in ~30 s window).
+- Device check: pulled DB before/after — v23 column now present, 0 fetchedAt, chapter counts unchanged
+  (no new chapters upstream). A real new chapter on device not yet observed.
+- Fixed 4 warnings left by S141 (UpdateFeedEntry.chapterNumber, PluginCatalogEntry.withInstallIds, NovelQueries).
+- Phone: S142 build, profile expires 2026-10-10 17:45 UTC.
+
 ## S141 — device check, Continue/History/Updates fixes + calm pass (2026-10-03)
 
 Martin's order: reinstall + verify #167 on device → #165 → #166 → screens. Phone reinstalled (profile exp
