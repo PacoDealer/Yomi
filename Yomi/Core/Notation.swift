@@ -51,13 +51,6 @@ nonisolated enum Notation {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
     }
 
-    /// "Chapter 42" for a single chapter, "Chapters 42–44" for a span — used for Updates feed rows.
-    static func chapterRange(low: Double, high: Double) -> String {
-        guard low != high else { return Notation.chapter(low) }
-        let f: (Double) -> String = { $0.formatted(.number.precision(.fractionLength(0...1))) }
-        return "Chapters \(f(low))–\(f(high))"
-    }
-
     // MARK: - Progress
 
     /// "68%" — accent is applied at the call site, not here.

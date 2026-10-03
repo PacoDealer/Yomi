@@ -128,6 +128,30 @@ enum ChapterQueries {
         }
     }
 
+    // MARK: - Updates feed
+
+    /// Stamps chapters a library refresh just found (`chapter.fetchedAt`, v23).
+    nonisolated static func markFetched(ids: [String], at date: Date = Date()) throws {
+        guard !ids.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE chapter SET fetchedAt = ? WHERE id IN (\(placeholders)) AND fetchedAt IS NULL",
+                           arguments: StatementArguments([date] as [DatabaseValueConvertible?]) + StatementArguments(ids))
+        }
+    }
+
+    /// Chapters of library manga found by a refresh since `since`, newest first.
+    nonisolated static func fetchRecentlyFetched(since: Date, limit: Int = 300) throws -> [(Chapter, Date)] {
+        try appDatabase.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT chapter.* FROM chapter JOIN manga ON manga.id = chapter.mangaId
+                WHERE chapter.fetchedAt >= ? AND manga.inLibrary = 1
+                ORDER BY chapter.fetchedAt DESC, chapter.chapterNumber DESC LIMIT ?
+                """, arguments: [since, limit])
+            .map { (try Chapter(row: $0), $0["fetchedAt"] as Date) }
+        }
+    }
+
     // MARK: - Progress
 
     /// Marks a chapter as read with isRead=true and readAt=now (direct UPDATE, no prior fetch).

@@ -205,7 +205,9 @@ struct ChapterReaderView: View {
                 markChapterRead()
             }
 
-            guard !incognito else { return }
+            // No pages = the chapter never loaded (offline, Cloudflare, source error): saving would overwrite the
+            // real position with page 0 — S141 lost "Chapter 1 · 55%, page 21" this way.
+            guard !incognito, !pages.isEmpty else { return }
 
             let elapsed = Int(Date().timeIntervalSince(sessionStart))
             let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
@@ -441,7 +443,7 @@ struct ChapterReaderView: View {
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
         let page = currentPage
-        if !AppSettings.shared.isIncognito {
+        if !AppSettings.shared.isIncognito, !pages.isEmpty {   // see the exit save: empty = never loaded
             Task.detached {
                 try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
             }
