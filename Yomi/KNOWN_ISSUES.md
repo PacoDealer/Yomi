@@ -2,7 +2,7 @@
 
 Moved out of `CLAUDE.md` in S137 (2026-10-03) to keep CLAUDE.md under ~200 lines. Rows are
 numbered and permanent — add new rows at the bottom, mark fixed rows with ~~strikethrough~~ + ✅.
-Open rows as of S141: 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 174, 176.
+Open rows as of S141: 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 176.
 
 
 | # | Issue | Notes |
@@ -181,6 +181,6 @@ Open rows as of S141: 4 (App Store Connect data), 6, 12 (device check), 21 (site
 | 171 | A same-name extension in a second repository can't be added while the first is installed | **[LOW]** `PluginCatalogService.isInstalled` matches by id **or name**, so with Yomi's Royal Road installed, LNReader's Royal Road is hidden from Available. Needs an install key of repository + id before changing; low impact. |
 | 172 | Sources tab briefly labels novel plugins "Manga" right after launch | **[LOW/UX]** Pre-existing: `BrowseView.allItems` counts an unclassified plugin as manga until `classifyPlugins()` has read its script, so the first frame after a cold launch shows novels under Manga, then they move. Fix idea: persist `PluginKindCache` or use the catalog `kind` (S140) as the first guess. |
 | 173 | ~~Leaving a manga chapter whose pages failed to load overwrote the saved page with 0~~ | ✅ Fixed S141 (`4b6a354`). `ChapterReaderView` saved progress on exit/navigation with `pages.isEmpty` → progress 0, lastPageRead 0 (sim copy of Martin's DB lost "Chapter 1 · 55%, page 21"). Now skipped when no pages loaded. |
-| 174 | Updates refresh skips Keiyoushi titles | **[HIGH/feature]** `UpdatesViewModel.checkUpdates` only runs JS plugins (`ExtensionManager.installed`); every Keiyoushi manga (all of Martin's manga) is never checked. Martin approved (S141): add it + a Tachimanga-style Completed/Failed summary. Chapters found must get `markFetched` (v23). |
+| 174 | ~~Updates refresh skips Keiyoushi titles~~ | ✅ Fixed S142 — `UpdatesViewModel.refresh` checks Keiyoushi titles through `KeiyoushiBridge.chapters` (pool of 3, each extension's first title alone), progress row, Tachimanga-style Updates Summary (Failed with reason + Retry Failed, Completed with counts). Background refresh skips Keiyoushi. Verified on Martin's iPhone: all 6 titles "No new chapters", device DB 0 fetchedAt rows, chapter counts unchanged. Not yet seen on device: a real new chapter. |
 | 175 | ~~Opening a manga's page counted as reading~~ | ✅ Fixed S141 — MangaDetailView `.task { touchLastRead() }` removed (Martin: only reading counts). Titles already logged that way stay until removed from History. |
 | 176 | Updates feed only knows chapters found by the refresh | **[LOW]** `fetchedAt` (v23) is set only in `UpdatesViewModel`; new chapters discovered by opening a detail page never reach Updates, and the feed is empty until the first refresh after S141. |

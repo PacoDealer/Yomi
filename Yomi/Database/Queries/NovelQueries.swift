@@ -73,7 +73,7 @@ enum NovelQueries {
     /// overwriting any other column of an existing row.
     nonisolated static func touchLastRead(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
-            var row = novel
+            let row = novel
             try row.insert(db, onConflict: .ignore)
             try Novel
                 .filter(Column("id") == novel.id)
