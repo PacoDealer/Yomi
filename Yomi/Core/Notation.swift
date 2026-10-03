@@ -2,36 +2,29 @@ import Foundation
 
 // MARK: - Notation
 //
-// Catalog-style formatters for all machine/metadata text.
-// All output is intended to be rendered in Space Mono (YomiTokens.Font.mono).
-// Human-authored text (titles, author, synopsis) stays in Space Grotesk.
-// See DESIGN_SYSTEM §6.
+// Formatters for metadata text (chapters, progress, reading time, dates).
+// S138 "calm" design: plain sentence-case text in the system font — no catalog
+// caps ("CH. 042", "STATUS // ONGOING"); see RESEARCH §26.
 
 nonisolated enum Notation {
 
     // MARK: - Chapter
 
-    /// "CH. 042" — zero-padded to 3 digits.
+    /// "Chapter 42" / "Chapter 42.5".
     static func chapter(_ number: Double) -> String {
-        let isWhole = number.truncatingRemainder(dividingBy: 1) == 0
-        if isWhole {
-            return String(format: "CH. %03d", Int(number))
-        } else {
-            return String(format: "CH. %05.1f", number)
-        }
+        "Chapter \(number.formatted(.number.precision(.fractionLength(0...1))))"
     }
 
-    /// "CH. 042 · read to 68%" — in-progress chapter, for History rows.
+    /// "Chapter 42 · read to 68%" — in-progress chapter, for History rows.
     static func chapterReadTo(chapter: Double, fraction: Double) -> String {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
     }
 
-    /// "CH. 042" for a single chapter, "CH. 042–044" for a span — used for Updates feed rows.
+    /// "Chapter 42" for a single chapter, "Chapters 42–44" for a span — used for Updates feed rows.
     static func chapterRange(low: Double, high: Double) -> String {
         guard low != high else { return Notation.chapter(low) }
-        let highIsWhole = high.truncatingRemainder(dividingBy: 1) == 0
-        let highStr = highIsWhole ? String(format: "%03d", Int(high)) : String(format: "%05.1f", high)
-        return "\(Notation.chapter(low))–\(highStr)"
+        let f: (Double) -> String = { $0.formatted(.number.precision(.fractionLength(0...1))) }
+        return "Chapters \(f(low))–\(f(high))"
     }
 
     // MARK: - Progress
@@ -43,33 +36,29 @@ nonisolated enum Notation {
 
     // MARK: - Reading time
 
-    /// "◷ 12H 40M" for ≥60 min; "◷ 45M" for <60 min; "" for 0.
+    /// "12h 40m" for ≥60 min; "45m" for <60 min; "" for 0.
     static func readingTime(seconds: Int) -> String {
         guard seconds > 0 else { return "" }
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
         if hours > 0 {
-            return String(format: "◷ %dH %02dM", hours, minutes)
+            return "\(hours)h \(minutes)m"
         } else {
-            return String(format: "◷ %dM", max(1, minutes))
+            return "\(max(1, minutes))m"
         }
     }
 
-    /// Short form: "12H" only, for Continue hero card.
+    /// Short form: "12h" only.
     static func readingTimeShort(seconds: Int) -> String {
         guard seconds > 0 else { return "" }
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return String(format: "◷ %dH", hours)
-        } else {
-            return String(format: "◷ %dM", max(1, minutes))
-        }
+        return hours > 0 ? "\(hours)h" : "\(max(1, minutes))m"
     }
 
     // MARK: - Chapter + progress compound (for Continue hero)
 
-    /// "CH. 042 · 68% · ◷ 12H 40M"
+    /// "Chapter 42 · 68% · 12h 40m"
     static func chapterProgress(chapter: Double, fraction: Double, seconds: Int) -> String {
         var parts: [String] = [Notation.chapter(chapter), Notation.progress(fraction)]
         let time = Notation.readingTime(seconds: seconds)
@@ -79,28 +68,21 @@ nonisolated enum Notation {
 
     // MARK: - Page position (manga reader chrome)
 
-    /// "CH. 042 · 12/48"
+    /// "Chapter 42 · 12/48"
     static func pagePosition(chapter: Double, page: Int, total: Int) -> String {
         "\(Notation.chapter(chapter)) · \(page)/\(total)"
     }
 
     // MARK: - Status
 
-    /// "STATUS // ONGOING" — uppercase, monospace catalog label.
+    /// "Ongoing" — capitalized status word.
     static func status(_ raw: String) -> String {
-        "STATUS // \(raw.uppercased())"
-    }
-
-    // MARK: - Catalog index
-
-    /// "07" — manga catalog index (plain zero-padded number).
-    static func catalogIndex(_ n: Int) -> String {
-        String(format: "%02d", n)
+        raw.prefix(1).uppercased() + raw.dropFirst().lowercased()
     }
 
     // MARK: - History timestamp (adaptive)
 
-    /// "14:20"/"2:20 PM" today, "MON" within the last week, "JUL 28"/"28 JUL" otherwise — for
+    /// "14:20"/"2:20 PM" today, "Mon" within the last week, "Jul 28"/"28 Jul" otherwise — for
     /// History rows. `use24Hour`/`dayFirst` default to the app's original hardcoded format
     /// (24-hour clock, month-before-day) so existing callers are unaffected.
     static func historyTimestamp(_ date: Date, use24Hour: Bool = true, dayFirst: Bool = false) -> String {
@@ -116,10 +98,10 @@ nonisolated enum Notation {
         ).day ?? 0
         if days < 7 {
             let f = DateFormatter(); f.dateFormat = "EEE"
-            return f.string(from: date).uppercased()
+            return f.string(from: date)
         }
         let f = DateFormatter(); f.dateFormat = dayFirst ? "d MMM" : "MMM d"
-        return f.string(from: date).uppercased()
+        return f.string(from: date)
     }
 
     // MARK: - Date group label (History / Updates section headers)

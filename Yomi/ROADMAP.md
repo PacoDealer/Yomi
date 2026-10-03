@@ -21,6 +21,38 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S138 — Design direction: "calm" (Apple Music-inspired) — Library + novel Detail built (2026-10-03)
+
+Martin rejected three first directions (A Native, B Shelf, C Dense — "A and C are the best but I don't really
+like them"), asked for research (Mobbin, DesignRush, reading apps, a middle ground on customization) and clarified
+he likes **Apple Music's design system** — colour, seamlessness, spacing between titles and artwork, how it works
+together — not its features. Research → RESEARCH §26. An HTML mockup with his real covers ("Yomi calm") was
+approved: "Looks good, we should try it out." He sent Tachimanga's detail + select-mode screenshots as the
+feature reference; he doesn't love the Library/Browse tab icons (easy change, not done).
+
+Built (simulator-verified on iPhone 17 Pro 26.3, **not yet on his phone**):
+- **App-wide:** `YomiTokens.Font.grotesk/mono` now return SF Pro (Space Grotesk/Mono gone everywhere; the
+  Appearance "UI font" picker removed); `Notation` is plain sentence case ("Chapter 42", "Ongoing", "12h 40m",
+  "Jul 28" — no "CH. 042", "STATUS // …", "◷"); Ink = Apple system dark (black, #1C1C1E), Paper = system light;
+  cover radius 6, side margin 20, `coverHairline()` 0.5 pt outline.
+- **Library:** large title back (category chips moved into the scroll), chip-style categories, "Continue
+  reading" shelf (150 pt covers, "Chapter 25 · 3%", thin progress bar) replaces the hero card + "Up next";
+  section titles title2-bold; covers carry nothing — title + one grey line under ("902 unread" in accent, or
+  source, or "In library" in Browse). Fixes the hero's "CH. 000" (novel chapters have no number) and the shelf
+  showing the prologue instead of the resume chapter.
+- **Novel Detail:** album-page header (200 pt cover, cover-blur tint under the status bar, title, source in
+  accent, "author · status · N chapters"), equal Continue / Download pills, 3-line synopsis + genre chips, notes
+  only when one exists (add via ⋯), reading status + note in the ⋯ menu, chapter rows with accent unread dot and
+  "Reading · 40%", filter/sort in one menu, select-mode bar as a floating glass capsule, title bar that fades in
+  after scrolling past the header.
+- Not done: **MangaDetailView** (still old style), Browse/Sources, Extensions redesign, History/Updates/More,
+  Dynamic Type (`grotesk(size)` is still fixed-size), Library list mode rows, tab icons.
+- UI tests 8/12 — the 4 Pages-mode tests also fail on unmodified HEAD (Known Issue #164).
+
+NEXT: Martin reviews on device (reinstall before the profile expires Oct 9 06:46) → MangaDetailView in the same
+style → Extensions redesign (agreed: repos into Settings, one list, no format tags — App Store-style rows) → the
+rest of the screens → TTS.
+
 ## S137 — Workflow research + tooling cleanup (2026-10-03)
 
 Martin now reads light novels in Yomi daily (WeTried plugin). He asked for research on AI app development

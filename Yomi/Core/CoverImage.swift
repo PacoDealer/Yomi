@@ -29,6 +29,15 @@ struct CoverImage: View {
 }
 
 extension View {
+    /// The faint 0.5 pt outline Apple Music puts around artwork, so dark or white covers
+    /// keep their edge on a matching background (S138, RESEARCH §26).
+    func coverHairline(cornerRadius: CGFloat = YomiTokens.Radius.cover) -> some View {
+        overlay {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+        }
+    }
+
     /// Locks a cover image to a deterministic 2:3 box driven by the proposed width.
     /// `.aspectRatio(_, contentMode: .fill)` alone falls back to the content's own
     /// intrinsic size whenever the parent proposes an unbounded height (a `LazyVGrid`

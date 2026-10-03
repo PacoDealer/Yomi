@@ -3,30 +3,25 @@ import SwiftUI
 // MARK: - YomiTokens
 //
 // Single source of truth for design values.
-// Design system: "reading instrument / living archive" — v0.2 (S80).
-// Three axes: Canvas (theme) × Accent × Type.
+// S138 "calm" design (RESEARCH §26): Apple Music-style — SF Pro everywhere, system
+// neutrals, colour comes from covers, one accent. Axes: Canvas (theme) × Accent.
 
 enum YomiTokens {
 
     // MARK: - Typography
 
     enum Font {
-        // PostScript names for bundled fonts.
-        // Variable font covers weights 300–700; use .weight() in SwiftUI.
-        static let groteskFamily  = "Space Grotesk"
-        static let groteskPS      = "SpaceGrotesk-Light"   // default instance name
-        static let monoRegular    = "SpaceMono-Regular"
-        static let monoBold       = "SpaceMono-Bold"
-
-        // Convenience constructors.
+        // S138: both helpers return SF Pro. The names are kept so the ~200 call sites
+        // don't churn; screens move to semantic styles (.headline, .subheadline…) as
+        // they are redesigned. "mono" keeps tabular digits for counts and progress.
         static func grotesk(_ size: CGFloat) -> SwiftUI.Font {
-            .custom(groteskFamily, size: size)
+            .system(size: size)
         }
         static func grotesk(_ size: CGFloat, weight: SwiftUI.Font.Weight) -> SwiftUI.Font {
-            .custom(groteskFamily, size: size).weight(weight)
+            .system(size: size, weight: weight)
         }
         static func mono(_ size: CGFloat, bold: Bool = false) -> SwiftUI.Font {
-            .custom(bold ? monoBold : monoRegular, size: size)
+            .system(size: size, weight: bold ? .semibold : .regular).monospacedDigit()
         }
     }
 
@@ -59,14 +54,16 @@ enum YomiTokens {
     }
 
     enum Canvas {
+        // S138: Ink (the dark default) = Apple's system dark palette — black canvas,
+        // #1C1C1E/#2C2C2E surfaces, white label + 60 % secondary (was warm brown #14110F).
         static let ink = CanvasColors(
             name:          "Ink",
-            bg:            Color(hex: "#14110F"),
-            surface1:      Color(hex: "#1E1A17"),
-            surface2:      Color(hex: "#2A2521"),
-            textPrimary:   Color(hex: "#F4EFE7"),
-            textSecondary: Color(hex: "#F4EFE7").opacity(0.60),
-            hairline:      Color(hex: "#F4EFE7").opacity(0.10)
+            bg:            Color(hex: "#000000"),
+            surface1:      Color(hex: "#1C1C1E"),
+            surface2:      Color(hex: "#2C2C2E"),
+            textPrimary:   Color.white,
+            textSecondary: Color(hex: "#EBEBF5").opacity(0.60),
+            hairline:      Color(hex: "#545458").opacity(0.60)
         )
 
         static let midnight = CanvasColors(
@@ -79,14 +76,16 @@ enum YomiTokens {
             hairline:      Color.white.opacity(0.10)
         )
 
+        // S138: Paper (the light default) = Apple's system light palette (was cream #F7F1E6;
+        // the warm look stays available as Sepia).
         static let paper = CanvasColors(
             name:          "Paper",
-            bg:            Color(hex: "#F7F1E6"),
-            surface1:      Color(hex: "#FFFFFF"),
-            surface2:      Color(hex: "#EEE7D8"),
-            textPrimary:   Color(hex: "#1A1512"),
-            textSecondary: Color(hex: "#1A1512").opacity(0.58),
-            hairline:      Color(hex: "#1A1512").opacity(0.10)
+            bg:            Color(hex: "#FFFFFF"),
+            surface1:      Color(hex: "#F2F2F7"),
+            surface2:      Color(hex: "#E5E5EA"),
+            textPrimary:   Color.black,
+            textSecondary: Color(hex: "#3C3C43").opacity(0.60),
+            hairline:      Color(hex: "#3C3C43").opacity(0.29)
         )
 
         static let sepia = CanvasColors(
@@ -235,7 +234,7 @@ enum YomiTokens {
     enum Radius {
         static let badge:  CGFloat = 4    // status/unread badges
         static let thumb:  CGFloat = 6    // small thumbnails
-        static let cover:  CGFloat = 10   // manga/novel cover images (bumped 8→10)
+        static let cover:  CGFloat = 6    // manga/novel cover images (S138: Apple Music artwork ≈6)
         static let button: CGFloat = 14   // buttons, banners, bottom sheets
         static let modal:  CGFloat = 20   // full modal sheets
         static let pill:   CGFloat = 100  // capsule / fully-rounded elements
@@ -258,7 +257,7 @@ enum YomiTokens {
     enum Layout {
         static let coverAspectRatio: CGFloat = 2.0 / 3.0  // 2:3 portrait ratio
         static let minTapTarget:     CGFloat = 44          // Apple HIG minimum
-        static let screenMargin:     CGFloat = 16          // standard side margin
+        static let screenMargin:     CGFloat = 20          // standard side margin (S138: Apple Music 20)
         static let coverGutter:      CGFloat = 12          // between cover cells
     }
 

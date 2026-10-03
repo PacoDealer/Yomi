@@ -32,6 +32,9 @@ struct NovelDetailView: View {
     @State private var selectedChapterIds: Set<String> = []
     @State private var chapterSearchText: String = ""
     @State private var downloadedIds: Set<String> = []
+    /// True once the header's buttons have scrolled away — the floating bar then gets a material
+    /// background and the title, like Apple Music's album pages.
+    @State private var scrolledPastHeader = false
     private var downloads: NovelDownloadManager { NovelDownloadManager.shared }
 
     @Environment(\.yomiCanvas) private var canvas
@@ -74,38 +77,49 @@ struct NovelDetailView: View {
     }
 
     private var resumeButtonTitle: String {
-        guard hasStartedReading, let ch = resumeChapter else { return "Start reading" }
+        // "Continue" while chapters load, so the label doesn't flash "Start" → "Chapter 25".
+        if chapters.isEmpty { return "Continue" }
+        guard hasStartedReading, let ch = resumeChapter else { return "Start" }
         if let num = ch.chapterNumber {
-            let numStr = num.truncatingRemainder(dividingBy: 1) == 0
-                ? String(Int(num))
-                : String(format: "%.1f", num)
-            return "Resume Ch. \(numStr)"
+            return Notation.chapter(num)
         }
-        return "Resume"
+        return "Continue"
     }
 
-    /// Full-bleed blurred cover backdrop with dark scrim, per DESIGN_SYSTEM §14.
-    private var backdrop: some View {
-        ZStack {
-            Group {
-                if let customPath = novel.resolvedCustomCoverPath,
-                   let uiImage = UIImage(contentsOfFile: customPath) {
-                    Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    KFImage(novel.coverURL)
-                        .placeholder { canvas.surface1 }
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                }
-            }
-            .blur(radius: 30)
-            .overlay(canvas.bg.opacity(0.3))
+    private var sourceName: String? {
+        ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId })?.name
+    }
 
-            LinearGradient(
-                colors: [canvas.bg.opacity(0.15), canvas.bg.opacity(0.55), canvas.bg],
-                startPoint: .top, endPoint: .bottom
-            )
+    /// "Author · Ongoing · 887 chapters"
+    private var metaLine: String {
+        var parts: [String] = []
+        if let author = novel.author, !author.isEmpty { parts.append(author) }
+        if !novel.status.isEmpty { parts.append(Notation.status(novel.status)) }
+        if !chapters.isEmpty { parts.append("\(chapters.count) chapters") }
+        if let score = aniListScore { parts.append("\(score)%") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Apple Music-style album backdrop: the cover blurred into a soft colour wash that fades into the
+    /// canvas (S138, RESEARCH §26) — replaces the dark DESIGN_SYSTEM §14 scrim.
+    private var backdrop: some View {
+        Group {
+            if let customPath = novel.resolvedCustomCoverPath,
+               let uiImage = UIImage(contentsOfFile: customPath) {
+                Image(uiImage: uiImage).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                KFImage(novel.coverURL)
+                    .coverSized()
+                    .placeholder { canvas.bg }
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
         }
+        .blur(radius: 60)
+        .saturation(1.4)
+        .opacity(0.55)
+        .mask(LinearGradient(colors: [.black, .black.opacity(0.6), .clear],
+                             startPoint: .top, endPoint: .bottom))
     }
 
     // MARK: - Body
@@ -118,7 +132,16 @@ struct NovelDetailView: View {
             notesSection
             chaptersSection
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 470
+        } action: { _, past in
+            withAnimation(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
+        }
+        // The header's cover tint runs up under the status bar, like an Apple Music album page.
+        .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
+        .background(canvas.bg.ignoresSafeArea())
         .refreshable { await loadChapters() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
@@ -317,6 +340,14 @@ struct NovelDetailView: View {
             .glassChip()
 
             Spacer()
+            if scrolledPastHeader {
+                Text(novel.title)
+                    .font(.headline)
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                    .transition(.opacity)
+            }
+            Spacer()
 
             Button {
                 isInLibrary.toggle()
@@ -329,12 +360,33 @@ struct NovelDetailView: View {
             .glassChip()
 
             Menu {
+                if isInLibrary {
+                    Picker(selection: Binding(
+                        get: { novelReadingStatus },
+                        set: { newStatus in Task { await updateReadingStatus(newStatus) } }
+                    )) {
+                        ForEach(ReadingStatus.allCases) { status in
+                            Label(status.label, systemImage: status.systemImage).tag(status)
+                        }
+                    } label: {
+                        Label("Reading status", systemImage: novelReadingStatus.systemImage)
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Button {
                     showCategorySheet = true
                 } label: {
                     Label("Edit categories", systemImage: "tag")
                 }
                 .disabled(!isInLibrary)
+
+                Button {
+                    notesText = novel.notes ?? ""
+                    showNotesSheet = true
+                } label: {
+                    Label(novel.notes?.isEmpty == false ? "Edit note" : "Add note", systemImage: "note.text")
+                }
 
                 Button {
                     showCoverPicker = true
@@ -353,15 +405,6 @@ struct NovelDetailView: View {
                 .disabled(chapters.isEmpty)
 
                 if !chapters.isEmpty {
-                    Menu {
-                        Button("Next 10 unread") {
-                            download(Array(chapters.filter { !$0.isRead }.prefix(10)))
-                        }
-                        Button("All unread") { download(chapters.filter { !$0.isRead }) }
-                        Button("All chapters") { download(chapters) }
-                    } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
-                    }
                     if !downloadedIds.isEmpty {
                         Button(role: .destructive) {
                             downloads.deleteAll(novelId: novel.id)
@@ -389,118 +432,59 @@ struct NovelDetailView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background {
+            if scrolledPastHeader {
+                Rectangle().fill(.bar).ignoresSafeArea(edges: .top)
+                    .transition(.opacity)
+            }
+        }
     }
 
     // MARK: - Sections
 
     @ViewBuilder private var headerSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 14) {
-                ZStack(alignment: .bottomLeading) {
-                    backdrop
-                        .frame(height: 230)
-                        .clipped()
-
-                    HStack(alignment: .bottom, spacing: 14) {
-                        Group {
-                            if let customPath = novel.resolvedCustomCoverPath,
-                               let uiImage = UIImage(contentsOfFile: customPath) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .aspectRatio(2 / 3, contentMode: .fill)
-                            } else {
-                                CoverImage(url: novel.coverURL)
-                            }
-                        }
-                        .frame(width: 110, height: 162)
-                        .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
-                        .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 6)
-
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(novel.title)
-                                .font(YomiTokens.Font.grotesk(22, weight: .bold))
-                                .foregroundStyle(.white)
-                                .lineLimit(3)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            if let author = novel.author {
-                                Text(author)
-                                    .font(YomiTokens.Font.grotesk(14))
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .lineLimit(1)
-                            }
-
-                            if let sourceName = ExtensionManager.shared.installed
-                                .first(where: { $0.id == novel.sourceId })?.name {
-                                Text(sourceName.uppercased())
-                                    .font(YomiTokens.Font.mono(11))
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .lineLimit(1)
-                            }
-
-                            HStack(spacing: 8) {
-                                Text(Notation.status(novel.status))
-                                    .font(YomiTokens.Font.mono(10))
-                                    .tracking(0.4)
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 4))
-
-                                if let score = aniListScore {
-                                    Text("\(score)%")
-                                        .font(YomiTokens.Font.mono(11, bold: true))
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                        }
-                        .padding(.bottom, 4)
-                    }
-                    .padding(.horizontal, 16)
-                    .offset(y: 12)
-                }
-                .padding(.bottom, 12)
-
-                if isInLibrary {
-                    ReadingStatusMenu(readingStatus: novelReadingStatus) { newStatus in
-                        Task { await updateReadingStatus(newStatus) }
-                    }
-                    .padding(.horizontal, 16)
-                }
-
-                if !novel.genres.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(novel.genres, id: \.self) { genre in
-                                Text(genre).font(YomiTokens.Font.grotesk(12))
-                                    .foregroundStyle(canvas.textPrimary)
-                                    .padding(.horizontal, 10).padding(.vertical, 4)
-                                    .background(canvas.surface2, in: Capsule())
-                            }
-                        }
-                        .padding(.horizontal, 16)
+            VStack(spacing: 0) {
+                Group {
+                    if let customPath = novel.resolvedCustomCoverPath,
+                       let uiImage = UIImage(contentsOfFile: customPath) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(2 / 3, contentMode: .fill)
+                    } else {
+                        CoverImage(url: novel.coverURL)
                     }
                 }
-                // Reading progress bar
-                if !chapters.isEmpty {
-                    let readCount = chapters.filter { $0.isRead }.count
-                    if readCount > 0 {
-                        let totalSecs = chapters.reduce(0) { $0 + $1.readingSeconds }
-                        VStack(alignment: .leading, spacing: 3) {
-                            ProgressView(value: Double(readCount), total: Double(chapters.count))
-                                .tint(.accentColor)
-                            let fraction = Double(readCount) / Double(chapters.count)
-                            let time = Notation.readingTime(seconds: totalSecs)
-                            let pctText = Text(Notation.progress(fraction)).foregroundStyle(Color.accentColor)
-                            Text("\(readCount) OF \(chapters.count) · \(pctText)\(time.isEmpty ? "" : " · \(time)")")
-                                .font(YomiTokens.Font.mono(11))
-                                .foregroundStyle(canvas.textSecondary)
-                        }
-                        .padding(.horizontal, 16)
-                    }
+                .frame(width: 200, height: 300)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .coverHairline(cornerRadius: 8)
+                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+                .padding(.top, 116)
+
+                Text(novel.title)
+                    .font(.title2.bold())
+                    .foregroundStyle(canvas.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 20)
+
+                if let sourceName {
+                    Text(sourceName)
+                        .font(.title3)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.top, 4)
                 }
 
-                if !isLoadingChapters && !chapters.isEmpty {
+                if !metaLine.isEmpty {
+                    Text(metaLine)
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 6)
+                }
+
+                HStack(spacing: 12) {
                     Button {
                         if let ch = resumeChapter {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -508,22 +492,34 @@ struct NovelDetailView: View {
                             touchLastReadAt()
                         }
                     } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: hasStartedReading ? "play.fill" : "book.fill")
-                                .font(.system(size: 13))
-                            Text(resumeButtonTitle)
-                                .font(YomiTokens.Font.grotesk(15, weight: .medium))
-                        }
-                        .foregroundStyle(AppSettings.shared.accentForeground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(Color.accentColor, in: Capsule())
+                        Label(resumeButtonTitle, systemImage: "play.fill")
+                            .detailPillLabel()
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
+                    .disabled(isLoadingChapters || chapters.isEmpty)
+
+                    Menu {
+                        Button("Next 10 unread") {
+                            download(Array(chapters.filter { !$0.isRead }.prefix(10)))
+                        }
+                        Button("All unread") { download(chapters.filter { !$0.isRead }) }
+                        Button("All chapters") { download(chapters) }
+                    } label: {
+                        Label("Download", systemImage: "arrow.down")
+                            .detailPillLabel()
+                    }
+                    .disabled(chapters.isEmpty)
                 }
+                .padding(.top, 20)
             }
-            .padding(.vertical, 6)
+            .padding(.horizontal, YomiTokens.Layout.screenMargin)
+            .frame(maxWidth: .infinity)
+            .background(alignment: .top) {
+                backdrop
+                    .frame(height: 580)
+                    .clipped()
+                    .allowsHitTesting(false)
+            }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -531,33 +527,81 @@ struct NovelDetailView: View {
     }
 
     @ViewBuilder private var synopsisSection: some View {
-        Section("Synopsis") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(novel.summary ?? "No synopsis available.")
-                    .font(.subheadline)
-                    .lineLimit(synopsisExpanded ? nil : 4)
-                    .textSelection(.enabled)
-                Button(synopsisExpanded ? "Less" : "More") { synopsisExpanded.toggle() }
-                    .font(.subheadline).buttonStyle(.plain).foregroundStyle(.tint)
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                if let summary = novel.summary, !summary.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Collapsed: one paragraph, so blank lines don't eat the three visible lines.
+                        Text(synopsisExpanded ? summary
+                             : summary.replacingOccurrences(of: #"\s*\n+\s*"#, with: " ", options: .regularExpression))
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textPrimary)
+                            .lineLimit(synopsisExpanded ? nil : 3)
+                            .textSelection(.enabled)
+                        Button(synopsisExpanded ? "Less" : "More") { synopsisExpanded.toggle() }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(canvas.textSecondary)
+                            .buttonStyle(.plain)
+                    }
+                }
+                if !novel.genres.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(novel.genres, id: \.self) { genre in
+                                Text(genre)
+                                    .font(.footnote)
+                                    .foregroundStyle(canvas.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(canvas.surface1, in: Capsule())
+                            }
+                        }
+                        .padding(.horizontal, YomiTokens.Layout.screenMargin)
+                    }
+                    .padding(.horizontal, -YomiTokens.Layout.screenMargin)
+                }
             }
+            .padding(.top, 24)
+            .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                      bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 
+    /// Only shown once a note exists — adding one lives in the ⋯ menu (S138: less on screen).
     @ViewBuilder private var notesSection: some View {
-        Section("Notes") {
-            if let notes = novel.notes, !notes.isEmpty {
-                Text(notes).font(.subheadline).foregroundStyle(.primary).textSelection(.enabled)
+        if let notes = novel.notes, !notes.isEmpty {
+            Section {
+                Button {
+                    notesText = notes
+                    showNotesSheet = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Note")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(canvas.textSecondary)
+                        Text(notes)
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(12)
+                    .background(canvas.surface1, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+                .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                          bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
-            Button(novel.notes?.isEmpty == false ? "Edit note" : "Add a note") {
-                notesText = novel.notes ?? ""
-                showNotesSheet = true
-            }
-            .font(.subheadline).foregroundStyle(.tint)
         }
     }
 
     @ViewBuilder private var chaptersSection: some View {
         Section {
+            chaptersHeaderRow
             if isLoadingChapters {
                 HStack { Spacer(); ProgressView(); Spacer() }.padding(.vertical, 4)
             } else if chapters.isEmpty {
@@ -593,8 +637,11 @@ struct NovelDetailView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .background(canvas.surface1, in: Capsule())
+                    .listRowInsets(EdgeInsets(top: 4, leading: YomiTokens.Layout.screenMargin,
+                                              bottom: 8, trailing: YomiTokens.Layout.screenMargin))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
                 let shown = displayedChapters
                 if shown.isEmpty && !chapterSearchText.isEmpty {
@@ -609,43 +656,49 @@ struct NovelDetailView: View {
                         .equatable()
                 }
             }
-        } header: {
-            HStack {
-                Text("Chapters")
-                    .font(YomiTokens.Font.grotesk(15, weight: .semibold))
-                if !chapters.isEmpty {
-                    let readCount = chapters.filter { $0.isRead }.count
-                    if readCount > 0 {
-                        Text("\(readCount) / \(chapters.count)")
-                            .font(YomiTokens.Font.mono(12))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("(\(chapters.count))")
-                            .font(YomiTokens.Font.mono(12))
-                            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// "Chapters   25 of 887 read" — a plain row, not a section header: a plain List pins headers, and
+    /// with the cover tint running under the status bar the pinned title sat on top of the clock.
+    @ViewBuilder private var chaptersHeaderRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("Chapters")
+                .font(.title2.bold())
+                .foregroundStyle(canvas.textPrimary)
+            if !chapters.isEmpty {
+                let readCount = chapters.filter { $0.isRead }.count
+                Text(readCount > 0 ? "\(readCount) of \(chapters.count) read" : "\(chapters.count)")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(canvas.textSecondary)
+            }
+            Spacer()
+            if !chapters.isEmpty {
+                Menu {
+                    Toggle(isOn: $chapterFilterUnread) {
+                        Label("Unread only", systemImage: "line.3.horizontal.decrease")
                     }
+                    Picker("Order", selection: $chaptersDescending) {
+                        Label("Oldest first", systemImage: "arrow.up").tag(false)
+                        Label("Newest first", systemImage: "arrow.down").tag(true)
+                    }
+                } label: {
+                    Image(systemName: chapterFilterUnread
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease.circle")
+                        .font(.title3)
+                        .foregroundStyle(chapterFilterUnread ? Color.accentColor : canvas.textSecondary)
                 }
-                Spacer()
-                if !chapters.isEmpty {
-                    Button {
-                        chapterFilterUnread.toggle()
-                    } label: {
-                        Image(systemName: chapterFilterUnread
-                              ? "line.3.horizontal.decrease.circle.fill"
-                              : "line.3.horizontal.decrease")
-                            .font(.caption).fontWeight(.semibold).foregroundStyle(.tint)
-                    }
-                    .buttonStyle(.plain)
-                    Button {
-                        withAnimation(.spring(duration: 0.2)) { chaptersDescending.toggle() }
-                    } label: {
-                        Image(systemName: chaptersDescending ? "arrow.down" : "arrow.up")
-                            .font(.caption).fontWeight(.semibold).foregroundStyle(.tint)
-                    }
-                    .buttonStyle(.plain)
-                }
+                .accessibilityLabel("Filter and sort")
             }
         }
+        .padding(.top, 28)
+        .padding(.bottom, 4)
+        .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     /// What a chapter row does. Every closure only touches @State, whose storage outlives this struct copy, so
@@ -1008,7 +1061,9 @@ extension NovelDetailView {
             .disabled(selectedChapterIds.isDisjoint(with: downloadedIds))
         }
         .padding(.vertical, 12)
-        .background(.bar)
+        .glassEffect(.regular, in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     private func endSelection() {
@@ -1107,25 +1162,34 @@ private struct NovelChapterList: View, Equatable {
         Button {
             actions.tap(chapter)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 if isSelecting {
                     let isSelected = selectedIds.contains(chapter.id)
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         // Known Issue #118: canvas tokens, not system secondary.
                         .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
                         .font(.title3)
-                } else {
-                    Circle()
-                        .fill(chapter.isRead ? Color.clear : Color.accentColor)
-                        .frame(width: 6, height: 6)
                 }
                 NovelChapterRow(chapter: chapter)
                 Spacer(minLength: 0)
                 NovelChapterDownloadBadge(chapterId: chapter.id,
                                           isDownloaded: downloadedIds.contains(chapter.id))
+                if !chapter.isRead && !isSelecting {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .accessibilityLabel("Unread")
+                }
             }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .listRowSeparatorTint(canvas.hairline)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !isSelecting {
                 Button {
@@ -1153,29 +1217,30 @@ private struct NovelChapterList: View, Equatable {
 
 private struct NovelChapterRow: View {
     let chapter: NovelChapter
+    @Environment(\.yomiCanvas) private var canvas
+
+    /// "Reading · 40%" while in progress, else the source's release time.
+    private var detail: String? {
+        if let pct = chapter.lastScrollPercent, pct > 0.02, !chapter.isRead {
+            return "Reading · \(Notation.progress(min(pct, 1)))"
+        }
+        return chapter.releaseTime
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(chapter.name)
-                .font(YomiTokens.Font.grotesk(15))
-                .foregroundStyle(chapter.isRead ? .secondary : .primary)
-            if let release = chapter.releaseTime {
-                Text(release)
-                    .font(YomiTokens.Font.mono(11))
-                    .foregroundStyle(.secondary)
-            }
-            if let pct = chapter.lastScrollPercent, pct > 0.02, !chapter.isRead {
-                GeometryReader { geo in
-                    Capsule()
-                        .fill(Color.accentColor.opacity(0.5))
-                        .frame(width: geo.size.width * CGFloat(min(pct, 1)), height: 2)
-                }
-                .frame(height: 2)
-                .padding(.top, 2)
+                .font(.body)
+                .foregroundStyle(chapter.isRead ? canvas.textSecondary : canvas.textPrimary)
+                .lineLimit(2)
+            if let detail {
+                Text(detail)
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(canvas.textSecondary)
             }
         }
-        .opacity(chapter.isRead ? 0.45 : 1.0)
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
     }
 }
 
@@ -1229,5 +1294,21 @@ private struct NovelChapterDownloadBadge: View {
                 .foregroundStyle(canvas.textSecondary)
                 .accessibilityLabel("Downloaded")
         }
+    }
+}
+
+// MARK: - Detail pill buttons
+
+private extension Label where Title == Text, Icon == Image {
+    /// Apple Music's Play / Shuffle buttons: equal-width grey capsules, accent text (S138).
+    func detailPillLabel() -> some View {
+        self
+            .font(.body.weight(.semibold))
+            .labelStyle(.titleAndIcon)
+            .foregroundStyle(Color.accentColor)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Color.primary.opacity(0.08), in: Capsule())
+            .contentShape(Capsule())
     }
 }

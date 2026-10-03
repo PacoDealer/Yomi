@@ -2199,4 +2199,81 @@ outside Reddit.
 
 ---
 
-*End of RESEARCH.md — last compiled S132, 2026-09-29 (§25)*
+## 26. S138 — Design direction research (2026-10-03)
+
+**Why:** S138 showed Martin three directions (A Native, B Shelf/Apple Books, C Dense/Tachimanga). He liked none
+("A and C are the best but I don't really like them either") and asked for research first: app design, reading apps
+(manga/comics/books/novels/manhwa), a middle ground on customization — easy, pretty, useful, not cluttered. He
+likes **Apple Music**.
+
+**Current screens audited (sim, HEAD `c9be25f`):** three visual languages at once — Space Mono caps labels ("CONTINUE
+READING", "STATUS // ONGOING", "EN · MANGA · YOMI PLUGIN"), Space Grotesk titles, SF rounded pills on Extensions;
+covers carry catalog numbers + "NOVEL" tag + unread badge + caption strip that collide; Extensions pills wrap
+("Nov-el", "LNRea-der"); rows mix Install vs Copy URL. Bug: Library card says "CH. 000 · 3%", Detail says "25 of 887".
+
+**Sources reached / not reached:** Mobbin returned 403 in the built-in browser and to WebFetch, and needs a login
+for screens; Claude in Chrome was not connected and Claudezilla's tools did not load in the desktop app. DesignRush
+"Best App Designs" = agency concept work, no reading apps on page 1 — low value. Reference screenshots instead came
+from the App Store lookup API (`itunes.apple.com/lookup?id=…` → `screenshotUrls`) for Eclipse, Manga Capsule,
+Panels, Lipex, Readest, Libby, WEBTOON, Shonen Jump, Bookmory.
+
+**Apple Music (iOS 26) — the patterns Martin likes, verified:** Library = short category list (Playlists, Artists,
+Albums, Songs, Downloaded; "Edit Categories") + **up to 6 Pins** in a grid at the top, each with a tap action
+(open / play / shuffle), synced and available as widgets (MacStories review p.15; MacRumors 2025-06-09; Apple
+Support "Pin music"). Album/artist page: big cover, background themed from the cover art, prominent Play,
+info moved up (9to5Google on Music 7.0, 2026-09-30). Floating mini-player above the tab bar, separate from it.
+Pill buttons, system font, one accent colour. MacStories' critique: 6 pins is too few for big libraries.
+
+**Reading apps — what each does well (from their store screenshots, i.e. marketing, not live use):**
+- **Lipex** (closest competitor: LNReader repos on iOS, 5★/9): cover grid with chapter-count badge; an
+  **Appearance** screen = System/Light/Dark segmented + **4 visual theme presets** + pure-black toggle + Liquid
+  Glass on/off + accent colour + app icon; streaks/rank; home-screen widget "next chapter, one tap away".
+- **Eclipse** (Mihon repos, praised on Reddit for "clean and seamless" transitions): "Good evening" home = continue
+  card + streak heatmap + continue-reading row; single red accent on black; History with stats.
+- **Panels** (4.79★/12.4k): "Reading Now" = one big cover card; library grid or list ("your library, your rules:
+  sorting, grids"); reader presets.
+- **Manga Capsule** (the design pick in mangacapsule.com's own roundup — biased source): 3-column shelf, smart cover
+  cropping, "no-text" cover mode; reader settings as a compact bottom sheet of chips.
+- **Readest** (open source): plain grid, minimal chrome; **TTS mini-player docked at the bottom of the reader,
+  Apple Music-style** — relevant to §25.10 #8 TTS.
+- **Libby** (4.85★/4.5M, Editors' Choice): minimal chrome, colour comes from the library; praised for "simplicity".
+- **Bookmory / WEBTOON / Shonen Jump:** tracker-style and storefront apps — little that transfers.
+
+**Customization middle ground — evidence:** NN/g "Progressive Disclosure": show what's frequently needed up front,
+defer the rest; **don't exceed 2 disclosure levels**. ⚠️ The "2006 NN/g study, 30–50 % faster" and "40 % fewer
+tickets" figures in search snippets are **not in the NN/g article** (checked) — don't cite them. Lipex's Appearance
+screen is a working example of presets-first customization. §25.5 law 1 (don't churn UI after release) means
+deciding the design before 1.0.
+
+**Synthesis — candidate principles (for Martin to react to, not decided):**
+1. One type system: SF Pro for all chrome (Dynamic Type); serif only inside the novel reader. No caps/mono labels.
+2. Covers carry at most one badge (unread count); title + progress below the cover, never on it.
+3. Apple Music mapping: Library = Pins (≤6, tap = continue reading) + categories (Manga, Novels, Downloaded, user
+   categories) + recently updated grid; a **floating "Continue" mini-bar above the tab bar** like Music's mini-player
+   (later doubles as the TTS player); Detail = album page (cover, cover-tinted background, Continue + Download pills,
+   chapter list).
+4. Customization in two levels: Settings → Appearance = theme preset (4) + accent + pure black + library grid/list
+   and size; everything else stays in the reader panel (already done S136).
+5. Liquid Glass only on floating chrome (tab bar, mini-bar, reader overlay).
+
+**Martin's clarification (same session):** it's not Apple Music's features (pins, mini-player) but its *design
+system* — colour, how seamless it is, the spacing between titles and artwork, how everything works together. Use it
+as inspiration and add what makes a reading app a reading app.
+
+**Measured from Apple Music's App Store screenshot** (`iPhone6p9-iOS26-USEN-Music-Wrapper1.png`, phone scaled inside a
+marketing frame, ≈2.3 px/pt — approximate): 20 pt side margin, ≈12 pt gap between artwork, ≈16 pt from section title
+to artwork, ≈6 pt artwork corners, title2-bold section header + grey chevron, item title + secondary line under the
+art, colour comes from the artwork while chrome stays neutral, one accent (selected tab, links).
+
+**"Yomi calm" mockup v1** (HTML with real cached covers, scratchpad `mock/yomi-calm.html`, shown to Martin): system
+colours (black / #1C1C1E, label + 60 % secondary), SF Pro only, large title 34 bold, section 22 bold + chevron,
+20 pt margins, 3-column 2:3 covers with 12 pt gutter, 6 pt corners + 0.5 pt hairline, title 15 / meta 13 under the cover,
+**nothing drawn on covers** ("5 new" is accent text in the meta line), Continue-reading shelf with a thin progress bar,
+Detail = album page (blurred cover tint fading to background, title, source in accent like Music's artist line,
+two equal grey pill buttons with accent text, chapter list with accent dots for unread), Extensions = App Store-style
+rows (44 pt icon, "English · Novels", grey "Get"/"Update" pills, no format tags, repos in Settings). Accent is a user
+choice; v1 default orange `#FF6B3D`.
+
+---
+
+*End of RESEARCH.md — last compiled S138, 2026-10-03 (§26)*

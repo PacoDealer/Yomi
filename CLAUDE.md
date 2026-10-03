@@ -18,24 +18,27 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#163), open rows listed at its top
-- `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10**
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#164), open rows listed at its top
+- `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
-- `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look — **being replaced**, see RESEARCH §22.6)
+- `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S137 — 2026-10-03)
+## Current state (S138 — 2026-10-03)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
-- S137: research on AI workflow/design/extensions UX; tooling fixed (XcodeBuildMCP ui-automation/device/
-  debugging enabled, Apple `xcode` MCP added); this file cut from 273 KB to this.
-- **Agreed order:** design direction (references → 2–3 directions for Library/Detail/Extensions) →
-  Extensions redesign (repos into Settings, one source list, no format tags) → TTS (§25.10 #8) →
-  first-run + imports (#3, #6) → legal compliance last, before publishing.
+- **S138 design direction = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere (the
+  `YomiTokens.Font` helpers now return system fonts), system neutrals (Ink = black/#1C1C1E), colour comes from
+  covers, one accent, nothing drawn on covers, plain-text `Notation`. Built: Library + NovelDetailView.
+  Still old style: MangaDetailView, Browse/Extensions, History/Updates/More. `Yomi/design/` (Space Grotesk
+  "catalog" system) is superseded.
+- **Agreed order:** Martin reviews calm on device → MangaDetail → Extensions redesign (repos into Settings, one
+  list, no format tags) → remaining screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last.
 - Open gaps: Keiyoushi first page 4–6 s; Updates/Downloads not routed for Keiyoushi titles; no Mihon/
   Tachimanga backup import; no Dynamic Type outside the reader; stale "More → Plugins" copy
-  (`OnboardingView.swift:48`, `BrowseView.swift:676`); GPLv3 NewPipe still in the extension-server jar.
+  (`OnboardingView.swift:48`, `BrowseView.swift:676`); GPLv3 NewPipe still in the extension-server jar;
+  4 Pages-mode UI tests fail on the sim (also on HEAD before S138 — KNOWN_ISSUES #164).
 - Personal build expires every 7 days (free team) — `scripts/build-personal.sh` prints the real expiry; read it.
 - Next GRDB migration prefix: **`v23_`**.
 
