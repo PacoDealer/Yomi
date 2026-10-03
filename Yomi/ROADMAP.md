@@ -21,6 +21,35 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S141 — device check, Continue/History/Updates fixes + calm pass (2026-10-03)
+
+Martin's order: reinstall + verify #167 on device → #165 → #166 → screens. Phone reinstalled (profile exp
+2026-10-10 17:45 UTC). Commits `b68f47f`, `3759c66`, `4b6a354`.
+
+- **#167 on device:** the S140 fix didn't reach his phone's case — his WeTried was installed by link as
+  "WeTried TLs" (id sha256(file URL)), the catalog says "WeTried Translations" (`com.yomi.wetriedtls`), so
+  id-or-name matching never offered Update and listed it under Available as "Add" (would have installed a
+  duplicate). `PluginCatalogEntry.installIds` (catalog id, sha256(file URL/file name), com.yomi.<name>),
+  computed once at catalog load. First version computed them per lookup → Extensions froze (sharedNames was
+  rebuilt per row × every group × hashing); now once per render. Verified on device: 1.0.2, same id, 1 row.
+- **Method that worked:** copy the device's Documents + catalog prefs into the simulator container and
+  reproduce there (`devicectl device copy from … --source Documents`, `defaults write … -data <hex>`).
+- **#165** Continue shelf = last manga + last novel; fixed-height cells; novel without saved chapters opens
+  its detail page (tap did nothing). `ResumeReading` (in ContinueReadingRow.swift) = one resume path for the
+  shelf and History (Keiyoushi manga with bridge nil; one-translation-per-chapter like the detail page).
+- **#166** History: NovelDetailView upserted its whole stale `Novel` (metadata refresh, touchLastReadAt,
+  cover, library toggle) → rewound `lastReadAt` behind chapters read since (RTOC sat at Oct 2 15:07).
+  Column-only writes now. Martin: **only reading counts** → MangaDetailView no longer touches lastReadAt on
+  open. History tap = straight into the last chapter + page (Martin). Calm rows: 64 pt cover, 2-line title,
+  "Chapter 722 · 30%", "15h 13m read · 19:20"; swipe → "Remove"; no separators (Martin).
+- **Updates (Martin sent Tachimanga screenshots):** one row per NEW chapter, tap = read it, read ones
+  dimmed, swipe → Mark Read. Needed a fetch date: migration **`v23_chapter_fetched_at`** (chapter /
+  novel_chapter.fetchedAt, set only by the refresh, kept out of the model structs). Starts empty after
+  install, fills on refresh. The old feed listed every unread chapter of a recently updated title ("481 new").
+- **Reader bug:** leaving a manga chapter whose pages never loaded saved page 0 over the real position.
+- **Open (next session):** Keiyoushi titles are NOT checked by Updates refresh (all of Martin's manga) —
+  Martin approved adding it with a Tachimanga-style Completed/Failed summary; then More → Settings screens.
+
 ## S140 — Extensions redesign + plugin update bug (2026-10-03)
 
 Martin's rules for Extensions (asked this session): **every repository needs a link** — fresh installs start with

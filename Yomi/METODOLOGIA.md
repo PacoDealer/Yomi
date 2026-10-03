@@ -2029,3 +2029,23 @@ previously here was removed during the 2026-08-04 doc restructure.
   re-tap if nothing moved. XcodeBuildMCP `snapshot_ui` returned an empty tree for this app all session.
 - **Testing the empty state without reinstalling:** terminate, back up `Library/Preferences/pacodealer.Yomi.plist`,
   `plutil -remove` the keys, `launchctl stop com.apple.cfprefsd.xpc.daemon`, launch; restore the same way.
+
+## Technical learnings — S141 device check + History/Updates (2026-10-03)
+
+- **A sim fix is not a device fix when the device has different data.** S140's update fix passed on the sim
+  with a staged plugin that had the catalog's NAME; Martin's real install had a different name and a
+  link-hash id, so it never matched. Reproduce with the device's own data: `devicectl device copy from
+  --domain-type appDataContainer --domain-identifier pacodealer.Yomi --source Documents`, copy into the sim
+  container (fix `extension.sourceListURL` paths), copy prefs with `defaults write … -data <hex>`.
+- **Pull the DB before AND after asking Martin to act** — "Done" plus an unchanged DB showed the Update button
+  had never appeared, which is how the matching bug was found.
+- **Hashing in a SwiftUI computed path froze the main thread**: `isInstalled` → sha256 per entry per installed
+  plugin, called per row via `sharedNames`. `sample <pid>` showed 100% main thread in the Yomi frames.
+  Precompute derived ids once at load; never call O(n) helpers from per-row code.
+- **Whole-row upserts of a view's @State model rewind fields other code updated** (lastReadAt). Same lesson
+  as S124/S126 — a third instance (#166). Write only the columns you change.
+- **List row modifiers (`listRowSeparator`, insets, background) must sit on the row**, not inside a Button's
+  label — there they are silently ignored.
+- **Keiyoushi chapters have no `chapterNumber`** — anything that sorts by number needs a name fallback.
+- Sim panel: the first tap after a screen change is dropped and can land LATE on the next screen (opened the
+  wrong title twice). Prefer tapping, screenshotting, then re-tapping only if nothing changed.
