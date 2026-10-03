@@ -18,33 +18,38 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#166), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#176), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S140 — 2026-10-03)
+## Current state (S141 — 2026-10-03)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
 - **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere, system neutrals, colour from
-  covers, one accent, nothing on covers, plain `Notation`. Built: Library, Novel + Manga Detail, **Browse (Sources
-  + Extensions, S140)**. Still old style: History/Updates/More/Settings.
-- **Extensions (S140, Martin's rules):** no repositories on a fresh install, none suggested — the user pastes every
-  link; inside an added repository every extension is one tap "Add"; delete = swipe → red trash (extensions +
-  repositories). Repositories live in Browse ⋯ and Settings → Repositories (`RepositoriesView`). Updates keep the
-  installed plugin id (`ExtensionManager.update`); `relinkOrphanedTitles` repairs titles orphaned by the old path.
-- **Agreed order:** reinstall on phone + check WeTried titles survive → KNOWN_ISSUES #165 (Continue shelf) → #166
-  (History, get specifics) → remaining screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last
-  (incl. #170 guide link).
-- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge; Updates/Downloads not routed for
-  Keiyoushi titles; no Mihon/Tachimanga backup import; no Dynamic Type outside the reader; GPLv3 NewPipe still in the extension-server jar; Pages-mode UI
-  tests flaky on the sim (#164).
-- Phone has the S138 build, not S139/S140. Personal build expires every 7 days (free team) —
+  covers, one accent, nothing on covers, plain `Notation`, **no list separators** (Martin S141). Built:
+  Library, Novel + Manga Detail, Browse (Sources + Extensions), **History, Updates (S141)**. Still old style:
+  More, Settings.
+- **Extensions (S140 rules):** no repositories on a fresh install, none suggested; every extension in an added
+  repository is one tap "Add"; delete = swipe → red trash. Catalog ↔ installed matching uses
+  `PluginCatalogEntry.installIds` (catalog id, sha256(file URL / file name)) — link-installed plugins keep
+  their own name and id (S141).
+- **Reading state:** only reading counts toward History/Continue (opening a page doesn't). `ResumeReading`
+  (ContinueReadingRow.swift) = the shelf's and History's "back to where I was" (chapter + page).
+- **Updates** = one row per chapter found by a refresh (`fetchedAt`, migration v23), tap = read it.
+- **Agreed order (Martin, S141):** Keiyoushi titles in Updates refresh + Completed/Failed summary
+  (KNOWN_ISSUES #174) → More → Settings screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last
+  (incl. #170).
+- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge; Downloads not routed for Keiyoushi
+  titles; no Mihon/Tachimanga backup import; no Dynamic Type outside the reader; GPLv3 NewPipe still in the
+  extension-server jar; Pages-mode UI tests flaky on the sim (#164, 3/12 fail).
+- Phone has the S141 build (`4b6a354`), profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
+- Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v23_`**.
+- Next GRDB migration prefix: **`v24_`**.
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
