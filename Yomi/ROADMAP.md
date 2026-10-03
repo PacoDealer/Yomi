@@ -21,6 +21,34 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S139 — MangaDetailView in the calm style (2026-10-03)
+
+Martin used the S138 calm build on his iPhone: "looks and feels much better". Two non-design notes, logged as
+**KNOWN_ISSUES #165** (Continue reading shelf should hold only the latest title — or two: last novel + last
+manga/manhwa) and **#166** (History tab "doesn't work well" — get specifics first). He approved the result from
+simulator screenshots ("looks great").
+
+Built (simulator-verified on iPhone 17 Pro 26.3, **not on his phone yet**):
+- **MangaDetailView** = NovelDetailView's structure: album header (200 pt cover, cover-blur tint, title, source
+  in accent, "author · status · N chapters · score"), Continue / Download pills (`detailPillLabel()` now shared;
+  Download disabled without a JSBridge, i.e. Keiyoushi/Suwayomi), status/categories/note/cover/select/mark-all in
+  ⋯, note only when one exists, 3-line synopsis + genre chips, plain "Chapters · x of y read" row with one
+  filter/sort/order menu, calm scanlator chips, chapter rows = name + one grey detail ("Page 2 · group · Read 2
+  days ago") + accent unread dot, glass select bar, scroll title bar. All loading/merge/scanlator logic untouched;
+  the visible list and the select toolbar now share one `displayedChapters`.
+- Removed from manga Detail: progress bar + reading-time line, header status chip, per-row download button
+  (leading swipe / select bar instead), duplicate "Remove from library" in ⋯.
+- Both details: select mode hides the back button and the tab bar (Tachimanga), `.scrollDismissesKeyboard`,
+  title-bar threshold 470 → 410 (pills could rest under the floating buttons).
+- `Notation.chapterTitle` ("Ch. 31" → "Chapter 31", real titles kept) and `Notation.plainText` (HTML entities —
+  Asura synopses had `&lt;`); Continue shelf's `shortChapter` uses Notation too.
+- Fixed 3 pre-existing "no calls to throwing functions" warnings in `KeiyoushiBridge` (popular/latest/search).
+- UI tests 9/12; failures all in #164's set, and one #164 test passed this run (flaky).
+
+NEXT: Extensions redesign (repos into Settings, one source list, no format tags, App Store-style rows — RESEARCH
+§26 mockup) → #165 Continue shelf → #166 History → rest of the screens → TTS. Reinstall on his phone before the
+profile expires (Oct 9 06:46 per S135; `build-personal.sh` prints the real date).
+
 ## S138 — Design direction: "calm" (Apple Music-inspired) — Library + novel Detail built (2026-10-03)
 
 Martin rejected three first directions (A Native, B Shelf, C Dense — "A and C are the best but I don't really

@@ -1993,3 +1993,16 @@ previously here was removed during the 2026-08-04 doc restructure.
   restarted server loses session defaults — set them with `persist: true`, or tap with the built-in simulator
   panel (`mcp__Claude_Code_iOS_Simulator__control`), whose taps can register late.
 - Grid meta lines in a 3-column grid fit ~12 characters: "902 unread · MangaDex" truncates both halves.
+
+## Technical learnings — S139 MangaDetail calm pass (2026-10-03)
+
+- **Restyle a big view by replacing only its presentation range.** MangaDetailView (1,850 lines) kept every
+  loader/merge function; the body/header/rows were spliced in by line range from a scratch file, then compiled —
+  far less risk than editing 20 regions one by one.
+- **Simulator panel screenshots taken right after a swipe or tap show mid-animation states** (title bar missing,
+  selection circles overlapping text, menu as a black square). Take a second screenshot before calling it a bug.
+- **A tap issued during a pop/launch animation is dropped or lands on whatever slides in** (it focused the chapter
+  search field) — wait ~3 s after `simctl launch` before tapping.
+- `Text(date, style: .relative)` reads "3 days, 2 hours"; `date.formatted(.relative(presentation: .named))`
+  reads "3 days ago".
+

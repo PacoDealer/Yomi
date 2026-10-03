@@ -15,6 +15,28 @@ nonisolated enum Notation {
         "Chapter \(number.formatted(.number.precision(.fractionLength(0...1))))"
     }
 
+    /// A source's chapter name for display: bare "Ch. 31" / "31" / "chapter 31" become "Chapter 31"; real
+    /// titles ("Chapter 702 - The Sect") are left as the source wrote them.
+    static func chapterTitle(_ name: String, number: Double?) -> String {
+        guard let number,
+              name.trimmingCharacters(in: .whitespaces)
+                .wholeMatch(of: /(?i)(ch(apter)?\.?\s*)?\d+(\.\d+)?/) != nil else { return name }
+        return chapter(number)
+    }
+
+    /// Source text with the HTML entities some plugins leave in ("&lt;The Regressed…&gt;").
+    static func plainText(_ text: String) -> String {
+        guard text.contains("&") else { return text }
+        var out = text
+        for (entity, char) in [("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'"),
+                               ("&apos;", "'"), ("&nbsp;", " "), ("&amp;", "&")] {
+            out = out.replacingOccurrences(of: entity, with: char)
+        }
+        return out.replacing(/&#(\d+);/) { match in
+            UInt32(match.1).flatMap(Unicode.Scalar.init).map { String(Character($0)) } ?? String(match.0)
+        }
+    }
+
     /// "Chapter 42 · read to 68%" — in-progress chapter, for History rows.
     static func chapterReadTo(chapter: Double, fraction: Double) -> String {
         "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
