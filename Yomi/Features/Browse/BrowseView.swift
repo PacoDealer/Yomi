@@ -77,10 +77,11 @@ struct BrowseView: View {
                     VStack(spacing: 8) {
                         HStack(spacing: 5) {
                             Text(item.rawValue)
-                                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout, weight: .medium))
+                                .font(.subheadline.weight(.semibold))
                             if item == .extensions && updateCount > 0 {
                                 Text("\(updateCount)")
-                                    .font(YomiTokens.Font.mono(10, bold: true))
+                                    .font(.caption2.weight(.bold))
+                                    .monospacedDigit()
                                     .foregroundStyle(AppSettings.shared.accentForeground)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1)
@@ -116,9 +117,9 @@ struct BrowseView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     searchPill
-                    if !recentItems.isEmpty { sourceSection("LAST USED", recentItems) }
-                    if !mangaItems.isEmpty { sourceSection("MANGA · \(mangaItems.count)", mangaItems) }
-                    if !novelItems.isEmpty { sourceSection("NOVELS · \(novelItems.count)", novelItems) }
+                    if !recentItems.isEmpty { sourceSection("Last Used", recentItems) }
+                    if !mangaItems.isEmpty { sourceSection("Manga", mangaItems, count: mangaItems.count) }
+                    if !novelItems.isEmpty { sourceSection("Novels", novelItems, count: novelItems.count) }
                     if hasSuwayomi { suwayomiSection }
                     if hasOPDS { opdsSection }
                     Color.clear.frame(height: 24)
@@ -166,22 +167,36 @@ struct BrowseView: View {
         return Array(items.prefix(3))
     }
 
-    private func sourceSection(_ title: String, _ items: [BrowseSourceItem]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    /// "Manga      5" — the Library's Apple Music-style section title (S138/S140).
+    private func sectionTitle(_ title: String, count: Int? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 16)
+                .font(.title2.bold())
+                .foregroundStyle(canvas.textPrimary)
+            Spacer()
+            if let count {
+                Text("\(count)")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(canvas.textSecondary)
+            }
+        }
+        .padding(.horizontal, YomiTokens.Layout.screenMargin)
+        .padding(.bottom, 4)
+    }
+
+    private func sourceSection(_ title: String, _ items: [BrowseSourceItem], count: Int? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle(title, count: count)
 
             VStack(spacing: 0) {
                 ForEach(items) { item in
                     sourceLink(item)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, YomiTokens.Layout.screenMargin)
         }
-        .padding(.top, 22)
+        .padding(.top, 28)
     }
 
     /// Names more than one installed source shares (e.g. Asura Scans as a plugin and as a Keiyoushi extension) —
@@ -200,7 +215,7 @@ struct BrowseView: View {
                 SourceBrowseView(ext: ext)
             } label: {
                 SourceRow(name: ext.name, iconURL: ext.iconURL,
-                          subtitle: "\(ext.language.uppercased()) · \(isNovel ? "NOVELS" : "MANGA")\(origin)",
+                          subtitle: "\(SourceLanguage.displayName(for: ext.language)) · \(isNovel ? "Novels" : "Manga")\(origin)",
                           isNSFW: ext.isNSFW)
             }
             .buttonStyle(.plain)
@@ -222,8 +237,8 @@ struct BrowseView: View {
             } label: {
                 SourceRow(name: ext.info.name, iconURL: URL(string: ext.info.iconURL),
                           subtitle: sources.count == 1
-                              ? "\(sources[0].lang.uppercased()) · MANGA\(origin)"
-                              : "\(sources.count) LANGUAGES · MANGA\(origin)",
+                              ? "\(SourceLanguage.displayName(for: sources[0].lang)) · Manga\(origin)"
+                              : "\(sources.count) languages · Manga\(origin)",
                           isNSFW: ext.info.isNSFW)
             }
             .buttonStyle(.plain)
@@ -232,7 +247,7 @@ struct BrowseView: View {
                 KeiyoushiBrowseView(source: source)
             } label: {
                 SourceRow(name: ext.info.name, iconURL: URL(string: ext.info.iconURL),
-                          subtitle: "\(source.lang.uppercased()) · MANGA\(origin)", isNSFW: ext.info.isNSFW)
+                          subtitle: "\(SourceLanguage.displayName(for: source.lang)) · Manga\(origin)", isNSFW: ext.info.isNSFW)
             }
             .buttonStyle(.plain)
         }
@@ -259,7 +274,7 @@ struct BrowseView: View {
         YomiEmptyState(
             systemImage: "puzzlepiece.extension",
             title: "No sources installed",
-            message: "Install sources from the Extensions tab.",
+            message: "Add a repository and its extensions in the Extensions tab.",
             actionLabel: "Open Extensions",
             actionIcon: "puzzlepiece.extension"
         ) {
@@ -275,7 +290,7 @@ struct BrowseView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15))
                 Text("Search all sources")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                    .font(.body)
                 Spacer()
             }
             .foregroundStyle(canvas.textSecondary)
@@ -284,7 +299,7 @@ struct BrowseView: View {
             .background(canvas.surface2, in: Capsule())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, YomiTokens.Layout.screenMargin)
         .padding(.top, 8)
     }
 
@@ -293,11 +308,7 @@ struct BrowseView: View {
     @ViewBuilder
     private var suwayomiSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("SUWAYOMI SERVER")
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 16)
+            sectionTitle("Suwayomi Server")
 
             if suwayomiLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
@@ -360,11 +371,7 @@ struct BrowseView: View {
     @ViewBuilder
     private var opdsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("OPDS LIBRARY")
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 16)
+            sectionTitle("OPDS Library")
 
             if opdsLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 16)
@@ -502,7 +509,7 @@ struct BrowseView: View {
 // Gradient-initials icon chip (N.06 installed-source rows). Falls back to a stable,
 // name-derived gradient + initials when the source has no icon or it fails to load.
 
-private struct SourceIconBadge: View {
+struct SourceIconBadge: View {
     let name: String
     let iconURL: URL?
     var size: CGFloat = 36
@@ -527,25 +534,26 @@ private struct SourceIconBadge: View {
     }
 
     var body: some View {
-        ZStack {
-            LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-            if let iconURL {
-                KFImage(iconURL)
-                    .placeholder { initialsText }
-                    .fade(duration: 0.2)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                initialsText
+        // The image lives in an overlay so a non-square icon can't widen the badge (it shifted rows, S140).
+        LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+            .frame(width: size, height: size)
+            .overlay {
+                if let iconURL {
+                    KFImage(iconURL)
+                        .placeholder { initialsText }
+                        .fade(duration: 0.2)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    initialsText
+                }
             }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.25))
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
     }
 
     private var initialsText: some View {
         Text(initials)
-            .font(YomiTokens.Font.mono(13, bold: true))
+            .font(.system(size: size * 0.36, weight: .semibold))
             .foregroundStyle(.white)
     }
 }
@@ -560,32 +568,29 @@ private struct SourceRow: View {
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        HStack(spacing: 12) {
-            SourceIconBadge(name: name, iconURL: iconURL)
+        HStack(spacing: 14) {
+            SourceIconBadge(name: name, iconURL: iconURL, size: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .font(.body)
                     .foregroundStyle(canvas.textPrimary)
-                HStack(spacing: 6) {
-                    Text(subtitle)
-                        .font(YomiTokens.Font.mono(11))
-                        .foregroundStyle(canvas.textSecondary)
-                    if isNSFW {
-                        Text("18+")
-                            .font(YomiTokens.Font.mono(10, bold: true))
-                            .foregroundStyle(.red)
-                    }
-                }
+                    .lineLimit(1)
+                Text(isNSFW ? "\(subtitle) · 18+" : subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(canvas.textSecondary)
+                    .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(canvas.textSecondary.opacity(0.6))
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
-        .overlay(alignment: .bottom) { Rectangle().fill(canvas.hairline).frame(height: 1) }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(canvas.hairline).frame(height: 0.5).padding(.leading, 58)
+        }
     }
 }
 
@@ -621,8 +626,8 @@ private enum BrowseSourceItem: Identifiable {
 
     /// Subtitle suffix naming where the source comes from, shown only when two sources share a name.
     var origin: String {
-        if case .plugin = self { return " · YOMI PLUGIN" }
-        return " · KEIYOUSHI"
+        if case .plugin = self { return " · Yomi" }
+        return " · Keiyoushi"
     }
 }
 
@@ -635,7 +640,7 @@ enum BrowseSourceKey {
 }
 
 /// Which installed plugins are novel plugins, kept for the app session so Browse doesn't re-read every script.
-private enum PluginKindCache {
+enum PluginKindCache {
     static var isNovel: [String: Bool] = [:]
 }
 
@@ -673,7 +678,7 @@ private struct GlobalSearchView: View {
                 YomiEmptyState(
                     systemImage: "puzzlepiece.extension",
                     title: "No sources installed",
-                    message: "Install a source from More → Plugins before searching."
+                    message: "Add an extension from Browse → Extensions before searching."
                 )
             } else if pendingCount > 0 && sections.isEmpty {
                 VStack(spacing: 12) {

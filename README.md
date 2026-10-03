@@ -6,52 +6,46 @@ A clean, fast manga, manhwa, manhua and light novel reader for iOS. Extensible a
 
 ## Quick Start
 
-1. Open **Yomi** on your device
-2. Go to **More** → **Plugins** → tap **+** → **Add Repository**
-3. Add a repository from the table below, install a source, then open **Browse → Sources**
+Yomi comes with no sources. You add **repositories** by link, then add the extensions you want from them.
+
+1. Open **Yomi** → **Browse** → **Extensions**
+2. Tap **Add Repository** (or **⋯ → Add Repository**) and paste a repository link from below
+3. Tap **Add** next to any extension, then open **Browse → Sources**
 
 ---
 
 ## Source Repositories
 
-Three choices depending on what you want to read:
-
 | | **Yomi Catalog** | **LNReader Novels** | **Keiyoushi** |
 |---|---|---|---|
 | **Content** | Curated manga + novels | 500+ light novel sources | 1000+ manga sources |
 | **Languages** | EN | 18+ languages | All |
-| **Setup** | URL pre-configured | Add URL below | Add address below |
 
-### Yomi Catalog — URL pre-configured
-Hand-picked, high-quality sources for manga and novels. The catalog URL is added by default — just open Browse → Sources and install.
+### Yomi Catalog
+```
+https://yomi-plugins.web.app/index.json
+```
 
 ### LNReader Novels
 ```
 https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json
 ```
-Copy this URL → More → Plugins → **+** → **Add Repository** → paste → **Add**
 
 ### Keiyoushi (1000+ manga)
-Keiyoushi extensions run through a [Suwayomi Server](https://github.com/Suwayomi/Suwayomi-Server) — Yomi runs a shared one so you don't have to host your own:
+Keiyoushi (Mihon) extensions run on the phone. Add its repository like any other:
 ```
-https://TODO-fill-in-after-deploying.example
+https://github.com/keiyoushi/extensions/raw/repo/index.pb
 ```
-<!-- TODO: replace with the real Cloudflare Tunnel public hostname from SuwayomiServer-Deploy/DEPLOY.md Step 1/7 before publishing this README. -->
-Copy this address → Yomi → **Settings → Sources & Servers → Suwayomi Server** → paste → **Test Connection**
-
-Prefer full control (or the shared server is down)? [Self-host your own](https://github.com/Suwayomi/Suwayomi-Server#getting-started) and paste its address instead — same field.
 
 ---
 
 ## How to Add a Repository
 
-1. Open **More** → **Plugins**
-2. Tap **+** → **Add Repository**
-3. Tap **Copy URL** next to a featured repo, then paste it into the Custom URL field and tap
-   **Add** — or paste any other repo URL directly
-4. The catalog refreshes automatically
-5. Find a source in the list and tap **Install**
-6. Go to **Browse → Sources** → your new source appears in the list
+1. Copy a repository link (above, or from the project that publishes it)
+2. In Yomi: **Browse → Extensions → ⋯ → Add Repository** — paste the link → **Add**
+3. Every extension in that repository appears under **Available** — tap **Add**
+4. Updates show up under **Updates**; swipe left on an extension to delete it
+5. Manage repositories in **⋯ → Repositories** or **More → Settings → Repositories** (swipe left to remove one)
 
 ---
 

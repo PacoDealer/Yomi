@@ -575,8 +575,8 @@ import Observation
            let decoded = try? JSONDecoder().decode([String].self, from: data) {
             pluginCatalogURLs = decoded
         } else {
-            let legacy = d.string(forKey: "pluginCatalogURL") ?? "https://yomi-plugins.web.app/index.json"
-            pluginCatalogURLs = [legacy]
+            // Fresh installs start with no repositories — the user adds every one by link (S140, Guideline 5.2.2).
+            pluginCatalogURLs = d.string(forKey: "pluginCatalogURL").map { [$0] } ?? []
         }
         libraryColumns          = d.object(forKey: "libraryColumns") as? Int ?? 3
         rotationFollowDevice    = d.object(forKey: "rotationFollowDevice") as? Bool ?? true
