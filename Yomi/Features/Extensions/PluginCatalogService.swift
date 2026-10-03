@@ -28,7 +28,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
     /// Extensions list, which matches each catalog entry against each installed plugin per render (S141).
     private(set) var installIds: Set<String> = []
 
-    func withInstallIds() -> PluginCatalogEntry {
+    nonisolated func withInstallIds() -> PluginCatalogEntry {
         var entry = self
         let fileName = URL(string: fileURL)?.deletingPathExtension().lastPathComponent ?? ""
         entry.installIds = [id, Self.sha256id(fileURL), Self.sha256id(fileName), "com.yomi.\(fileName)"]
@@ -40,7 +40,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
         id == ext.id || installIds.contains(ext.id) || name.lowercased() == ext.name.lowercased()
     }
 
-    static func sha256id(_ string: String) -> String {
+    nonisolated static func sha256id(_ string: String) -> String {
         let hash = SHA256.hash(data: Data(string.utf8))
         return String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32))
     }
