@@ -26,6 +26,8 @@ final class NovelReaderController {
         case dropped(id: String)
         /// Pages mode: the page on screen, 1-based within its chapter.
         case page(id: String, page: Int, pages: Int)
+        /// "Listen from Here" in the text-selection menu (S143).
+        case listenFromHere
     }
 
     struct Options: Equatable {
@@ -61,6 +63,50 @@ final class NovelReaderController {
 
     func scrollToChapter(id: String) {
         call("yomi.scrollToChapter(id)", ["id": id])
+    }
+
+    // MARK: Listening (S143) — the page mirrors ListenPlayer; see `tts*` in the script.
+
+    /// The sentences ListenPlayer speaks for a chapter; the page finds each one's text to highlight it.
+    func ttsSet(id: String, sentences: [String]) {
+        call("yomi.ttsSet(id, list)", ["id": id, "list": sentences])
+    }
+
+    /// Highlights sentence `index` (if `show`) and keeps it on screen unless the reader touched the page lately.
+    func ttsMark(id: String, index: Int, show: Bool) {
+        call("yomi.ttsMark(id, i, show)", ["id": id, "i": index, "show": show])
+    }
+
+    func ttsClear() {
+        call("yomi.ttsClear()", [:])
+    }
+
+    /// Makes room for the mini-player at the bottom of pages-mode pages.
+    func setListening(_ on: Bool) {
+        guard on != appliedListening else { return }
+        appliedListening = on
+        call("yomi.setListening(on)", ["on": on])
+    }
+    private var appliedListening = false
+
+    /// Index of the first sentence on screen in chapter `id` (after `ttsSet`); 0 when unknown.
+    func ttsFirstVisible(id: String) async -> Int {
+        (await evaluate("return yomi.ttsFirstVisible(id)", ["id": id]) as? NSNumber)?.intValue ?? 0
+    }
+
+    /// The chapter id where the text selection is, or nil.
+    func selectionChapterId() async -> String? {
+        await evaluate("return yomi.selectionChapter()", [:]) as? String
+    }
+
+    /// Index of the sentence (of chapter `id`, after `ttsSet`) where the selection starts; clears the selection.
+    func ttsSelectionIndex(id: String) async -> Int {
+        (await evaluate("return yomi.ttsSelectionIndex(id)", ["id": id]) as? NSNumber)?.intValue ?? 0
+    }
+
+    private func evaluate(_ body: String, _ args: [String: Any]) async -> Any? {
+        guard isReady, let webView else { return nil }
+        return try? await webView.callAsyncJavaScript(body, arguments: args, contentWorld: .page)
     }
 
     /// Cheap to call on every SwiftUI update: only a changed stylesheet reaches the page. The old reader
@@ -149,7 +195,8 @@ struct ReaderWebView: UIViewRepresentable {
             config.userContentController.add(proxy, name: name)
         }
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = ReaderWKWebView(frame: .zero, configuration: config)
+        webView.onListenFromHere = { [weak controller] in controller?.onEvent(.listenFromHere) }
         webView.backgroundColor = .clear
         webView.isOpaque = false
         webView.scrollView.backgroundColor = .clear
@@ -228,6 +275,21 @@ struct ReaderWebView: UIViewRepresentable {
         }
     }
 
+    /// Adds "Listen from Here" to the text-selection menu (ArcReader has it; S143). WebKit builds its edit menu
+    /// through the responder chain's `buildMenu(with:)`.
+    final class ReaderWKWebView: WKWebView {
+        var onListenFromHere: (() -> Void)?
+
+        override func buildMenu(with builder: any UIMenuBuilder) {
+            super.buildMenu(with: builder)
+            guard onListenFromHere != nil else { return }
+            let listen = UIAction(title: "Listen from Here", image: UIImage(systemName: "speaker.wave.2")) { [weak self] _ in
+                self?.onListenFromHere?()
+            }
+            builder.insertSibling(UIMenu(options: .displayInline, children: [listen]), afterMenu: .standardEdit)
+        }
+    }
+
     /// WKUserContentController retains its handlers; the proxy keeps that from retaining the coordinator.
     private final class MessageProxy: NSObject, WKScriptMessageHandler {
         weak var coordinator: Coordinator?
@@ -293,6 +355,8 @@ enum NovelReaderScript {
             padding: calc(env(safe-area-inset-top) + 34px) var(--m) calc(env(safe-area-inset-bottom) + 34px) var(--m);
             column-width: calc(100vw - 2 * var(--m)); column-gap: calc(2 * var(--m)); column-fill: auto;
         }
+        /* Listening (S143): room for the mini-player under the text. */
+        html.yomi-pages.yomi-listening #yomi-chapters { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); }
         html.yomi-pages .yomi-chapter { break-before: column; }
         html.yomi-pages .yomi-chapter + .yomi-chapter { margin-top: 0; }
         html.yomi-pages img {
@@ -327,7 +391,7 @@ enum NovelReaderScript {
       var noMore = false;          // Swift said there's nothing to append
       var retryAt = 0;
       var progressTimer = null, trimTimer = null;
-      var lastScrollAt = 0, touching = false;
+      var lastScrollAt = 0, touching = false, lastTouchAt = 0;
       var lastPage = null;         // "id:page/pages" last posted, to post page changes only
 
       function post(name, body) {
@@ -521,7 +585,7 @@ enum NovelReaderScript {
       function zoomed() { return window.visualViewport && window.visualViewport.scale > 1.01; }
 
       document.addEventListener('touchstart', function (e) {
-        touching = true;
+        touching = true; lastTouchAt = Date.now();
         if (e.touches.length !== 1) { touch = null; ignoreClick = true; return; }
         var t = e.touches[0];
         touch = { x: t.clientX, y: t.clientY, t: Date.now(), dx: 0, dy: 0, sel: hasSelection() };
@@ -529,6 +593,7 @@ enum NovelReaderScript {
       }, { passive: true });
 
       document.addEventListener('touchmove', function (e) {
+        lastTouchAt = Date.now();
         if (!touch || e.touches.length !== 1) return;
         var t = e.touches[0];
         touch.dx = t.clientX - touch.x;
@@ -581,6 +646,79 @@ enum NovelReaderScript {
         menuTap();
       }, true);
 
+      // ── Listening (S143) ─────────────────────────────────────────────────
+      // Swift sends the sentences it speaks; each one is found in the chapter's text by comparing letters and
+      // digits only (Swift and WebKit decode entities and whitespace differently), searching forward from the
+      // previous match. The highlight is a CSS Custom Highlight, so the DOM — and the layout — never change.
+      var tts = { data: {}, id: null, sec: null, ranges: null };
+      var alnum = /[\p{L}\p{N}]/u;
+      function ttsKey(str) {
+        var out = '';
+        for (var i = 0; i < str.length; i++) { var c = str[i]; if (alnum.test(c)) out += c.toLowerCase()[0]; }
+        return out;
+      }
+      function ttsRanges(id) {
+        var s = find(id), list = tts.data[id];
+        if (!s || !list) return null;
+        if (tts.id === id && tts.sec === s && tts.ranges) return tts.ranges;
+        var body = s.querySelector(':scope > .yomi-chapter-body');
+        var nodes = [], map = [], chars = [];
+        var tw = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null), n;
+        while ((n = tw.nextNode())) {
+          var t = n.nodeValue, ni = nodes.length;
+          nodes.push(n);
+          for (var i = 0; i < t.length; i++) {
+            var c = t[i];
+            if (alnum.test(c)) { chars.push(c.toLowerCase()[0]); map.push(ni, i); }
+          }
+        }
+        var K = chars.join(''), from = 0, out = [];
+        for (var k = 0; k < list.length; k++) {
+          var q = ttsKey(list[k]);
+          if (!q) { out.push(null); continue; }
+          var at = K.indexOf(q, from), len = q.length;
+          if (at < 0) { var p = q.slice(0, 24); at = K.indexOf(p, from); len = p.length; }
+          if (at < 0 || at - from > 4000) { out.push(null); continue; }
+          var r = document.createRange();
+          var sn = nodes[map[2 * at]], so = map[2 * at + 1];
+          var e = at + len - 1, en = nodes[map[2 * e]], eo = map[2 * e + 1] + 1;
+          // Take in the quote before and the punctuation after, within the same text node.
+          while (so > 0 && /[^\s\p{L}\p{N}]/u.test(sn.nodeValue[so - 1])) so--;
+          while (eo < en.nodeValue.length && /[^\s\p{L}\p{N}]/u.test(en.nodeValue[eo])) eo++;
+          r.setStart(sn, so); r.setEnd(en, eo);
+          out.push(r);
+          from = at + len;
+        }
+        tts.id = id; tts.sec = s; tts.ranges = out;
+        return out;
+      }
+      function firstRect(r) { var rs = r.getClientRects(); return rs.length ? rs[0] : r.getBoundingClientRect(); }
+      // Keep the sentence being read on screen — unless the reader touched the page in the last 4 s or has text
+      // selected (scrolling carried the selection and its menu away — S143).
+      function reveal(r) {
+        if (touching || Date.now() - lastTouchAt < 4000 || hasSelection()) return;
+        var rect = firstRect(r);
+        if (opts.pages) {
+          var page = Math.floor((rect.left + window.scrollX + 1) / pageW());
+          if (page !== pageNow()) window.scrollTo({ left: page * pageW(), top: 0, behavior: 'smooth' });
+        } else {
+          var vh = window.innerHeight;
+          if (rect.top < vh * 0.12 || rect.bottom > vh * 0.7) {
+            window.scrollTo({ top: window.scrollY + rect.top - vh * 0.3, left: 0, behavior: 'smooth' });
+          }
+        }
+      }
+      // One Highlight object whose range is swapped: replacing the registered Highlight each sentence left the old
+      // ranges painted (WebKit didn't repaint them — S143 sim screenshot).
+      var ttsHL = null;
+      function ttsShow(r) {
+        if (!(window.CSS && CSS.highlights && window.Highlight)) return;
+        if (!ttsHL) { ttsHL = new Highlight(); CSS.highlights.set('yomi-tts', ttsHL); }
+        ttsHL.clear();
+        ttsHL.add(r);
+      }
+      function ttsClear() { if (ttsHL) ttsHL.clear(); }
+
       // ── API for Swift ────────────────────────────────────────────────────
       window.yomi = {
         setStyle: function (css) {
@@ -615,6 +753,44 @@ enum NovelReaderScript {
         scrollToChapter: function (id) {
           var s = find(id);
           if (s) goTo(s, 0);
+        },
+        ttsSet: function (id, list) {
+          tts.data = {}; tts.data[id] = list; tts.id = null; tts.ranges = null;
+        },
+        ttsMark: function (id, i, show) {
+          var rs = ttsRanges(id), r = rs && rs[i];
+          if (!r) { ttsClear(); return; }
+          if (show) ttsShow(r); else ttsClear();
+          reveal(r);
+        },
+        ttsClear: function () { ttsClear(); tts.data = {}; tts.id = null; tts.ranges = null; },
+        setListening: function (on) { relayout(function () { html.classList.toggle('yomi-listening', !!on); }); },
+        ttsFirstVisible: function (id) {
+          var rs = ttsRanges(id);
+          if (!rs) return 0;
+          for (var i = 0; i < rs.length; i++) {
+            if (!rs[i]) continue;
+            var rect = firstRect(rs[i]);
+            if (opts.pages ? (rect.right > 0 && rect.left < window.innerWidth) : rect.bottom > 4) return i;
+          }
+          return 0;
+        },
+        selectionChapter: function () {
+          var sel = window.getSelection();
+          if (!sel || !sel.rangeCount || !sel.anchorNode) return null;
+          var el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+          var s = el && el.closest('section.yomi-chapter');
+          return s ? s.dataset.id : null;
+        },
+        ttsSelectionIndex: function (id) {
+          var sel = window.getSelection(), rs = ttsRanges(id), found = 0;
+          if (sel && sel.rangeCount && rs) {
+            for (var i = 0; i < rs.length; i++) {
+              if (rs[i] && rs[i].comparePoint(sel.anchorNode, sel.anchorOffset) <= 0) { found = i; break; }
+            }
+          }
+          if (sel) sel.removeAllRanges();
+          return found;
         }
       };
       post('ready');
