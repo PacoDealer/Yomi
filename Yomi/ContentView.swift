@@ -12,6 +12,9 @@ struct ContentView: View {
     @State private var settings = AppSettings.shared
     @State private var updatesVM = UpdatesViewModel.shared
     @AppStorage("tabViewCustomization") private var customization = TabViewCustomization()
+    @State private var listen = ListenPlayer.shared
+    @State private var showListenPlayer = false
+    @State private var listenReader: ListenReaderTarget?
     /// The device's light/dark setting — the Automatic theme follows it (S142).
     @Environment(\.colorScheme) private var colorScheme
 
@@ -33,6 +36,20 @@ struct ContentView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
+        // Listening carries on outside the reader (S143): Apple Music's mini-player spot.
+        .tabViewBottomAccessory(isEnabled: listen.isActive && listen.readersOpen == 0) {
+            ListenMiniPlayer(onOpen: { showListenPlayer = true }, inTabBar: true)
+        }
+        .sheet(isPresented: $showListenPlayer) {
+            ListenPlayerView(onOpenReader: { listenReader = ListenReaderTarget.current() })
+        }
+        .fullScreenCover(item: $listenReader) { target in
+            NavigationStack {
+                TextReaderView(novel: target.novel, bridge: target.bridge, chapters: target.chapters,
+                               startIndex: target.index)   // its Back button dismisses the cover
+            }
+            .tint(Color(hex: settings.accentColor))
+        }
         // The legacy "pure black" tab-bar override is gone (S142): Midnight is the true-black theme,
         // and the old switch had no UI left, so anyone who had it on was stuck with it.
         .environment(\.yomiCanvas, palette)
@@ -76,6 +93,24 @@ struct ContentView: View {
             }
             .customizationID("com.Yomi.More")
         }
+    }
+}
+
+/// The novel being listened to, to open in the reader from the tab-bar player.
+struct ListenReaderTarget: Identifiable {
+    let id = UUID()
+    let novel: Novel
+    let bridge: JSBridge
+    let chapters: [NovelChapter]
+    let index: Int
+
+    static func current() -> ListenReaderTarget? {
+        let p = ListenPlayer.shared
+        guard let novel = p.novel, let bridge = p.bridge, p.chapters.indices.contains(p.chapterIndex) else { return nil }
+        // Open at the sentence being read, not wherever the chapter list last had it.
+        var chapters = p.chapters
+        chapters[p.chapterIndex].lastScrollPercent = p.progress
+        return ListenReaderTarget(novel: novel, bridge: bridge, chapters: chapters, index: p.chapterIndex)
     }
 }
 
