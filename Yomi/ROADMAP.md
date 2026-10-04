@@ -21,6 +21,29 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S143 — Read-aloud rebuilt (TTS, §25.10 #8) (2026-10-04)
+
+- Research (live sources): background audio is allowed (Guideline 2.5.4 "audio playback"); Now Playing with plain
+  `AVSpeechSynthesizer` is reported flaky (Apple forums 2021) — fallback is `write(_:toBufferCallback:)` + an audio
+  player; iOS 26 renamed the voices pane to Settings → Accessibility → Read & Speak → Voices.
+- Martin: listening keeps playing outside the reader (Apple Music style); other apps' audio pauses by default
+  **with a setting to mix** ("customization is key").
+- Built (`7021686`, sim-verified, UI tests 12/12, 0 warnings): `ListenPlayer` (app-wide; sentences via NLTokenizer,
+  one utterance each; next chapter prepared halfway + announced; progress by characters; reading time; Now
+  Playing + remote commands; interruptions; `audio` background mode), sentence highlight + follow in scroll and
+  pages, start at first visible sentence, "Listen from Here" in the selection menu (instead of tap-a-paragraph),
+  mini-player in the reader and in the tab bar accessory, full player (speed presets from a measured curve,
+  voice, sleep timer, Open in reader).
+- **Not verified:** lock screen / Control Center / AirPods / screen-locked playback (device only — Martin doesn't
+  use TTS now, no install requested).
+- **Next:** Settings → Novels → Listening UI for the new settings (`ttsVoiceId`, `ttsHighlight`,
+  `ttsAutoAdvance`, `ttsMixWithOthers` — saved in code, no switches yet; replace the old speed slider), then
+  More's old sub-screens in the calm style, then first-run + imports (#3, #6).
+- Answered (chat): Aidoku/Paperback sources — possible, not now. Paperback is closer (JS; Yomi's S24 0.8 shim is
+  stale, ecosystem moved to 0.9, ~1–2 sessions); Aidoku needs a WASM runtime + 8 host-import modules, app is GPL-3
+  (~3–4 sessions). Both manga-only and mostly overlap Keiyoushi.
+- Martin is pausing a few days for exams (30 % of the weekly limit used on day one).
+
 ## S142 — Keiyoushi titles in Updates + Updates Summary (2026-10-03)
 
 - **#174 fixed** (Martin on device: "worked perfectly and quick too"): refresh checks Keiyoushi manga via

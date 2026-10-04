@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S142 — 2026-10-03)
+## Current state (S143 — 2026-10-04)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -43,12 +43,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **Updates:** refresh checks JS + Keiyoushi titles (Keiyoushi pool 3), progress row, Updates Summary
   (Failed/Completed, Retry). Background refresh skips Keiyoushi. One row per chapter found (`fetchedAt`, v23).
 - **Reading state:** only reading counts toward History/Continue. `ResumeReading` (ContinueReadingRow.swift).
-- **Agreed order (Martin):** TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last (incl. #170).
+- **Read-aloud (S143):** app-wide `ListenPlayer` (`Features/Reader/ListenPlayer.swift`, views in
+  `ListenPlayerViews.swift`) — Swift owns the sentences, the reader only highlights/follows; keeps playing outside
+  the reader (tab bar accessory). Lock screen/background untested on device. Listening settings UI not built yet.
+- **Agreed order (Martin):** Listening settings UI → More's old sub-screens → first-run + imports (#3, #6) →
+  legal last (incl. #170).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
-  zones per manga mode, Spanish (ROADMAP S142). Martin asked about Aidoku/Paperback sources — not researched.
+  zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
   extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S142 build, profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
+- Phone has the S142 (`8aa57c7`) build, profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
