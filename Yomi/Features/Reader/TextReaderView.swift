@@ -292,8 +292,13 @@ struct TextReaderView: View {
         .onChange(of: shouldRequestReview) { _, should in
             if should { requestReview(); shouldRequestReview = false }
         }
-        .onAppear { sessionStart = Date() }
+        .onAppear {
+            sessionStart = Date()
+            // "Keep screen on" used to apply to the manga reader only (S142 settings audit).
+            UIApplication.shared.isIdleTimerDisabled = AppSettings.shared.keepScreenOn
+        }
         .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
             stopTTS()
             flushScrollPercent()
             flushReadingTime()

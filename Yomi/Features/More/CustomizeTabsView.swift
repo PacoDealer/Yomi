@@ -17,7 +17,7 @@ struct CustomizeTabsView: View {
     }
 
     var body: some View {
-        List {
+        CalmList {
             Section {
                 ForEach(orderedIDs, id: \.self) { id in
                     row(for: id)
@@ -27,7 +27,6 @@ struct CustomizeTabsView: View {
                 Text("Drag to reorder. \u{201C}More\u{201D} always stays visible so Settings is never hidden.")
             }
         }
-        .listStyle(.insetGrouped)
         .environment(\.editMode, .constant(.active))
         .navigationTitle("Customize Tabs")
         .navigationBarTitleDisplayMode(.inline)

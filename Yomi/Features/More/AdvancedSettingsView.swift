@@ -11,13 +11,19 @@ struct AdvancedSettingsView: View {
     @State private var settings = AppSettings.shared
 
     var body: some View {
-        List {
+        CalmList {
             cacheSection
+            // Moved from Settings → Sources (S142, Martin): extensions run on the phone now, so a self-hosted
+            // Suwayomi server is for people who already run one.
+            Section {
+                NavigationLink("Suwayomi Server") { SuwayomiSettingsView() }
+            } header: { CalmSectionHeader("Servers") } footer: {
+                Text("For people who run their own Suwayomi server. Not needed for Keiyoushi extensions — those run on this iPhone.")
+            }
             networkSection
             databaseSection
             aboutSection
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Advanced")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -25,12 +31,16 @@ struct AdvancedSettingsView: View {
     // MARK: - Cache
 
     private var cacheSection: some View {
-        Section("Cache") {
+        Section(calm: "Data") {
             NavigationLink("Storage") { StorageView() }
 
-            Button("Clear plugin catalog cache") {
-                PluginCatalogService.shared.invalidateCache()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            // Was "Clear plugin catalog cache", which only reset a timestamp — now it actually reloads (S142).
+            Button("Reload repository lists") {
+                Task {
+                    await PluginCatalogService.shared.fetchCatalog(force: true)
+                    await KeiyoushiRepository.shared.refresh()
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
             }
             .foregroundStyle(.primary)
         }
@@ -46,7 +56,7 @@ struct AdvancedSettingsView: View {
                     .font(.footnote)
             }
             Stepper(
-                "Request timeout: \(Int(settings.requestTimeout))s",
+                "Plugin request timeout: \(Int(settings.requestTimeout)) s",
                 value: $settings.requestTimeout,
                 in: 10...60,
                 step: 5
@@ -55,7 +65,7 @@ struct AdvancedSettingsView: View {
             NavigationLink("Network Console") { ConsoleView() }
             #endif
         } header: {
-            Text("Network")
+            CalmSectionHeader("Network")
         } footer: {
             Text("User agent is fixed — it must match the Cloudflare bypass browser's, or solved challenges won't carry over to source requests.")
                 .font(.caption)
@@ -65,7 +75,7 @@ struct AdvancedSettingsView: View {
     // MARK: - Database
 
     private var databaseSection: some View {
-        Section("Database") {
+        Section(calm: "Support") {
             Button("Export diagnostic log") {
                 exportLog()
             }
@@ -76,7 +86,7 @@ struct AdvancedSettingsView: View {
     // MARK: - About
 
     private var aboutSection: some View {
-        Section("Build") {
+        Section(calm: "Build") {
             LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
             LabeledContent("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
             LabeledContent("iOS", value: UIDevice.current.systemVersion)

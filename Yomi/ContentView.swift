@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var settings = AppSettings.shared
     @State private var updatesVM = UpdatesViewModel.shared
     @AppStorage("tabViewCustomization") private var customization = TabViewCustomization()
+    /// The device's light/dark setting — the Automatic theme follows it (S142).
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: YomiTokens.CanvasColors { settings.canvasColors(for: colorScheme) }
 
     /// Visible tabs in the user's chosen order — CustomizeTabsView is iPhone's only way to
     /// reorder/hide tabs, since the system's own sidebar-editing UI never renders in compact
@@ -29,16 +33,10 @@ struct ContentView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewCustomization($customization)
-        .toolbarBackground(
-            settings.pureBlack ? Color.black : Color.clear,
-            for: .tabBar
-        )
-        .toolbarBackground(
-            settings.pureBlack ? .visible : .automatic,
-            for: .tabBar
-        )
-        .environment(\.yomiCanvas, settings.blendedCanvasColors)
-        .background(settings.blendedCanvasColors.bg.ignoresSafeArea())
+        // The legacy "pure black" tab-bar override is gone (S142): Midnight is the true-black theme,
+        // and the old switch had no UI left, so anyone who had it on was stuck with it.
+        .environment(\.yomiCanvas, palette)
+        .background(palette.bg.ignoresSafeArea())
         .onOpenURL { url in TrackerManager.route(url: url) }
     }
 

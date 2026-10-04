@@ -35,9 +35,9 @@ struct StorageView: View {
 
     private func rows(for b: StorageBreakdown) -> [StorageRow] {
         [
-            StorageRow(id: "downloads", label: "Downloads", bytes: b.downloads, barOpacity: 1.0, subtitle: "Saved chapters for offline reading"),
+            StorageRow(id: "downloads", label: "Downloads", bytes: b.downloads, barOpacity: 1.0, subtitle: "Manga and novel chapters saved for offline reading"),
             StorageRow(id: "imageCache", label: "Image cache", bytes: b.imageCache, barOpacity: 0.7, subtitle: "Cached cover art and page images"),
-            StorageRow(id: "extensions", label: "Plugins", bytes: b.extensions, barOpacity: 0.5, subtitle: "Installed source scripts"),
+            StorageRow(id: "extensions", label: "Extensions", bytes: b.extensions, barOpacity: 0.5, subtitle: "Installed plugins and Keiyoushi extensions"),
             StorageRow(id: "covers", label: "Custom covers", bytes: b.covers, barOpacity: 0.35, subtitle: nil),
             StorageRow(id: "webCache", label: "Web cache", bytes: b.webCache, barOpacity: 0.22, subtitle: "Cloudflare bypass sessions, cookies"),
         ]
@@ -50,7 +50,7 @@ struct StorageView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 4)
 
-            List {
+            CalmList {
                 if let breakdown {
                     ForEach(rows(for: breakdown)) { row in
                         rowSection(row)
@@ -92,7 +92,6 @@ struct StorageView: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
         }
         .navigationTitle("Storage")
         .navigationBarTitleDisplayMode(.inline)

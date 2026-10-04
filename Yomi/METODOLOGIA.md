@@ -2049,3 +2049,16 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Keiyoushi chapters have no `chapterNumber`** — anything that sorts by number needs a name fallback.
 - Sim panel: the first tap after a screen change is dropped and can land LATE on the next screen (opened the
   wrong title twice). Prefer tapping, screenshotting, then re-tapping only if nothing changed.
+
+## S142 lessons
+- **Audit settings by reading each value's readers, not the screen.** A script mapping every `AppSettings`
+  property to its UI and its non-UI readers found dead settings (`useSystemFont`), a switch with no effect
+  outside one screen (24-hour clock), and duplicates with mismatched steps (Settings → Novels vs reader panel).
+- **Check Info.plist privacy keys when a feature "works but not quite"** — App Lock always asked for the passcode
+  because `NSFaceIDUsageDescription` was missing (Apple docs: Face ID refused without it).
+- **Verify formats live before claiming support.** Keiyoushi's index.min.json is now an "Outdated App" stub, but
+  Suwayomi's and Kavita's repositories still publish JSON — a single-format reader silently excluded them.
+- SwiftUI: `.listRowSeparator(.hidden)` on a `List` doesn't reach its rows (wrap the content in a `Group`); plain
+  lists pin section headers over rows — use grouped style with a clear background.
+- The desktop app's simulator pane keeps the system in dark mode; `simctl ui appearance light` reports "light"
+  but iOS Settings itself stays dark. Check light mode on the device.

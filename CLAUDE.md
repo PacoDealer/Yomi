@@ -18,38 +18,42 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#176), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#180), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S141 — 2026-10-03)
+## Current state (S142 — 2026-10-03)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
 - **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere, system neutrals, colour from
-  covers, one accent, nothing on covers, plain `Notation`, **no list separators** (Martin S141). Built:
-  Library, Novel + Manga Detail, Browse (Sources + Extensions), **History, Updates (S141)**. Still old style:
-  More, Settings.
-- **Extensions (S140 rules):** no repositories on a fresh install, none suggested; every extension in an added
-  repository is one tap "Add"; delete = swipe → red trash. Catalog ↔ installed matching uses
-  `PluginCatalogEntry.installIds` (catalog id, sha256(file URL / file name)) — link-installed plugins keep
-  their own name and id (S141).
-- **Reading state:** only reading counts toward History/Continue (opening a page doesn't). `ResumeReading`
-  (ContinueReadingRow.swift) = the shelf's and History's "back to where I was" (chapter + page).
-- **Updates** = one row per chapter found by a refresh (`fetchedAt`, migration v23), tap = read it.
-- **Agreed order (Martin, S141):** Keiyoushi titles in Updates refresh + Completed/Failed summary
-  (KNOWN_ISSUES #174) → More → Settings screens → TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last
-  (incl. #170).
-- Open gaps: Keiyoushi first page 4–6 s; manga Download needs a JSBridge; Downloads not routed for Keiyoushi
-  titles; no Mihon/Tachimanga backup import; no Dynamic Type outside the reader; GPLv3 NewPipe still in the
-  extension-server jar; Pages-mode UI tests flaky on the sim (#164, 3/12 fail).
-- Phone has the S141 build (`4b6a354`), profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
+  covers, one accent, nothing on covers, plain `Notation`, **no list separators** (Martin S141). Every main
+  screen is calm now (S142: More, About, Settings + its sub-screens). Settings-style lists use `CalmList` +
+  `Section(calm:)` (Core/CanvasEnvironment.swift). Still old inside: More's sub-screens (Downloads, Insights,
+  Trackers, Backup, Sync, Categories).
+- **Theme:** `canvas` "Automatic" (follows iPhone light/dark, default for fresh installs) / Ink / Midnight /
+  Paper / Sepia; palette resolved in ContentView via `canvasColors(for: colorScheme)`. Time/Date follow the
+  iPhone unless chosen.
+- **Extensions:** no repositories on a fresh install, none suggested; one tap "Add"; delete = swipe. **Any
+  number of Mihon repositories** (`mihonRepoURLs`, `KeiyoushiRepository.repos`), `index.pb` or
+  `index.min.json`, folder links accepted (S142). Catalog ↔ installed matching: `PluginCatalogEntry.installIds`.
+- **Downloads:** Keiyoushi/Suwayomi manga download too (`DownloadManager.canDownload`; Keiyoushi needs Yomi open).
+- **Updates:** refresh checks JS + Keiyoushi titles (Keiyoushi pool 3), progress row, Updates Summary
+  (Failed/Completed, Retry). Background refresh skips Keiyoushi. One row per chapter found (`fetchedAt`, v23).
+- **Reading state:** only reading counts toward History/Continue. `ResumeReading` (ContinueReadingRow.swift).
+- **Agreed order (Martin):** TTS (§25.10 #8) → first-run + imports (#3, #6) → legal last (incl. #170).
+  Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
+  zones per manga mode, Spanish (ROADMAP S142). Martin asked about Aidoku/Paperback sources — not researched.
+- Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
+  extension-server jar; notification prompt on a fresh install not yet observed on device.
+- Phone has the S142 build, profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
+- Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v24_`**.
+- Next GRDB migration prefix: **`v24_`**. UI tests 12/12 (S142).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in

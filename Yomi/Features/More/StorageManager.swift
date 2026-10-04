@@ -48,9 +48,13 @@ enum StorageManager {
     nonisolated static func computeBreakdown() async -> StorageBreakdown {
         let docs = documentsURL()
 
+        // Novel chapters (S127) and Keiyoushi APKs/converted jars (Application Support) were missing — novels landed
+        // in "other" and Keiyoushi wasn't counted at all (S142 settings audit).
         let downloads  = directorySize(docs.appendingPathComponent("Downloads"))
+            + directorySize(docs.appendingPathComponent("NovelDownloads"))
         let covers     = directorySize(docs.appendingPathComponent("Covers"))
         let extensions = directorySize(docs.appendingPathComponent("Extensions"))
+            + directorySize(KeiyoushiRepository.rootDirectory)
 
         var database = fileSize(docs.appendingPathComponent("yomi.db"))
         database += fileSize(docs.appendingPathComponent("yomi.db-wal"))

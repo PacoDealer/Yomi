@@ -109,11 +109,11 @@ nonisolated enum Notation {
     /// "14:20"/"2:20 PM" today and yesterday (the row already sits under a "Yesterday" header — S141),
     /// "Mon" within the last week, "Jul 28"/"28 Jul" otherwise — for History rows. `use24Hour`/`dayFirst` default to the app's original hardcoded format
     /// (24-hour clock, month-before-day) so existing callers are unaffected.
-    static func historyTimestamp(_ date: Date, use24Hour: Bool = true, dayFirst: Bool = false) -> String {
+    /// nil `use24Hour` / `dayFirst` = follow the iPhone's own settings (S142 default).
+    static func historyTimestamp(_ date: Date, use24Hour: Bool? = nil, dayFirst: Bool? = nil) -> String {
         let cal = Calendar.current
         if cal.isDateInToday(date) || cal.isDateInYesterday(date) {
-            let f = DateFormatter(); f.dateFormat = use24Hour ? "HH:mm" : "h:mm a"
-            return f.string(from: date)
+            return time(date, use24Hour: use24Hour)
         }
         let days = cal.dateComponents(
             [.day],
@@ -121,10 +121,17 @@ nonisolated enum Notation {
             to: cal.startOfDay(for: Date())
         ).day ?? 0
         if days < 7 {
-            let f = DateFormatter(); f.dateFormat = "EEE"
-            return f.string(from: date)
+            return date.formatted(.dateTime.weekday(.abbreviated))
         }
+        guard let dayFirst else { return date.formatted(.dateTime.day().month(.abbreviated)) }
         let f = DateFormatter(); f.dateFormat = dayFirst ? "d MMM" : "MMM d"
+        return f.string(from: date)
+    }
+
+    /// A time of day in the user's chosen clock, or the iPhone's when they haven't chosen.
+    static func time(_ date: Date, use24Hour: Bool?) -> String {
+        guard let use24Hour else { return date.formatted(date: .omitted, time: .shortened) }
+        let f = DateFormatter(); f.dateFormat = use24Hour ? "HH:mm" : "h:mm a"
         return f.string(from: date)
     }
 
