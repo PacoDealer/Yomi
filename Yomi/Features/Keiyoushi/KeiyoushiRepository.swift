@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 // MARK: - Models
 
@@ -23,6 +24,8 @@ nonisolated struct KeiyoushiExtension: Codable, Hashable, Identifiable, Sendable
     /// Repository content warning: 0 unspecified, 1 safe, 2 mixed, 3 NSFW.
     let contentWarning: Int
     let sources: [KeiyoushiSource]
+    /// The repository index this entry came from (S142: several Mihon repositories). nil in installs saved earlier.
+    var repoURL: String? = nil
 
     var id: String { packageName }
     var isNSFW: Bool { contentWarning == 3 }
@@ -63,7 +66,7 @@ enum KeiyoushiError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badRepoURL: return "That isn't a valid repository URL."
-        case .notAnIndex: return "That URL didn't return a Mihon extension index (index.pb)."
+        case .notAnIndex: return "That link isn't a Mihon extension repository (index.pb or index.min.json)."
         case .download(let why): return "Download failed — \(why)"
         case .runtimeUnavailable:
             return "Keiyoushi extensions need the on-device runtime, which this build doesn't include."
@@ -74,18 +77,33 @@ enum KeiyoushiError: LocalizedError {
 
 // MARK: - Repository + installed extensions
 
-/// The user's Mihon extension repository (e.g. Keiyoushi) and the extensions installed from it.
+/// One Mihon extension repository the user added, with its last decoded index.
+struct MihonRepo: Identifiable {
+    let url: String
+    var name: String?
+    var extensions: [KeiyoushiExtension]
+    var error: String?
+    var id: String { url }
+}
+
+/// The user's Mihon extension repositories (Keiyoushi and any other Mihon/Tachiyomi repository) and the extensions
+/// installed from them.
+///
+/// S142: any number of repositories, in either index format — Keiyoushi's protobuf `index.pb` (since 2026-08) or
+/// the classic `index.min.json` other repositories still publish (Suwayomi's, Kavita's — checked live). Before,
+/// Yomi held one repository and adding a second replaced the first.
 ///
 /// Extensions run on the device through the embedded JVM (`KeiyoushiBridge`), so "install" just downloads the
-/// extension's APK into Application Support; the bridge converts and loads it on first use. The index is cached
+/// extension's APK into Application Support; the bridge converts and loads it on first use. Each index is cached
 /// on disk so the list still shows offline.
 @Observable
 final class KeiyoushiRepository {
     static let shared = KeiyoushiRepository()
 
+    private(set) var repos: [MihonRepo] = []
+    /// Every repository's extensions; a package in two repositories appears once (highest version).
     private(set) var available: [KeiyoushiExtension] = []
     private(set) var installed: [InstalledKeiyoushiExtension] = []
-    private(set) var repoName: String?
     private(set) var isLoading = false
     var errorMessage: String?
 
@@ -101,15 +119,24 @@ final class KeiyoushiRepository {
         return dir
     }()
     nonisolated private static let installedFile = rootDirectory.appendingPathComponent("installed.json")
-    nonisolated private static let indexCacheFile = rootDirectory.appendingPathComponent("index.pb")
+    /// The single-repository cache from before S142 — read once as the first repository's cache.
+    nonisolated private static let legacyIndexCacheFile = rootDirectory.appendingPathComponent("index.pb")
+
+    nonisolated private static func cacheFile(for url: String) -> URL {
+        let key = SHA256.hash(data: Data(url.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+        return rootDirectory.appendingPathComponent("index-\(key).cache")
+    }
 
     private init() {
         installed = Self.loadInstalled()
-        if let cached = try? Data(contentsOf: Self.indexCacheFile),
-           let decoded = try? Self.decodeIndex(cached) {
-            repoName = decoded.name
-            available = decoded.extensions
+        let urls = AppSettings.shared.mihonRepoURLs
+        repos = urls.enumerated().map { i, url in
+            var data = try? Data(contentsOf: Self.cacheFile(for: url))
+            if data == nil, i == 0 { data = try? Data(contentsOf: Self.legacyIndexCacheFile) }
+            let decoded = data.flatMap { try? Self.decodeIndex($0, repoURL: url) }
+            return MihonRepo(url: url, name: decoded?.name, extensions: decoded?.extensions ?? [])
         }
+        rebuildAvailable()
     }
 
     /// Every enabled source across all installed extensions (languages the user turned off are left out).
@@ -135,40 +162,101 @@ final class KeiyoushiRepository {
         return remote
     }
 
-    // MARK: Index
+    /// The repository's own name ("Keiyoushi"), or the link's host when the index has none.
+    func repoName(for ext: KeiyoushiExtension) -> String {
+        let repo = repos.first { $0.url == ext.repoURL } ?? repos.first
+        return repo?.name.flatMap { $0.isEmpty ? nil : $0 }
+            ?? repo.map { PluginCatalogService.repoLabel(from: $0.url) } ?? "Mihon"
+    }
 
-    /// Fetches and decodes the configured repository index. Keeps the previous list on failure.
+    private func rebuildAvailable() {
+        var best: [String: KeiyoushiExtension] = [:]
+        for ext in repos.flatMap(\.extensions) {
+            if let have = best[ext.packageName], have.versionCode >= ext.versionCode { continue }
+            best[ext.packageName] = ext
+        }
+        available = best.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    // MARK: Repositories
+
+    /// Adds a repository link. Accepts the index itself (…/index.pb, …/index.min.json) or the repository's folder,
+    /// in which case both index names are tried. Throws if the link isn't a Mihon repository.
+    func addRepository(_ link: String) async throws {
+        let trimmed = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed), url.scheme?.hasPrefix("http") == true, url.host != nil else {
+            throw KeiyoushiError.badRepoURL
+        }
+        let candidates: [URL]
+        let path = url.path.lowercased()
+        if path.hasSuffix(".pb") || path.hasSuffix(".json") {
+            candidates = [url]
+        } else {
+            candidates = [url.appendingPathComponent("index.pb"), url.appendingPathComponent("index.min.json")]
+        }
+        var lastError: Error = KeiyoushiError.notAnIndex
+        for candidate in candidates {
+            let key = candidate.absoluteString
+            guard !AppSettings.shared.mihonRepoURLs.contains(key) else { return }
+            do {
+                let (data, decoded) = try await Self.fetchIndex(key)
+                try? data.write(to: Self.cacheFile(for: key), options: .atomic)
+                AppSettings.shared.mihonRepoURLs.append(key)
+                repos.append(MihonRepo(url: key, name: decoded.name, extensions: decoded.extensions))
+                rebuildAvailable()
+                return
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
+    /// Removes a repository. Extensions already added from it stay installed.
+    func removeRepository(_ url: String) {
+        AppSettings.shared.mihonRepoURLs.removeAll { $0 == url }
+        repos.removeAll { $0.url == url }
+        try? FileManager.default.removeItem(at: Self.cacheFile(for: url))
+        rebuildAvailable()
+    }
+
+    /// Re-fetches every repository's index. A repository that fails keeps its last list and shows its error.
     func refresh() async {
-        let urlString = AppSettings.shared.keiyoushiRepoURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !urlString.isEmpty else {
-            available = []
-            repoName = nil
-            return
-        }
-        guard let url = URL(string: urlString), url.scheme?.hasPrefix("http") == true else {
-            errorMessage = KeiyoushiError.badRepoURL.localizedDescription
-            return
-        }
+        let urls = AppSettings.shared.mihonRepoURLs
+        repos = urls.map { url in repos.first { $0.url == url } ?? MihonRepo(url: url, extensions: []) }
+        guard !urls.isEmpty else { available = []; return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
-        do {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            let (data, response) = try await URLSession.shared.data(for: request)
-            yomiLogNetwork(request, response: response, data: data, error: nil)
-            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                throw KeiyoushiError.download("HTTP \(http.statusCode)")
+        for url in urls {
+            do {
+                let (data, decoded) = try await Self.fetchIndex(url)
+                try? data.write(to: Self.cacheFile(for: url), options: .atomic)
+                if let i = repos.firstIndex(where: { $0.url == url }) {
+                    repos[i] = MihonRepo(url: url, name: decoded.name, extensions: decoded.extensions)
+                }
+            } catch {
+                if let i = repos.firstIndex(where: { $0.url == url }) { repos[i].error = error.localizedDescription }
+                errorMessage = error.localizedDescription
             }
-            let decoded = try await Task.detached(priority: .userInitiated) {
-                try Self.decodeIndex(data)
-            }.value
-            try? data.write(to: Self.indexCacheFile, options: .atomic)
-            repoName = decoded.name
-            available = decoded.extensions
-        } catch {
-            errorMessage = error.localizedDescription
         }
+        rebuildAvailable()
+    }
+
+    private static func fetchIndex(_ urlString: String) async throws
+        -> (Data, (name: String, extensions: [KeiyoushiExtension])) {
+        guard let url = URL(string: urlString) else { throw KeiyoushiError.badRepoURL }
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, response) = try await URLSession.shared.data(for: request)
+        yomiLogNetwork(request, response: response, data: data, error: nil)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw KeiyoushiError.download("HTTP \(http.statusCode)")
+        }
+        let decoded = try await Task.detached(priority: .userInitiated) {
+            try decodeIndex(data, repoURL: urlString)
+        }.value
+        return (data, decoded)
     }
 
     // MARK: Install / uninstall
@@ -225,8 +313,12 @@ final class KeiyoushiRepository {
     /// Decodes a Mihon extension repository index (gzip'd or plain protobuf). Field numbers follow Suwayomi's
     /// `NetworkExtensionStore` (verified S124 against Keiyoushi's live index: 1,399 extensions, all inline in
     /// field 101). An index that only points elsewhere (field 102, `extensionListUrl`) isn't followed yet.
-    nonisolated static func decodeIndex(_ raw: Data) throws -> (name: String, extensions: [KeiyoushiExtension]) {
+    nonisolated static func decodeIndex(_ raw: Data, repoURL: String) throws
+        -> (name: String, extensions: [KeiyoushiExtension]) {
         let data = raw.starts(with: [0x1f, 0x8b]) ? try TachiyomiBackupParser.gunzip(raw) : raw
+        if data.first(where: { ![9, 10, 13, 32].contains($0) }) == UInt8(ascii: "[") {
+            return try decodeJSONIndex(data, repoURL: repoURL)
+        }
         let top = ProtoReader(data)
         var name = ""
         var extensions: [KeiyoushiExtension] = []
@@ -240,7 +332,8 @@ final class KeiyoushiRepository {
                 let list = ProtoReader(try top.readLengthDelimited())
                 while list.hasNext {
                     let (f, w) = try list.readTag()
-                    if f == 1, w == 2, let ext = try decodeExtension(list.readLengthDelimited()) {
+                    if f == 1, w == 2, var ext = try decodeExtension(list.readLengthDelimited()) {
+                        ext.repoURL = repoURL
                         extensions.append(ext)
                     } else {
                         try list.skip(wireType: w)
@@ -299,5 +392,41 @@ final class KeiyoushiRepository {
         guard !pkg.isEmpty, !apk.isEmpty, !sources.isEmpty else { return nil }
         return KeiyoushiExtension(name: name, packageName: pkg, versionName: versionName, versionCode: versionCode,
                                   apkURL: apk, iconURL: icon, contentWarning: warning, sources: sources)
+    }
+
+    // MARK: index.min.json decoding
+
+    private nonisolated struct JSONIndexEntry: Decodable {
+        struct Source: Decodable { let name: String; let lang: String; let id: String; let baseUrl: String? }
+        let name: String
+        let pkg: String
+        let apk: String
+        let code: Int64
+        let version: String
+        let nsfw: Int?
+        let sources: [Source]?
+    }
+
+    /// The classic Tachiyomi/Mihon repository index: an array of extensions whose APK and icon live next to it in
+    /// `apk/<file>` and `icon/<package>.png` (format checked live against Suwayomi's and Kavita's repositories).
+    nonisolated private static func decodeJSONIndex(_ data: Data, repoURL: String) throws
+        -> (name: String, extensions: [KeiyoushiExtension]) {
+        guard let entries = try? JSONDecoder().decode([JSONIndexEntry].self, from: data) else {
+            throw KeiyoushiError.notAnIndex
+        }
+        let base = URL(string: repoURL)?.deletingLastPathComponent()
+        let extensions: [KeiyoushiExtension] = entries.compactMap { e in
+            guard let base, let sources = e.sources, !sources.isEmpty else { return nil }
+            return KeiyoushiExtension(
+                name: e.name.replacingOccurrences(of: "Tachiyomi: ", with: ""),
+                packageName: e.pkg, versionName: e.version, versionCode: e.code,
+                apkURL: base.appendingPathComponent("apk").appendingPathComponent(e.apk).absoluteString,
+                iconURL: base.appendingPathComponent("icon").appendingPathComponent("\(e.pkg).png").absoluteString,
+                contentWarning: (e.nsfw ?? 0) == 1 ? 3 : 1,
+                sources: sources.map { KeiyoushiSource(id: $0.id, name: $0.name, lang: $0.lang, homeURL: $0.baseUrl ?? "") },
+                repoURL: repoURL)
+        }
+        // These indexes carry no repository name — the link's host names it (`repoName(for:)`).
+        return ("", extensions.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
     }
 }

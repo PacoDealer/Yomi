@@ -34,7 +34,15 @@ import SwiftUI
     private struct QueueItem {
         let chapter: Chapter
         let manga: Manga
-        let bridge: JSBridge
+        /// nil for Keiyoushi and Suwayomi titles — pages come from the on-device extension / the server (S142).
+        let bridge: JSBridge?
+    }
+
+    /// Whether a manga's chapters can be downloaded: a JS plugin, or a Keiyoushi / Suwayomi title.
+    /// Keiyoushi titles were locked out until S142 because the queue required a JS plugin.
+    static func canDownload(_ manga: Manga, bridge: JSBridge?) -> Bool {
+        bridge != nil || KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId)
+            || SuwayomiService.isSuwayomiSourceId(manga.sourceId)
     }
 
     private var items: [QueueItem] = []
@@ -50,8 +58,9 @@ import SwiftUI
 
     // MARK: - Enqueue
 
-    func enqueue(_ chapter: Chapter, manga: Manga, bridge: JSBridge) {
-        guard !chapter.isDownloaded,
+    func enqueue(_ chapter: Chapter, manga: Manga, bridge: JSBridge?) {
+        guard Self.canDownload(manga, bridge: bridge),
+              !chapter.isDownloaded,
               !items.contains(where: { $0.chapter.id == chapter.id })
         else { return }
         items.append(QueueItem(chapter: chapter, manga: manga, bridge: bridge))
@@ -174,10 +183,9 @@ import SwiftUI
         let chapterPath = item.chapter.path
         let bridge      = item.bridge
 
-        // 1. Get page list — bridge.getPageList blocks via DispatchSemaphore, must run off MainActor
-        let urls = await Task.detached(priority: .userInitiated) {
-            bridge.getPageList(chapterPath: chapterPath)
-        }.value
+        // 1. Get the page list the same way the reader does (JS plugin off MainActor, Keiyoushi through the
+        //    embedded JVM — its pages are 127.0.0.1 image URLs the extension serves, already descrambled).
+        let urls = await ChapterReaderView.fetchPages(bridge: bridge, path: chapterPath)
 
         guard !urls.isEmpty else {
             // An empty page list means the plugin fetch failed (JS exceptions are swallowed and

@@ -14,6 +14,8 @@ final class NotificationManager {
     // MARK: - State
 
     var isAuthorized: Bool = false
+    /// The user said no (or turned Yomi off in iOS Settings) — Settings shows a way back (S142).
+    var isDenied: Bool = false
 
     // MARK: - Permission
 
@@ -25,6 +27,7 @@ final class NotificationManager {
         } catch {
             isAuthorized = false
         }
+        await checkAuthorizationStatus()
     }
 
     // MARK: - Privacy
@@ -46,6 +49,7 @@ final class NotificationManager {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         await MainActor.run {
             isAuthorized = settings.authorizationStatus == .authorized
+            isDenied = settings.authorizationStatus == .denied
         }
     }
 

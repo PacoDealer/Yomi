@@ -585,13 +585,14 @@ struct MangaDetailView: View {
         }
     }
 
-    /// The Download pill. Manga downloads go through the plugin's JSBridge, so Keiyoushi/Suwayomi titles
-    /// (no bridge) get a disabled pill.
+    /// The Download pill. JS-plugin titles download through their JSBridge; Keiyoushi/Suwayomi titles (no bridge)
+    /// fetch pages from the on-device extension / the server (S142 — they used to get a disabled pill).
     @ViewBuilder private var downloadMenu: some View {
         let unread = readingChapters.filter { !$0.isDownloaded && !$0.isRead }
         let undownloaded = readingChapters.filter { !$0.isDownloaded }
         Menu {
-            if let b = bridge {
+            if DownloadManager.canDownload(manga, bridge: bridge) {
+                let b = bridge
                 if !unread.isEmpty {
                     Button("Next chapter") { enqueue(unread.prefix(1), bridge: b) }
                     if unread.count >= 5 {
@@ -612,10 +613,10 @@ struct MangaDetailView: View {
             Label("Download", systemImage: "arrow.down")
                 .detailPillLabel()
         }
-        .disabled(bridge == nil || undownloaded.isEmpty)
+        .disabled(!DownloadManager.canDownload(manga, bridge: bridge) || undownloaded.isEmpty)
     }
 
-    private func enqueue(_ targets: ArraySlice<Chapter>, bridge b: JSBridge) {
+    private func enqueue(_ targets: ArraySlice<Chapter>, bridge b: JSBridge?) {
         targets.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
     }
 
@@ -1011,12 +1012,11 @@ struct MangaDetailView: View {
             .disabled(selectedChapterIds.isEmpty)
 
             selectionButton("Download", systemImage: "arrow.down.circle") {
-                guard let b = bridge else { return }
                 selected.filter { !$0.isDownloaded }
-                    .forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: b) }
+                    .forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
                 endSelection()
             }
-            .disabled(bridge == nil || !selected.contains { !$0.isDownloaded })
+            .disabled(!DownloadManager.canDownload(manga, bridge: bridge) || !selected.contains { !$0.isDownloaded })
 
             selectionButton("Delete", systemImage: "trash") {
                 selected.filter(\.isDownloaded).forEach { DownloadManager.shared.deleteDownload(chapter: $0) }
@@ -1671,9 +1671,9 @@ private struct ChapterRow: View {
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                } else if let b = bridge {
+                } else if DownloadManager.canDownload(manga, bridge: bridge) {
                     Button {
-                        DownloadManager.shared.enqueue(chapter, manga: manga, bridge: b)
+                        DownloadManager.shared.enqueue(chapter, manga: manga, bridge: bridge)
                     } label: {
                         Label("Download", systemImage: "arrow.down.circle")
                     }
