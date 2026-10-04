@@ -34,6 +34,41 @@ The research audit revealed that 800+ sources are already available across four 
   (no new chapters upstream). A real new chapter on device not yet observed.
 - Fixed 4 warnings left by S141 (UpdateFeedEntry.chapterNumber, PluginCatalogEntry.withInstallIds, NovelQueries).
 - Phone: S142 build, profile expires 2026-10-10 17:45 UTC.
+- **More + About calm** (`c21b79a`): plain rows, accent icons, no cards/separators.
+- **Settings calm + audit** (Martin: "thorough check without taking anything for granted"). Shared `CalmList`
+  (grouped style — plain pinned the bold headers over rows; row modifiers on the List itself don't reach rows,
+  so they go through a Group) + `CalmSectionHeader` / `Section(calm:)`. Regrouped: Appearance · Reading ·
+  Library · Downloads · Updates · Notifications · Sources · Privacy · General. Appearance redone: theme
+  Automatic (new, default for fresh installs — Martin) / Dark / Black / Light / Sepia, accent, real app-icon
+  previews; preview card, accent blend slider, wrong "AAA" badge (4.5:1 ≠ AAA) and duplicate typography/library
+  controls removed; OLED switch removed (= Black). Audit fixes: notification permission only asked on adding a
+  MANGA (novel readers never asked) → asked on toggle + novel add, iOS-Settings link when denied; no
+  NSFaceIDUsageDescription (Apple: "won't allow your app to use Face ID") → added, App Lock verifies once before
+  turning on (no passcode = locked out); Settings → Novels duplicated the reader panel with different steps →
+  now layout/reading/offline/listening only; keep-screen-on now covers novels; TTS "0.5×" was normal speed;
+  rotation applied only on next rotation; "Clear plugin catalog cache" did nothing → reloads; Storage missed
+  NovelDownloads + Keiyoushi; dead `useSystemFont`, `pureBlack`, `colorBlendLevel` removed. Time/Date default
+  "Like iPhone" (Martin), old explicit choice kept. Suwayomi moved to Advanced (Martin). UI tests 12/12.
+- **Keiyoushi chapter downloads** (Martin: "critical"): the queue required a JS plugin (`JSBridge`), so every
+  Keiyoushi title had a disabled Download pill. Now `DownloadManager.canDownload` + pages via
+  `ChapterReaderView.fetchPages` (the JVM serves descrambled 127.0.0.1 image URLs; needs Yomi open).
+- **Mihon repositories** (Martin: "users should use whatever they want"): Yomi held ONE Mihon repo
+  (`keiyoushiRepoURL`, adding a second replaced it) and read only `index.pb`. Now `mihonRepoURLs` (migrated),
+  `KeiyoushiRepository.repos`, both `index.pb` and classic `index.min.json` (checked live: Suwayomi's and
+  Kavita's repos still use JSON; Keiyoushi's JSON is an "Outdated App" stub), folder links tried as
+  index.pb then index.min.json. Sim: Keiyoushi kept + Kavita added from a folder link (1 extension).
+
+- **Device check (Martin):** Keiyoushi download + offline read ✅, Kavita repo from folder link ✅, App Lock
+  (Face ID) ✅, Automatic theme ✅. Notification prompt not observed (his toggle was already on, permission
+  likely granted earlier) — re-check on a fresh install.
+
+### Backlog added S142 (Martin approved all)
+- Dynamic Type in app chrome (RESEARCH §25.9 #1, §25.10 #4).
+- Scheduled automatic local backups + sync status (§25.10 #5).
+- Lockable SFW mode (§25.13 ranking #5).
+- Reader auto-dark at night (§25.3 #9).
+- Separate manga tap zones for paged vs long strip (Tachimanga v5, §25.10 #7).
+- Spanish localization (§25.9 #4).
 
 ## S141 — device check, Continue/History/Updates fixes + calm pass (2026-10-03)
 

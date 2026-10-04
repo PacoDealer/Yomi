@@ -632,7 +632,7 @@ struct UpdatesView: View {
 
     private static func statusLine(_ run: UpdateRunSummary) -> String {
         let n = run.results.count
-        return "Checked \(n) title\(n == 1 ? "" : "s") · \(run.date.formatted(date: .omitted, time: .shortened))"
+        return "Checked \(n) title\(n == 1 ? "" : "s") · \(Notation.time(run.date, use24Hour: AppSettings.shared.use24HourClock))"
     }
 
     // MARK: - Section header

@@ -41,7 +41,7 @@ import Observation
         didSet { defaults.set(theme, forKey: "theme") }
     }
 
-    /// Canvas preset: "Ink" | "Midnight" | "Paper" | "Sepia" | "" (follow device).
+    /// Canvas preset: "Ink" | "Midnight" | "Paper" | "Sepia" | "Automatic" (follows the device, S142).
     /// Replaces the old theme picker as the primary appearance axis.
     var canvas: String {
         didSet { defaults.set(canvas, forKey: "canvas") }
@@ -52,6 +52,7 @@ import Observation
         switch canvas {
         case "Ink", "Midnight": return .dark
         case "Paper", "Sepia":  return .light
+        case Self.automaticCanvas: return nil   // follow the device
         default:
             switch theme {
             case "Light": return .light
@@ -65,47 +66,31 @@ import Observation
         didSet { defaults.set(accentColor, forKey: "accentColor") }
     }
 
-    /// 24-hour clock ("14:20") vs 12-hour ("2:20 PM") for History's today-timestamp.
-    var use24HourClock: Bool {
+    /// 24-hour ("14:20") or 12-hour ("2:20 PM") times. nil = follow the iPhone (default since S142, Martin);
+    /// a choice made before S142 is kept.
+    var use24HourClock: Bool? {
         didSet { defaults.set(use24HourClock, forKey: "use24HourClock") }
     }
 
-    /// Day-before-month date order ("28 JUL") vs month-before-day ("JUL 28") for History's
-    /// older-than-a-week timestamp.
-    var dateOrderDayFirst: Bool {
+    /// "28 Jul" (true) or "Jul 28" (false). nil = follow the iPhone's region (default since S142).
+    var dateOrderDayFirst: Bool? {
         didSet { defaults.set(dateOrderDayFirst, forKey: "dateOrderDayFirst") }
     }
 
-    /// How strongly the accent color is blended into canvas surfaces (0 = off, 1 = fully accent).
-    /// Only `bg`/`surface1`/`surface2` shift — text/hairline stay put so legibility isn't a moving
-    /// target. Default 0 preserves the exact existing look for every current user.
-    var colorBlendLevel: Double {
-        didSet { defaults.set(colorBlendLevel, forKey: "colorBlendLevel") }
+    /// Palette for the current `canvas` preset. "Automatic" (S142): follows the device's light/dark
+    /// setting, Paper by day and Ink by night — pass the scheme the views are drawn in. The accent
+    /// "blend into surfaces" slider was removed in S142 (RESEARCH §26: chrome stays neutral).
+    func canvasColors(for scheme: ColorScheme) -> YomiTokens.CanvasColors {
+        guard canvas == Self.automaticCanvas else { return YomiTokens.Canvas.named(canvas) }
+        return scheme == .dark ? YomiTokens.Canvas.ink : YomiTokens.Canvas.paper
     }
 
-    /// Resolved canvas palette (bg/surfaces/text) for the current `canvas` preset.
-    /// Single source of truth — read this instead of re-deriving `YomiTokens.Canvas.named(...)`.
+    /// The preset palette, Ink for Automatic. Only for code without a view's colour scheme at hand.
     var canvasColors: YomiTokens.CanvasColors {
-        canvas.isEmpty ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(canvas)
+        canvas.isEmpty || canvas == Self.automaticCanvas ? YomiTokens.Canvas.ink : YomiTokens.Canvas.named(canvas)
     }
 
-    /// `canvasColors` with `bg`/`surface1`/`surface2` blended toward `accentColor` by
-    /// `colorBlendLevel`. This is what should actually be threaded through the app (`\.yomiCanvas`,
-    /// Appearance Studio's preview) — `canvasColors` itself stays the pure, unblended preset.
-    var blendedCanvasColors: YomiTokens.CanvasColors {
-        guard colorBlendLevel > 0 else { return canvasColors }
-        let base = canvasColors
-        let accent = Color(hex: accentColor)
-        return YomiTokens.CanvasColors(
-            name:          base.name,
-            bg:            base.bg.mix(with: accent, amount: colorBlendLevel),
-            surface1:      base.surface1.mix(with: accent, amount: colorBlendLevel),
-            surface2:      base.surface2.mix(with: accent, amount: colorBlendLevel),
-            textPrimary:   base.textPrimary,
-            textSecondary: base.textSecondary,
-            hairline:      base.hairline
-        )
-    }
+    static let automaticCanvas = "Automatic"
 
     /// Legible label/icon color for content rendered on an accent-colored fill (Resume buttons,
     /// unread badges, empty-state CTAs, …). Read this instead of hardcoding `.white` — several
@@ -114,9 +99,6 @@ import Observation
         YomiTokens.Accent.foreground(for: accentColor, on: canvasColors.textPrimary)
     }
 
-    var useSystemFont: Bool {
-        didSet { defaults.set(useSystemFont, forKey: "useSystemFont") }
-    }
 
     // MARK: - Content
 
@@ -300,10 +282,6 @@ import Observation
         didSet { defaults.set(isIncognito, forKey: "isIncognito") }
     }
 
-    /// Pure black OLED mode — forces #000000 backgrounds in dark mode
-    var pureBlack: Bool {
-        didSet { defaults.set(pureBlack, forKey: "pureBlack") }
-    }
 
     /// Alternate icon name (nil = default icon). Must match CFBundleAlternateIcons key in Info.
     /// Set via UIApplication.setAlternateIconName on the main thread.
@@ -413,8 +391,10 @@ import Observation
 
     /// A Mihon/Keiyoushi extension repository index the user pasted, e.g. Keiyoushi's `…/repo/index.pb`.
     /// Empty = no repository. Never prefilled — the user supplies it (App Store 5.2.2, see RESEARCH.md §5).
-    var keiyoushiRepoURL: String {
-        didSet { defaults.set(keiyoushiRepoURL, forKey: "keiyoushiRepoURL") }
+    /// Mihon extension repositories (index.pb or index.min.json links). S142: a list — it used to be one URL
+    /// (`keiyoushiRepoURL`, migrated on first launch).
+    var mihonRepoURLs: [String] {
+        didSet { defaults.set(mihonRepoURLs, forKey: "mihonRepoURLs") }
     }
 
     /// Browse's "Last used" section, most recent first — `BrowseSourceKey` raw values (plugin id or Keiyoushi
@@ -538,14 +518,12 @@ import Observation
             switch savedTheme {
             case "Dark":  canvas = savedPureBlack ? "Midnight" : "Ink"
             case "Light": canvas = "Paper"
-            default:      canvas = "Ink"   // true fresh install — documented design default
+            default:      canvas = Self.automaticCanvas   // fresh install follows the iPhone (Martin, S142)
             }
         }
         accentColor             = d.string(forKey: "accentColor")            ?? "#E5473A"
-        colorBlendLevel         = d.object(forKey: "colorBlendLevel") as? Double ?? 0.0
-        use24HourClock          = d.object(forKey: "use24HourClock") as? Bool ?? true
-        dateOrderDayFirst       = d.object(forKey: "dateOrderDayFirst") as? Bool ?? false
-        useSystemFont           = d.object(forKey: "useSystemFont") as? Bool ?? true
+        use24HourClock          = d.object(forKey: "use24HourClock") as? Bool
+        dateOrderDayFirst       = d.object(forKey: "dateOrderDayFirst") as? Bool
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
         sendUpdateNotifications = d.object(forKey: "sendUpdateNotifications") as? Bool ?? true
@@ -595,7 +573,6 @@ import Observation
         hiddenTabIDs = (d.stringArray(forKey: "hiddenTabIDs") ?? []).filter { $0 != YomiTabID.more.rawValue }
         requestTimeout          = d.object(forKey: "requestTimeout") as? Double ?? 30
         jsBridgeRequestTimeout  = d.object(forKey: "requestTimeout") as? Double ?? 30
-        pureBlack               = d.object(forKey: "pureBlack")      as? Bool ?? false
         alternateIconName       = d.string(forKey: "alternateIconName")
         autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true
         deleteDownloadAfterReading = d.object(forKey: "deleteDownloadAfterReading") as? Bool ?? true
@@ -613,7 +590,12 @@ import Observation
         pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
-        keiyoushiRepoURL         = d.string(forKey: "keiyoushiRepoURL")          ?? ""
+        if let urls = d.stringArray(forKey: "mihonRepoURLs") {
+            mihonRepoURLs = urls
+        } else {
+            let legacy = (d.string(forKey: "keiyoushiRepoURL") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            mihonRepoURLs = legacy.isEmpty ? [] : [legacy]
+        }
         recentSourceKeys         = d.stringArray(forKey: "recentSourceKeys")     ?? []
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false

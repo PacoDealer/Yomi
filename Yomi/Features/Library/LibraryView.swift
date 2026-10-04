@@ -542,8 +542,12 @@ struct LibraryView: View {
             }
         }.value
         for (manga, unread) in mangasAndChapters {
-            guard let ext = installed.first(where: { $0.id == manga.sourceId }),
-                  let bridge = await em.loadBridge(for: ext) else { continue }
+            // Keiyoushi/Suwayomi titles download without a JS plugin (S142).
+            var bridge: JSBridge? = nil
+            if let ext = installed.first(where: { $0.id == manga.sourceId }) {
+                bridge = await em.loadBridge(for: ext)
+            }
+            guard DownloadManager.canDownload(manga, bridge: bridge) else { continue }
             unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
         }
         withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }

@@ -770,6 +770,12 @@ struct NovelDetailView: View {
             try? NovelQueries.setInLibrary(updated, inLibrary)
             if !loaded.isEmpty { try? NovelQueries.insertAllIgnoringConflicts(loaded) }
         }.value
+        // Same first-save permission ask as MangaDetailView — novels never asked, so a novel-only reader never
+        // got chapter notifications (S142 settings audit).
+        if isInLibrary && !AppSettings.shared.hasRequestedNotifications {
+            AppSettings.shared.hasRequestedNotifications = true
+            Task { await NotificationManager.shared.requestPermission() }
+        }
         if isInLibrary, let defaultCatId = AppSettings.shared.defaultCategoryId {
             let novelId = novel.id
             Task.detached {

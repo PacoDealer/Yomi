@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 // MARK: - ConnectionTestStatus
 
@@ -27,558 +28,82 @@ private enum ConnectionTestStatus: Equatable {
 
 // MARK: - SettingsView
 
+/// S142 calm pass (RESEARCH §26): one plain list with the system nav bar, bold sentence-case section titles,
+/// native controls, no cards or separators. Regrouped by what each setting is about — the old "Library" card
+/// mixed grid, tabs, downloads and background refresh. The duplicate About card is gone (More → About has it).
 struct SettingsView: View {
     @State private var settings = AppSettings.shared
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-    @Environment(\.yomiCanvas) private var canvas
-
-    private var oledBinding: Binding<Bool> {
-        Binding(
-            get: { settings.canvas == "Midnight" },
-            set: { settings.canvas = $0 ? "Midnight" : "Ink" }
-        )
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                generalCard
-                appearanceCard
-                libraryCard
-                readingCard
-                sourcesCard
-                advancedCard
-                aboutCard
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 60)
-            .padding(.bottom, 24)
-        }
-        .background(canvas.bg.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar)
-        .swipeBackEnabled()
-        .overlay(alignment: .top) { glassNavBar }
-    }
-
-    // MARK: - Glass nav bar
-
-    private var glassNavBar: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .glassChip()
-            Spacer()
-            Text("Settings")
-                .font(YomiTokens.Font.grotesk(16, weight: .medium))
-                .foregroundStyle(canvas.textPrimary)
-            Spacer()
-            Color.clear.frame(width: 44, height: 44)
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-    }
-
-    // MARK: - Card + row helpers
-
-    @ViewBuilder
-    private func card<Content: View>(_ header: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(header)
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 4)
-            VStack(spacing: 0) { content() }
-                .background(canvas.surface1)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    private func rowDivider() -> some View {
-        Divider().padding(.leading, 14).overlay(canvas.hairline)
-    }
-
-    private func toggleRow(_ label: String, isOn: Binding<Bool>, subtitle: String? = nil) -> some View {
-        HStack(alignment: subtitle == nil ? .center : .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(canvas.textSecondary)
-                }
-            }
-            Spacer(minLength: 8)
-            Toggle("", isOn: isOn).labelsHidden()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    @ViewBuilder
-    private func navRow<Destination: View>(_ label: String, trailing: String? = nil, @ViewBuilder destination: () -> Destination) -> some View {
-        NavigationLink {
-            destination()
-        } label: {
-            HStack {
-                Text(label)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer(minLength: 8)
-                if let trailing {
-                    Text(trailing)
-                        .font(YomiTokens.Font.mono(11))
-                        .foregroundStyle(canvas.textSecondary)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(canvas.textSecondary.opacity(0.5))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func stepperPill(value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        HStack(spacing: 2) {
-            Button {
-                if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
-            } label: {
-                Text("−").font(.system(size: 18)).frame(width: 34, height: 30)
-            }
-            Text("\(value.wrappedValue)")
-                .font(YomiTokens.Font.mono(14))
-                .frame(width: 32)
-            Button {
-                if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
-            } label: {
-                Text("+").font(.system(size: 18)).frame(width: 34, height: 30)
-            }
-        }
-        .foregroundStyle(canvas.textPrimary)
-        .background(canvas.surface2, in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    // MARK: - General
-
-    private var generalCard: some View {
-        card("GENERAL") {
-            toggleRow("Show NSFW content", isOn: $settings.showNSFW)
-            rowDivider()
-            toggleRow("App Lock", isOn: $settings.appLockEnabled, subtitle: "Require Face ID / Touch ID when opening Yomi")
-            rowDivider()
-            toggleRow("Secure screen", isOn: $settings.secureScreenEnabled, subtitle: "Hide content in the App Switcher")
-            rowDivider()
-            toggleRow("Incognito mode", isOn: $settings.isIncognito, subtitle: "Reading progress and history won't be saved")
-            rowDivider()
-            toggleRow("24-hour clock", isOn: $settings.use24HourClock, subtitle: "14:20 instead of 2:20 PM")
-            rowDivider()
-            toggleRow("Day before month", isOn: $settings.dateOrderDayFirst, subtitle: "28 JUL instead of JUL 28")
-        }
-    }
-
-    // MARK: - Reading
-
-    private var readingCard: some View {
-        card("READING") {
-            navRow("Manga & Webtoon") { MangaReaderSettingsView() }
-            rowDivider()
-            navRow("Novels") { NovelReaderSettingsView() }
-        }
-    }
-
-    // MARK: - Library
-
-    private var libraryCard: some View {
-        card("LIBRARY") {
-            HStack {
-                Text("Items per row")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer()
-                stepperPill(value: $settings.libraryColumns, range: 2...6)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            rowDivider()
-            toggleRow("Rotation follows device", isOn: $settings.rotationFollowDevice, subtitle: "Off locks the app to portrait")
-            rowDivider()
-            toggleRow("Show unread count badge", isOn: $settings.showUnreadBadge)
-            rowDivider()
-            toggleRow("Show item count on category tabs", isOn: $settings.showCategoryItemCounts)
-            rowDivider()
-            defaultCategoryRow
-            rowDivider()
-            defaultTabRow
-            rowDivider()
-            navRow("Customize tabs") { CustomizeTabsView() }
-            rowDivider()
-            toggleRow("Download only on Wi-Fi", isOn: $settings.downloadOnlyOnWiFi, subtitle: "Downloads wait for Wi-Fi instead of using cellular data or a personal hotspot, and pause in Low Data Mode. Reading is never blocked.")
-                .onChange(of: settings.downloadOnlyOnWiFi) { _, _ in NetworkMonitor.shared.settingsChanged() }
-            rowDivider()
-            toggleRow("Delete after reading", isOn: $settings.deleteDownloadAfterReading, subtitle: "Removes downloaded files when you finish a chapter")
-            rowDivider()
-            HStack {
-                Text("Concurrent downloads")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer()
-                stepperPill(value: $settings.concurrentDownloads, range: 1...5)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            rowDivider()
-            toggleRow("Background auto-refresh", isOn: $settings.backgroundAutoRefreshEnabled, subtitle: "Periodically check for new chapters when the app isn't open. iOS decides the actual timing.")
-            rowDivider()
-            toggleRow("Background download", isOn: $settings.backgroundDownloadEnabled, subtitle: settings.backgroundAutoRefreshEnabled ? "Auto-download new manga chapters found during a background refresh" : "Requires background auto-refresh — otherwise nothing runs to find new chapters")
-                .disabled(!settings.backgroundAutoRefreshEnabled)
-                .opacity(settings.backgroundAutoRefreshEnabled ? 1 : 0.5)
-            rowDivider()
-            navRow("Update rules") { UpdatesSettingsView() }
-        }
-    }
-
+    @State private var notifications = NotificationManager.shared
     @State private var libraryCategories: [Category] = []
-
-    private var defaultCategoryRow: some View {
-        Menu {
-            Button("None") { settings.defaultCategoryId = nil }
-            ForEach(libraryCategories) { cat in
-                Button(cat.name) { settings.defaultCategoryId = cat.id }
-            }
-        } label: {
-            HStack {
-                Text("Default category")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer(minLength: 8)
-                Text(libraryCategories.first(where: { $0.id == settings.defaultCategoryId })?.name ?? "None")
-                    .font(YomiTokens.Font.mono(11))
-                    .foregroundStyle(canvas.textSecondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .task {
-            libraryCategories = (try? CategoryQueries.fetchAll()) ?? []
-        }
-    }
-
-    private var defaultTabRow: some View {
-        Menu {
-            Button("Library") { settings.defaultTab = AppRouter.tabLibrary }
-            Button("Browse") { settings.defaultTab = AppRouter.tabBrowse }
-            Button("History") { settings.defaultTab = AppRouter.tabHistory }
-            Button("Updates") { settings.defaultTab = AppRouter.tabUpdates }
-            Button("More") { settings.defaultTab = AppRouter.tabMore }
-        } label: {
-            HStack {
-                Text("Default tab")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer(minLength: 8)
-                Text(tabLabel(settings.defaultTab))
-                    .font(YomiTokens.Font.mono(11))
-                    .foregroundStyle(canvas.textSecondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-    }
-
-    private func tabLabel(_ tab: Int) -> String {
-        switch tab {
-        case AppRouter.tabLibrary: return "Library"
-        case AppRouter.tabBrowse:  return "Browse"
-        case AppRouter.tabHistory: return "History"
-        case AppRouter.tabUpdates: return "Updates"
-        case AppRouter.tabMore:    return "More"
-        default: return "Library"
-        }
-    }
-
-    // MARK: - Appearance
-
-    private var appearanceCard: some View {
-        card("APPEARANCE") {
-            navRow("Appearance Studio", trailing: "Canvas · Accent · Type") { AppearanceStudioView() }
-            rowDivider()
-            toggleRow("Pure black (OLED)", isOn: oledBinding)
-        }
-    }
-
-    // MARK: - Sources & Servers
-
-    private var sourcesCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("SOURCES & SERVERS")
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.horizontal, 4)
-
-            VStack(spacing: 0) {
-                navRow("Repositories", trailing: repositoryCount == 0 ? "None" : "\(repositoryCount)") {
-                    RepositoriesView()
-                }
-                rowDivider()
-                navRow("Suwayomi Server") { SuwayomiSettingsView() }
-                rowDivider()
-                navRow("OPDS Server (Kavita / Komga)") { OPDSSettingsView() }
-            }
-            .background(canvas.surface1)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    private var repositoryCount: Int {
-        settings.pluginCatalogURLs.count + (settings.keiyoushiRepoURL.isEmpty ? 0 : 1)
-    }
-
-    // MARK: - Advanced
-
-    private var advancedCard: some View {
-        card("ADVANCED") {
-            navRow("Advanced settings") { AdvancedSettingsView() }
-        }
-    }
-
-    // MARK: - About
-    //
-    // Compact quick-reference (Version + GitHub only, matching N.07's mock exactly) — the
-    // full detail (Build, Report a bug, Privacy Policy, Licenses) lives in More → About.
-
-    private var aboutCard: some View {
-        card("ABOUT") {
-            HStack {
-                Text("Version")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                    .foregroundStyle(canvas.textPrimary)
-                Spacer()
-                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
-                    .font(YomiTokens.Font.mono(13))
-                    .foregroundStyle(canvas.textSecondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            rowDivider()
-            Button {
-                openURL(URL(string: "https://github.com/PacoDealer/Yomi")!)
-            } label: {
-                HStack {
-                    Text("GitHub")
-                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                        .foregroundStyle(Color.accentColor)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-}
-
-// MARK: - MangaReaderSettingsView
-
-private struct MangaReaderSettingsView: View {
-    @State private var settings = AppSettings.shared
+    @State private var appLockError: String?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        List {
+        CalmList {
             Section {
-                Picker("Default mode", selection: $settings.readerMode) {
-                    Text("Manga (RTL)").tag("Manga (RTL)")
-                    Text("Manhwa (LTR)").tag("Manhwa (LTR)")
-                    Text("Paged (Vertical)").tag("Paged (Vertical)")
-                    Text("Continuous (RTL)").tag("Continuous (RTL)")
-                    Text("Continuous (LTR)").tag("Continuous (LTR)")
-                    Text("Webtoon").tag("Webtoon")
-                }
-                .pickerStyle(.menu)
-
-                Toggle(isOn: $settings.autoWebtoonFromTags) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Auto-detect webtoon")
-                        Text("Switches to Webtoon mode for manhwa/manhua/long-strip titles")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Picker("Page layout", selection: $settings.pageLayout) {
-                    Text("Single page").tag("single")
-                    Text("Double page (spreads)").tag("double")
-                    Text("Automatic (spreads in landscape)").tag("automatic")
-                }
-
-                Picker("Tap zones", selection: $settings.tapZoneLayout) {
-                    Text("Default (equal thirds)").tag("default")
-                    Text("Edge (20 · 60 · 20%)").tag("sides")
-                    Text("L-Shaped").tag("lShaped")
-                    Text("Kindle-ish").tag("kindle")
-                    Text("Right & Left (50 / 50)").tag("rightLeft")
-                    Text("Disabled (swipe only)").tag("disabled")
-                }
-
-                Toggle("Keep screen on while reading", isOn: $settings.keepScreenOn)
-            }
-
-            Section("Webtoon") {
-                Stepper(
-                    "Auto-scroll speed: \(String(format: "%.0f", settings.autoScrollSpeed))s",
-                    value: $settings.autoScrollSpeed,
-                    in: 1...10,
-                    step: 0.5
-                )
-
-                Picker("Horizontal margins", selection: $settings.webtoonHorizontalPadding) {
-                    Text("None").tag(0)
-                    Text("Small (8 pt)").tag(8)
-                    Text("Normal (16 pt)").tag(16)
-                    Text("Wide (24 pt)").tag(24)
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Manga & Webtoon")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: - NovelReaderSettingsView
-
-private struct NovelReaderSettingsView: View {
-    @State private var settings = AppSettings.shared
-
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Font size: \(Int(settings.fontSize))pt")
-                        .font(.subheadline)
-                    Slider(value: $settings.fontSize, in: 12...40, step: 1)
-                        .tint(Color(hex: settings.accentColor))
-                }
-                .padding(.vertical, 4)
-
-                Stepper(
-                    "Line spacing: \(String(format: "%.1f", settings.lineSpacing))×",
-                    value: $settings.lineSpacing,
-                    in: 1.0...2.5,
-                    step: 0.1
-                )
-
-                Picker("Font family", selection: $settings.novelFontFamily) {
-                    ForEach(ReaderFont.available) { font in
-                        Text(font.name).tag(font.id)
-                    }
-                }
-
-                Picker("Default theme", selection: $settings.novelTheme) {
-                    ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
-                        Text(theme.rawValue).tag(theme.rawValue)
-                    }
-                }
-
-                Picker("Margins", selection: $settings.novelHorizontalPadding) {
-                    Text("Narrow").tag(8)
-                    Text("Normal").tag(16)
-                    Text("Wide").tag(28)
+                NavigationLink {
+                    AppearanceStudioView()
+                } label: {
+                    valueLabel("Appearance", themeName)
                 }
             }
 
             Section {
-                Toggle("Infinite scroll", isOn: $settings.novelInfiniteScroll)
-                Toggle("Swipe to change chapter", isOn: $settings.novelSwipeChapters)
-                Picker("Show menu with", selection: $settings.novelMenuTaps) {
-                    Text("One tap").tag(1)
-                    Text("Two taps").tag(2)
+                NavigationLink("Manga & Webtoon") { MangaReaderSettingsView() }
+                NavigationLink("Novels") { NovelReaderSettingsView() }
+                toggle("Keep screen on", isOn: $settings.keepScreenOn, note: "While a reader is open.")
+            } header: { CalmSectionHeader("Reading") }
+
+            Section {
+                Stepper(value: $settings.libraryColumns, in: 2...6) {
+                    valueLabel("Items per row", "\(settings.libraryColumns)")
                 }
-            } header: {
-                Text("Reading")
-            } footer: {
-                Text("Infinite scroll carries on into the next chapter when you reach the end. Swipe left for the next chapter, right for the previous one.")
+                Toggle("Show unread count", isOn: $settings.showUnreadBadge)
+                Toggle("Item count on categories", isOn: $settings.showCategoryItemCounts)
+                Picker("Default category", selection: $settings.defaultCategoryId) {
+                    Text("None").tag(String?.none)
+                    ForEach(libraryCategories) { Text($0.name).tag(Optional($0.id)) }
+                }
+                Picker("Open on", selection: $settings.defaultTab) {
+                    Text("Library").tag(AppRouter.tabLibrary)
+                    Text("Browse").tag(AppRouter.tabBrowse)
+                    Text("History").tag(AppRouter.tabHistory)
+                    Text("Updates").tag(AppRouter.tabUpdates)
+                    Text("More").tag(AppRouter.tabMore)
+                }
+                NavigationLink("Customize tabs") { CustomizeTabsView() }
+            } header: { CalmSectionHeader("Library") }
+
+            Section {
+                toggle("Only on Wi-Fi", isOn: $settings.downloadOnlyOnWiFi,
+                       note: "Downloads wait for Wi-Fi and pause in Low Data Mode. Reading is never blocked.")
+                    .onChange(of: settings.downloadOnlyOnWiFi) { _, _ in NetworkMonitor.shared.settingsChanged() }
+                toggle("Delete manga after reading", isOn: $settings.deleteDownloadAfterReading,
+                       note: "Removes a manga chapter's pages when you finish it.")
+                Stepper(value: $settings.concurrentDownloads, in: 1...5) {
+                    valueLabel("Manga chapters at once", "\(settings.concurrentDownloads)")
+                }
+            } header: { CalmSectionHeader("Downloads") } footer: {
+                Text("Novel chapters are saved ahead while you read — see Novels. Keiyoushi downloads need Yomi open.")
             }
 
             Section {
-                Picker("Download ahead", selection: $settings.novelDownloadAhead) {
-                    Text("Off").tag(0)
-                    ForEach([5, 10, 20, 30], id: \.self) { Text("\($0) chapters").tag($0) }
-                }
-            } header: {
-                Text("Offline")
-            } footer: {
-                Text(settings.downloadOnlyOnWiFi
-                     ? "While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection. Only on Wi-Fi — see Settings → Download only on Wi-Fi."
-                     : "While you read a novel in your library, the next chapters are saved on this device, so they open instantly and work without a connection.")
-            }
+                toggle("Check in the background", isOn: $settings.backgroundAutoRefreshEnabled,
+                       note: "iOS decides when. Keiyoushi titles are checked when you refresh in Updates.")
+                toggle("Download what's found", isOn: $settings.backgroundDownloadEnabled,
+                       note: "New manga chapters from plugin sources.")
+                    .disabled(!settings.backgroundAutoRefreshEnabled)
+                NavigationLink("Update rules") { UpdatesSettingsView() }
+            } header: { CalmSectionHeader("Updates") }
 
-            Section("Text-to-Speech") {
-                Slider(
-                    value: Binding(
-                        get: { Double(settings.ttsSpeechRate) },
-                        set: { settings.ttsSpeechRate = Float($0) }
-                    ),
-                    in: 0.1...1.0,
-                    step: 0.1
-                ) {
-                    Text("Speed: \(String(format: "%.1f×", settings.ttsSpeechRate))")
-                } minimumValueLabel: {
-                    Text("0.1×").font(.caption)
-                } maximumValueLabel: {
-                    Text("1.0×").font(.caption)
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Novels")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: - UpdatesSettingsView
-
-struct UpdatesSettingsView: View {
-    @State private var settings = AppSettings.shared
-
-    var body: some View {
-        List {
             Section {
-                Toggle(isOn: $settings.sendUpdateNotifications) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Chapter update notifications")
-                        Text("Send a notification when new chapters are found")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                toggle("New chapters", isOn: notificationBinding($settings.sendUpdateNotifications),
+                       note: "When a refresh finds chapters for your library.")
+                toggle("Reading reminder", isOn: notificationBinding($settings.readingReminderEnabled),
+                       note: "If you haven't opened Yomi in a while.")
+                    .onChange(of: settings.readingReminderEnabled) { _, on in
+                        if !on { NotificationManager.shared.cancelReadingReminder() }
                     }
-                }
-
-                Toggle(isOn: $settings.readingReminderEnabled) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Reading reminders")
-                        Text("Remind you to read if you haven't opened Yomi in a while")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .onChange(of: settings.readingReminderEnabled) { _, enabled in
-                    if !enabled {
-                        NotificationManager.shared.cancelReadingReminder()
-                    }
-                }
-
                 if settings.readingReminderEnabled {
                     Picker("Remind me after", selection: $settings.readingReminderDays) {
                         Text("1 day").tag(1)
@@ -587,42 +112,286 @@ struct UpdatesSettingsView: View {
                         Text("1 week").tag(7)
                     }
                 }
-            }
+                if notifications.isDenied && (settings.sendUpdateNotifications || settings.readingReminderEnabled) {
+                    Button("Notifications are off for Yomi — turn them on in iOS Settings") {
+                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.orange)
+                }
+            } header: { CalmSectionHeader("Notifications") }
 
             Section {
-                Toggle(isOn: $settings.skipUpdateWithUnread) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Skip if unread chapters exist")
-                        Text("Don't check for updates when you already have unread content")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                NavigationLink {
+                    RepositoriesView()
+                } label: {
+                    valueLabel("Repositories", repositoryCount == 0 ? "None" : "\(repositoryCount)")
                 }
-                Toggle(isOn: $settings.skipUpdateNotStarted) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Skip titles not started")
-                        Text("Don't check titles you've never opened")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Toggle(isOn: $settings.skipUpdateCompleted) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Skip completed titles")
-                        Text("Don't check titles marked as Completed by the source")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+                NavigationLink("Kavita / Komga (OPDS)") { OPDSSettingsView() }
+            } header: { CalmSectionHeader("Sources") }
 
             Section {
-                NavigationLink("Excluded categories") {
-                    ExcludedCategoriesView(settings: settings)
+                toggle("Incognito", isOn: $settings.isIncognito, note: "Reading progress and history aren't saved.")
+                toggle("App Lock", isOn: appLockBinding, note: "Face ID or passcode when you open Yomi.")
+                toggle("Hide in App Switcher", isOn: $settings.secureScreenEnabled)
+                toggle("Show 18+ content", isOn: $settings.showNSFW, note: "Extensions marked 18+ in Browse.")
+            } header: { CalmSectionHeader("Privacy") }
+
+            Section {
+                toggle("Rotate with device", isOn: $settings.rotationFollowDevice, note: "Off keeps Yomi in portrait.")
+                    .onChange(of: settings.rotationFollowDevice) { _, _ in applyRotationSetting() }
+                Picker("Time", selection: $settings.use24HourClock) {
+                    Text("Like iPhone").tag(Bool?.none)
+                    Text("14:20").tag(Bool?.some(true))
+                    Text("2:20 PM").tag(Bool?.some(false))
+                }
+                Picker("Date", selection: $settings.dateOrderDayFirst) {
+                    Text("Like iPhone").tag(Bool?.none)
+                    Text("28 Jul").tag(Bool?.some(true))
+                    Text("Jul 28").tag(Bool?.some(false))
+                }
+                NavigationLink("Advanced") { AdvancedSettingsView() }
+            } header: { CalmSectionHeader("General") }
+        }
+        .navigationTitle("Settings")
+        .task {
+            libraryCategories = (try? CategoryQueries.fetchAll()) ?? []
+            await NotificationManager.shared.checkAuthorizationStatus()
+        }
+        .alert("App Lock wasn't turned on", isPresented: Binding(
+            get: { appLockError != nil }, set: { if !$0 { appLockError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(appLockError ?? "")
+        }
+    }
+
+    private var themeName: String {
+        switch settings.canvas {
+        case AppSettings.automaticCanvas: "Automatic"
+        case "Midnight": "Black"
+        case "Paper": "Light"
+        case "Sepia": "Sepia"
+        default: "Dark"
+        }
+    }
+
+    /// Turning a notification on asks iOS for permission (S142 audit: Yomi only asked when a *manga* was added to
+    /// the library, so a novel-only reader never got notifications even with these on).
+    private func notificationBinding(_ value: Binding<Bool>) -> Binding<Bool> {
+        Binding(get: { value.wrappedValue }, set: { on in
+            value.wrappedValue = on
+            if on { Task { await NotificationManager.shared.requestPermission() } }
+        })
+    }
+
+    /// App Lock only turns on after one successful unlock (S142 audit: on an iPhone without a passcode the lock
+    /// screen said "Authentication not available" with no way past it).
+    private var appLockBinding: Binding<Bool> {
+        Binding(get: { settings.appLockEnabled }, set: { on in
+            guard on else { settings.appLockEnabled = false; return }
+            let context = LAContext()
+            var error: NSError?
+            guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+                appLockError = "Set a passcode for this iPhone first (iOS Settings → Face ID & Passcode)."
+                return
+            }
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Turn on App Lock") { ok, _ in
+                DispatchQueue.main.async { if ok { settings.appLockEnabled = true } }
+            }
+        })
+    }
+
+    /// The orientation mask is only read on rotation — ask iOS to re-read it now, and snap back to portrait.
+    private func applyRotationSetting() {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        scene.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        if !settings.rotationFollowDevice {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+        }
+    }
+
+    private var repositoryCount: Int {
+        settings.pluginCatalogURLs.count + settings.mihonRepoURLs.count
+    }
+
+    /// Toggle with a one-line grey note under the title (instead of the old caption paragraphs).
+    private func toggle(_ title: String, isOn: Binding<Bool>, note: String? = nil) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+            if let note { Text(note) }
+        }
+    }
+
+    private func valueLabel(_ title: String, _ value: String) -> some View {
+        LabeledContent(title, value: value)
+    }
+}
+
+// MARK: - MangaReaderSettingsView
+
+/// Defaults for new titles; the reader's own menu changes the mode for the title you're in.
+private struct MangaReaderSettingsView: View {
+    @State private var settings = AppSettings.shared
+
+    var body: some View {
+        CalmList {
+            Section {
+                // Stored values are the old labels (ReaderMode raw values) — only the shown names changed (S142).
+                Picker("Reading mode", selection: $settings.readerMode) {
+                    Text("Right to left (manga)").tag("Manga (RTL)")
+                    Text("Left to right").tag("Manhwa (LTR)")
+                    Text("Vertical pages").tag("Paged (Vertical)")
+                    Text("Long strip (webtoon)").tag("Webtoon")
+                    Text("Continuous right to left").tag("Continuous (RTL)")
+                    Text("Continuous left to right").tag("Continuous (LTR)")
+                }
+                Toggle(isOn: $settings.autoWebtoonFromTags) {
+                    Text("Long strip for manhwa and manhua")
+                    Text("Uses the title's genre tags.")
+                }
+                Picker("Two-page spreads", selection: $settings.pageLayout) {
+                    Text("Off").tag("single")
+                    Text("Always").tag("double")
+                    Text("In landscape").tag("automatic")
+                }
+                Picker("Tap zones", selection: $settings.tapZoneLayout) {
+                    Text("Thirds").tag("default")
+                    Text("Edges").tag("sides")
+                    Text("L-shaped").tag("lShaped")
+                    Text("Kindle").tag("kindle")
+                    Text("Left and right halves").tag("rightLeft")
+                    Text("Off (swipe only)").tag("disabled")
+                }
+            } header: { CalmSectionHeader("Pages") } footer: {
+                Text("Tap zones turn the page in paged modes; the middle shows the menu.")
+            }
+
+            Section(calm: "Long Strip") {
+                Stepper(value: $settings.autoScrollSpeed, in: 1...10, step: 0.5) {
+                    LabeledContent("Auto-scroll", value: "1 page / \(settings.autoScrollSpeed.formatted()) s")
+                }
+                Picker("Side margins", selection: $settings.webtoonHorizontalPadding) {
+                    Text("None").tag(0)
+                    Text("Small").tag(8)
+                    Text("Medium").tag(16)
+                    Text("Large").tag(24)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .navigationTitle("Manga & Webtoon")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - NovelReaderSettingsView
+
+/// Reading behaviour, offline and listening. Text size, font, page colour and spacing live in the reader panel
+/// only (Martin, S136) — the copies that used to be here offered different steps than the panel (line spacing in
+/// 0.1 steps vs Tight/Normal/Airy), so a value set here showed as nothing selected there (S142 audit).
+private struct NovelReaderSettingsView: View {
+    @State private var settings = AppSettings.shared
+
+    var body: some View {
+        CalmList {
+            Section {
+                Picker("Layout", selection: $settings.novelReadingMode) {
+                    Text("Scroll").tag("scroll")
+                    Text("Pages").tag("pages")
+                }
+                if settings.novelReadingMode == "pages" {
+                    Toggle(isOn: $settings.novelPagesContinue) {
+                        Text("Continue into next chapter")
+                        Text("Off ends each chapter on a Next chapter page.")
+                    }
+                } else {
+                    Toggle(isOn: $settings.novelInfiniteScroll) {
+                        Text("Infinite scroll")
+                        Text("Carries on into the next chapter.")
+                    }
+                    Toggle(isOn: $settings.novelSwipeChapters) {
+                        Text("Swipe to change chapter")
+                        Text("Left for next, right for previous.")
+                    }
+                }
+                Picker("Show menu with", selection: $settings.novelMenuTaps) {
+                    Text("One tap").tag(1)
+                    Text("Two taps").tag(2)
+                }
+            } header: { CalmSectionHeader("Reading") } footer: {
+                Text("Text size, font, page colour and spacing: tap the middle of a page while reading.")
+            }
+
+            Section {
+                Picker("Save ahead", selection: $settings.novelDownloadAhead) {
+                    Text("Off").tag(0)
+                    ForEach([5, 10, 20, 30], id: \.self) { Text("\($0) chapters").tag($0) }
+                }
+            } header: { CalmSectionHeader("Offline") } footer: {
+                Text(settings.downloadOnlyOnWiFi
+                     ? "While you read a novel in your library, the next chapters are saved so they open instantly and work offline. Only on Wi-Fi (Settings → Downloads)."
+                     : "While you read a novel in your library, the next chapters are saved so they open instantly and work offline.")
+            }
+
+            Section(calm: "Listening") {
+                // AVSpeechUtterance rate: 0.5 is the voice's normal speed; the old "0.1×–1.0×" labels read as a
+                // multiplier, so normal speed looked like half speed.
+                VStack(alignment: .leading, spacing: 6) {
+                    LabeledContent("Speed", value: speechSpeedLabel)
+                    Slider(value: Binding(get: { Double(settings.ttsSpeechRate) },
+                                          set: { settings.ttsSpeechRate = Float($0) }),
+                           in: 0.3...0.75, step: 0.05) {
+                        Text("Speed")
+                    } minimumValueLabel: {
+                        Image(systemName: "tortoise")
+                    } maximumValueLabel: {
+                        Image(systemName: "hare")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Novels")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var speechSpeedLabel: String {
+        let r = settings.ttsSpeechRate
+        if abs(r - 0.5) < 0.025 { return "Normal" }
+        return r < 0.5 ? "Slower" : "Faster"
+    }
+}
+
+// MARK: - UpdatesSettingsView
+
+/// Which library titles a refresh checks. Notifications moved to Settings → Notifications (S142).
+struct UpdatesSettingsView: View {
+    @State private var settings = AppSettings.shared
+
+    var body: some View {
+        CalmList {
+            Section {
+                Toggle(isOn: $settings.skipUpdateWithUnread) {
+                    Text("Titles with unread chapters")
+                    Text("You haven't caught up yet.")
+                }
+                Toggle(isOn: $settings.skipUpdateNotStarted) {
+                    Text("Titles you haven't started")
+                }
+                Toggle(isOn: $settings.skipUpdateCompleted) {
+                    Text("Completed titles")
+                    Text("Marked Completed by the source.")
+                }
+                NavigationLink {
+                    ExcludedCategoriesView(settings: settings)
+                } label: {
+                    LabeledContent("Categories", value: settings.excludedCategoryIds.isEmpty
+                                   ? "None" : "\(settings.excludedCategoryIds.count)")
+                }
+            } header: { CalmSectionHeader("Don't Check") } footer: {
+                Text("Skipped titles don't appear in the Updates Summary.")
+            }
+        }
         .navigationTitle("Update Rules")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -630,12 +399,12 @@ struct UpdatesSettingsView: View {
 
 // MARK: - SuwayomiSettingsView
 
-private struct SuwayomiSettingsView: View {
+struct SuwayomiSettingsView: View {
     @State private var settings = AppSettings.shared
     @State private var status: ConnectionTestStatus = .idle
 
     var body: some View {
-        List {
+        CalmList {
             Section {
                 TextField("http://192.168.1.x:4567", text: $settings.suwayomiURL)
                     .keyboardType(.URL)
@@ -680,7 +449,6 @@ private struct SuwayomiSettingsView: View {
                     .font(.caption)
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Suwayomi Server")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -704,7 +472,7 @@ private struct OPDSSettingsView: View {
     @State private var status: ConnectionTestStatus = .idle
 
     var body: some View {
-        List {
+        CalmList {
             Section {
                 TextField("http://192.168.1.x:5000/opds/v1.2/catalog", text: $settings.opdsURL)
                     .keyboardType(.URL)
@@ -747,7 +515,6 @@ private struct OPDSSettingsView: View {
                     .font(.caption)
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("OPDS Server")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -771,7 +538,7 @@ private struct ExcludedCategoriesView: View {
     @State private var categories: [Category] = []
 
     var body: some View {
-        List {
+        CalmList {
             if categories.isEmpty {
                 Text("No categories yet. Create categories in your library to exclude them from update checks.")
                     .font(.subheadline)
@@ -801,7 +568,6 @@ private struct ExcludedCategoriesView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Excluded Categories")
         .navigationBarTitleDisplayMode(.inline)
         .task {

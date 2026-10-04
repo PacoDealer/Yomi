@@ -40,4 +40,47 @@ struct YomiListCanvas: ViewModifier {
 extension View {
     /// Applies the active canvas to a `List`'s background. See `YomiListCanvas`.
     func yomiListCanvas() -> some View { modifier(YomiListCanvas()) }
+
+}
+
+/// S142 calm settings list: plain style on the canvas, rows without separators or cell backgrounds
+/// (Martin, S141: no list separators anywhere). Row modifiers on the `List` itself don't reach its rows —
+/// they're applied through a `Group` around the content, which hands them to every section and row.
+struct CalmList<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        List {
+            Group { content }
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
+                .listRowBackground(Color.clear)
+        }
+        // Grouped, not plain: plain pins section titles, which then sat over the rows scrolling under them.
+        // With the canvas background and clear rows it looks the same, minus the sticky headers.
+        .listStyle(.grouped)
+        .yomiListCanvas()
+    }
+}
+
+extension Section where Parent == CalmSectionHeader, Content: View, Footer == EmptyView {
+    /// `Section("Title") { … }` for calm lists.
+    init(calm title: String, @ViewBuilder content: () -> Content) {
+        self.init(content: content, header: { CalmSectionHeader(title) })
+    }
+}
+
+/// Bold section title for calm lists — sentence case, primary colour, not the small grey caps of a grouped list.
+struct CalmSectionHeader: View {
+    let title: String
+    init(_ title: String) { self.title = title }
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        Text(title)
+            .font(.title3.bold())
+            .foregroundStyle(canvas.textPrimary)
+            .textCase(nil)
+            .padding(.top, 12)
+    }
 }

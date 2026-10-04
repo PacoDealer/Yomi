@@ -37,7 +37,7 @@ struct PluginsView: View {
     @AppStorage("extensionsLanguageFilter") private var languageFilter = "en"
 
     private var hasRepositories: Bool {
-        !settings.pluginCatalogURLs.isEmpty || !settings.keiyoushiRepoURL.isEmpty
+        !settings.pluginCatalogURLs.isEmpty || !settings.mihonRepoURLs.isEmpty
     }
 
     // MARK: Data
@@ -62,7 +62,7 @@ struct PluginsView: View {
     /// Keiyoushi extensions not installed yet, under the same filters.
     private var availableKeiyoushi: [KeiyoushiExtension] {
         // The last index stays cached after its repository is removed — it isn't "available" any more.
-        guard !settings.keiyoushiRepoURL.isEmpty else { return [] }
+        guard !settings.mihonRepoURLs.isEmpty else { return [] }
         let installedIds = Set(keiyoushi.installed.map(\.id))
         return keiyoushi.available.filter { ext in
             !installedIds.contains(ext.id)
@@ -210,7 +210,7 @@ struct PluginsView: View {
         .yomiToast($errorToast)
         .onAppear {
             Task { await catalogService.fetchCatalog() }
-            if keiyoushi.available.isEmpty, !settings.keiyoushiRepoURL.isEmpty {
+            if keiyoushi.available.isEmpty, !settings.mihonRepoURLs.isEmpty {
                 Task { await keiyoushi.refresh() }
             }
         }
@@ -466,8 +466,10 @@ struct PluginsView: View {
             return catalogEntry(for: ext).map { PluginCatalogService.repoLabel(from: $0.repoURL) }
         case .available(let group):
             return PluginCatalogService.repoLabel(from: group.primaryEntry.repoURL)
-        case .installedKeiyoushi, .availableKeiyoushi:
-            return keiyoushi.repoName ?? "Keiyoushi"
+        case .installedKeiyoushi(let ext):
+            return keiyoushi.repoName(for: ext.info)
+        case .availableKeiyoushi(let ext):
+            return keiyoushi.repoName(for: ext)
         }
     }
 
@@ -667,7 +669,7 @@ struct RepositoriesView: View {
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        List {
+        CalmList {
             Section {
                 ForEach(settings.pluginCatalogURLs, id: \.self) { url in
                     let count = catalogService.entries.filter { $0.repoURL == url }.count
@@ -679,14 +681,13 @@ struct RepositoriesView: View {
                             Task { await catalogService.fetchCatalog(force: true) }
                         })
                 }
-                if !settings.keiyoushiRepoURL.isEmpty {
-                    repositoryRow(name: keiyoushi.repoName ?? PluginCatalogService.repoLabel(from: settings.keiyoushiRepoURL),
-                                  url: settings.keiyoushiRepoURL,
-                                  count: keiyoushi.available.isEmpty ? nil : keiyoushi.available.count)
-                        .modifier(DeleteSwipe {
-                            settings.keiyoushiRepoURL = ""
-                            Task { await keiyoushi.refresh() }
-                        })
+                ForEach(keiyoushi.repos) { repo in
+                    repositoryRow(name: repo.name.flatMap { $0.isEmpty ? nil : $0 }
+                                    ?? PluginCatalogService.repoLabel(from: repo.url),
+                                  url: repo.url,
+                                  count: repo.extensions.isEmpty ? nil : repo.extensions.count,
+                                  error: repo.error)
+                        .modifier(DeleteSwipe { keiyoushi.removeRepository(repo.url) })
                 }
                 Button { showAddRepo = true } label: {
                     Label("Add Repository", systemImage: "plus")
@@ -698,7 +699,7 @@ struct RepositoriesView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Swipe to remove a repository. Extensions you already added from it stay.")
-                    if !KeiyoushiJVMHost.isAvailable && !settings.keiyoushiRepoURL.isEmpty {
+                    if !KeiyoushiJVMHost.isAvailable && !settings.mihonRepoURLs.isEmpty {
                         Text("This build doesn't include the on-device runtime, so Mihon extensions can't run here.")
                     }
                 }
@@ -707,18 +708,16 @@ struct RepositoriesView: View {
                 .padding(.top, 8)
             }
         }
-        .listStyle(.plain)
-        .yomiListCanvas()
         .navigationTitle("Repositories")
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showAddRepo) { AddRepoSheet() }
         .task {
             await catalogService.fetchCatalog()
-            if keiyoushi.available.isEmpty, !settings.keiyoushiRepoURL.isEmpty { await keiyoushi.refresh() }
+            if keiyoushi.available.isEmpty, !settings.mihonRepoURLs.isEmpty { await keiyoushi.refresh() }
         }
     }
 
-    private func repositoryRow(name: String, url: String, count: Int?) -> some View {
+    private func repositoryRow(name: String, url: String, count: Int?, error: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline) {
                 Text(name)
@@ -726,7 +725,7 @@ struct RepositoriesView: View {
                     .foregroundStyle(canvas.textPrimary)
                 Spacer()
                 if let count {
-                    Text("\(count) extensions")
+                    Text("\(count) extension\(count == 1 ? "" : "s")")
                         .font(.subheadline)
                         .monospacedDigit()
                         .foregroundStyle(canvas.textSecondary)
@@ -737,10 +736,12 @@ struct RepositoriesView: View {
                 .foregroundStyle(canvas.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.orange).lineLimit(2)
+            }
         }
         .padding(.vertical, 4)
         .listRowBackground(Color.clear)
-        .listRowSeparatorTint(canvas.hairline)
         .listRowInsets(EdgeInsets(top: 8, leading: YomiTokens.Layout.screenMargin,
                                   bottom: 8, trailing: YomiTokens.Layout.screenMargin))
         .contextMenu {
@@ -759,6 +760,7 @@ struct AddRepoSheet: View {
     @State private var settings  = AppSettings.shared
     @State private var customURL = ""
     @State private var error: String? = nil
+    @State private var isAdding = false
 
     private var trimmed: String { customURL.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -777,7 +779,7 @@ struct AddRepoSheet: View {
                 } header: {
                     Text("Repository Link")
                 } footer: {
-                    Text("A Yomi or LNReader repository (.json), or a Mihon repository (index.pb).")
+                    Text("A Mihon / Tachiyomi repository (index.pb or index.min.json), or a Yomi or LNReader repository (.json).")
                 }
                 Section {
                     Link(destination: kYomiSetupGuideURL) {
@@ -792,34 +794,54 @@ struct AddRepoSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add", action: add)
-                        .disabled(trimmed.isEmpty)
+                    if isAdding {
+                        ProgressView()
+                    } else {
+                        Button("Add", action: add)
+                            .disabled(trimmed.isEmpty)
+                    }
                 }
             }
         }
         .presentationDetents([.medium, .large])
     }
 
+    /// Sorts the link: a Mihon repository (index.pb / index.min.json, or a folder that has one) goes to the Mihon
+    /// runtime; anything else is a Yomi / LNReader catalog. S142: before, only links ending in .pb counted as
+    /// Mihon — index.min.json repositories were sent to the catalog parser and failed, and a second .pb replaced
+    /// the first.
     private func add() {
         guard let url = URL(string: trimmed), url.scheme?.hasPrefix("http") == true, url.host != nil else {
             error = "That doesn't look like a link."
             return
         }
-        // A Mihon/Keiyoushi repository is a protobuf index, not a JSON catalog — it goes to the Keiyoushi runtime.
-        if url.path.lowercased().hasSuffix(".pb") {
-            settings.keiyoushiRepoURL = trimmed
-            Task { await KeiyoushiRepository.shared.refresh() }
-            dismiss()
-            return
-        }
-        guard !settings.pluginCatalogURLs.contains(trimmed) else {
+        guard !settings.pluginCatalogURLs.contains(trimmed), !settings.mihonRepoURLs.contains(trimmed) else {
             error = "This repository is already added."
             return
         }
-        settings.pluginCatalogURLs.append(trimmed)
-        PluginCatalogService.shared.invalidateCache()
-        Task { await PluginCatalogService.shared.fetchCatalog(force: true) }
-        dismiss()
+        let path = url.path.lowercased()
+        let isMihon = path.hasSuffix(".pb") || path.hasSuffix("index.min.json")
+        let isCatalog = path.hasSuffix(".json") && !isMihon
+        isAdding = true
+        Task {
+            defer { isAdding = false }
+            if !isCatalog {
+                do {
+                    try await KeiyoushiRepository.shared.addRepository(trimmed)
+                    dismiss()
+                    return
+                } catch where isMihon {
+                    self.error = error.localizedDescription
+                    return
+                } catch {
+                    // A folder link that isn't a Mihon repository — try it as a catalog below.
+                }
+            }
+            settings.pluginCatalogURLs.append(trimmed)
+            PluginCatalogService.shared.invalidateCache()
+            await PluginCatalogService.shared.fetchCatalog(force: true)
+            dismiss()
+        }
     }
 }
 
