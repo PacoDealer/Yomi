@@ -1,7 +1,6 @@
 import SwiftUI
 import StoreKit
 import WebKit
-import AVFoundation
 
 // MARK: - NovelTheme
 
@@ -83,9 +82,9 @@ struct TextReaderView: View {
     @State private var sourceURL: URL? = nil
     @State private var showSourceSheet = false
 
-    // TTS
-    @State private var isSpeaking = false
-    @State private var ttsDelegate: TTSDelegate? = nil
+    // Listening (S143): the app-wide player; the reader mirrors it (highlight, follow, mini-player).
+    @State private var player = ListenPlayer.shared
+    @State private var showPlayerSheet = false
 
     init(novel: Novel, bridge: JSBridge, chapters: [NovelChapter], startIndex: Int = 0) {
         self.novel   = novel
@@ -98,6 +97,8 @@ struct TextReaderView: View {
     // MARK: - Computed
 
     private var activeChapter: NovelChapter { chapters[currentChapterIndex] }
+    /// The player is reading this novel (maybe another chapter of it).
+    private var listeningHere: Bool { player.novel?.id == novel.id }
     private var hasPrevChapter: Bool { currentChapterIndex > 0 }
     private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
     private var nextChapterForPreload: NovelChapter? { hasNextChapter ? chapters[currentChapterIndex + 1] : nil }
@@ -150,6 +151,7 @@ struct TextReaderView: View {
             a svg, a svg path, a svg polygon, a svg rect { fill: \(lnk); stroke: \(lnk); }
             svg { fill: currentColor; }
             h1, h2, h3 { margin: 0.5em 0 0.4em 0; line-height: 1.3; }
+            ::highlight(yomi-tts) { background-color: color-mix(in srgb, \(lnk) 30%, transparent); }
             """
     }
 
@@ -209,6 +211,18 @@ struct TextReaderView: View {
                 chapterFinishedBanner
             }
 
+            // Docked under the text while listening; the menu panel takes its place when open.
+            if listeningHere && !showOverlay {
+                VStack {
+                    Spacer()
+                    ListenMiniPlayer(onOpen: { showPlayerSheet = true })
+                        .environment(\.colorScheme, novelTheme.colorScheme)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 6)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             #if DEBUG
             // UI tests read the menu state here.
             Color.clear.frame(width: 1, height: 1)
@@ -239,7 +253,7 @@ struct TextReaderView: View {
                     paragraphSpacing:     $paragraphSpacing,
                     letterSpacing:        $letterSpacing,
                     showOverlay:          $showOverlay,
-                    isSpeaking:           $isSpeaking,
+                    isListening:          listeningHere,
                     hasPrevChapter:       hasPrevChapter,
                     hasNextChapter:       hasNextChapter,
                     sourceURL:            sourceURL,
@@ -247,7 +261,7 @@ struct TextReaderView: View {
                     onPrevChapter:        { navigateToChapter(currentChapterIndex - 1) },
                     onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
                     onJumpToChapter:      { navigateToChapter($0) },
-                    onToggleTTS:          { toggleTTS() },
+                    onToggleTTS:          { toggleListening() },
                     onViewSource:         { showSourceSheet = true }
                 )
                 // The app root's .preferredColorScheme (app theme) wins over this view's, so the glass menu
@@ -274,6 +288,15 @@ struct TextReaderView: View {
                 b.resolveSourceURL(path: path)
             }.value
         }
+        .sheet(isPresented: $showPlayerSheet) {
+            ListenPlayerView()
+        }
+        .onChange(of: player.chapterToken) { _, _ in syncListeningChapter() }
+        .onChange(of: player.sentenceIndex) { _, _ in markListeningSentence() }
+        .onChange(of: listeningHere) { _, on in
+            controller.setListening(on)
+            if !on { controller.ttsClear() }
+        }
         .sheet(isPresented: $showSourceSheet) {
             if let url = sourceURL {
                 DiscussWebSheet(url: url, title: "Source")
@@ -293,13 +316,16 @@ struct TextReaderView: View {
             if should { requestReview(); shouldRequestReview = false }
         }
         .onAppear {
+            player.readersOpen += 1
+            controller.setListening(listeningHere)
             sessionStart = Date()
             // "Keep screen on" used to apply to the manga reader only (S142 settings audit).
             UIApplication.shared.isIdleTimerDisabled = AppSettings.shared.keepScreenOn
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
-            stopTTS()
+            player.readersOpen = max(0, player.readersOpen - 1)
+            // Listening carries on after the reader closes (Martin S143); the mini-player moves to the tab bar.
             flushScrollPercent()
             flushReadingTime()
         }
@@ -317,7 +343,8 @@ struct TextReaderView: View {
             Spacer()
             Text("\(info.page) / \(info.pages)")
                 .monospacedDigit()
-                .padding(.bottom, 6)
+                // Above the docked mini-player while listening (the pages CSS leaves room for both).
+                .padding(.bottom, listeningHere && !showOverlay ? 72 : 6)
         }
         .font(YomiTokens.Font.mono(11))
         .foregroundStyle(Color(hex: novelTheme.fg).opacity(0.5))
@@ -402,6 +429,8 @@ struct TextReaderView: View {
             loadedContent.removeValue(forKey: id)
         case .page(let id, let page, let pages):
             pageInfo = PageInfo(chapterName: chapters.first { $0.id == id }?.name ?? "", page: page, pages: pages)
+        case .listenFromHere:
+            Task { await listenFromSelection() }
         }
     }
 
@@ -484,6 +513,7 @@ struct TextReaderView: View {
         let target = chapters[index]
         if errorMessage == nil, !isLoading, index > currentChapterIndex, loadedContent[target.id] != nil {
             controller.scrollToChapter(id: target.id)
+            if listeningHere, let html = loadedContent[target.id] { listen(chapterIndex: index, html: html, from: 0) }
             return
         }
         // Credit the chapter being left as read if the user was effectively done with it (matches the
@@ -494,13 +524,13 @@ struct TextReaderView: View {
             let novelId = novel.id
             Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
         }
-        openChapter(index, restorePercent: 0)
+        // Changing chapter by hand while listening moves the listening there too.
+        openChapter(index, restorePercent: 0, listen: listeningHere)
     }
 
     /// Replaces the document with one chapter. The web view stays; only its content changes.
-    private func openChapter(_ index: Int, restorePercent: Double) {
+    private func openChapter(_ index: Int, restorePercent: Double, listen: Bool = false) {
         guard index >= 0, index < chapters.count else { return }
-        stopTTS()
         if didStartReading { flushScrollPercent(); flushReadingTime() }
         didStartReading = true
         loadGeneration += 1
@@ -527,6 +557,11 @@ struct TextReaderView: View {
             loadedContent = [chapter.id: html]
             controller.show(id: chapter.id, title: chapter.name, html: html, restorePercent: restorePercent)
             isLoading = false
+            if listen {
+                self.listen(chapterIndex: index, html: html, from: 0)
+            } else {
+                resendListeningSentences(for: chapter.id)
+            }
         }
     }
 
@@ -551,6 +586,7 @@ struct TextReaderView: View {
             }
             loadedContent[next.id] = html
             controller.append(id: next.id, title: next.name, html: html)
+            resendListeningSentences(for: next.id)
         }
     }
 
@@ -601,43 +637,71 @@ struct TextReaderView: View {
         }
     }
 
-    // MARK: - TTS
+    // MARK: - Listening
 
-    private func toggleTTS() {
-        if isSpeaking {
-            stopTTS()
-        } else {
-            startTTS()
+    private func toggleListening() {
+        if listeningHere {
+            player.stop()
+            return
+        }
+        guard let html = loadedContent[activeChapter.id] else { return }
+        let id = activeChapter.id
+        let index = currentChapterIndex
+        let sentences = ListenText.sentences(fromHTML: html)
+        controller.ttsSet(id: id, sentences: sentences)
+        Task {
+            // Start where the reader is looking, not at the top of the chapter.
+            let first = await controller.ttsFirstVisible(id: id)
+            startPlayer(chapterIndex: index, sentences: sentences, from: first)
+            withAnimation(.easeInOut(duration: 0.2)) { showOverlay = false }
         }
     }
 
-    private func startTTS() {
-        guard let html = loadedContent[activeChapter.id], !html.isEmpty else { return }
-        let plain = html
-            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !plain.isEmpty else { return }
-        let utterance = AVSpeechUtterance(string: plain)
-        utterance.rate = AppSettings.shared.ttsSpeechRate
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.language.languageCode?.identifier ?? "en")
-        let delegate = TTSDelegate { self.isSpeaking = false }
-        ttsDelegate = delegate
-        let synth = AVSpeechSynthesizer()
-        synth.delegate = delegate
-        delegate.synthesizer = synth
-        isSpeaking = true
-        synth.speak(utterance)
+    /// "Listen from Here" in the selection menu.
+    private func listenFromSelection() async {
+        guard let id = await controller.selectionChapterId(),
+              let index = chapters.firstIndex(where: { $0.id == id }),
+              let html = loadedContent[id] else { return }
+        let sentences = ListenText.sentences(fromHTML: html)
+        controller.ttsSet(id: id, sentences: sentences)
+        let from = await controller.ttsSelectionIndex(id: id)
+        startPlayer(chapterIndex: index, sentences: sentences, from: from)
     }
 
-    private func stopTTS() {
-        ttsDelegate?.synthesizer?.stopSpeaking(at: .immediate)
-        ttsDelegate = nil
-        isSpeaking = false
+    private func listen(chapterIndex index: Int, html: String, from sentence: Int) {
+        let sentences = ListenText.sentences(fromHTML: html)
+        controller.ttsSet(id: chapters[index].id, sentences: sentences)
+        startPlayer(chapterIndex: index, sentences: sentences, from: sentence)
+    }
+
+    private func startPlayer(chapterIndex index: Int, sentences: [String], from sentence: Int) {
+        player.start(novel: novel, bridge: bridge, chapters: chapters, index: index,
+                     sentences: sentences, from: sentence, language: sourceLanguage)
+        markListeningSentence()
+    }
+
+    /// The player moved to another chapter (auto-advance, lock screen, its own buttons): bring the reader along.
+    private func syncListeningChapter() {
+        guard listeningHere, let chapter = player.chapter else { return }
+        if loadedContent[chapter.id] != nil {
+            controller.ttsSet(id: chapter.id, sentences: player.sentences)
+            if chapter.id != activeChapter.id { controller.scrollToChapter(id: chapter.id) }
+            markListeningSentence()
+        } else if let index = chapters.firstIndex(where: { $0.id == chapter.id }), index != currentChapterIndex {
+            openChapter(index, restorePercent: 0)
+        }
+    }
+
+    /// A chapter (re)entered the page: if it's the one being read aloud, the page needs its sentences again.
+    private func resendListeningSentences(for id: String) {
+        guard listeningHere, player.chapter?.id == id, !player.sentences.isEmpty else { return }
+        controller.ttsSet(id: id, sentences: player.sentences)
+        markListeningSentence()
+    }
+
+    private func markListeningSentence() {
+        guard listeningHere, let id = player.chapter?.id, loadedContent[id] != nil else { return }
+        controller.ttsMark(id: id, index: player.sentenceIndex, show: AppSettings.shared.ttsHighlight)
     }
 }
 
@@ -658,7 +722,7 @@ struct TextReaderOverlayView: View {
     @Binding var paragraphSpacing: Double
     @Binding var letterSpacing: Int
     @Binding var showOverlay: Bool
-    @Binding var isSpeaking:  Bool
+    var isListening:          Bool
     var hasPrevChapter:       Bool = false
     var hasNextChapter:       Bool = false
     var sourceURL:            URL? = nil
@@ -847,13 +911,13 @@ extension TextReaderOverlayView {
             Spacer()
 
             Button { onToggleTTS?() } label: {
-                Label(isSpeaking ? "Stop" : "Listen",
-                      systemImage: isSpeaking ? "stop.circle.fill" : "play.circle")
+                Label(isListening ? "Stop" : "Listen",
+                      systemImage: isListening ? "stop.circle.fill" : "headphones")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(isSpeaking ? Color.accentColor : .primary)
+                    .foregroundStyle(isListening ? Color.accentColor : .primary)
             }
             // The glyph is the only indication of speaking state (Known Issue #121).
-            .accessibilityLabel(isSpeaking ? "Stop reading aloud" : "Read aloud")
+            .accessibilityLabel(isListening ? "Stop reading aloud" : "Read aloud")
 
             Spacer()
 
@@ -1125,21 +1189,6 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
             }
         }
         .background(Color.primary.opacity(0.12), in: Capsule())
-    }
-}
-
-// MARK: - TTSDelegate
-
-private final class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    var onFinish: () -> Void
-    var synthesizer: AVSpeechSynthesizer?
-
-    init(onFinish: @escaping () -> Void) {
-        self.onFinish = onFinish
-    }
-
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async { self.onFinish() }
     }
 }
 

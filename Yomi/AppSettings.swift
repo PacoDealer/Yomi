@@ -434,6 +434,27 @@ import Observation
         didSet { defaults.set(ttsSpeechRate, forKey: "ttsSpeechRate") }
     }
 
+    /// AVSpeechSynthesisVoice identifier; empty = the best installed voice for the novel's language (S143).
+    var ttsVoiceId: String {
+        didSet { defaults.set(ttsVoiceId, forKey: "ttsVoiceId") }
+    }
+
+    /// Listening plays over other apps' audio instead of pausing it. Off by default: only a non-mixing
+    /// session gets the lock-screen / AirPods controls (Martin S143: pause by default, but make it a setting).
+    var ttsMixWithOthers: Bool {
+        didSet { defaults.set(ttsMixWithOthers, forKey: "ttsMixWithOthers") }
+    }
+
+    /// Highlight the sentence being read in the reader.
+    var ttsHighlight: Bool {
+        didSet { defaults.set(ttsHighlight, forKey: "ttsHighlight") }
+    }
+
+    /// Carry on into the next chapter when one ends.
+    var ttsAutoAdvance: Bool {
+        didSet { defaults.set(ttsAutoAdvance, forKey: "ttsAutoAdvance") }
+    }
+
     // MARK: - Downloads
 
     /// Manga + novel downloads, download-ahead and background downloads wait for a non-metered network
@@ -600,6 +621,10 @@ import Observation
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5
+        ttsVoiceId               = d.string(forKey: "ttsVoiceId") ?? ""
+        ttsMixWithOthers         = d.object(forKey: "ttsMixWithOthers")         as? Bool ?? false
+        ttsHighlight             = d.object(forKey: "ttsHighlight")             as? Bool ?? true
+        ttsAutoAdvance           = d.object(forKey: "ttsAutoAdvance")           as? Bool ?? true
         novelDownloadAhead       = d.object(forKey: "novelDownloadAhead")       as? Int ?? 5
         novelInfiniteScroll      = d.object(forKey: "novelInfiniteScroll")      as? Bool ?? true
         novelSwipeChapters       = d.object(forKey: "novelSwipeChapters")       as? Bool ?? true
