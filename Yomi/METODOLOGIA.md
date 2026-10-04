@@ -2062,3 +2062,18 @@ previously here was removed during the 2026-08-04 doc restructure.
   lists pin section headers over rows — use grouped style with a clear background.
 - The desktop app's simulator pane keeps the system in dark mode; `simctl ui appearance light` reports "light"
   but iOS Settings itself stays dark. Check light mode on the device.
+
+## S143 lessons
+- **Measure non-linear API scales instead of guessing.** `AVSpeechUtterance.rate` → speed was measured by
+  synthesizing one text at each rate with `write(_:toBufferCallback:)` and summing frames (0.5 = 1×, 0.6 ≈ 1.6×,
+  0.75 ≈ 2.5×, 1.0 ≈ 4×). The old slider's "Slower/Faster" hid that 0.3–0.75 spans 0.77×–2.5×.
+- **Background work must not depend on a web view.** WKWebView is suspended with the screen locked, so the TTS
+  player owns the text (HTML → sentences in Swift); the page only mirrors it. Prefetch the next chapter early —
+  an app that stops making sound in the background gets suspended mid-fetch.
+- **CSS Custom Highlight in WKWebView:** registering a new `Highlight` per sentence left old ranges painted; keep
+  one Highlight and `clear()`/`add()` its range. Match text by letters/digits only (entities and whitespace
+  decode differently in Swift and WebKit).
+- **Sheets and full-screen covers don't inherit YomiApp's `.tint`, and `Color.accentColor` there is the asset
+  colour (system blue)** — pass `Color(hex: settings.accentColor)` explicitly.
+- **Desktop simulator pane taps are delayed, not dropped** — a "retry" tap lands later and toggles things back.
+  XcodeBuildMCP `snapshot_ui` + `tap` by elementRef works for Yomi now (was empty in S140): use it.
