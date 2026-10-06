@@ -21,9 +21,12 @@ for p in "$PROFILES"/*; do
   exp=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$(plutil -extract ExpirationDate raw - <<<"$plist")" +%s 2>/dev/null) || continue
   (( exp - $(date +%s) < 6*86400 )) && rm "$p"
 done
+LOG=$(mktemp)
 xcodebuild -project Yomi.xcodeproj -scheme Yomi -configuration "$CONFIG" -destination "id=$DEVICE_UDID" \
-  -xcconfig Config/Personal.xcconfig -derivedDataPath "$DD" -allowProvisioningUpdates build 2>&1 \
-  | grep -E "error:|warning: .*\.swift|BUILD (SUCCEEDED|FAILED)" || true
+  -xcconfig Config/Personal.xcconfig -derivedDataPath "$DD" -allowProvisioningUpdates build >"$LOG" 2>&1 || true
+grep -E "error:|warning: .*\.swift|BUILD (SUCCEEDED|FAILED)" "$LOG" || true
+# A failed build leaves the PREVIOUS Yomi.app in place — installing it would silently run old code (S144).
+grep -q "BUILD SUCCEEDED" "$LOG" || { echo "Build failed — nothing installed."; exit 1; }
 APP="$DD/Build/Products/$CONFIG-iphoneos/Yomi.app"
 [ -d "$APP" ] || exit 1
 echo "Profile expires: $(security cms -D -i "$APP/embedded.mobileprovision" 2>/dev/null | plutil -extract ExpirationDate raw -)"

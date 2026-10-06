@@ -100,6 +100,36 @@ enum ResumeReading {
     struct MangaTarget { let bridge: JSBridge?; let chapters: [Chapter]; let index: Int }
     struct NovelTarget { let bridge: JSBridge; let chapters: [NovelChapter]; let index: Int }
 
+    /// The chapter Continue opens (S144), for every Continue in the app. `chapters` in reading order.
+    ///
+    /// Where the reader IS = the end of their run of read chapters (a read chapter whose previous one is read
+    /// too; or the first chapter). After it: the first chapter in progress, else the next one. No run yet: the
+    /// chapter in progress, else the one after the furthest read, else the first. All read → the last.
+    ///
+    /// Why a run, on Martin's real data: "first unread with any progress" sent him back 24 chapters to an
+    /// Author's Q&A left at 85 % (under the 90 % mark), while "furthest read" took Bad Born Blood to chapter
+    /// 102 — a peek at the newest chapter — though he'd started from chapter 1. "Most recent readAt" isn't
+    /// safe either: a bulk mark-read stamps every chapter at once.
+    nonisolated static func chapter<C>(in chapters: [C], isRead: (C) -> Bool, started: (C) -> Bool) -> C? {
+        guard !chapters.isEmpty else { return nil }
+        let run = chapters.indices.last { i in isRead(chapters[i]) && (i == 0 || isRead(chapters[i - 1])) }
+        if let run {
+            let after = chapters[(run + 1)...]
+            return after.first { !isRead($0) && started($0) } ?? chapters[min(run + 1, chapters.count - 1)]
+        }
+        if let inProgress = chapters.first(where: { !isRead($0) && started($0) }) { return inProgress }
+        if let furthest = chapters.lastIndex(where: isRead) { return chapters[min(furthest + 1, chapters.count - 1)] }
+        return chapters.first
+    }
+
+    nonisolated static func novelChapter(in chapters: [NovelChapter]) -> NovelChapter? {
+        chapter(in: chapters, isRead: \.isRead, started: { ($0.lastScrollPercent ?? 0) > 0.01 })
+    }
+
+    nonisolated static func mangaChapter(in chapters: [Chapter]) -> Chapter? {
+        chapter(in: chapters, isRead: \.isRead, started: { $0.lastPageRead > 0 || $0.progress > 0 })
+    }
+
     static func manga(_ manga: Manga) async -> MangaTarget? {
         let mangaId = manga.id
         var chapters = await Task.detached(priority: .userInitiated) {
@@ -112,10 +142,8 @@ enum ResumeReading {
             chapters = MangaDetailView.oneTranslationPerChapter(
                 chapters, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(mangaId)"))
         }
-        let touched = chapters.filter { $0.isRead || $0.lastPageRead > 0 || $0.progress > 0 }
-        let last = touched.max { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) }
-            ?? chapters.first { !$0.isRead }
-        let index = last.flatMap { l in chapters.firstIndex { $0.id == l.id } } ?? chapters.count - 1
+        let resume = mangaChapter(in: chapters)
+        let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? chapters.count - 1
 
         // Keiyoushi titles read through the embedded JVM, not a JS plugin — the reader takes no bridge.
         if KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
@@ -134,10 +162,7 @@ enum ResumeReading {
         guard !chapters.isEmpty,
               let ext = ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId }),
               let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return nil }
-        // In progress, else first unread, else the last chapter — the detail page's Continue button.
-        let resume = chapters.first { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 }
-            ?? chapters.first { !$0.isRead }
-            ?? chapters.last
+        let resume = novelChapter(in: chapters)
         let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? 0
         return NovelTarget(bridge: bridge, chapters: chapters, index: index)
     }
@@ -322,11 +347,8 @@ private struct ContinueReadingNovelCell: View {
             let chapters = await Task.detached {
                 (try? NovelQueries.fetchChapters(novelId: novel.id)) ?? []
             }.value
-            // Same chapter tapping opens: in progress, else first unread, else the last one.
-            // (Most-recent readAt picked the prologue when chapters were bulk-marked read.)
-            let resume = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
-                ?? chapters.first(where: { !$0.isRead })
-                ?? chapters.last
+            // Same chapter tapping opens.
+            let resume = ResumeReading.novelChapter(in: chapters)
             lastChapterName = resume?.name
             if !chapters.isEmpty {
                 let readCount = chapters.filter { $0.isRead }.count

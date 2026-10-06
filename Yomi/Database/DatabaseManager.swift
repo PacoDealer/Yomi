@@ -319,6 +319,26 @@ final class DatabaseManager {
                           columns: ["fetchedAt"], ifNotExists: true)
         }
 
+        // Chapters saved without a number get one read from their name, by Mihon's rules (S144). Keiyoushi
+        // extensions that report -1 (Asura) saved EVERY chapter without one, so their titles sat in the
+        // source's newest-first order and Continue / Next ran backwards. New chapters are parsed on arrival
+        // (KeiyoushiMapping.chapter); this fixes the ones already saved. Names without a number stay NULL.
+        migrator.registerMigration("v24_parse_missing_chapter_numbers") { db in
+            let tables = [("chapter", "manga", "mangaId"), ("novel_chapter", "novel", "novelId")]
+            for (table, parent, key) in tables {
+                let rows = try Row.fetchAll(db, sql: """
+                    SELECT c.id, c.name, p.title FROM \(table) c JOIN \(parent) p ON p.id = c.\(key)
+                    WHERE c.chapterNumber IS NULL
+                    """)
+                for row in rows {
+                    guard let n = ChapterRecognition.number(mangaTitle: row["title"], chapterName: row["name"],
+                                                            sourceNumber: nil) else { continue }
+                    try db.execute(sql: "UPDATE \(table) SET chapterNumber = ? WHERE id = ?",
+                                   arguments: [n, row["id"] as String])
+                }
+            }
+        }
+
         try migrator.migrate(db)
     }
 

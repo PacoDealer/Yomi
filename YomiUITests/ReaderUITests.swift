@@ -91,6 +91,23 @@ final class ReaderUITests: XCTestCase {
         XCTAssertTrue(waitForMenu("open"), "a tap should open the menu")
     }
 
+    /// S144 (Martin, daily use: "still way too sensitive to small scrolls"): a slow, short drag — finger rests,
+    /// moves a few points, lifts — is a scroll attempt, not a tap.
+    func testSlowSmallDragDoesNotOpenMenu() {
+        launch(infiniteScroll: true)
+        let web = app.webViews.firstMatch
+        closeMenu()
+
+        let start = web.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        start.press(forDuration: 0.15, thenDragTo: web.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.595)),
+                    withVelocity: 15, thenHoldForDuration: 0)
+        sleep(1)
+        XCTAssertEqual(menuState, "closed", "a slow small drag opened the menu")
+
+        web.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(waitForMenu("open"), "a tap should open the menu")
+    }
+
     /// Request #2: scrolling past the end of a chapter continues into the next one.
     func testInfiniteScrollContinuesIntoNextChapter() {
         launch(infiniteScroll: true)

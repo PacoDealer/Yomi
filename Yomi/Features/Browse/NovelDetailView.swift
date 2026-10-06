@@ -45,20 +45,19 @@ struct NovelDetailView: View {
         _bridge = State(initialValue: bridge)
         _isInLibrary = State(initialValue: novel.inLibrary)
         _novelReadingStatus = State(initialValue: novel.readingStatus)
+        let prefs = ChapterListPrefs.load(titleId: novel.id, defaultDescending: false)
+        _chaptersDescending = State(initialValue: prefs.descending)
+        _chapterFilterUnread = State(initialValue: prefs.filter == "Unread")
+    }
+
+    private var chapterListPrefs: ChapterListPrefs {
+        ChapterListPrefs(descending: chaptersDescending, filter: chapterFilterUnread ? "Unread" : "All",
+                         sort: "Chapter Number")
     }
 
     // MARK: - Resume helpers
 
-    private var resumeChapter: NovelChapter? {
-        // In-progress: scroll saved (any amount) or readAt touched but not fully read
-        if let inProgress = chapters.first(where: {
-            !$0.isRead && (($0.lastScrollPercent ?? 0) > 0.01 || $0.readAt != nil)
-        }) { return inProgress }
-        // First unread
-        if let firstUnread = chapters.first(where: { !$0.isRead }) { return firstUnread }
-        // All read — return last
-        return chapters.last
-    }
+    private var resumeChapter: NovelChapter? { ResumeReading.novelChapter(in: chapters) }
 
     private var hasStartedReading: Bool {
         chapters.contains { $0.isRead || $0.readAt != nil || ($0.lastScrollPercent ?? 0) > 0.01 }
@@ -152,6 +151,7 @@ struct NovelDetailView: View {
         // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
         .navigationBarBackButtonHidden(isSelectingChapters)
         .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
+        .onChange(of: chapterListPrefs) { _, prefs in prefs.save(titleId: novel.id) }
         .navigationDestination(item: $chapterForNav) { ch in
             if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
                 TextReaderView(novel: novel, bridge: b, chapters: chapters, startIndex: idx)
@@ -766,10 +766,14 @@ struct NovelDetailView: View {
         // otherwise they only exist in the DB after the next reload.
         let loaded = isInLibrary ? chapters : []
         let inLibrary = isInLibrary
-        await Task.detached(priority: .userInitiated) {
+        let saved = await Task.detached(priority: .userInitiated) { () -> [NovelChapter]? in
             try? NovelQueries.setInLibrary(updated, inLibrary)
-            if !loaded.isEmpty { try? NovelQueries.insertAllIgnoringConflicts(loaded) }
+            guard !loaded.isEmpty else { return nil }
+            try? NovelQueries.insertAllIgnoringConflicts(loaded)
+            return try? NovelQueries.fetchChapters(novelId: updated.id)
         }.value
+        // The rows as saved: a chapter already stored under another id keeps that id, and read marks go by id.
+        if let saved, !saved.isEmpty { chapters = saved }
         // Same first-save permission ask as MangaDetailView — novels never asked, so a novel-only reader never
         // got chapter notifications (S142 settings audit).
         if isInLibrary && !AppSettings.shared.hasRequestedNotifications {
@@ -1170,33 +1174,33 @@ private struct NovelChapterList: View, Equatable {
         }
     }
 
+    /// Tap + long-press gestures, not a Button: a Button inside a List swallowed the long press, so holding a
+    /// chapter never started select mode on novels (Martin S144) — same setup as MangaDetailView's rows.
     @ViewBuilder private func row(_ chapter: NovelChapter) -> some View {
-        Button {
-            actions.tap(chapter)
-        } label: {
-            HStack(spacing: 12) {
-                if isSelecting {
-                    let isSelected = selectedIds.contains(chapter.id)
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        // Known Issue #118: canvas tokens, not system secondary.
-                        .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
-                        .font(.title3)
-                }
-                NovelChapterRow(chapter: chapter)
-                Spacer(minLength: 0)
-                NovelChapterDownloadBadge(chapterId: chapter.id,
-                                          isDownloaded: downloadedIds.contains(chapter.id))
-                if !chapter.isRead && !isSelecting {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 8, height: 8)
-                        .accessibilityLabel("Unread")
-                }
+        HStack(spacing: 12) {
+            if isSelecting {
+                let isSelected = selectedIds.contains(chapter.id)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    // Known Issue #118: canvas tokens, not system secondary.
+                    .foregroundStyle(isSelected ? Color.accentColor : canvas.textSecondary)
+                    .font(.title3)
             }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+            NovelChapterRow(chapter: chapter)
+            Spacer(minLength: 0)
+            NovelChapterDownloadBadge(chapterId: chapter.id,
+                                      isDownloaded: downloadedIds.contains(chapter.id))
+            if !chapter.isRead && !isSelecting {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel("Unread")
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { actions.tap(chapter) }
+        .onLongPressGesture(minimumDuration: 0.4) { actions.startSelecting(chapter) }
+        .accessibilityAddTraits(.isButton)
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
                                   bottom: 0, trailing: YomiTokens.Layout.screenMargin))
@@ -1218,9 +1222,6 @@ private struct NovelChapterList: View, Equatable {
                 }
                 .tint(.blue)
             }
-        }
-        .onLongPressGesture {
-            actions.startSelecting(chapter)
         }
     }
 }

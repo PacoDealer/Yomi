@@ -226,11 +226,30 @@ enum NovelQueries {
 
     // MARK: - NovelChapter: Write
 
-    /// Bulk-inserts chapters using INSERT OR IGNORE — never overwrites existing isRead or readingSeconds
+    /// Bulk-inserts chapters using INSERT OR IGNORE — never overwrites existing isRead or readingSeconds.
+    /// A chapter is matched by its PATH, not its id (S144): the detail page names chapters by list position
+    /// (`<novelId>-ch-<index>`) and the Updates refresh by a path hash, so the same chapter could arrive under
+    /// two ids, and a chapter inserted mid-list (an author's Q&A) shifted every later position onto ids that
+    /// already belong to other chapters — it was silently dropped and the last chapter saved twice. Now a
+    /// known path is skipped, and a new path whose id is taken gets the path-hash id instead.
     nonisolated static func insertAllIgnoringConflicts(_ chapters: [NovelChapter]) throws {
         _ = try appDatabase.write { db in
-            for ch in chapters {
+            var known: [String: Set<String>] = [:]   // novelId → saved paths
+            var takenIds: [String: Set<String>] = [:]
+            for novelId in Set(chapters.map(\.novelId)) {
+                let rows = try Row.fetchAll(db, sql: "SELECT id, path FROM novel_chapter WHERE novelId = ?",
+                                            arguments: [novelId])
+                known[novelId] = Set(rows.map { $0["path"] as String })
+                takenIds[novelId] = Set(rows.map { $0["id"] as String })
+            }
+            for var ch in chapters {
+                guard known[ch.novelId]?.contains(ch.path) != true else { continue }
+                if takenIds[ch.novelId]?.contains(ch.id) == true {
+                    ch = ch.withId(NovelChapter.pathId(novelId: ch.novelId, path: ch.path))
+                }
                 try ch.insert(db, onConflict: .ignore)
+                known[ch.novelId, default: []].insert(ch.path)
+                takenIds[ch.novelId, default: []].insert(ch.id)
             }
             // Replays any CloudKit chapter-state change that arrived before these chapters existed
             // locally — see CloudSyncManager's code-review finding #41.

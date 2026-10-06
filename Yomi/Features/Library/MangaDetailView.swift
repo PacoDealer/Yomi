@@ -87,24 +87,19 @@ struct MangaDetailView: View {
 
     init(manga: Manga) {
         _manga = State(initialValue: manga)
+        let prefs = ChapterListPrefs.load(titleId: manga.id, defaultDescending: true)
+        _chaptersDescending = State(initialValue: prefs.descending)
+        _chapterFilter = State(initialValue: ChapterFilter(rawValue: prefs.filter) ?? .all)
+        _chapterSortOption = State(initialValue: ChapterSortOption(rawValue: prefs.sort) ?? .chapterNumber)
+    }
+
+    private var chapterListPrefs: ChapterListPrefs {
+        ChapterListPrefs(descending: chaptersDescending, filter: chapterFilter.rawValue, sort: chapterSortOption.rawValue)
     }
 
     // MARK: - Resume helpers
 
-    private var resumeChapter: Chapter? {
-        let chapters = readingChapters
-        guard !chapters.isEmpty else { return nil }
-        // In-progress (partially read) chapter
-        if let partial = chapters.first(where: { $0.lastPageRead > 0 && !$0.isRead }) {
-            return partial
-        }
-        // First unread chapter in ascending order
-        if let firstUnread = chapters.first(where: { !$0.isRead }) {
-            return firstUnread
-        }
-        // All read — go back to last chapter
-        return chapters.last
-    }
+    private var resumeChapter: Chapter? { ResumeReading.mangaChapter(in: readingChapters) }
 
     private var hasStartedReading: Bool {
         readingChapters.contains { $0.isRead || $0.lastPageRead > 0 }
@@ -127,7 +122,7 @@ struct MangaDetailView: View {
     /// Keeps one version per chapter number, in the list's existing (ascending) order. Choice per number:
     /// the preferred group's version, else one already read or started (so progress never disappears), else
     /// the group that covers the most chapters. Chapters without a number are all kept.
-    static func oneTranslationPerChapter(_ chapters: [Chapter], preferred: String?) -> [Chapter] {
+    nonisolated static func oneTranslationPerChapter(_ chapters: [Chapter], preferred: String?) -> [Chapter] {
         var coverage: [String: Int] = [:]
         for ch in chapters { coverage[ch.scanlator ?? "", default: 0] += 1 }
         func rank(_ ch: Chapter) -> (Int, Int, Int) {
@@ -258,6 +253,7 @@ struct MangaDetailView: View {
         // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
         .navigationBarBackButtonHidden(isSelectingChapters)
         .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
+        .onChange(of: chapterListPrefs) { _, prefs in prefs.save(titleId: manga.id) }
         .toolbar {
             if isSelectingChapters {
                 ToolbarItem(placement: .topBarLeading) {
@@ -1342,6 +1338,7 @@ struct MangaDetailView: View {
     /// `KeiyoushiBridge`. Same persist-and-merge shape as the Suwayomi path above.
     private func loadKeiyoushiChapters() async {
         let mangaId = manga.id
+        let mangaTitle = manga.title
         let mangaURL = manga.path
         let sourceId = KeiyoushiMapping.mihonSourceId(manga.sourceId)
         chapterLoadError = nil
@@ -1380,7 +1377,7 @@ struct MangaDetailView: View {
         do {
             let items = try await KeiyoushiBridge.shared.chapters(sourceId: sourceId, mangaURL: mangaURL)
             var seen = Set<String>()   // ids hash the chapter URL; never let a repeated URL become a duplicate row
-            fetched = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId) }
+            fetched = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle) }
                 .filter { seen.insert($0.id).inserted }
         } catch {
             chapters = await savedChapters(mangaId: mangaId)
@@ -1800,5 +1797,28 @@ enum ChapterSelection {
         let positions = order.indices.filter { selected.contains(order[$0]) }
         guard let lo = positions.first, let hi = positions.last else { return selected }
         return selected.union(order[lo...hi])
+    }
+}
+
+// MARK: - ChapterListPrefs
+
+/// A title's chapter-list order, filter and sort, kept until changed (S144, Martin: "the filter and order you
+/// choose for a specific series should stay that way until you change it"). Novels use `filter` "All"/"Unread".
+nonisolated struct ChapterListPrefs: Codable, Equatable {
+    var descending: Bool
+    var filter: String
+    var sort: String
+
+    private static func key(_ titleId: String) -> String { "chapterListPrefs.\(titleId)" }
+
+    static func load(titleId: String, defaultDescending: Bool) -> ChapterListPrefs {
+        if let data = UserDefaults.standard.data(forKey: key(titleId)),
+           let prefs = try? JSONDecoder().decode(ChapterListPrefs.self, from: data) { return prefs }
+        return ChapterListPrefs(descending: defaultDescending, filter: "All", sort: "Chapter Number")
+    }
+
+    func save(titleId: String) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.key(titleId))
     }
 }
