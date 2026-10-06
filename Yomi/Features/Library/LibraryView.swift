@@ -740,7 +740,7 @@ private struct NovelLibraryListRow: View {
                     .foregroundStyle(canvas.textSecondary)
                     .lineLimit(1)
                 if unreadCount > 0 {
-                    Text("\(unreadCount) unread")
+                    Text(verbatim: "\(unreadCount) unread")
                         .font(YomiTokens.Font.mono(YomiTokens.TypeScale.footnote))
                         .foregroundStyle(Color.accentColor)
                 }

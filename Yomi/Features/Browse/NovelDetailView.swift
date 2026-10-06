@@ -31,6 +31,8 @@ struct NovelDetailView: View {
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
     @State private var chapterSearchText: String = ""
+    @State private var chaptersShownBefore = 0   // "Show more" taps above / below the chapter window
+    @State private var chaptersShownAfter = 0
     @State private var downloadedIds: Set<String> = []
     /// True once the header's buttons have scrolled away — the floating bar then gets a material
     /// background and the title, like Apple Music's album pages.
@@ -69,6 +71,35 @@ struct NovelDetailView: View {
             base = base.filter { $0.name.localizedStandardContains(chapterSearchText) }
         }
         return chaptersDescending ? base.reversed() : base
+    }
+
+    // MARK: - Chapter window (S144)
+
+    /// Rows in the List at once. All 1,432 of Lord of the Mysteries made opening the page hang 754 ms and leaving
+    /// it 1.7 s (simulator trace: SwiftUI builds and copies an item per row). Manga pages show 50 at a time; here a
+    /// window around the Continue chapter, so the page still opens on where you are. Search shows every match,
+    /// and select all / select range still cover the whole list (`displayedChapters`).
+    static let chapterWindowStep = 100
+
+    private func chapterWindow(_ shown: [NovelChapter]) -> Range<Int> {
+        guard chapterSearchText.isEmpty, shown.count > 150 else { return shown.indices }
+        let anchor = resumeChapter.flatMap { r in shown.firstIndex { $0.id == r.id } } ?? 0
+        let lower = max(0, anchor - 30 - chaptersShownBefore)
+        let upper = min(shown.count, anchor + 70 + chaptersShownAfter)
+        return lower..<max(upper, min(shown.count, lower + 100))
+    }
+
+    private func showMoreChaptersButton(_ count: Int, up: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("Show \(count) more", systemImage: up ? "arrow.up" : "arrow.down")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.accentColor)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private var visibleChapterIds: Set<String> {
@@ -151,7 +182,11 @@ struct NovelDetailView: View {
         // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
         .navigationBarBackButtonHidden(isSelectingChapters)
         .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
-        .onChange(of: chapterListPrefs) { _, prefs in prefs.save(titleId: novel.id) }
+        .onChange(of: chapterListPrefs) { _, prefs in
+            prefs.save(titleId: novel.id)
+            chaptersShownBefore = 0
+            chaptersShownAfter = 0
+        }
         .navigationDestination(item: $chapterForNav) { ch in
             if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
                 TextReaderView(novel: novel, bridge: b, chapters: chapters, startIndex: idx)
@@ -327,7 +362,7 @@ struct NovelDetailView: View {
             guard !loading, let resume = resumeChapter else { return }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
-                withAnimation { proxy.scrollTo("ch_\(resume.id)", anchor: .center) }
+                withAnimation { proxy.scrollTo(resume.id, anchor: .center) }
             }
         }
         } // ScrollViewReader
@@ -653,12 +688,23 @@ struct NovelDetailView: View {
                     Text("No chapters matching \"\(chapterSearchText)\"")
                         .font(.subheadline).foregroundStyle(.secondary)
                 } else {
-                    NovelChapterList(chapters: shown,
+                    let window = chapterWindow(shown)
+                    if window.lowerBound > 0 {
+                        showMoreChaptersButton(min(Self.chapterWindowStep, window.lowerBound), up: true) {
+                            chaptersShownBefore += Self.chapterWindowStep
+                        }
+                    }
+                    NovelChapterList(chapters: Array(shown[window]),
                                      isSelecting: isSelectingChapters,
                                      selectedIds: selectedChapterIds,
                                      downloadedIds: downloadedIds,
                                      actions: chapterRowActions)
                         .equatable()
+                    if window.upperBound < shown.count {
+                        showMoreChaptersButton(min(Self.chapterWindowStep, shown.count - window.upperBound), up: false) {
+                            chaptersShownAfter += Self.chapterWindowStep
+                        }
+                    }
                 }
             }
         }
@@ -673,7 +719,7 @@ struct NovelDetailView: View {
                 .foregroundStyle(canvas.textPrimary)
             if !chapters.isEmpty {
                 let readCount = chapters.filter { $0.isRead }.count
-                Text(readCount > 0 ? "\(readCount) of \(chapters.count) read" : "\(chapters.count)")
+                Text(verbatim: readCount > 0 ? "\(readCount) of \(chapters.count) read" : "\(chapters.count)")
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(canvas.textSecondary)
@@ -1168,9 +1214,10 @@ private struct NovelChapterList: View, Equatable {
     }
 
     var body: some View {
+        // No `.id(…)` on the rows: an explicit id on every row made the List resolve all of them up front (S144
+        // trace: 859 ms hang opening Lord of the Mysteries, 1,432 rows). ForEach's own ids are what scrollTo uses.
         ForEach(chapters, id: \.id) { chapter in
             row(chapter)
-                .id("ch_\(chapter.id)")
         }
     }
 
