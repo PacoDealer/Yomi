@@ -21,6 +21,36 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S144 — Daily-driver pass: Martin's field report (2026-10-06)
+
+- Listening settings UI (`c1b756c`): Settings → Novels → Listening = speed presets (same as the player), voice,
+  highlight, continue into next chapter, play over other audio; a chosen voice only reads novels in its language.
+- **Martin's rule (S144): no new features until everything works perfectly.** He read RTOC daily + tried Asura
+  manhwa; reported: novel menu still opens on small scrolls, lost progress (Continue showed ~730 while he was at
+  ~758), Asura chapters show page 1 and nothing else even on good Wi-Fi, app laggy (series detail), hold-to-select
+  missing on novels; asked: keep each series' filter/sort. All fixed (`4a43858`, `bc31846`), KNOWN_ISSUES 181–189.
+- **Lost progress — root cause on HIS data** (pulled the phone DB): an Author's Q&A (734.5) left at 85 % (under the
+  90 % mark) stayed unread; every Continue used "first unread chapter with any progress". My first theory
+  (duplicate chapter ids from two id schemes) was WRONG for his phone — 0 duplicates — but is a real latent bug,
+  fixed too (#187). New rule `ResumeReading.chapter(in:)`: after the end of the RUN of read chapters (a lone read
+  of the newest chapter = a peek, e.g. Bad Born Blood 102 with chapter 1 at 13 %). 12 standalone cases pass.
+- **Keiyoushi chapter numbers**: all 9 Keiyoushi titles had 0 numbers (source -1, Mihon parses names) → port of
+  Mihon's `ChapterRecognition` + migration v24 (516 rows; parser reproduces 19,014/19,034 known numbers).
+- **Asura pages**: background → bridge restarts on a new port; page URLs kept the old one. DEBUG
+  `-keiyoushiPageProbe` on device: 0/20 after a pause before, 40/40 after (live-port rewrite + resume on
+  foreground + `PageRetry`). Throughput ~1 page/s = the Asura extension's own `rateLimit(2, 2.seconds)`.
+- Menu: tap must be < 300 ms (UI test failed 2/2 before, passes after). Novel rows: Button swallowed long press.
+  Filter/order/sort per series (`ChapterListPrefs`). Spanish grouping ("Chapter 1.175", "1.432").
+- Lag: simulator trace of Lord of the Mysteries (1,432 rows): hangs 1,717/754/371/268 ms → one 414 ms. Novel
+  list = window around Continue (−30/+70, Show 100 more). **Not measured on device yet.**
+- Phone: Release `bc31846` installed, profile expires **2026-10-13 13:12 UTC**; DB compared before/after: same
+  rows and read marks, 516 → 0 missing numbers.
+- Answered: premium chapters — the Asura extension has "Hide premium chapters" (default ON); Yomi has no screen
+  for an extension's own settings (Mihon source preferences). Backlog: per-extension Settings screen (also lets
+  logged-in premium users turn it off). Martin said "she manga" has it — unclear which app.
+- **Next:** Martin's device check of the six fixes; then measure detail/Browse lag on device (Release) and
+  manga detail with huge lists (One Piece 2,440 via Keiyoushi isn't in his library).
+
 ## S143 — Read-aloud rebuilt (TTS, §25.10 #8) (2026-10-04)
 
 - Research (live sources): background audio is allowed (Guideline 2.5.4 "audio playback"); Now Playing with plain

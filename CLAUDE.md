@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S143 — 2026-10-04)
+## Current state (S144 — 2026-10-06)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -42,22 +42,30 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **Downloads:** Keiyoushi/Suwayomi manga download too (`DownloadManager.canDownload`; Keiyoushi needs Yomi open).
 - **Updates:** refresh checks JS + Keiyoushi titles (Keiyoushi pool 3), progress row, Updates Summary
   (Failed/Completed, Retry). Background refresh skips Keiyoushi. One row per chapter found (`fetchedAt`, v23).
-- **Reading state:** only reading counts toward History/Continue. `ResumeReading` (ContinueReadingRow.swift).
+- **Reading state:** only reading counts toward History/Continue. ONE Continue rule for every screen:
+  `ResumeReading.chapter(in:)` (ContinueReadingRow.swift) = after the end of the RUN of read chapters (S144).
+- **Chapter numbers:** sources without one (Keiyoushi -1, e.g. Asura) are parsed from the name —
+  `Core/ChapterRecognition.swift` (Mihon port); v24 filled old rows. Yomi assumes ascending order everywhere.
+- **Keiyoushi pages:** bridge returns on a NEW port after background; `KeiyoushiBridge.pointAtLivePort` rewrites
+  page requests, `resumeIfPaused` on foreground, reader pages retry (`PageRetry`). DEBUG probe:
+  `-keiyoushiPageProbe [-keiyoushiPageProbeTitle x] [-keiyoushiPageProbePause]` (device; args after `--`).
 - **Read-aloud (S143):** app-wide `ListenPlayer` (`Features/Reader/ListenPlayer.swift`, views in
   `ListenPlayerViews.swift`) — Swift owns the sentences, the reader only highlights/follows; keeps playing outside
-  the reader (tab bar accessory). Lock screen/background untested on device. Listening settings UI not built yet.
-- **Agreed order (Martin):** Listening settings UI → More's old sub-screens → first-run + imports (#3, #6) →
-  legal last (incl. #170).
+  the reader (tab bar accessory). Lock screen/background untested on device. Settings → Novels → Listening (S144).
+- **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa).
+  S144 fixed his field report (KNOWN_ISSUES 181–189); next = his device check, then device perf (Release).
+  After that, the old order: More's old sub-screens → first-run + imports (#3, #6) → legal last (incl. #170).
+  New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
   extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S142 (`8aa57c7`) build, profile expires **2026-10-10 17:45 UTC**. Free team = 7 days —
+- Phone has the S144 (`bc31846`, Release) build, profile expires **2026-10-13 13:12 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v24_`**. UI tests 12/12 (S142).
+- Next GRDB migration prefix: **`v25_`**. UI tests 13/13 (S144).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -115,7 +123,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (free team; read the pri
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v23_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v25_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
