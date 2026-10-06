@@ -1,5 +1,6 @@
 import SwiftUI
 import LocalAuthentication
+import AVFAudio
 
 // MARK: - ConnectionTestStatus
 
@@ -292,6 +293,8 @@ private struct MangaReaderSettingsView: View {
 /// 0.1 steps vs Tight/Normal/Airy), so a value set here showed as nothing selected there (S142 audit).
 private struct NovelReaderSettingsView: View {
     @State private var settings = AppSettings.shared
+    @State private var player = ListenPlayer.shared
+    private let voices = ListenPlayer.voices(for: ListenPlayer.shared.languageCode)
 
     var body: some View {
         CalmList {
@@ -334,31 +337,40 @@ private struct NovelReaderSettingsView: View {
                      : "While you read a novel in your library, the next chapters are saved so they open instantly and work offline.")
             }
 
-            Section(calm: "Listening") {
-                // AVSpeechUtterance rate: 0.5 is the voice's normal speed; the old "0.1×–1.0×" labels read as a
-                // multiplier, so normal speed looked like half speed.
-                VStack(alignment: .leading, spacing: 6) {
-                    LabeledContent("Speed", value: speechSpeedLabel)
-                    Slider(value: Binding(get: { Double(settings.ttsSpeechRate) },
-                                          set: { settings.ttsSpeechRate = Float($0) }),
-                           in: 0.3...0.75, step: 0.05) {
-                        Text("Speed")
-                    } minimumValueLabel: {
-                        Image(systemName: "tortoise")
-                    } maximumValueLabel: {
-                        Image(systemName: "hare")
+            // Same choices as the full player (S143): presets from the measured rate curve, not the raw
+            // 0.3–0.75 utterance rate the old slider showed.
+            Section {
+                Picker("Speed", selection: Binding(get: { player.speed }, set: { player.setSpeed($0) })) {
+                    ForEach(ListenPlayer.speedPresets, id: \.self) { speed in
+                        Text(ListenPlayerView.speedLabel(speed)).tag(speed)
                     }
                 }
+                Picker("Voice", selection: Binding(get: { settings.ttsVoiceId }, set: { player.setVoice($0) })) {
+                    Text("Automatic").tag("")
+                    ForEach(voices, id: \.identifier) { voice in
+                        Text(ListenPlayerView.voiceLabel(voice)).tag(voice.identifier)
+                    }
+                }
+                Toggle(isOn: $settings.ttsHighlight) {
+                    Text("Highlight sentence")
+                    Text("Marks the sentence being read and follows it.")
+                }
+                Toggle(isOn: $settings.ttsAutoAdvance) {
+                    Text("Continue into next chapter")
+                }
+                Toggle(isOn: $settings.ttsMixWithOthers) {
+                    Text("Play over other audio")
+                    Text(settings.ttsMixWithOthers
+                         ? "Music and podcasts keep playing. Lock-screen controls don't appear."
+                         : "Music and podcasts pause while you listen.")
+                }
+                .onChange(of: settings.ttsMixWithOthers) { _, _ in player.audioOptionsChanged() }
+            } header: { CalmSectionHeader("Listening") } footer: {
+                Text("A chosen voice reads novels in its language; others use the best installed voice. More natural voices: iPhone Settings → Accessibility → Read & Speak → Voices.")
             }
         }
         .navigationTitle("Novels")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var speechSpeedLabel: String {
-        let r = settings.ttsSpeechRate
-        if abs(r - 0.5) < 0.025 { return "Normal" }
-        return r < 0.5 ? "Slower" : "Faster"
     }
 }
 
