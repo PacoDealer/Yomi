@@ -56,6 +56,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   S144 fixed his field report (KNOWN_ISSUES 181–189); next = his device check, then device perf (Release).
   After that, the old order: More's old sub-screens → first-run + imports (#3, #6) → legal last (incl. #170).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
+  Backlog: genre chips show empty for most titles — data gap, not UI (ROADMAP S144).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
