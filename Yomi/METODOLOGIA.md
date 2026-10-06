@@ -2077,3 +2077,22 @@ previously here was removed during the 2026-08-04 doc restructure.
   colour (system blue)** — pass `Color(hex: settings.accentColor)` explicitly.
 - **Desktop simulator pane taps are delayed, not dropped** — a "retry" tap lands later and toggles things back.
   XcodeBuildMCP `snapshot_ui` + `tap` by elementRef works for Yomi now (was empty in S140): use it.
+
+## S144 lessons
+
+- **Check the user's real data before trusting a code theory.** Two hypotheses for "lost progress" looked right in
+  code (duplicate ids; "first unread with progress"); the phone DB killed the first in one query and pinned the
+  second to one row (an 85 % Author's Q&A, readAt = the moment Martin marked it by hand).
+- **Test a rule against every title, not the bug's title.** "Resume after the furthest read" fixed RTOC and broke
+  Bad Born Blood (a peek at the newest chapter). A throwaway script over the copied DB caught it before shipping.
+- **`build-personal.sh` used to install the PREVIOUS app when the build failed** (`grep … || true`); a probe run
+  then "proved" the fix didn't work. Always check that new log lines appear; the script now aborts.
+- **devicectl app arguments go after `--`** (`process launch … pacodealer.Yomi -- -flag value`), else they're
+  parsed as devicectl flags. macOS has no `timeout`: `perl -e 'alarm N; exec @ARGV' cmd`.
+- **Simulator perf:** `xctrace record --template 'Time Profiler' --instrument 'Points of Interest' --device <sim>
+  --attach Yomi` works; adding 'Hitches' makes the recording fail. While attached, XcodeBuildMCP `snapshot_ui` is
+  empty — drive with the sim pane (taps land late: screenshot before the next tap, never re-tap).
+- **XcodeBuildMCP session defaults pointed at the iOS 26.0 sim** → `session_set_defaults simulatorId F31CC190…`.
+- **SwiftUI `Text("\(n)")` formats numbers with the locale** (Spanish: 1.432) — `Text(verbatim:)` for counts,
+  `.grouping(.never)` for chapter numbers. A regex literal inside a per-row function is rebuilt every render.
+
