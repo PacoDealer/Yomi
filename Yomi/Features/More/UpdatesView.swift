@@ -296,8 +296,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
             return .failed(message.hasPrefix("CLOUDFLARE:") ? "Cloudflare — open the title once to verify" : message)
         }
         let mangaId = manga.id
+        let mangaTitle = manga.title
         var seen = Set<String>()
-        let remote = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId) }
+        let remote = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle) }
             .filter { seen.insert($0.id).inserted }
         guard !remote.isEmpty else { return .failed("The source returned no chapters") }
 
@@ -374,10 +375,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let newChapters: [NovelChapter] = source.chapters
             .filter { !localPaths.contains($0.path) }
             .map { ch in
-                let hashBytes = SHA256.hash(data: Data((novelId + ch.path).utf8))
-                let stableId = hashBytes.prefix(8).map { String(format: "%02x", $0) }.joined()
-                return NovelChapter(
-                    id: stableId,
+                NovelChapter(
+                    id: NovelChapter.pathId(novelId: novelId, path: ch.path),
                     novelId: novelId,
                     path: ch.path,
                     name: ch.name,

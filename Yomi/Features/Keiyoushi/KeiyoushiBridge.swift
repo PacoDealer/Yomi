@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import Kingfisher
+import Synchronization
 
 // MARK: - Bridge response models (M-Extension-Server's JManga / JChapter / JPage)
 
@@ -54,8 +55,45 @@ final class KeiyoushiBridge {
     static let shared = KeiyoushiBridge()
     private init() {}
 
-    private var port: Int?
+    private var port: Int? {
+        didSet {
+            Self.livePort.withLock { $0 = port }
+            if port != nil { everStarted = true }
+        }
+    }
     private var starting: Task<Int, Error>?
+    private var everStarted = false
+
+    // MARK: Page images across a pause (S144)
+
+    /// The port the bridge serves on right now (nil while paused), readable from any thread — Kingfisher's
+    /// request modifier runs off the main actor.
+    nonisolated static let livePort = Mutex<Int?>(nil)
+
+    /// A page or cover served by the bridge: `http://127.0.0.1:<port>/image/<id>`.
+    nonisolated static func isBridgeImage(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.host == "127.0.0.1" && url.path.hasPrefix("/image/")
+    }
+
+    /// Image ids outlive a pause but the port doesn't (verified on device S144: a chapter's 20 page ids all loaded
+    /// after the restart once moved to the new port). Pages keep the URL they were listed with — so Kingfisher's
+    /// cache keys stay put — and every request is pointed at the live port here.
+    nonisolated static func pointAtLivePort(_ request: URLRequest) -> URLRequest {
+        guard isBridgeImage(request.url), let live = livePort.withLock({ $0 }), request.url?.port != live,
+              let url = request.url, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return request }
+        c.port = live
+        var moved = request
+        moved.url = c.url ?? url
+        return moved
+    }
+
+    /// Back in the foreground: serve again right away if Keiyoushi was in use, so an open chapter's remaining pages
+    /// load (before S144 they all failed until some other Keiyoushi call happened to restart the bridge).
+    func resumeIfPaused() async {
+        guard everStarted, port == nil else { return }
+        _ = try? await ensurePort()
+    }
     private var handles: [String: String] = [:]   // packageName → server-issued extension handle
 
     // MARK: Lifecycle
@@ -81,6 +119,10 @@ final class KeiyoushiBridge {
         port = started
         return started
     }
+
+    /// The port the bridge serves on now, starting it again if it was paused (page images are fetched straight
+    /// from it, not through `call`).
+    func servingPort() async throws -> Int { try await ensurePort() }
 
     /// App going to the background: stop serving (iOS would suspend the socket anyway) but keep extensions loaded.
     func pause() {
@@ -253,13 +295,16 @@ enum KeiyoushiMapping {
 
     /// `path` is a self-describing `keiyoushi://` reference (source id + the extension's own chapter URL + name),
     /// so the reader can fetch pages from the path alone — the same pattern as Suwayomi's `suwayomi://` (S120).
-    nonisolated static func chapter(from c: KeiyoushiChapter, mangaId: String, sourceId: String) -> Chapter {
+    nonisolated static func chapter(from c: KeiyoushiChapter, mangaId: String, sourceId: String,
+                                    mangaTitle: String) -> Chapter {
         Chapter(
             id: "\(mangaId)_\(key(c.url))",
             mangaId: mangaId,
             path: chapterPath(sourceId: sourceId, url: c.url, name: c.name),
             name: c.name,
-            chapterNumber: (c.chapter_number ?? -1) < 0 ? nil : c.chapter_number,
+            // -1 = the source doesn't know; Mihon then reads it from the name, and so do we (S144).
+            chapterNumber: ChapterRecognition.number(mangaTitle: mangaTitle, chapterName: c.name,
+                                                     sourceNumber: c.chapter_number),
             isRead: false,
             isDownloaded: false,
             downloadedAt: nil,

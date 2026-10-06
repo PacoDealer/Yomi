@@ -174,6 +174,7 @@ struct YomiApp: App {
         #if DEBUG
         ExtensionManager.shared.seedBundledPlugins()
         LNReaderHarness.startIfRequested()
+        KeiyoushiPageProbe.startIfRequested()
         #endif
         // Covers and reader pages on Cloudflare-protected sources (e.g. AquaManga) 403 without this.
         // Two separate things are both required, not just the UA:
@@ -190,7 +191,8 @@ struct YomiApp: App {
                 request.setValue(value, forHTTPHeaderField: name)
             }
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
-            return request
+            // Keiyoushi pages: the bridge comes back on a new port after the app was in the background (S144).
+            return KeiyoushiBridge.pointAtLivePort(request)
         }
         KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
         let kfSessionConfig = URLSessionConfiguration.default
@@ -239,6 +241,7 @@ struct YomiApp: App {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                Task { await KeiyoushiBridge.shared.resumeIfPaused() }
                 Task { await NotificationManager.shared.checkAuthorizationStatus() }
                 NotificationManager.shared.cancelReadingReminder()
                 if settings.cloudSyncEnabled {

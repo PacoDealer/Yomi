@@ -10,9 +10,9 @@ nonisolated enum Notation {
 
     // MARK: - Chapter
 
-    /// "Chapter 42" / "Chapter 42.5".
+    /// "Chapter 42" / "Chapter 42.5". No thousands separator: in Spanish, chapter 1175 read "Chapter 1.175" (S144).
     static func chapter(_ number: Double) -> String {
-        "Chapter \(number.formatted(.number.precision(.fractionLength(0...1))))"
+        "Chapter \(number.formatted(.number.grouping(.never).precision(.fractionLength(0...1))))"
     }
 
     /// A source's chapter name for display: bare "Ch. 31" / "31" / "chapter 31" become "Chapter 31"; real

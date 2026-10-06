@@ -278,21 +278,21 @@ struct HistoryView: View {
             }
             var map: [String: String] = [:]
             for manga in mangas {
-                guard let chapters = try? ChapterQueries.fetchAll(mangaId: manga.id),
-                      let touched = chapters
-                        .filter({ $0.isRead || $0.progress > 0 })
-                        .max(by: { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) }) else { continue }
+                guard let all = try? ChapterQueries.fetchAll(mangaId: manga.id) else { continue }
+                // Same list and rule as the tap (ResumeReading.manga), so the row names what opens.
+                var chapters = all.sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
+                if UserDefaults.standard.object(forKey: "oneTranslationPerChapter") as? Bool ?? true {
+                    chapters = MangaDetailView.oneTranslationPerChapter(
+                        chapters, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(manga.id)"))
+                }
+                guard let touched = ResumeReading.mangaChapter(in: chapters) else { continue }
                 map[manga.id] = line(name: touched.name, number: touched.chapterNumber,
                                      fraction: touched.progress, finished: touched.isRead)
             }
             for novel in novels {
                 guard let chapters = try? NovelQueries.fetchChapters(novelId: novel.id) else { continue }
-                // Prefer the in-progress chapter (partially read), then fall back to last fully-read
-                let inProgress = chapters.first(where: { !$0.isRead && ($0.lastScrollPercent ?? 0) > 0.01 })
-                let lastFullyRead = chapters
-                    .filter { $0.readAt != nil }
-                    .max { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) }
-                if let ch = inProgress ?? lastFullyRead {
+                // The chapter a tap opens (ResumeReading), so the row and the tap agree.
+                if let ch = ResumeReading.novelChapter(in: chapters) {
                     map[novel.id] = line(name: ch.name, number: ch.chapterNumber,
                                          fraction: ch.lastScrollPercent ?? 0, finished: ch.isRead)
                 }

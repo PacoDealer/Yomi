@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 // MARK: - Novel
 
@@ -45,4 +46,15 @@ struct NovelChapter: Identifiable, Codable, Hashable {
     var releaseTime: String?
     var readingSeconds: Int
     var lastScrollPercent: Double? = nil
+
+    /// The id the Updates refresh gives a chapter: first 8 bytes of SHA-256(novelId + path), hex.
+    nonisolated static func pathId(novelId: String, path: String) -> String {
+        SHA256.hash(data: Data((novelId + path).utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    nonisolated func withId(_ id: String) -> NovelChapter {
+        NovelChapter(id: id, novelId: novelId, path: path, name: name, chapterNumber: chapterNumber,
+                     isRead: isRead, readAt: readAt, releaseTime: releaseTime, readingSeconds: readingSeconds,
+                     lastScrollPercent: lastScrollPercent)
+    }
 }
