@@ -48,6 +48,11 @@ The research audit revealed that 800+ sources are already available across four 
 - Answered: premium chapters — the Asura extension has "Hide premium chapters" (default ON); Yomi has no screen
   for an extension's own settings (Mihon source preferences). Backlog: per-extension Settings screen (also lets
   logged-in premium users turn it off). Martin: Tachimanga has this (premium on/off per source) — use it as the reference.
+- Backlog (Martin, from Tachimanga screenshots): genre/tag chips on detail ("Drama · Fantasy · Manhwa"). They come
+  from the SOURCE (Mihon `SManga.genre`, LNReader `genres`), not the app. Yomi already HAS the chips
+  (`MangaDetailView` synopsisSection, `NovelDetailView` ~587) — the gap is data: `SourceNovel` has no `genres`
+  field, so LNReader novels never get tags; JS-plugin manga only if the plugin returns `genres[]`; Keiyoushi fills
+  them only when empty (`KeiyoushiMapping.genres`). Check his phone DB for which titles have `genres = '[]'` first.
 - **Next:** Martin's device check of the six fixes; then measure detail/Browse lag on device (Release) and
   manga detail with huge lists (One Piece 2,440 via Keiyoushi isn't in his library).
 
