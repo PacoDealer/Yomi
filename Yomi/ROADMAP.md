@@ -47,7 +47,7 @@ The research audit revealed that 800+ sources are already available across four 
   rows and read marks, 516 → 0 missing numbers.
 - Answered: premium chapters — the Asura extension has "Hide premium chapters" (default ON); Yomi has no screen
   for an extension's own settings (Mihon source preferences). Backlog: per-extension Settings screen (also lets
-  logged-in premium users turn it off). Martin said "she manga" has it — unclear which app.
+  logged-in premium users turn it off). Martin: Tachimanga has this (premium on/off per source) — use it as the reference.
 - **Next:** Martin's device check of the six fixes; then measure detail/Browse lag on device (Release) and
   manga detail with huge lists (One Piece 2,440 via Keiyoushi isn't in his library).
 
