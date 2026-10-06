@@ -18,7 +18,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#180), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#189), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
