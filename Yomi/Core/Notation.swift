@@ -19,10 +19,12 @@ nonisolated enum Notation {
     /// titles ("Chapter 702 - The Sect") are left as the source wrote them.
     static func chapterTitle(_ name: String, number: Double?) -> String {
         guard let number,
-              name.trimmingCharacters(in: .whitespaces)
-                .wholeMatch(of: /(?i)(ch(apter)?\.?\s*)?\d+(\.\d+)?/) != nil else { return name }
+              name.trimmingCharacters(in: .whitespaces).wholeMatch(of: bareChapterName) != nil else { return name }
         return chapter(number)
     }
+
+    /// Built once: a regex literal inside the function was rebuilt for every chapter row on every render (S144 trace).
+    nonisolated(unsafe) private static let bareChapterName = /(?i)(ch(apter)?\.?\s*)?\d+(\.\d+)?/
 
     /// Source text with the HTML entities some plugins leave in ("&lt;The Regressed…&gt;").
     static func plainText(_ text: String) -> String {
