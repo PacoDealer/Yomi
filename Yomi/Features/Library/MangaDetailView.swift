@@ -807,7 +807,7 @@ struct MangaDetailView: View {
                 .foregroundStyle(canvas.textPrimary)
             if !readingChapters.isEmpty {
                 let readCount = readingChapters.filter { $0.isRead }.count
-                Text(readCount > 0 ? "\(readCount) of \(readingChapters.count) read" : "\(readingChapters.count)")
+                Text(verbatim: readCount > 0 ? "\(readCount) of \(readingChapters.count) read" : "\(readingChapters.count)")
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(canvas.textSecondary)
