@@ -356,7 +356,8 @@ final class ListenPlayer {
 
     private func resolvedVoice() -> AVSpeechSynthesisVoice? {
         let id = AppSettings.shared.ttsVoiceId
-        if !id.isEmpty, let v = AVSpeechSynthesisVoice(identifier: id) { return v }
+        // A chosen voice only for its own language: an English voice must not read a Spanish novel.
+        if !id.isEmpty, let v = AVSpeechSynthesisVoice(identifier: id), v.language.hasPrefix(languageCode) { return v }
         return Self.bestVoice(for: language)
     }
 
