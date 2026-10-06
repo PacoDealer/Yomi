@@ -579,7 +579,9 @@ enum NovelReaderScript {
 
       // ── Gestures ─────────────────────────────────────────────────────────
       // Tap = DOM click. WebKit sends no click after a touch that scrolled; we also ignore the click after
-      // a move of more than 8 px, a touch that stopped a fling, or one that dismisses a text selection.
+      // a move of more than 8 px, a touch held longer than a tap (300 ms — a slow, short drag is a scroll
+      // attempt: Martin S144 "still too sensitive to small scrolls"), a touch within 300 ms of scrolling
+      // (stopping a fling), or one that dismisses a text selection.
       var touch = null, ignoreClick = false, lastTapAt = 0;
       function hasSelection() { var s = window.getSelection && window.getSelection(); return !!(s && String(s).length); }
       function zoomed() { return window.visualViewport && window.visualViewport.scale > 1.01; }
@@ -589,7 +591,7 @@ enum NovelReaderScript {
         if (e.touches.length !== 1) { touch = null; ignoreClick = true; return; }
         var t = e.touches[0];
         touch = { x: t.clientX, y: t.clientY, t: Date.now(), dx: 0, dy: 0, sel: hasSelection() };
-        ignoreClick = Date.now() - lastScrollAt < 150 || touch.sel;
+        ignoreClick = Date.now() - lastScrollAt < 300 || touch.sel;
       }, { passive: true });
 
       document.addEventListener('touchmove', function (e) {
@@ -605,6 +607,7 @@ enum NovelReaderScript {
       function endTouch(cancelled) {
         touching = false;
         var t = touch; touch = null;
+        if (t && Date.now() - t.t > 300) ignoreClick = true;
         if (cancelled || !t || opts.pages || !opts.swipe || t.sel || zoomed() || hasSelection()) return;
         var adx = Math.abs(t.dx), ady = Math.abs(t.dy);
         // Horizontal, clearly not a scroll, and not from the left edge (iOS uses it for "back").

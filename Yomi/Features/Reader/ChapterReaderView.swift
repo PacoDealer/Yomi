@@ -484,8 +484,12 @@ struct ChapterReaderView: View {
             return (try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? []
         }
         if let ref = KeiyoushiMapping.chapterRef(from: path) {
-            let pages = (try? await KeiyoushiBridge.shared.pages(sourceId: ref.sourceId, chapterURL: ref.url,
-                                                                  chapterName: ref.name)) ?? []
+            // Twice: the first call after a launch once lost its reply on device ("Socket closed", S144).
+            var pages: [KeiyoushiPage] = []
+            for _ in 0..<2 where pages.isEmpty {
+                pages = (try? await KeiyoushiBridge.shared.pages(sourceId: ref.sourceId, chapterURL: ref.url,
+                                                                 chapterName: ref.name)) ?? []
+            }
             return pages.sorted { $0.index < $1.index }.compactMap { page in
                 if let image = page.imageUrl, !image.isEmpty { return image }
                 return page.url
@@ -776,6 +780,7 @@ private struct MangaPageView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var loadFailed = false
+    @State private var attempt = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -784,10 +789,7 @@ private struct MangaPageView: View {
             // AsyncImage uses a bare URLSession with no way to attach that, so it 403s silently.
             Group {
                 if loadFailed {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    PageRetryButton { attempt = 0; loadFailed = false }
                 } else {
                     KFImage(URL(string: url))
                         .readerPage()
@@ -796,7 +798,11 @@ private struct MangaPageView: View {
                                 .tint(.white)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
-                        .onFailure { _ in loadFailed = true }
+                        .onFailure { _ in
+                            Task {
+                                if await PageRetry.shouldRetry(url, attempt: attempt) { attempt += 1 } else { loadFailed = true }
+                            }
+                        }
                         .resizable()
                         .scaledToFit()
                         .scaleEffect(scale)
@@ -804,7 +810,8 @@ private struct MangaPageView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .onChange(of: url) { _, _ in loadFailed = false }
+            .id(attempt)
+            .onChange(of: url) { _, _ in loadFailed = false; attempt = 0 }
             .background(Color.black)
             .gesture(
                 MagnificationGesture()
@@ -958,19 +965,8 @@ struct WebtoonReaderView: View {
         .onDisappear { isAutoScrolling = false }
     }
 
-    @ViewBuilder
     private func pageImage(_ url: String) -> some View {
-        KFImage(URL(string: url))
-            .readerPage()
-            .placeholder {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(2 / 3, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-            }
-            .resizable()
-            .scaledToFit()
-            .frame(maxWidth: .infinity)
+        StripPageImage(url: url, axis: .vertical)
     }
 }
 
@@ -1089,19 +1085,8 @@ struct ContinuousHorizontalReaderView: View {
         }
     }
 
-    @ViewBuilder
     private func pageImage(_ url: String) -> some View {
-        KFImage(URL(string: url))
-            .readerPage()
-            .placeholder {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(2 / 3, contentMode: .fit)
-                    .frame(maxHeight: .infinity)
-            }
-            .resizable()
-            .scaledToFit()
-            .frame(maxHeight: .infinity)
+        StripPageImage(url: url, axis: .horizontal)
     }
 }
 
@@ -1419,4 +1404,79 @@ private struct WebView: UIViewRepresentable {
         chapters: [],
         chapterIndex: 0
     )
+}
+
+// MARK: - Page load retry (S144)
+
+/// After a page fails to load: a Keiyoushi page waits until the bridge serves again (it stops while Yomi is in the
+/// background and comes back on a new port — Martin: "the first page appeared and the rest did not load"), any
+/// other page gets a short pause for a network blip. Then it's tried again, up to 3 times, before showing Retry.
+enum PageRetry {
+    static func shouldRetry(_ url: String, attempt: Int) async -> Bool {
+        guard attempt < 3 else { return false }
+        // Not while Yomi is in the background: iOS suspends us there, and the attempts would be used up for nothing.
+        while UIApplication.shared.applicationState != .active {
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        if KeiyoushiBridge.isBridgeImage(URL(string: url)) {
+            return (try? await KeiyoushiBridge.shared.servingPort()) != nil
+        }
+        try? await Task.sleep(for: .seconds(Double(attempt + 1)))
+        return true
+    }
+}
+
+/// A page that gave up: tap to load it again.
+private struct PageRetryButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.title2)
+                Text("Page didn't load · Tap to retry")
+                    .font(.footnote)
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// One page in the long strip / continuous horizontal readers. Used to stay a grey placeholder forever on failure.
+private struct StripPageImage: View {
+    let url: String
+    let axis: Axis
+    @State private var attempt = 0
+    @State private var failed = false
+
+    var body: some View {
+        if failed {
+            PageRetryButton { attempt = 0; failed = false }
+                .aspectRatio(2 / 3, contentMode: .fit)
+                .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+        } else {
+            KFImage(URL(string: url))
+                .readerPage()
+                .placeholder {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .aspectRatio(2 / 3, contentMode: .fit)
+                        .frame(maxWidth: axis == .vertical ? .infinity : nil,
+                               maxHeight: axis == .horizontal ? .infinity : nil)
+                }
+                .onFailure { _ in
+                    Task {
+                        if await PageRetry.shouldRetry(url, attempt: attempt) { attempt += 1 } else { failed = true }
+                    }
+                }
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+                .id(attempt)
+        }
+    }
 }
