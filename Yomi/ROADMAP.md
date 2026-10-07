@@ -29,13 +29,20 @@ The research audit revealed that 800+ sources are already available across four 
   each part as one **900×16000** image → 402×7147 pt cell, 21,000+ px — too tall for the GPU, renders black. Pages
   downloaded fine (1–3 s). Fix: cut pages taller than 4096 px into 2048 px strips (KNOWN_ISSUES #190). First try used
   KFImage `onSuccess` — black again intermittently; now `StripPageImage` loads via `KingfisherManager` itself.
-  Martin on device: all pages load. He asked: no pinch-zoom in vertical mode (never existed — only paged). Wrong turns, in order: Kingfisher 15 s timeout queue (JVM thread dump = idle), missing
+  Martin on device: all pages load. He asked: no pinch-zoom in vertical mode (never existed — only paged).
+  **Backlog (Martin chose backlog over fix):** pinch-zoom in vertical/webtoon mode (whole strip zooms while
+  scrolling, like Mihon/Tachimanga; must not fight tap-menu, edge swipe-back, long-press autoscroll). Wrong turns, in order: Kingfisher 15 s timeout queue (JVM thread dump = idle), missing
   genres → paged mode (DB has "Manhwa"), black images (luma logged 130–230). Lesson: the S144 probe tested
   DOWNLOADS, never DISPLAY.
 - TTS "robotic": free fix = iOS Premium/Enhanced voices (Settings → Accessibility → Spoken Content → Voices);
   Yomi already picks the best installed voice and has a picker. Neural voices (sherpa-onnx) stay in backlog.
 - Correction to the S144 tags note: Keiyoushi manga DO have genres (114/115 rows on his phone); the gap is
   **novels** (`SourceNovel` drops LNReader `genres`).
+- **Device perf (Release, iPhone 17), `perf-traces/s145-*`:** run 1 novel detail ×3 (long list, scroll, back):
+  0 hangs, 20 hitches / 338 ms, worst 67 ms; saved list shows at once, source refresh 1.7–8.7 s behind it. Run 2
+  Browse → Asura (Keiyoushi), scroll, open 2 non-library titles: 0 hangs, 12 hitches / 142 ms, worst 17 ms;
+  OpenManga 0.7–1.0 s, Keiyoushi list pages 0.17–0.62 s. Tooling: Xcode 27 xctrace can't `--attach` (pid or
+  name) → record.sh now tries `--all-processes` first.
 - Phone: Release (S145 fix) installed, profile expires **2026-10-14 20:46 UTC**.
 
 ## S144 — Daily-driver pass: Martin's field report (2026-10-06)
