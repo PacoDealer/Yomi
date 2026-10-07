@@ -1447,36 +1447,60 @@ private struct PageRetryButton: View {
 }
 
 /// One page in the long strip / continuous horizontal readers. Used to stay a grey placeholder forever on failure.
+/// Loads through KingfisherManager itself instead of KFImage (S145): a very tall page must never reach the screen
+/// in one piece, and KFImage could show it without calling `onSuccess`, so the strips weren't always made.
 private struct StripPageImage: View {
     let url: String
     let axis: Axis
     @State private var attempt = 0
     @State private var failed = false
+    @State private var pieces: [UIImage]? = nil
 
     var body: some View {
         if failed {
             PageRetryButton { attempt = 0; failed = false }
                 .aspectRatio(2 / 3, contentMode: .fit)
                 .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+        } else if let pieces {
+            let layout = axis == .vertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+            layout {
+                ForEach(pieces.indices, id: \.self) { i in
+                    Image(uiImage: pieces[i])
+                        .resizable()
+                        .scaledToFit()
+                }
+            }
+            .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
         } else {
-            KFImage(URL(string: url))
-                .readerPage()
-                .placeholder {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .aspectRatio(2 / 3, contentMode: .fit)
-                        .frame(maxWidth: axis == .vertical ? .infinity : nil,
-                               maxHeight: axis == .horizontal ? .infinity : nil)
-                }
-                .onFailure { _ in
-                    Task {
-                        if await PageRetry.shouldRetry(url, attempt: attempt) { attempt += 1 } else { failed = true }
-                    }
-                }
-                .resizable()
-                .scaledToFit()
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .aspectRatio(2 / 3, contentMode: .fit)
                 .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
-                .id(attempt)
+                .task(id: attempt) { await load() }
+        }
+    }
+
+    private func load() async {
+        guard let source = URL(string: url) else { failed = true; return }
+        do {
+            let result = try await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions)
+            let image = result.image
+            pieces = (axis == .vertical ? Self.strips(of: image) : nil) ?? [image]
+        } catch {
+            if Task.isCancelled { return }   // scrolled away; .task starts again when the page comes back
+            if await PageRetry.shouldRetry(url, attempt: attempt) { attempt += 1 } else { failed = true }
+        }
+    }
+
+    /// A very tall page drawn as one view is taller than the GPU can draw and shows up BLACK (S145: Keiyoushi's
+    /// Asura extension stitches each chapter part into one 900x16000 image = 21,000+ px on screen). Cut it into
+    /// strips; cropping shares the decoded pixels, so nothing is copied or downsampled.
+    static func strips(of image: UIImage) -> [UIImage]? {
+        guard let cg = image.cgImage, cg.height > 4096 else { return nil }
+        let step = 2048
+        return stride(from: 0, to: cg.height, by: step).compactMap { y in
+            cg.cropping(to: CGRect(x: 0, y: y, width: cg.width, height: min(step, cg.height - y)))
+                .map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) }
         }
     }
 }
