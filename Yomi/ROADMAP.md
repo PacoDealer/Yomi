@@ -21,6 +21,23 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S145 — Asura black pages, voices, tags (2026-10-07)
+
+- Martin's device check of S144: Continue ✅, chapter numbers ✅, menu taps ✅, novel hold-to-select ✅, novel detail
+  speed ✅. **Asura pages still broken** — not only after background: page 1 then BLACK below, no spinner/Retry.
+- Root cause (device logs, `devicectl --console` + temporary NSLog in `StripPageImage`): the Asura extension returns
+  each part as one **900×16000** image → 402×7147 pt cell, 21,000+ px — too tall for the GPU, renders black. Pages
+  downloaded fine (1–3 s). Fix: cut pages taller than 4096 px into 2048 px strips (KNOWN_ISSUES #190). First try used
+  KFImage `onSuccess` — black again intermittently; now `StripPageImage` loads via `KingfisherManager` itself.
+  Martin on device: all pages load. He asked: no pinch-zoom in vertical mode (never existed — only paged). Wrong turns, in order: Kingfisher 15 s timeout queue (JVM thread dump = idle), missing
+  genres → paged mode (DB has "Manhwa"), black images (luma logged 130–230). Lesson: the S144 probe tested
+  DOWNLOADS, never DISPLAY.
+- TTS "robotic": free fix = iOS Premium/Enhanced voices (Settings → Accessibility → Spoken Content → Voices);
+  Yomi already picks the best installed voice and has a picker. Neural voices (sherpa-onnx) stay in backlog.
+- Correction to the S144 tags note: Keiyoushi manga DO have genres (114/115 rows on his phone); the gap is
+  **novels** (`SourceNovel` drops LNReader `genres`).
+- Phone: Release (S145 fix) installed, profile expires **2026-10-14 20:46 UTC**.
+
 ## S144 — Daily-driver pass: Martin's field report (2026-10-06)
 
 - Listening settings UI (`c1b756c`): Settings → Novels → Listening = speed presets (same as the player), voice,
@@ -48,7 +65,7 @@ The research audit revealed that 800+ sources are already available across four 
 - Answered: premium chapters — the Asura extension has "Hide premium chapters" (default ON); Yomi has no screen
   for an extension's own settings (Mihon source preferences). Backlog: per-extension Settings screen (also lets
   logged-in premium users turn it off). Martin: Tachimanga has this (premium on/off per source) — use it as the reference.
-- Backlog (Martin, from Tachimanga screenshots): genre/tag chips on detail ("Drama · Fantasy · Manhwa"). They come
+- Backlog (Martin, from Tachimanga screenshots; S145: manga have them, NOVELS are the gap): genre/tag chips on detail ("Drama · Fantasy · Manhwa"). They come
   from the SOURCE (Mihon `SManga.genre`, LNReader `genres`), not the app. Yomi already HAS the chips
   (`MangaDetailView` synopsisSection, `NovelDetailView` ~587) — the gap is data: `SourceNovel` has no `genres`
   field, so LNReader novels never get tags; JS-plugin manga only if the plugin returns `genres[]`; Keiyoushi fills

@@ -76,6 +76,9 @@ extension KFImage {
             .loadDiskFileSynchronously(false)
     }
 
+    /// The same options for code that loads a reader page itself (`StripPageImage`, S145).
+    static let readerPageOptions: KingfisherOptionsInfo = [.cacheSerializer(originalDataSerializer), .backgroundDecode]
+
     private static let originalDataSerializer: DefaultCacheSerializer = {
         var serializer = DefaultCacheSerializer()
         serializer.preferCacheOriginalData = true

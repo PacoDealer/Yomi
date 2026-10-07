@@ -2096,3 +2096,14 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **SwiftUI `Text("\(n)")` formats numbers with the locale** (Spanish: 1.432) — `Text(verbatim:)` for counts,
   `.grouping(.never)` for chapter numbers. A regex literal inside a per-row function is rebuilt every render.
 
+
+## S145 lessons
+
+- **A probe that checks downloads doesn't test display.** S144's page probe passed 40/40 while every Asura page
+  rendered black: the images were fine, the view was too tall (21,000+ px) for the GPU. Verify on the real screen.
+- **Log the whole path, then theorize.** Three plausible theories (Kingfisher timeout queue, missing genres → paged
+  mode, black images) each died to one piece of device evidence: a JVM thread dump (`SIGQUIT` on a `--console`
+  launch), the phone DB, and brightness logged per page. A temporary NSLog in the view (appear/size/ok/fail) found
+  it in one run — do that first next time.
+- **Kingfisher writes a 900×16000 page to disk late or not at all** — don't conclude "never downloaded" from the
+  disk cache alone.
