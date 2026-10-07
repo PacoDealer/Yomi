@@ -18,13 +18,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#189), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#190), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S144 — 2026-10-06)
+## Current state (S145 — 2026-10-07)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -47,21 +47,22 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **Chapter numbers:** sources without one (Keiyoushi -1, e.g. Asura) are parsed from the name —
   `Core/ChapterRecognition.swift` (Mihon port); v24 filled old rows. Yomi assumes ascending order everywhere.
 - **Keiyoushi pages:** bridge returns on a NEW port after background; `KeiyoushiBridge.pointAtLivePort` rewrites
-  page requests, `resumeIfPaused` on foreground, reader pages retry (`PageRetry`). DEBUG probe:
+  page requests, `resumeIfPaused` on foreground, reader pages retry (`PageRetry`). Pages > 4096 px tall
+  (Asura = 900×16000) are drawn as strips or they render BLACK (S145, #190). DEBUG probe:
   `-keiyoushiPageProbe [-keiyoushiPageProbeTitle x] [-keiyoushiPageProbePause]` (device; args after `--`).
 - **Read-aloud (S143):** app-wide `ListenPlayer` (`Features/Reader/ListenPlayer.swift`, views in
   `ListenPlayerViews.swift`) — Swift owns the sentences, the reader only highlights/follows; keeps playing outside
   the reader (tab bar accessory). Lock screen/background untested on device. Settings → Novels → Listening (S144).
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa).
-  S144 fixed his field report (KNOWN_ISSUES 181–189); next = his device check, then device perf (Release).
+  S144–S145 fixed his field report (KNOWN_ISSUES 181–190, all device-checked); next = device perf (Release).
   After that, the old order: More's old sub-screens → first-run + imports (#3, #6) → legal last (incl. #170).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
-  Backlog: genre chips show empty for most titles — data gap, not UI (ROADMAP S144).
+  Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
   extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S144 (`bc31846`, Release) build, profile expires **2026-10-13 13:12 UTC**. Free team = 7 days —
+- Phone has the S145 Release build (Asura strips fix), profile expires **2026-10-14 20:46 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
