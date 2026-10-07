@@ -54,9 +54,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   `ListenPlayerViews.swift`) — Swift owns the sentences, the reader only highlights/follows; keeps playing outside
   the reader (tab bar accessory). Lock screen/background untested on device. Settings → Novels → Listening (S144).
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa).
-  S144–S145 fixed his field report (KNOWN_ISSUES 181–190, all device-checked); next = device perf (Release).
+  S144–S145 fixed his field report (KNOWN_ISSUES 181–190, all device-checked); device perf S145: 0 hangs (novel detail, Browse).
   After that, the old order: More's old sub-screens → first-run + imports (#3, #6) → legal last (incl. #170).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
+  Backlog: pinch-zoom in vertical (webtoon) mode (S145).
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
