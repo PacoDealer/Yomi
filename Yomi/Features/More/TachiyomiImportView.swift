@@ -85,6 +85,8 @@ struct TachiyomiImportView: View {
                 }
             }
             .sheet(isPresented: $showAddRepo) { AddRepoSheet() }
+            // An old index offers versions the repository already deleted (S147) — states here must be current.
+            .task { await keiyoushi.refreshIfStale() }
             .navigationTitle("Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
