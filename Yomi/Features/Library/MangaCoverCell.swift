@@ -15,6 +15,7 @@ struct MangaCoverCell: View {
     @State private var unreadCount: Int = 0
     @State private var downloadedCount: Int = 0
     @State private var sourceName: String? = nil
+    @State private var sourceMissing = false
     @State private var dbInLibrary: Bool = false
     @State private var currentReadingStatus: ReadingStatus = .none
 
@@ -96,16 +97,20 @@ struct MangaCoverCell: View {
             dbInLibrary            = fetched?.inLibrary ?? false
             currentReadingStatus   = fetched?.readingStatus ?? manga.readingStatus
             sourceName = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId })?.name
+            sourceMissing = !SourceStatus.isInstalled(manga)
         }
     }
 
-    /// One grey line under the title: "3 unread", "In library", or the source.
+    /// One grey line under the title: "Source missing" (S147, e.g. an imported title whose extension isn't added),
+    /// "3 unread", "In library", or the source.
     /// S138 calm design: nothing is drawn on the cover itself (RESEARCH §26).
     private var metaLine: some View {
         let showNew = unreadCount > 0 && AppSettings.shared.showUnreadBadge
         let inLibraryHere = !manga.inLibrary && dbInLibrary
         return HStack(spacing: 0) {
-            if showNew {
+            if sourceMissing {
+                Text("Source missing")
+            } else if showNew {
                 // Just the count — "902 unread · MangaDex" doesn't fit a 3-column cell.
                 Text("\(min(unreadCount, 999)) unread").foregroundStyle(Color.accentColor)
             } else if inLibraryHere {

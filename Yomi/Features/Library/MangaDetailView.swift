@@ -81,6 +81,8 @@ struct MangaDetailView: View {
     /// True once the header's buttons have scrolled away — the floating bar then gets a material
     /// background and the title, like Apple Music's album pages.
     @State private var scrolledPastHeader = false
+    @State private var isAddingSource = false
+    @State private var showMigratePicker = false
 
     @Environment(\.yomiCanvas) private var canvas
     @Environment(\.dismiss) private var dismiss
@@ -165,7 +167,7 @@ struct MangaDetailView: View {
         var parts: [String] = []
         if let author = manga.author, !author.isEmpty { parts.append(author) }
         if manga.status != .unknown { parts.append(Notation.status(manga.status.rawValue)) }
-        if !readingChapters.isEmpty { parts.append("\(readingChapters.count) chapters") }
+        if !readingChapters.isEmpty { parts.append("\(readingChapters.count) chapter\(readingChapters.count == 1 ? "" : "s")") }
         if let score = aniListScore { parts.append("\(score)%") }
         return parts.joined(separator: " · ")
     }
@@ -231,6 +233,7 @@ struct MangaDetailView: View {
             headerSection
             synopsisSection
             notesSection
+            sourceMissingSection
             chaptersSection
         }
         .listStyle(.plain)
@@ -306,6 +309,9 @@ struct MangaDetailView: View {
                 try? await Task.sleep(for: .milliseconds(500))
                 await refreshChapterStates()
             }
+        }
+        .navigationDestination(isPresented: $showMigratePicker) {
+            MigrateSourcePickerView(oldManga: manga)
         }
         .navigationDestination(item: $chapterForNav) { chapter in
             // A Suwayomi chapter has no bridge — the reader resolves its pages over REST instead,
@@ -687,6 +693,67 @@ struct MangaDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
+        }
+    }
+
+    /// S147: a title whose source isn't on this iPhone (typically from a Mihon/Tachimanga import) keeps its saved
+    /// chapters and progress; this card offers the extension when a repository has it, and Migrate otherwise.
+    @ViewBuilder private var sourceMissingSection: some View {
+        if !SourceStatus.isInstalled(manga) {
+            let addable = SourceStatus.addableExtension(for: manga)
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Source not installed")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(canvas.textPrimary)
+                        Text(addable != nil
+                             ? "Add \(addable!.name) to read and update this title, or move it to another source."
+                             : "\(SourceStatus.sourceName(manga.sourceId)) isn't in your repositories. Move this title to a source you have — your progress comes along.")
+                            .font(.footnote)
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                    HStack(spacing: 10) {
+                        if let addable {
+                            Button {
+                                Task { await addMissingSource(addable) }
+                            } label: {
+                                if isAddingSource { ProgressView() } else { Text("Add \(addable.name)") }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.capsule)
+                            .tint(Color.accentColor)
+                            .disabled(isAddingSource)
+                        }
+                        Button("Find on Another Source") { showMigratePicker = true }
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.capsule)
+                            .tint(addable == nil ? Color.accentColor : canvas.textPrimary)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(canvas.surface1, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.top, 16)
+                .listRowInsets(EdgeInsets(top: 0, leading: YomiTokens.Layout.screenMargin,
+                                          bottom: 0, trailing: YomiTokens.Layout.screenMargin))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    private func addMissingSource(_ ext: KeiyoushiExtension) async {
+        isAddingSource = true
+        defer { isAddingSource = false }
+        let sourceId = KeiyoushiMapping.mihonSourceId(manga.sourceId)
+        let langs = ext.sources.filter { $0.id == sourceId }.map(\.lang)
+        do {
+            try await KeiyoushiRepository.shared.install(ext, langs: langs.isEmpty ? nil : langs)
+            await loadChapters()
+        } catch {
+            toastMessage = "Couldn't add \(ext.name): \(error.localizedDescription)"
         }
     }
 
