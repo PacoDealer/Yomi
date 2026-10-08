@@ -54,9 +54,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   the reader (tab bar accessory). Lock screen/background untested on device. Settings → Novels → Listening (S144).
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa).
   S144–S145 fixed his field report (KNOWN_ISSUES 181–190, all device-checked); device perf S145: 0 hangs (novel detail, Browse).
-  S147 (sim only): `.tachibk` import → working Keiyoushi titles (same ids/paths as the bridge, memo, categories,
+  S147 (DEVICE-verified with Martin's 148-title Tachimanga export): `.tachibk` import → working Keiyoushi titles (same ids/paths as the bridge, memo, categories,
   history, repos), import sheet, "Source missing" + Migrate (now searches Keiyoushi), calm first-run screen.
-  Next: device-check S147 with Martin's real Tachimanga export → local CBZ/EPUB (#6 rest) → legal last (incl. #170).
+  Keiyoushi indexes refresh when > 6 h old (#192). v25 removed dead pre-S147 import rows.
+  Next: local CBZ/EPUB (#6 rest) → legal last (incl. #170).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
   Backlog: pinch-zoom in vertical (webtoon) mode (S145).
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
@@ -64,12 +65,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
   no local CBZ/EPUB; GPLv3 NewPipe still in the extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S145 Release build (Asura strips fix), profile expires **2026-10-14 20:46 UTC**. Free team = 7 days —
+- Phone has the S147 Release build (`b511849`), profile expires **2026-10-14 20:46 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v25_`**. UI tests 13/13 (S144).
+- Next GRDB migration prefix: **`v26_`**. UI tests 13/13 (S147; #193 is flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in

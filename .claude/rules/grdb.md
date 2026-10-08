@@ -7,7 +7,7 @@ paths:
 
 # GRDB / database rules
 
-- Next migration prefix: `v25_` (`v24_` = chapter numbers from names, S144). Migrations are keyed by full
+- Next migration prefix: `v26_` (`v25_` = dead pre-S147 import rows removed, S147). Migrations are keyed by full
   string name; keep the numeric prefix unique and ascending (#55 is the one historical duplicate).
 - Every `*Queries` static method is `nonisolated`. Use `_ = try appDatabase.write { … }` to silence the
   unused result. `appDatabase.read` from MainActor needs `try await`.
