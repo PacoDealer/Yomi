@@ -1462,6 +1462,7 @@ struct MangaDetailView: View {
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
+            try? ChapterQueries.refreshPaths(fetched)
             try? MangaQueries.updateSourceMetadata(mangaSnapshot)
         }.value
 

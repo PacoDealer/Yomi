@@ -48,12 +48,13 @@ struct LibraryView: View {
                         ) {
                             Task { await viewModel.loadLibrary() }
                         }
-                    } else if extensionManager.installed.isEmpty {
+                    } else if extensionManager.installed.isEmpty && KeiyoushiRepository.shared.installed.isEmpty {
+                        // S147: counted only JS plugins, so a Keiyoushi-only user was told they had none; old "plugins" copy.
                         YomiEmptyState(
                             systemImage: "puzzlepiece.extension",
-                            title: "No plugins installed",
-                            message: "Plugins connect Yomi to manga and novel sources. Install one to start reading.",
-                            actionLabel: "Get plugins",
+                            title: "No sources yet",
+                            message: "Paste a repository link in Browse → Extensions and add the sources you want — or bring your library over from More → Backup.",
+                            actionLabel: "Add Sources",
                             actionIcon: "puzzlepiece.extension"
                         ) {
                             appRouter.openBrowseExtensions = true
