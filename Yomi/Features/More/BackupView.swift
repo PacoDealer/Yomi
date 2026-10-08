@@ -21,18 +21,20 @@ struct BackupView: View {
     @State private var restoreTarget: BackupManager.ICloudBackupEntry? = nil
     @State private var settings = AppSettings.shared
 
+    @Environment(\.yomiCanvas) private var canvas
+
     // MARK: - Body
+    //
+    // S146 calm pass (RESEARCH §26): three groups — this iPhone's file, iCloud, Tachiyomi/Mihon — with
+    // bold sentence-case titles, plain rows, notes under the action they explain, no separators.
 
     var body: some View {
-        List {
+        CalmList {
+            fileSection
             iCloudSection
-            exportSection
-            importSection
-            tachiyomiImportSection
-            tachiyomiExportSection
+            tachiyomiSection
             errorSection
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -104,45 +106,98 @@ struct BackupView: View {
         return f
     }
 
+    // MARK: - Rows
+
+    /// Accent action row with an optional grey note under it — the note says what the action does.
+    private func actionRow(_ title: String, note: String? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(Color.accentColor)
+                if let note {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func busyRow(_ text: String) -> some View {
+        HStack(spacing: 12) {
+            ProgressView()
+            Text(text)
+                .foregroundStyle(canvas.textSecondary)
+        }
+    }
+
+    // MARK: - File Section
+
+    @ViewBuilder
+    private var fileSection: some View {
+        Section {
+            if backupManager.isExporting {
+                busyRow("Exporting…")
+            } else if backupManager.isImporting {
+                busyRow("Importing…")
+            } else {
+                actionRow("Export Backup", note: "Saves your library, categories and reading progress to a file.") {
+                    Task {
+                        if let url = await backupManager.exportBackup() {
+                            exportedURL = url
+                            showShareSheet = true
+                        }
+                    }
+                }
+                actionRow("Import Backup", note: "Merges a Yomi backup into your library — nothing is replaced.") {
+                    showImportPicker = true
+                }
+                if let date = backupManager.lastBackupDate {
+                    LabeledContent("Last backup") {
+                        Text(date.formatted(.relative(presentation: .named)))
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                }
+            }
+        } header: { CalmSectionHeader("File") }
+    }
+
     // MARK: - iCloud Section
 
     @ViewBuilder
     private var iCloudSection: some View {
         Section {
             if !backupManager.isICloudAvailable {
-                Label("iCloud not available", systemImage: "icloud.slash")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+                Label("iCloud isn't available", systemImage: "icloud.slash")
+                    .foregroundStyle(canvas.textSecondary)
             } else {
                 switch backupManager.iCloudStatus {
                 case .uploading:
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Uploading to iCloud…")
-                            .foregroundStyle(.secondary)
-                    }
+                    busyRow("Uploading to iCloud…")
                 case .downloading:
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Downloading from iCloud…")
-                            .foregroundStyle(.secondary)
-                    }
+                    busyRow("Downloading from iCloud…")
                 case .error(let msg):
                     Text(msg)
                         .foregroundStyle(.red)
-                        .font(.caption)
+                        .font(.footnote)
                 default:
-                    Button {
+                    actionRow("Back Up Now") {
                         Task {
                             await backupManager.uploadToICloud()
                             icloudBackups = await backupManager.listICloudBackups()
                         }
-                    } label: {
-                        Label("Back up to iCloud", systemImage: "icloud.and.arrow.up")
                     }
 
                     Toggle(isOn: $settings.iCloudAutoBackup) {
-                        Label("Back up automatically", systemImage: "icloud")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Back up automatically")
+                            Text("Each time you leave Yomi.")
+                                .font(.footnote)
+                                .foregroundStyle(canvas.textSecondary)
+                        }
                     }
 
                     ForEach(icloudBackups) { entry in
@@ -152,12 +207,17 @@ struct BackupView: View {
                         } label: {
                             LabeledContent {
                                 Text(byteCountFormatter.string(fromByteCount: entry.size))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(canvas.textSecondary)
+                                    .monospacedDigit()
                             } label: {
-                                Text(entry.date.formatted(.relative(presentation: .named)))
+                                Label(entry.date.formatted(.relative(presentation: .named)),
+                                      systemImage: "clock.arrow.circlepath")
+                                    .foregroundStyle(canvas.textPrimary)
                             }
+                            .contentShape(Rectangle())
                         }
-                        .swipeActions {
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 Task {
                                     await backupManager.deleteICloudBackup(entry)
@@ -166,97 +226,36 @@ struct BackupView: View {
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
+                            .tint(.red) // the app-wide accent tint would otherwise paint it blue
                         }
                     }
                 }
             }
-        } header: {
-            Text("iCloud")
-        } footer: {
-            Text("When enabled, Yomi backs up your library automatically each time you leave the app. Restoring merges the backup into your current library.")
-                .font(.caption)
+        } header: { CalmSectionHeader("iCloud") } footer: {
+            if !icloudBackups.isEmpty {
+                Text("Tap a backup to restore it — it merges into your library.")
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+            }
         }
     }
 
-    // MARK: - Export Section
+    // MARK: - Tachiyomi / Mihon Section
 
-    private var exportSection: some View {
-        Section("Export") {
+    @ViewBuilder
+    private var tachiyomiSection: some View {
+        Section {
             if backupManager.isExporting {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Exporting...")
-                        .foregroundStyle(.secondary)
-                }
+                busyRow("Exporting…")
+            } else if backupManager.isImporting {
+                busyRow("Importing…")
             } else {
-                Button("Export library") {
-                    Task {
-                        if let url = await backupManager.exportBackup() {
-                            exportedURL = url
-                            showShareSheet = true
-                        }
-                    }
+                actionRow("Import .tachibk",
+                          note: "Your manga library and read history. Sources Yomi doesn't have come in as placeholders.") {
+                    showTachiyomiPicker = true
                 }
-                if let date = backupManager.lastBackupDate {
-                    LabeledContent(
-                        "Last backup",
-                        value: date.formatted(.relative(presentation: .named))
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Import Section
-
-    private var importSection: some View {
-        Section("Import") {
-            if backupManager.isImporting {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Importing...")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button("Import backup") { showImportPicker = true }
-                Text("Importing will merge with your existing library, not replace it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Tachiyomi Import Section
-
-    private var tachiyomiImportSection: some View {
-        Section("Import from Tachiyomi / Mihon") {
-            if backupManager.isImporting {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Importing...")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button("Import .tachibk backup") { showTachiyomiPicker = true }
-                Text("Imports your manga library and read history from a Tachiyomi or Mihon backup file. Sources without a matching Yomi plugin are imported with a placeholder.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Tachiyomi Export Section
-
-    private var tachiyomiExportSection: some View {
-        Section("Export to Tachiyomi / Mihon") {
-            if backupManager.isExporting {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Exporting...")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button("Export .tachibk backup") {
+                actionRow("Export .tachibk",
+                          note: "For moving to Tachiyomi, Mihon or a fork. Sources they don't know come across as metadata only.") {
                     Task {
                         if let url = await backupManager.exportTachiyomiBackup() {
                             exportedTachiyomiURL = url
@@ -264,11 +263,8 @@ struct BackupView: View {
                         }
                     }
                 }
-                Text("Exports your manga library and read history as a Tachiyomi-compatible backup, for migrating out to Tachiyomi, Mihon, or a fork. Sources without a matching Tachiyomi ID come across as metadata only.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-        }
+        } header: { CalmSectionHeader("Tachiyomi / Mihon") }
     }
 
     // MARK: - Error Section
@@ -279,7 +275,7 @@ struct BackupView: View {
             Section {
                 Text(error)
                     .foregroundStyle(.red)
-                    .font(.caption)
+                    .font(.footnote)
             }
         }
     }
