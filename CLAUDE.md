@@ -24,15 +24,14 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S145 — 2026-10-07)
+## Current state (S146 — 2026-10-08)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
 - **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere, system neutrals, colour from
   covers, one accent, nothing on covers, plain `Notation`, **no list separators** (Martin S141). Every main
-  screen is calm now (S142: More, About, Settings + its sub-screens). Settings-style lists use `CalmList` +
-  `Section(calm:)` (Core/CanvasEnvironment.swift). Still old inside: More's sub-screens (Downloads, Insights,
-  Trackers, Backup, Sync, Categories).
+  screen is calm now, incl. every More sub-screen (S146). Settings-style lists use `CalmList` +
+  `Section(calm:)` (Core/CanvasEnvironment.swift). Delete everywhere = swipe → red trash.
 - **Theme:** `canvas` "Automatic" (follows iPhone light/dark, default for fresh installs) / Ink / Midnight /
   Paper / Sepia; palette resolved in ContentView via `canvasColors(for: colorScheme)`. Time/Date follow the
   iPhone unless chosen.
@@ -55,7 +54,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   the reader (tab bar accessory). Lock screen/background untested on device. Settings → Novels → Listening (S144).
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa).
   S144–S145 fixed his field report (KNOWN_ISSUES 181–190, all device-checked); device perf S145: 0 hangs (novel detail, Browse).
-  After that, the old order: More's old sub-screens → first-run + imports (#3, #6) → legal last (incl. #170).
+  Next: first-run + imports (#3, #6) → legal last (incl. #170). More sub-screens done S146 (sim only).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
   Backlog: pinch-zoom in vertical (webtoon) mode (S145).
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).

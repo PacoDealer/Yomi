@@ -21,6 +21,22 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S146 — More's sub-screens in the calm style (2026-10-08)
+
+- Downloads, Categories, Insights, Trackers (+ MAL/AniList/Shikimori/Bangumi account screens), Backup, Sync →
+  calm (RESEARCH §26): system nav bar (old glass back chips + `.toolbar(.hidden)` gone), `CalmList` +
+  `CalmSectionHeader`, SF Pro semantic styles, no separators/cards/mono caps. One commit per screen
+  (`eb0bed5` … `e817e29`). Simulator-verified only (screenshots shown to Martin before commit).
+- Behaviour changes: delete = swipe → red trash on Downloads (was long-press menu), Categories (was system
+  Delete), iCloud backups (was un-tinted swipe); Downloads "Delete All" in ⋯; Categories show item count or
+  "Empty"; Insights numbers grouped by locale, activity grid full width (22 weeks); Bangumi row shows only its
+  wordmark (it spells the name; the extra label broke alignment); tracker sign-in centred, "Sign In with …".
+- Copy fixes: Sync said "the iCloud backup below" (it's in More → Backup); Backup export does NOT include settings
+  (payload = categories, manga/novels, chapters, category links) — note says so.
+- Not checked: iCloud backup list and Sync status rows (sim has no iCloud; free-team phone build has no iCloud
+  either). Downloads "Downloading" section not exercised (no active download in the sim).
+- Martin's order after this: first-run + imports (#3, #6) → legal last (incl. #170).
+
 ## S145 — Asura black pages, voices, tags (2026-10-07)
 
 - Martin's device check of S144: Continue ✅, chapter numbers ✅, menu taps ✅, novel hold-to-select ✅, novel detail
