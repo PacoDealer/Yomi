@@ -2107,3 +2107,13 @@ previously here was removed during the 2026-08-04 doc restructure.
   it in one run — do that first next time.
 - **Kingfisher writes a 900×16000 page to disk late or not at all** — don't conclude "never downloaded" from the
   disk cache alone.
+
+## S146 lessons
+
+- **Simulator screenshots lag behind XcodeBuildMCP taps.** `screenshot` right after a navigation tap returned the
+  PREVIOUS screen (even 1–2 transitions back). `xcrun simctl io <udid> screenshot` after a 2 s sleep was reliable.
+- **Check the claim in UI copy against the code.** A note written from intuition ("saves … settings") was wrong —
+  the backup payload has no settings. Same for "deleting keeps titles": verified in `CategoryQueries.delete`.
+- **Header-less calm lists start ~70 pt low** (grouped style's top inset); `.contentMargins(.top, 0, for:
+  .scrollContent)` fixes it.
+
