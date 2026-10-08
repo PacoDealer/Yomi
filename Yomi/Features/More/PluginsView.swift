@@ -210,9 +210,7 @@ struct PluginsView: View {
         .yomiToast($errorToast)
         .onAppear {
             Task { await catalogService.fetchCatalog() }
-            if keiyoushi.available.isEmpty, !settings.mihonRepoURLs.isEmpty {
-                Task { await keiyoushi.refresh() }
-            }
+            Task { await keiyoushi.refreshIfStale() }
         }
         .refreshable {
             await catalogService.fetchCatalog(force: true)
@@ -713,7 +711,7 @@ struct RepositoriesView: View {
         .sheet(isPresented: $showAddRepo) { AddRepoSheet() }
         .task {
             await catalogService.fetchCatalog()
-            if keiyoushi.available.isEmpty, !settings.mihonRepoURLs.isEmpty { await keiyoushi.refresh() }
+            await keiyoushi.refreshIfStale()
         }
     }
 

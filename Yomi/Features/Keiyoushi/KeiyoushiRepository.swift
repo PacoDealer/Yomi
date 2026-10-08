@@ -106,6 +106,12 @@ final class KeiyoushiRepository {
     private(set) var installed: [InstalledKeiyoushiExtension] = []
     private(set) var isLoading = false
     var errorMessage: String?
+    /// When every repository index was last fetched (S147). Starts from the oldest on-disk cache, so a list left
+    /// over from weeks ago counts as stale on the first screen that asks.
+    private var lastRefreshAt: Date?
+    /// Repository indexes go stale as extensions update — and an old index points at APKs the repository has
+    /// already deleted (Martin's phone, S147: a Sep 24 index made MangaPill / Qi Scans / Webtoons 404).
+    nonisolated static let maxIndexAge: TimeInterval = 6 * 3600
 
     nonisolated static let rootDirectory: URL = {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -137,6 +143,19 @@ final class KeiyoushiRepository {
             return MihonRepo(url: url, name: decoded?.name, extensions: decoded?.extensions ?? [])
         }
         rebuildAvailable()
+        let cacheDates = urls.enumerated().map { i, url -> Date? in
+            let file = i == 0 && !FileManager.default.fileExists(atPath: Self.cacheFile(for: url).path)
+                ? Self.legacyIndexCacheFile : Self.cacheFile(for: url)
+            return (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        }
+        lastRefreshAt = cacheDates.contains(where: { $0 == nil }) ? nil : cacheDates.compactMap { $0 }.min()
+    }
+
+    /// Re-fetches the repository indexes when they are older than `maxIndexAge` (or were never fetched).
+    func refreshIfStale() async {
+        guard !AppSettings.shared.mihonRepoURLs.isEmpty, !isLoading else { return }
+        if let last = lastRefreshAt, Date().timeIntervalSince(last) < Self.maxIndexAge { return }
+        await refresh()
     }
 
     /// Every enabled source across all installed extensions (languages the user turned off are left out).
@@ -240,6 +259,7 @@ final class KeiyoushiRepository {
                 errorMessage = error.localizedDescription
             }
         }
+        if errorMessage == nil { lastRefreshAt = Date() }
         rebuildAvailable()
     }
 
@@ -264,8 +284,18 @@ final class KeiyoushiRepository {
     /// `langs` limits a multi-language extension to the languages the user picked; `nil` keeps what a previous
     /// install chose (an update shouldn't reset it).
     func install(_ ext: KeiyoushiExtension, langs: [String]? = nil) async throws {
+        var ext = ext
         guard let url = URL(string: ext.apkURL) else { throw KeiyoushiError.badRepoURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        var (data, response) = try await URLSession.shared.data(from: url)
+        // 404 = the repository replaced this version since our index was fetched: refresh it and take the current one.
+        if (response as? HTTPURLResponse)?.statusCode == 404 {
+            await refresh()
+            if let fresh = available.first(where: { $0.packageName == ext.packageName }), fresh.apkURL != ext.apkURL,
+               let freshURL = URL(string: fresh.apkURL) {
+                ext = fresh
+                (data, response) = try await URLSession.shared.data(from: freshURL)
+            }
+        }
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw KeiyoushiError.download("HTTP \(http.statusCode)")
         }
