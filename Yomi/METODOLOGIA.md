@@ -2117,3 +2117,17 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Header-less calm lists start ~70 pt low** (grouped style's top inset); `.contentMargins(.top, 0, for:
   .scrollContent)` fixes it.
 
+## S147 lessons
+
+- **"The feature exists" ≠ "the feature works".** S146 corrected the docs to "`.tachibk` import exists"; reading the
+  parser showed every imported title was unopenable. Audit the output (ids, paths) against what the rest of the app
+  expects, not just that the code path runs.
+- **Test data from real rows.** A synthetic backup built from the sim DB's own Keiyoushi titles proved the id/path
+  match directly: re-importing must leave chapter counts unchanged.
+- **Two `.fileImporter`s on one view:** only the last presents reliably — use one with a mode, and keep the mode in
+  separate state (the dismissal clears the `isPresented` binding before the completion runs).
+- **`Color.accentColor` inside a fullScreenCover** outside ContentView renders system blue even with `.tint` —
+  use the accent value directly.
+- **Onboarding in the sim:** `defaults write` doesn't reach the running app's prefs cache; launch with
+  `-hasSeenOnboarding NO` instead.
+
