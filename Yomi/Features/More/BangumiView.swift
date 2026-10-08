@@ -10,24 +10,26 @@ struct BangumiView: View {
     @State private var authURL: URL? = nil
 
     var body: some View {
-        List {
+        CalmList {
             TrackerHeaderLogoSection(name: "TrackerLogoBangumi", wordmark: true)
             if service.isLoggedIn {
-                Section("Account") {
+                Section(calm: "Account") {
                     LabeledContent("Logged in as", value: service.username ?? "—")
                     Button("Disconnect", role: .destructive) { service.logout() }
                 }
             } else {
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(spacing: 16) {
                         Text("Connect your Bangumi account to automatically track chapters you read.")
-                            .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                            .font(.callout)
                             .foregroundStyle(canvas.textSecondary)
-                        Button("Login with Bangumi") {
+                            .multilineTextAlignment(.center)
+                        Button("Sign In with Bangumi") {
                             authURL = service.authorizationURL()
                             showSafari = true
                         }
                         .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                         .frame(maxWidth: .infinity)
                     }
                     .padding(.vertical, 4)
@@ -35,12 +37,10 @@ struct BangumiView: View {
             }
             if let error = service.errorMessage {
                 Section {
-                    Text(error).foregroundStyle(.red).font(.caption)
+                    Text(error).foregroundStyle(.red).font(.footnote)
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .yomiListCanvas()
         .navigationTitle("Bangumi")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {
