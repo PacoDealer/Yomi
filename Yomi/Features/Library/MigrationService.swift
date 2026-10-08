@@ -28,18 +28,18 @@ enum MigrationService {
     }
 
     /// Runs entirely off MainActor — safe to call from Task.detached.
+    ///
+    /// `newChapters` is the new source's chapter list, fetched by the caller FIRST (a JS plugin via its bridge,
+    /// a Keiyoushi source via `KeiyoushiBridge` — S147). A plugin swallows its own JS exceptions and returns []
+    /// on failure, indistinguishable from "this title genuinely has no chapters" — either way there is nothing to
+    /// migrate to, so bail before touching the library. That is what keeps a failed migration from deleting the
+    /// old entry (and its downloads) and stranding the user with a chapterless manga.
     nonisolated static func migrate(
         from oldManga: Manga,
         to newManga: Manga,
-        bridge: JSBridge,
+        newChapters: [Chapter],
         removeOld: Bool
     ) throws -> Result {
-        // 1. Fetch the new source's chapters FIRST. A plugin swallows its own JS exceptions and
-        // returns [] on failure, indistinguishable from "this title genuinely has no chapters" —
-        // either way there is nothing to migrate to, so bail before touching the library. Doing
-        // this before the writes below is what keeps a failed migration from deleting the old
-        // entry (and its downloads) and stranding the user with a chapterless manga.
-        let newChapters = bridge.getChapterList(mangaPath: newManga.path, mangaId: newManga.id)
         guard !newChapters.isEmpty else { throw MigrationError.noChaptersFromNewSource }
 
         // 2. Persist the new manga as a library entry, carrying over user-owned state.

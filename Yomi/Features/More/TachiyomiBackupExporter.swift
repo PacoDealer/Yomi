@@ -11,9 +11,9 @@ import Foundation
 //   BackupChapter  → url(1), name(2), scanlator(3), read(4), lastPageRead(6),
 //                    chapterNumber(9, fixed32/float), sourceOrder(10)
 //
-// Scope: metadata + read-state only, matching what the parser actually reads back. Yomi sources
-// have no real Tachiyomi source ID (only MangaDex round-trips via the existing sourceMap) — every
-// other manga exports with source(1) = 0, which Tachiyomi's own restore flow already treats as a
+// Scope: metadata + read-state only. Keiyoushi titles (S147) export with their real Mihon source id and the
+// extension's own URLs (memo split back out into field 112 / 13), so they open in Mihon as-is. Yomi's own
+// JS sources have no Tachiyomi source ID (only MangaDex via reverseSourceMap) — they export with source(1) = 0, which Tachiyomi's own restore flow already treats as a
 // normal "no matching source installed" case rather than a failure, so the library/read-history
 // still comes across even where the source itself doesn't.
 
@@ -44,8 +44,11 @@ enum TachiyomiBackupExporter {
     private static func encodeManga(_ manga: Manga, chapters: [Chapter]) -> Data {
         var out = Data()
 
-        out.appendField(1, varint: reverseSourceMap[manga.sourceId] ?? 0)
-        out.appendField(2, string: manga.path)
+        let isKeiyoushi = KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId)
+        let mihonId = isKeiyoushi ? UInt64(KeiyoushiMapping.mihonSourceId(manga.sourceId)) : nil
+        let (url, memo) = splitMemo(manga.path)
+        out.appendField(1, varint: mihonId ?? reverseSourceMap[manga.sourceId] ?? 0)
+        out.appendField(2, string: isKeiyoushi ? url : manga.path)
         out.appendField(3, string: manga.title)
         if let artist = manga.artist { out.appendField(4, string: artist) }
         if let author = manga.author { out.appendField(5, string: author) }
@@ -62,6 +65,7 @@ enum TachiyomiBackupExporter {
         }
 
         out.appendField(100, varint: manga.inLibrary ? 1 : 0)
+        if isKeiyoushi, let memo { out.appendField(112, bytes: memo) }
         return out
     }
 
@@ -69,7 +73,13 @@ enum TachiyomiBackupExporter {
 
     private static func encodeChapter(_ chapter: Chapter, sourceOrder: Int) -> Data {
         var out = Data()
-        out.appendField(1, string: chapter.path)
+        if let ref = KeiyoushiMapping.chapterRef(from: chapter.path) {
+            let (url, memo) = splitMemo(ref.url)
+            out.appendField(1, string: url)
+            if let memo { out.appendField(13, bytes: memo) }
+        } else {
+            out.appendField(1, string: chapter.path)
+        }
         out.appendField(2, string: chapter.name)
         if let scanlator = chapter.scanlator { out.appendField(3, string: scanlator) }
         out.appendField(4, varint: chapter.isRead ? 1 : 0)
@@ -80,6 +90,15 @@ enum TachiyomiBackupExporter {
         }
         out.appendField(10, varint: UInt64(sourceOrder))
         return out
+    }
+
+    /// Inverse of `TachiyomiBackupParser.bridgeURL`: the bare URL and the memo JSON bytes, if any.
+    private static func splitMemo(_ value: String) -> (String, Data?) {
+        let parts = value.components(separatedBy: "|mangayomi-memo|")
+        guard parts.count == 2 else { return (value, nil) }
+        var b64 = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while b64.count % 4 != 0 { b64 += "=" }
+        return (parts[0], Data(base64Encoded: b64))
     }
 
     // MARK: - Status mapping (Yomi MangaStatus → Tachiyomi int), inverse of parser's publicationStatus
@@ -159,6 +178,13 @@ private extension Data {
         guard value != 0 else { return }
         appendTag(field: field, wireType: 0)
         appendVarint(value)
+    }
+
+    mutating func appendField(_ field: Int, bytes value: Data) {
+        guard !value.isEmpty else { return }
+        appendTag(field: field, wireType: 2)
+        appendVarint(UInt64(value.count))
+        append(value)
     }
 
     mutating func appendField(_ field: Int, string value: String) {
