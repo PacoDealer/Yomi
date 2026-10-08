@@ -1,176 +1,199 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - OnboardingView
 //
-// Design spec: YOMI Screens.dc.html N.08 (Onboarding). The mock shows a single frame (icon +
-// wordmark + description + CTA + page dots); the same template is reused across all 3 pages with
-// per-page content, since the mock only specifies the visual language, not unique page 2/3 content.
+// S147 (RESEARCH §25.10 #3, §25.5 law 5): first run does the setup instead of describing it. One calm screen with
+// three ways in — bring a library over from Mihon / Tachiyomi / Tachimanga, restore a Yomi backup, or paste a
+// repository link — and "Skip for Now". Yomi still ships with no repositories and suggests none (S140): every
+// repository comes from the user, either pasted here or carried in their own backup.
+//
+// Presented by YomiApp as a fullScreenCover outside ContentView, so it doesn't get `\.yomiCanvas` — it uses
+// system colours, which follow light/dark like the "Automatic" canvas fresh installs default to.
 
 struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var currentPage: Int = 0
+    @State private var backupManager = BackupManager.shared
+    @State private var settings = AppSettings.shared
 
-    private static let bg = Color(hex: "#14110F")
-    private static let tx = Color(hex: "#F4EFE7")
+    /// One file importer for both backup kinds — two `.fileImporter`s on one view only reliably present the last.
+    @State private var picking: Option? = nil
+    /// What the open picker is for — kept apart from `picking`, which the dismissal clears before the completion runs.
+    @State private var pickedKind: Option = .mihon
+    @State private var showAddRepo = false
+    @State private var importReport: BackupManager.TachiyomiImportReport? = nil
+    @State private var busy: Option? = nil
+    @State private var done: Set<Option> = []
+    @State private var errorText: String? = nil
+    @State private var repoCountAtOpen = 0
 
-    var body: some View {
-        ZStack {
-            Self.bg.ignoresSafeArea()
+    private enum Option: Hashable { case mihon, yomi, repo }
 
-            TabView(selection: $currentPage) {
-                OnboardingPage(
-                    iconImage: "OnboardingIcon",
-                    systemImage: "book.fill",
-                    title: "YOMI",
-                    accentSuffix: ".",
-                    description: "Manga, manhwa & light novels from any source — a living archive of what you read.",
-                    caption: nil,
-                    buttonLabel: "Get started",
-                    pageIndex: 0,
-                    onAction: { currentPage = 1 }
-                )
-                .tag(0)
+    /// The user's accent. `Color.accentColor` renders system blue inside this cover (separate hierarchy).
+    private var accent: Color { Color(hex: settings.accentColor) }
 
-                OnboardingPage(
-                    systemImage: "puzzlepiece.extension.fill",
-                    title: "Add a Repository",
-                    description: "Yomi comes with no sources. Paste a repository's link, then add the extensions you want from it.",
-                    caption: "How to find repositories",
-                    captionLink: kYomiSetupGuideURL,
-                    buttonLabel: "Next",
-                    pageIndex: 1,
-                    onAction: { currentPage = 2 }
-                )
-                .tag(1)
-
-                OnboardingPage(
-                    systemImage: "checkmark.circle.fill",
-                    title: "You're all set",
-                    description: "Open Browse → Extensions to add your first repository and start reading.",
-                    caption: nil,
-                    buttonLabel: "Open Extensions",
-                    pageIndex: 2,
-                    onAction: {
-                        AppSettings.shared.hasSeenOnboarding = true
-                        appRouter.openBrowseExtensions = true
-                        appRouter.selectedTab = AppRouter.tabBrowse
-                        dismiss()
-                    }
-                )
-                .tag(2)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-        }
-        // fullScreenCover presents a separate view hierarchy that doesn't inherit YomiApp's
-        // .tint() from ContentView() — without this, every Color.accentColor use here (dots,
-        // CTA, icon fallback) silently renders system blue instead of the user's accent.
-        .tint(Color(hex: AppSettings.shared.accentColor))
-    }
-}
-
-// MARK: - OnboardingPage
-//
-// Shared template for all 3 pages, matching N.08: 150×150 icon/image box, wordmark or title,
-// description (max ~15em), optional mono caption, page dots, full-width accent CTA.
-
-private struct OnboardingPage: View {
-    var iconImage: String? = nil
-    var systemImage: String? = nil
-    let title: String
-    var accentSuffix: String? = nil
-    let description: String
-    let caption: String?
-    var captionLink: URL? = nil
-    let buttonLabel: String
-    let pageIndex: Int
-    let onAction: () -> Void
-
-    private static let tx = Color(hex: "#F4EFE7")
+    private var repoCount: Int { settings.pluginCatalogURLs.count + settings.mihonRepoURLs.count }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 34) {
-                iconBox
-
-                VStack(spacing: 16) {
-                    Group {
-                        if let accentSuffix {
-                            Text("\(title)\(Text(accentSuffix).foregroundStyle(Color.accentColor))")
-                        } else {
-                            Text(title)
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                header
+                VStack(spacing: 12) {
+                    optionCard(.mihon,
+                               systemImage: "arrow.down.doc",
+                               title: "Coming from Mihon or Tachimanga?",
+                               detail: "Import a .tachibk backup — your library, categories and reading progress come along.") {
+                        pickedKind = .mihon; picking = .mihon
                     }
-                    .font(YomiTokens.Font.grotesk(36, weight: .bold))
-                    .tracking(0.5)
-                    .foregroundStyle(Self.tx)
-                    .multilineTextAlignment(.center)
-
-                    Text(description)
-                        .font(YomiTokens.Font.grotesk(16))
-                        .foregroundStyle(Self.tx.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                        .frame(maxWidth: 300)
-                }
-            }
-
-            Spacer()
-
-            VStack(spacing: 22) {
-                HStack(spacing: 7) {
-                    ForEach(0..<3, id: \.self) { i in
-                        Capsule()
-                            .fill(i == pageIndex ? Color.accentColor : Self.tx.opacity(0.24))
-                            .frame(width: i == pageIndex ? 22 : 6, height: 6)
+                    optionCard(.yomi,
+                               systemImage: "clock.arrow.circlepath",
+                               title: "Restore a Yomi Backup",
+                               detail: "Bring back a library you exported from Yomi.") {
+                        pickedKind = .yomi; picking = .yomi
+                    }
+                    optionCard(.repo,
+                               systemImage: "link",
+                               title: "Add a Repository",
+                               detail: "Paste the link of a Mihon, LNReader or Yomi repository, then add the sources you want.") {
+                        repoCountAtOpen = repoCount
+                        showAddRepo = true
                     }
                 }
-
-                Button(action: onAction) {
-                    Text(buttonLabel)
-                        .font(YomiTokens.Font.grotesk(16, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.accentColor)
-                        .foregroundStyle(AppSettings.shared.accentForeground)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                if let errorText {
+                    Text(errorText)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
                 }
-
-                if let caption, let captionLink {
-                    Link(caption, destination: captionLink)
-                        .font(.subheadline)
-                        .foregroundStyle(Color.accentColor)
-                } else if let caption {
-                    Text(caption)
-                        .font(YomiTokens.Font.mono(11))
-                        .foregroundStyle(Self.tx.opacity(0.36))
-                }
+                Link("How to find repositories", destination: kYomiSetupGuideURL)
+                    .font(.subheadline)
             }
-            .padding(.bottom, 56)
+            .padding(.horizontal, 24)
+            .padding(.top, 48)
+            .padding(.bottom, 24)
         }
-        .padding(.horizontal, 32)
+        .scrollBounceBehavior(.basedOnSize)
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { finishButton }
+        .fileImporter(
+            isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } }),
+            allowedContentTypes: pickedKind == .yomi ? [.json] : [UTType(filenameExtension: "tachibk") ?? .data]
+        ) { result in
+            let kind = pickedKind
+            guard case .success(let url) = result else { return }
+            Task { await importBackup(kind, from: url) }
+        }
+        .sheet(item: $importReport) { report in
+            TachiyomiImportView(report: report)
+        }
+        .sheet(isPresented: $showAddRepo, onDismiss: {
+            if repoCount > repoCountAtOpen { done.insert(.repo) }
+        }) {
+            AddRepoSheet()
+        }
+        // fullScreenCover presents a separate view hierarchy that doesn't inherit YomiApp's .tint().
+        .tint(accent)
     }
 
-    @ViewBuilder
-    private var iconBox: some View {
-        if let iconImage, let uiImage = UIImage(named: iconImage) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .frame(width: 150, height: 150)
-                .clipShape(RoundedRectangle(cornerRadius: 34))
-                .shadow(color: .black.opacity(0.55), radius: 27, y: 20)
-        } else if let systemImage {
-            RoundedRectangle(cornerRadius: 34)
-                .fill(Color(hex: "#1E1A17"))
-                .frame(width: 150, height: 150)
-                .overlay {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 56))
-                        .foregroundStyle(Color.accentColor)
-                }
-                .shadow(color: .black.opacity(0.55), radius: 27, y: 20)
+    // MARK: Pieces
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let icon = UIImage(named: "OnboardingIcon") {
+                Image(uiImage: icon)
+                    .resizable()
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .accessibilityHidden(true)
+            }
+            Text("Welcome to Yomi")
+                .font(.largeTitle.weight(.bold))
+            Text("Manga, manhwa and light novels from the sources you add. Yomi comes with none — start with one of these, or skip and do it later from Browse.")
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
+    }
+
+    private func optionCard(_ option: Option, systemImage: String, title: String, detail: String,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.title3)
+                    .foregroundStyle(accent)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Group {
+                    if busy == option {
+                        ProgressView()
+                    } else if done.contains(option) {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(accent)
+                    } else {
+                        Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.body.weight(.semibold))
+            }
+            .padding(16)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy != nil)
+        .accessibilityValue(done.contains(option) ? "Done" : "")
+    }
+
+    private var finishButton: some View {
+        Button(action: finish) {
+            Text(done.isEmpty ? "Skip for Now" : "Start Reading")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .tint(done.isEmpty ? Color(.secondarySystemFill) : accent)
+        .foregroundStyle(done.isEmpty ? Color.primary : settings.accentForeground)
+        .disabled(busy != nil)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
+        .background(Color(.systemBackground))
+    }
+
+    private func importBackup(_ kind: Option, from url: URL) async {
+        busy = kind
+        errorText = nil
+        if kind == .mihon {
+            await backupManager.importTachiyomiBackup(from: url)
+        } else {
+            await backupManager.importBackup(from: url)
+        }
+        busy = nil
+        if let error = backupManager.errorMessage {
+            errorText = error
+            return
+        }
+        done.insert(kind)
+        if kind == .mihon { importReport = backupManager.lastTachiyomiImport }
+    }
+
+    private func finish() {
+        settings.hasSeenOnboarding = true
+        // A library came in → Library. Only a repository → its extensions, to add the first source.
+        if done.contains(.repo) && !done.contains(.mihon) && !done.contains(.yomi) {
+            appRouter.openBrowseExtensions = true
+            appRouter.selectedTab = AppRouter.tabBrowse
+        } else {
+            appRouter.selectedTab = AppRouter.tabLibrary
+        }
+        dismiss()
     }
 }
 
