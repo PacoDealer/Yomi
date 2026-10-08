@@ -85,11 +85,11 @@ import Kingfisher
 
 // MARK: - DownloadsView
 //
-// Design spec: YOMI Screens.dc.html N.13 (Downloads).
+// S146 calm pass (RESEARCH §26): system nav bar, bold sentence-case section titles, plain rows on the canvas,
+// no separators (Martin, S141). Delete = swipe → red trash, like Extensions and Repositories.
 
 struct DownloadsView: View {
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.yomiCanvas) private var canvas
     @State private var vm = DownloadViewModel()
     @State private var confirmDeleteAll = false
@@ -103,13 +103,10 @@ struct DownloadsView: View {
 
     private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
     private var hasContent: Bool { hasDownloading || !vm.isEmpty }
-    private var downloadingCount: Int {
-        dm.queue.count + (dm.isRunning ? 1 : 0) + ndm.batches.reduce(0) { $0 + $1.total - $1.done }
-    }
 
     var body: some View {
         Group {
-            if vm.isLoading {
+            if vm.isLoading && !hasContent {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !hasContent {
@@ -119,123 +116,25 @@ struct DownloadsView: View {
                     message: "Download chapters from a title's chapter list to read them offline."
                 )
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Downloads")
-                            .font(YomiTokens.Font.grotesk(26, weight: .medium))
-                            .foregroundStyle(canvas.textPrimary)
-                            .padding(.top, 8)
-
-                        if hasDownloading {
-                            sectionHeader("Downloading · \(downloadingCount)")
-
-                            if isHeldBack, let reason = network.waitReason {
-                                waitBanner(reason: reason)
-                            }
-
-                            if let active = dm.activeChapter {
-                                DownloadingRow(
-                                    coverURL: dm.activeManga?.coverURL,
-                                    customCoverPath: dm.activeManga?.resolvedCustomCoverPath,
-                                    title: dm.activeManga?.title ?? "",
-                                    note: "\(active.name) · \(Int((dm.progress[active.id] ?? 0) * 100))%",
-                                    fraction: dm.progress[active.id] ?? 0,
-                                    onCancel: { dm.cancel(chapterId: active.id) }
-                                )
-                                Divider().padding(.leading, 72)
-                            }
-
-                            ForEach(Array(dm.queue.enumerated()), id: \.element.id) { idx, chapter in
-                                DownloadingRow(
-                                    coverURL: idx < dm.queueMangas.count ? dm.queueMangas[idx].coverURL : nil,
-                                    customCoverPath: idx < dm.queueMangas.count ? dm.queueMangas[idx].resolvedCustomCoverPath : nil,
-                                    title: idx < dm.queueMangas.count ? dm.queueMangas[idx].title : "",
-                                    note: "\(chapter.name) · \(queuedNote)",
-                                    fraction: 0,
-                                    onCancel: { dm.cancel(chapterId: chapter.id) }
-                                )
-                                Divider().padding(.leading, 72)
-                            }
-
-                            // Novels: one row per novel — a whole-novel download is hundreds of chapters.
-                            ForEach(ndm.batches) { batch in
-                                DownloadingRow(
-                                    coverURL: batch.novel.coverURL,
-                                    customCoverPath: batch.novel.resolvedCustomCoverPath,
-                                    title: batch.novel.title,
-                                    note: ndm.active?.novel.id == batch.novel.id
-                                        ? "\(ndm.active?.chapter.name ?? "") · \(batch.done)/\(batch.total)"
-                                        : "\(batch.total - batch.done) chapters · \(queuedNote)",
-                                    fraction: batch.total > 0 ? Double(batch.done) / Double(batch.total) : 0,
-                                    onCancel: { ndm.cancel(novelId: batch.novel.id) }
-                                )
-                                Divider().padding(.leading, 72)
-                            }
+                list
+            }
+        }
+        .background(canvas.bg.ignoresSafeArea())
+        .navigationTitle("Downloads")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !vm.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) { confirmDeleteAll = true } label: {
+                            Label("Delete All Downloads", systemImage: "trash")
                         }
-
-                        if !vm.isEmpty {
-                            sectionHeader("Downloaded")
-
-                            ForEach(vm.groups) { group in
-                                NavigationLink {
-                                    MangaDetailView(manga: group.manga)
-                                } label: {
-                                    DownloadedRow(
-                                        title: group.manga.title,
-                                        coverURL: group.manga.coverURL,
-                                        customCoverPath: group.manga.resolvedCustomCoverPath,
-                                        note: "\(group.chapterCount) chapter\(group.chapterCount == 1 ? "" : "s") · \(formatBytes(group.byteSize))"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        Task { await vm.deleteAll(for: group.manga) }
-                                    } label: {
-                                        Label("Delete all downloads", systemImage: "trash")
-                                    }
-                                }
-                                Divider().padding(.leading, 72)
-                            }
-
-                            ForEach(vm.novelGroups) { group in
-                                NavigationLink {
-                                    NovelDetailView(novel: group.novel)
-                                } label: {
-                                    DownloadedRow(
-                                        title: group.novel.title,
-                                        coverURL: group.novel.coverURL,
-                                        customCoverPath: group.novel.resolvedCustomCoverPath,
-                                        note: "Novel · \(group.chapterCount) chapter\(group.chapterCount == 1 ? "" : "s") · \(formatBytes(group.byteSize))"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        Task { await vm.deleteAll(for: group.novel) }
-                                    } label: {
-                                        Label("Delete all downloads", systemImage: "trash")
-                                    }
-                                }
-                                Divider().padding(.leading, 72)
-                            }
-
-                            Text("\(formatBytes(vm.totalBytes).uppercased()) USED · \(vm.totalChapters) CHAPTER\(vm.totalChapters == 1 ? "" : "S")")
-                                .font(YomiTokens.Font.mono(11))
-                                .foregroundStyle(canvas.textSecondary.opacity(0.6))
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 20)
-                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 60)
-                    .padding(.bottom, 24)
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
-        .swipeBackEnabled()
-        .overlay(alignment: .top) { glassNavBar }
         .task { await vm.load() }
         .onChange(of: dm.completedDownloadCount) { _, _ in
             Task { await vm.load() }
@@ -248,75 +147,125 @@ struct DownloadsView: View {
             set: { DownloadManager.shared.failureMessage = $0 }
         ))
         .confirmationDialog("Delete all downloads?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
-            Button("Delete all", role: .destructive) { Task { await vm.deleteEverything() } }
+            Button("Delete All", role: .destructive) { Task { await vm.deleteEverything() } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes every downloaded chapter from this device. Titles stay in your library.")
         }
     }
 
-    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
+    private var list: some View {
+        CalmList {
+            if hasDownloading {
+                Section {
+                    if isHeldBack, let reason = network.waitReason {
+                        waitNote(reason: reason)
+                    }
 
-    private var glassNavBar: some View {
-        HStack(spacing: 10) {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
+                    if let active = dm.activeChapter {
+                        DownloadingRow(
+                            coverURL: dm.activeManga?.coverURL,
+                            customCoverPath: dm.activeManga?.resolvedCustomCoverPath,
+                            title: dm.activeManga?.title ?? "",
+                            note: "\(active.name) · \(Int((dm.progress[active.id] ?? 0) * 100))%",
+                            fraction: dm.progress[active.id] ?? 0,
+                            onCancel: { dm.cancel(chapterId: active.id) }
+                        )
+                    }
+
+                    ForEach(Array(dm.queue.enumerated()), id: \.element.id) { idx, chapter in
+                        DownloadingRow(
+                            coverURL: idx < dm.queueMangas.count ? dm.queueMangas[idx].coverURL : nil,
+                            customCoverPath: idx < dm.queueMangas.count ? dm.queueMangas[idx].resolvedCustomCoverPath : nil,
+                            title: idx < dm.queueMangas.count ? dm.queueMangas[idx].title : "",
+                            note: "\(chapter.name) · \(queuedNote)",
+                            fraction: 0,
+                            onCancel: { dm.cancel(chapterId: chapter.id) }
+                        )
+                    }
+
+                    // Novels: one row per novel — a whole-novel download is hundreds of chapters.
+                    ForEach(ndm.batches) { batch in
+                        DownloadingRow(
+                            coverURL: batch.novel.coverURL,
+                            customCoverPath: batch.novel.resolvedCustomCoverPath,
+                            title: batch.novel.title,
+                            note: ndm.active?.novel.id == batch.novel.id
+                                ? "\(ndm.active?.chapter.name ?? "") · \(batch.done)/\(batch.total)"
+                                : "\(batch.total - batch.done) chapters · \(queuedNote)",
+                            fraction: batch.total > 0 ? Double(batch.done) / Double(batch.total) : 0,
+                            onCancel: { ndm.cancel(novelId: batch.novel.id) }
+                        )
+                    }
+                } header: { CalmSectionHeader("Downloading") }
             }
-            .glassChip()
-
-            Spacer()
 
             if !vm.isEmpty {
-                Button { confirmDeleteAll = true } label: {
-                    Image(systemName: "trash")
+                Section {
+                    ForEach(vm.groups) { group in
+                        NavigationLink {
+                            MangaDetailView(manga: group.manga)
+                        } label: {
+                            DownloadedRow(
+                                title: group.manga.title,
+                                coverURL: group.manga.coverURL,
+                                customCoverPath: group.manga.resolvedCustomCoverPath,
+                                note: "\(chapterCount(group.chapterCount)) · \(formatBytes(group.byteSize))"
+                            )
+                        }
+                        .swipeToDelete { Task { await vm.deleteAll(for: group.manga) } }
+                    }
+
+                    ForEach(vm.novelGroups) { group in
+                        NavigationLink {
+                            NovelDetailView(novel: group.novel)
+                        } label: {
+                            DownloadedRow(
+                                title: group.novel.title,
+                                coverURL: group.novel.coverURL,
+                                customCoverPath: group.novel.resolvedCustomCoverPath,
+                                note: "Novel · \(chapterCount(group.chapterCount)) · \(formatBytes(group.byteSize))"
+                            )
+                        }
+                        .swipeToDelete { Task { await vm.deleteAll(for: group.novel) } }
+                    }
+                } header: { CalmSectionHeader("Downloaded") } footer: {
+                    Text("\(formatBytes(vm.totalBytes)) on this iPhone · \(chapterCount(vm.totalChapters))")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .monospacedDigit()
+                        .padding(.top, 8)
                 }
-                .glassChip()
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
     }
 
-    // MARK: - Waiting banner
+    // MARK: - Waiting note
 
-    private func waitBanner(reason: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: network.isConnected ? "wifi" : "wifi.slash")
-                    .foregroundStyle(canvas.textSecondary)
-                Text(reason)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body, weight: .medium))
-                    .foregroundStyle(canvas.textPrimary)
-            }
+    private func waitNote(reason: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(reason, systemImage: network.isConnected ? "wifi" : "wifi.slash")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(canvas.textPrimary)
             if network.isWaitingForWiFi {
                 Text("Downloads continue automatically on Wi-Fi.")
-                    .font(YomiTokens.Font.grotesk(13))
+                    .font(.footnote)
                     .foregroundStyle(canvas.textSecondary)
                 // One-off: covers what's queued now, then the setting applies again.
-                Button("Download on cellular now") {
+                Button("Download on Cellular Now") {
                     network.allowCellularForCurrentQueue()
                 }
-                .font(YomiTokens.Font.grotesk(14, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.accentColor)
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(canvas.surface1, in: RoundedRectangle(cornerRadius: YomiTokens.Radius.button))
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 
-    // MARK: - Section header
-
-    private func sectionHeader(_ label: String) -> some View {
-        Text(label.uppercased())
-            .font(YomiTokens.Font.mono(11))
-            .tracking(0.6)
-            .foregroundStyle(canvas.textSecondary)
-            .padding(.top, 18)
-            .padding(.bottom, 2)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private func chapterCount(_ n: Int) -> String {
+        "\(n) chapter\(n == 1 ? "" : "s")"
     }
 }
 
@@ -326,6 +275,40 @@ private func formatBytes(_ bytes: Int64) -> String {
     let f = ByteCountFormatter()
     f.countStyle = .file
     return f.string(fromByteCount: bytes)
+}
+
+private extension View {
+    func swipeToDelete(_ action: @escaping () -> Void) -> some View {
+        swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive, action: action) {
+                Label("Delete", systemImage: "trash")
+            }
+            .tint(.red) // the app-wide accent tint would otherwise paint it blue
+        }
+    }
+}
+
+// MARK: - Download cover
+
+/// Small cover thumbnail shared by both row kinds — custom cover first, then the source's.
+private struct DownloadCover: View {
+    let coverURL: URL?
+    let customCoverPath: String?
+
+    var body: some View {
+        Group {
+            if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(2 / 3, contentMode: .fill)
+                    .coverAspectSized()
+            } else {
+                CoverImage(url: coverURL)
+            }
+        }
+        .frame(width: 44)
+        .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
+    }
 }
 
 // MARK: - DownloadingRow
@@ -342,50 +325,33 @@ private struct DownloadingRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            cover
+            DownloadCover(coverURL: coverURL, customCoverPath: customCoverPath)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .font(.body)
                     .foregroundStyle(canvas.textPrimary)
                     .lineLimit(1)
                 Text(note)
-                    .font(YomiTokens.Font.mono(12))
+                    .font(.subheadline)
                     .foregroundStyle(canvas.textSecondary)
+                    .monospacedDigit()
                     .lineLimit(1)
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(canvas.textSecondary.opacity(0.16))
-                        Capsule().fill(Color.accentColor).frame(width: geo.size.width * fraction)
-                    }
-                }
-                .frame(height: 3)
+                ProgressView(value: fraction)
+                    .tint(Color.accentColor)
+                    .padding(.top, 2)
             }
 
             Button(action: onCancel) {
-                Image(systemName: "xmark.circle")
-                    .font(.system(size: 22))
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(canvas.textSecondary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Cancel download")
         }
-        .padding(.vertical, 11)
-    }
-
-    private var cover: some View {
-        Group {
-            if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(2 / 3, contentMode: .fill)
-                    .coverAspectSized()
-            } else {
-                CoverImage(url: coverURL)
-            }
-        }
-        .frame(width: 44)
-        .cornerRadius(YomiTokens.Radius.thumb)
-        .clipped()
+        .padding(.vertical, 4)
     }
 }
 
@@ -401,39 +367,21 @@ private struct DownloadedRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Group {
-                if let path = customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(2 / 3, contentMode: .fill)
-                        .coverAspectSized()
-                } else {
-                    CoverImage(url: coverURL)
-                }
-            }
-            .frame(width: 44)
-            .cornerRadius(YomiTokens.Radius.thumb)
-            .clipped()
+            DownloadCover(coverURL: coverURL, customCoverPath: customCoverPath)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
+                    .font(.body)
                     .foregroundStyle(canvas.textPrimary)
                     .lineLimit(1)
                 Text(note)
-                    .font(YomiTokens.Font.mono(12))
+                    .font(.subheadline)
                     .foregroundStyle(canvas.textSecondary)
+                    .monospacedDigit()
                     .lineLimit(1)
             }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(canvas.textSecondary.opacity(0.5))
         }
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
+        .padding(.vertical, 4)
     }
 }
 
