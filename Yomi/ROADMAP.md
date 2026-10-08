@@ -41,7 +41,15 @@ The research audit revealed that 800+ sources are already available across four 
   only the needed language, repo add, card, Migrate list, re-import idempotent. NOT verified: opening/refreshing an
   imported Keiyoushi title and migrating to a Keiyoushi source (needs the device JVM); a real Tachimanga export —
   Martin is sending one.
-- Not done: Tachimanga `.tmb` (Tachimanga exports .tachibk too), local CBZ/EPUB (part C, later). Old pre-S147
+- **Martin's real Tachimanga export** (148 titles, 16,724 chapters, 8 sources) found 3 bugs, fixed in `a13205d`:
+  `favorite` absent = TRUE in Mihon (kotlinx omits defaults; Tachimanga never writes it) — all 148 would have
+  landed outside the Library; exporter skipped false/unknown values the same way; Keiyoushi refresh never updated
+  saved chapter paths (Tachimanga has no chapter memo, Asura's slug rotates) → `ChapterQueries.refreshPaths`.
+  His .tachibk carries NO repositories → import sheet now offers "Add a Repository" at the top. Fresh-install sim
+  run: 148/148 in library, 16,694 read, 5 categories, Keiyoushi repo → all 8 found → Add All → 148 ready.
+- `.tmb` = zip(meta.json, contents.zip(tachimanga.db SQLite, extensions/*.jar, prefs incl. tracker plist — not
+  opened, may hold tokens)). Extra over .tachibk: Repo table (Keiyoushi index.pb) + installed extension list.
+- Not done: Tachimanga `.tmb` import (its .tachibk works), local CBZ/EPUB (part C, later). Old pre-S147
   `tachiyomi_` rows are left as they are (not in any library on the sim).
 
 ## S146 — More's sub-screens in the calm style (2026-10-08)
