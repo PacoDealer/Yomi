@@ -57,7 +57,7 @@ struct BrowseView: View {
             .navigationDestination(isPresented: $showSearch) { SearchScreen() }
         }
         .task { await catalogService.fetchCatalog() }
-        // "Get plugins" buttons elsewhere (Library, onboarding) land here.
+        // "Add Sources" (Library) and first run land here.
         .onChange(of: appRouter.openBrowseExtensions, initial: true) { _, open in
             if open {
                 tab = .extensions

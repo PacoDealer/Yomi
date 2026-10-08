@@ -115,6 +115,19 @@ enum ChapterQueries {
         }
     }
 
+    /// Points existing chapters at the path the source just returned (S147). Chapter ids hash only the URL, while a
+    /// Keiyoushi path also carries the extension's memo (Asura's slug, whose suffix rotates) — and a chapter saved by
+    /// an import or an older refresh keeps its old path under INSERT OR IGNORE. Only `path` changes; read state stays.
+    nonisolated static func refreshPaths(_ chapters: [Chapter]) throws {
+        guard !chapters.isEmpty else { return }
+        _ = try appDatabase.write { db in
+            for chapter in chapters {
+                try db.execute(sql: "UPDATE chapter SET path = ? WHERE id = ? AND path != ?",
+                               arguments: [chapter.path, chapter.id, chapter.path])
+            }
+        }
+    }
+
     /// Inserts a manga and its chapters in a single transaction (INSERT OR IGNORE).
     /// The manga INSERT OR IGNORE ensures the FK constraint is satisfied even when
     /// the manga is not yet in the library (browsing without adding to library).
