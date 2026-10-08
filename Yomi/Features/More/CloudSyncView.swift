@@ -4,17 +4,24 @@ import SwiftUI
 //
 // Distinct from BackupView on purpose (see Yomi/CLOUDKIT_SYNC_DESIGN.md) — this is live
 // cross-device sync via CKSyncEngine, not the point-in-time iCloud Drive backup BackupView manages.
+// S146 calm pass (RESEARCH §26): plain rows on the canvas, the explanation as a note, no separators.
 
 struct CloudSyncView: View {
 
     @State private var settings = AppSettings.shared
     @State private var sync = CloudSyncManager.shared
+    @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
-        List {
+        CalmList {
             Section {
                 Toggle(isOn: $settings.cloudSyncEnabled) {
-                    Label("Sync across devices", systemImage: "arrow.triangle.2.circlepath.icloud")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sync across devices")
+                        Text("Library, reading progress and categories, on every device with your iCloud account.")
+                            .font(.footnote)
+                            .foregroundStyle(canvas.textSecondary)
+                    }
                 }
 
                 if settings.cloudSyncEnabled {
@@ -24,17 +31,21 @@ struct CloudSyncView: View {
                         Button {
                             Task { await sync.syncNow() }
                         } label: {
-                            Label("Sync now", systemImage: "arrow.triangle.2.circlepath")
+                            Text("Sync Now")
+                                .foregroundStyle(sync.status == .syncing ? canvas.textSecondary : Color.accentColor)
                         }
+                        .buttonStyle(.plain)
                         .disabled(sync.status == .syncing)
                     }
                 }
             } footer: {
-                Text("Keeps your library, reading progress, and categories in sync across every device signed into the same iCloud account. Downloaded chapters and custom cover images stay on each device individually. Separate from the iCloud backup below, which is a point-in-time export you restore manually.")
-                    .font(.caption)
+                Text("Downloads and custom covers stay on each device. This is live sync — a backup you restore by hand is in More → Backup.")
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+                    .padding(.top, 8)
             }
         }
-        .listStyle(.insetGrouped)
+        .contentMargins(.top, 0, for: .scrollContent)
         .navigationTitle("Sync")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -53,23 +64,22 @@ struct CloudSyncView: View {
             HStack(spacing: 12) {
                 ProgressView()
                 Text("Syncing…")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(canvas.textSecondary)
             }
         case .success:
             if let date = sync.lastSyncDate {
                 LabeledContent("Last synced") {
                     Text(date.formatted(.relative(presentation: .named)))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(canvas.textSecondary)
                 }
             }
         case .unavailable:
             Label("iCloud account unavailable", systemImage: "icloud.slash")
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
+                .foregroundStyle(canvas.textSecondary)
         case .error(let message):
             Text(message)
                 .foregroundStyle(.red)
-                .font(.caption)
+                .font(.footnote)
         }
     }
 }
