@@ -2130,4 +2130,6 @@ previously here was removed during the 2026-08-04 doc restructure.
   use the accent value directly.
 - **Onboarding in the sim:** `defaults write` doesn't reach the running app's prefs cache; launch with
   `-hasSeenOnboarding NO` instead.
-
+- **Protobuf defaults are part of the format.** kotlinx omits fields equal to their declared default, and Mihon's
+  `favorite` defaults to TRUE — read every field's DEFAULT in the source model, not just its number. A synthetic test
+  file written by me always set the field, so only Martin's real export exposed it: test with a real third-party file.
