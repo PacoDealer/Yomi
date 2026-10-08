@@ -60,7 +60,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
-- Open gaps: Keiyoushi first page 4–6 s; no Mihon/Tachimanga backup import; GPLv3 NewPipe still in the
+- Open gaps: Keiyoushi first page 4–6 s; Mihon `.tachibk` import EXISTS (manga only, More → Backup) but no Tachimanga `.tmb` import; GPLv3 NewPipe still in the
   extension-server jar; notification prompt on a fresh install not yet observed on device.
 - Phone has the S145 Release build (Asura strips fix), profile expires **2026-10-14 20:46 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
