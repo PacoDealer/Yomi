@@ -15,7 +15,7 @@ struct MALView: View {
     // MARK: - Body
 
     var body: some View {
-        List {
+        CalmList {
             TrackerHeaderLogoSection(name: "TrackerLogoMAL")
             if malService.isLoggedIn {
                 accountSection
@@ -24,8 +24,6 @@ struct MALView: View {
             }
             errorSection
         }
-        .listStyle(.insetGrouped)
-        .yomiListCanvas()
         .navigationTitle("MyAnimeList")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showSafari) {
@@ -38,7 +36,7 @@ struct MALView: View {
     // MARK: - Account Section
 
     private var accountSection: some View {
-        Section("Account") {
+        Section(calm: "Account") {
             LabeledContent("Logged in as", value: malService.username ?? "—")
             Button("Disconnect", role: .destructive) {
                 malService.logout()
@@ -50,15 +48,17 @@ struct MALView: View {
 
     private var loginSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(spacing: 16) {
                 Text("Connect your MyAnimeList account to automatically track chapters you read.")
-                    .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.callout))
+                    .font(.callout)
                     .foregroundStyle(canvas.textSecondary)
-                Button("Login with MyAnimeList") {
+                    .multilineTextAlignment(.center)
+                Button("Sign In with MyAnimeList") {
                     authURL = malService.authorizationURL()
                     showSafari = true
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .frame(maxWidth: .infinity)
             }
             .padding(.vertical, 4)
