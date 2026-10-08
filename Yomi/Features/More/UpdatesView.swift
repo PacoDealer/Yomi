@@ -306,6 +306,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
             let localIds = Set(local.map(\.id))
             let new = remote.filter { !localIds.contains($0.id) }
+            try? ChapterQueries.refreshPaths(remote.filter { localIds.contains($0.id) })
             if !new.isEmpty { Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga) }
             return new
         }.value

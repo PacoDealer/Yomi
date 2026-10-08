@@ -64,7 +64,10 @@ enum TachiyomiBackupExporter {
             out.append(chapterMessage)
         }
 
-        out.appendField(100, varint: manga.inLibrary ? 1 : 0)
+        // Written even when false: Mihon's default for `favorite` is TRUE, so leaving it out would put every
+        // non-library title into the Mihon library (appendField skips zero values).
+        out.appendTag(field: 100, wireType: 0)
+        out.appendVarint(manga.inLibrary ? 1 : 0)
         if isKeiyoushi, let memo { out.appendField(112, bytes: memo) }
         return out
     }
@@ -84,10 +87,9 @@ enum TachiyomiBackupExporter {
         if let scanlator = chapter.scanlator { out.appendField(3, string: scanlator) }
         out.appendField(4, varint: chapter.isRead ? 1 : 0)
         out.appendField(6, varint: UInt64(chapter.lastPageRead))
-        if let number = chapter.chapterNumber {
-            out.appendTag(field: 9, wireType: 5)
-            out.appendFixed32(Float(number).bitPattern)
-        }
+        // Unknown is -1 in Mihon; an absent field would read back as chapter 0 (its default).
+        out.appendTag(field: 9, wireType: 5)
+        out.appendFixed32(Float(chapter.chapterNumber ?? -1).bitPattern)
         out.appendField(10, varint: UInt64(sourceOrder))
         return out
     }

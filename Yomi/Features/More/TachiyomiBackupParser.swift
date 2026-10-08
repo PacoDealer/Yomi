@@ -161,7 +161,9 @@ nonisolated enum TachiyomiBackupParser {
         var genres: [String] = []
         var statusCode: Int32 = 0
         var thumbnailUrl: String?
-        var favorite = false
+        // Mihon's default is TRUE, and kotlinx protobuf leaves out a field that equals its default — so an absent
+        // field 100 means "in the library". Tachimanga's .tachibk never writes it (S147, Martin's 148-title backup).
+        var favorite = true
         var memo: Data?
         var categoryOrders: [Int64] = []
         var backupChapters: [BackupChapter] = []
@@ -244,7 +246,7 @@ nonisolated enum TachiyomiBackupParser {
         var scanlator: String?
         var read           = false
         var lastPage       = 0
-        var chapterNumber: Double = -1
+        var chapterNumber: Double = 0   // Mihon's default (absent = 0); unknown is written explicitly as -1
         var memo: Data?
 
         let reader = ProtoReader(data)

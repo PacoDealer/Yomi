@@ -16,6 +16,7 @@ struct TachiyomiImportView: View {
     @State private var settings = AppSettings.shared
     @State private var busy: Set<String> = []
     @State private var errorText: String?
+    @State private var showAddRepo = false
 
     private enum SourceState { case ready, available(KeiyoushiExtension), missing }
 
@@ -57,6 +58,10 @@ struct TachiyomiImportView: View {
         return lower.components(separatedBy: "/").dropLast().joined(separator: "/")
     }
 
+    private var hasMissing: Bool {
+        sources.contains { if case .missing = state($0.id) { return true }; return false }
+    }
+
     private var addable: [KeiyoushiExtension] {
         var seen = Set<String>()
         return sources.compactMap { row in
@@ -79,6 +84,7 @@ struct TachiyomiImportView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showAddRepo) { AddRepoSheet() }
             .navigationTitle("Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -140,6 +146,13 @@ struct TachiyomiImportView: View {
 
     private var sourcesSection: some View {
         Section {
+            if hasMissing {
+                Button { showAddRepo = true } label: {
+                    Label("Add a Repository", systemImage: "link")
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
             if addable.count > 1 {
                 Button {
                     Task { for ext in addable { await install(ext) } }
@@ -175,8 +188,8 @@ struct TachiyomiImportView: View {
                 }
             }
         } header: { CalmSectionHeader("Sources") } footer: {
-            if sources.contains(where: { if case .missing = state($0.id) { return true }; return false }) {
-                Text("Titles whose source isn't in your repositories stay in your Library with their progress. Add the repository it came from, or move them with Browse → Migrate.")
+            if hasMissing {
+                Text("\"Not found\" means none of your repositories has that source yet — paste the link of the repository you used before, and its extensions show up here. Titles stay in your Library with their progress either way; Browse → Migrate moves them to another source.")
                     .font(.footnote)
                     .foregroundStyle(canvas.textSecondary)
             }
