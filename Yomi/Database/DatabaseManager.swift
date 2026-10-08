@@ -339,6 +339,35 @@ final class DatabaseManager {
             }
         }
 
+        // S147: before S147 a .tachibk import filed every non-MangaDex title under `tachiyomi_<id>`, a source id
+        // nothing can serve — rows that can never open or refresh (Martin's phone: 106 titles, 12,759 chapters, all
+        // hidden). Removes only titles no user state touches: not in the library, never read, no reading time, no
+        // category, no downloaded or timed chapter. `substr` because `_` is a LIKE wildcard. Chapters and category
+        // links cascade; pending chapter state has no FK, so it's cleared explicitly. Sync mappings never uploaded
+        // (no recordData) are dropped; an uploaded one is marked for deletion instead of being forgotten.
+        migrator.registerMigration("v25_remove_dead_tachiyomi_imports") { db in
+            try db.execute(sql: """
+                CREATE TEMP TABLE dead_import_ids AS
+                SELECT m.id FROM manga m
+                WHERE substr(m.sourceId, 1, 10) = 'tachiyomi_'
+                  AND m.inLibrary = 0 AND m.lastReadAt IS NULL AND m.readingSeconds = 0
+                  AND NOT EXISTS (SELECT 1 FROM manga_category mc WHERE mc.mangaId = m.id)
+                  AND NOT EXISTS (SELECT 1 FROM chapter c WHERE c.mangaId = m.id
+                                  AND (c.isDownloaded = 1 OR c.readingSeconds > 0))
+                """)
+            let ownsKey = """
+                recordType IN ('manga', 'mangaChapterState', 'mangaCategoryLink')
+                AND (key IN (SELECT id FROM dead_import_ids)
+                     OR (instr(key, '|') > 0 AND substr(key, 1, instr(key, '|') - 1) IN (SELECT id FROM dead_import_ids)))
+                """
+            try db.execute(sql: "DELETE FROM cloud_sync_map WHERE recordData IS NULL AND \(ownsKey)")
+            try db.execute(sql: "UPDATE cloud_sync_map SET pendingChange = 'delete' WHERE recordData IS NOT NULL AND \(ownsKey)")
+            try db.execute(sql: "DELETE FROM pending_chapter_state WHERE mangaId IN (SELECT id FROM dead_import_ids)")
+            try db.execute(sql: "DELETE FROM chapter WHERE mangaId IN (SELECT id FROM dead_import_ids)")
+            try db.execute(sql: "DELETE FROM manga WHERE id IN (SELECT id FROM dead_import_ids)")
+            try db.execute(sql: "DROP TABLE dead_import_ids")
+        }
+
         try migrator.migrate(db)
     }
 
