@@ -49,7 +49,14 @@ The research audit revealed that 800+ sources are already available across four 
   run: 148/148 in library, 16,694 read, 5 categories, Keiyoushi repo → all 8 found → Add All → 148 ready.
 - `.tmb` = zip(meta.json, contents.zip(tachimanga.db SQLite, extensions/*.jar, prefs incl. tracker plist — not
   opened, may hold tokens)). Extra over .tachibk: Repo table (Keiyoushi index.pb) + installed extension list.
-- Not done: Tachimanga `.tmb` import (its .tachibk works), local CBZ/EPUB (part C, later). Old pre-S147
+- **Device** (Release `8d72de7`→`b511849`, exp 2026-10-14 20:46 UTC): Martin imported the .tachibk on his phone —
+  sources work except Aqua Manga (site down). DB copied before/after: 148 library, 0 read chapters lost, 0
+  duplicates, 5 categories / 137 links. Found + fixed on device: stale Sep 24 Keiyoushi index (#192, `8d72de7`).
+  Migration v25 removed 106 dead pre-S147 `tachiyomi_` titles (12,759 chapters) — tested first on a copy of his DB
+  in the sim (exact counts, 0 other changes), then on the phone (16,696 read chapters before = after).
+  Phone DB copies: `~/Desktop/Projects/Yomi/phone-backups/S147-*` (first devicectl copy came out truncated at
+  exactly 30,000,000 bytes — always `pragma quick_check` a copy).
+- Not done: Tachimanga `.tmb` import (its .tachibk works), local CBZ/EPUB (part C, next session). Old pre-S147
   `tachiyomi_` rows are left as they are (not in any library on the sim).
 
 ## S146 — More's sub-screens in the calm style (2026-10-08)
