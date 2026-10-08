@@ -1,6 +1,9 @@
 import SwiftUI
 
 // MARK: - CategoryView
+//
+// S146 calm pass (RESEARCH §26): plain rows on the canvas, no separators (Martin, S141). Tap = rename,
+// swipe → red trash = delete (like Extensions and Downloads), Edit = reorder.
 
 struct CategoryView: View {
 
@@ -11,6 +14,7 @@ struct CategoryView: View {
     @State private var isAddingCategory: Bool = false
     @State private var newCategoryName: String = ""
     @State private var editingCategory: Category? = nil
+    @Environment(\.yomiCanvas) private var canvas
 
     // MARK: - Body
 
@@ -23,36 +27,56 @@ struct CategoryView: View {
                     message: "Tap + to create your first category."
                 )
             } else {
-                List {
-                    ForEach(categories) { category in
-                        HStack {
-                            Text(category.name)
-                            Spacer()
-                            if let count = itemCounts[category.id], count > 0 {
-                                Text("\(count)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                CalmList {
+                    Section {
+                        ForEach(categories) { category in
+                            Button {
+                                editingCategory = category
+                            } label: {
+                                HStack {
+                                    Text(category.name)
+                                        .font(.body)
+                                        .foregroundStyle(canvas.textPrimary)
+                                    Spacer()
+                                    Text(itemCount(category.id))
+                                        .font(.body)
+                                        .foregroundStyle(canvas.textSecondary)
+                                        .monospacedDigit()
+                                }
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    delete(category)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                .tint(.red) // the app-wide accent tint would otherwise paint it blue
                             }
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            editingCategory = category
+                        .onMove { source, destination in
+                            moveCategories(from: source, to: destination)
                         }
-                    }
-                    .onDelete { indexSet in
-                        deleteCategories(at: indexSet)
-                    }
-                    .onMove { source, destination in
-                        moveCategories(from: source, to: destination)
+                    } footer: {
+                        Text("Tap a category to rename it. Deleting one keeps its titles in your library.")
+                            .font(.footnote)
+                            .foregroundStyle(canvas.textSecondary)
+                            .padding(.top, 8)
                     }
                 }
+                .contentMargins(.top, 0, for: .scrollContent)
             }
         }
+        .background(canvas.bg.ignoresSafeArea())
         .navigationTitle("Categories")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
+            if !categories.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -61,6 +85,7 @@ struct CategoryView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("New category")
             }
         }
         .onAppear { loadCategories() }
@@ -82,6 +107,11 @@ struct CategoryView: View {
             Button("Save") { renameCategory() }
             Button("Cancel", role: .cancel) { editingCategory = nil }
         }
+    }
+
+    private func itemCount(_ id: String) -> String {
+        let n = itemCounts[id] ?? 0
+        return n == 0 ? "Empty" : "\(n)"
     }
 
     // MARK: - Load
@@ -124,13 +154,10 @@ struct CategoryView: View {
 
     // MARK: - Delete
 
-    private func deleteCategories(at indexSet: IndexSet) {
-        let toDelete = indexSet.map { categories[$0] }
-        categories.remove(atOffsets: indexSet)
+    private func delete(_ category: Category) {
+        categories.removeAll { $0.id == category.id }
         Task.detached {
-            for cat in toDelete {
-                try? CategoryQueries.delete(id: cat.id)
-            }
+            try? CategoryQueries.delete(id: category.id)
         }
     }
 
