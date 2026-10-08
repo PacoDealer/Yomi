@@ -56,7 +56,12 @@ The research audit revealed that 800+ sources are already available across four 
   in the sim (exact counts, 0 other changes), then on the phone (16,696 read chapters before = after).
   Phone DB copies: `~/Desktop/Projects/Yomi/phone-backups/S147-*` (first devicectl copy came out truncated at
   exactly 30,000,000 bytes — always `pragma quick_check` a copy).
-- Not done: Tachimanga `.tmb` import (its .tachibk works), local CBZ/EPUB (part C, next session). Old pre-S147
+- Not done: Tachimanga `.tmb` import (its .tachibk works), local CBZ/EPUB (part C).
+- **Martin's request for next session (before part C): rework Browse → Migrate by SOURCE, not by title.** List
+  sources (with title counts, missing sources first) → tap a source → its titles, pick some or all → migrate them
+  to another source in one go (mass migration). No delete there. Reference: Mihon's Migrate (sources → titles →
+  target) and Tachimanga's bulk migration (RESEARCH §24.2 "Done: bulk migration"). Current Migrate = one title at
+  a time (`Features/Library/MigrateView.swift`, `MigrationService`). Old pre-S147
   `tachiyomi_` rows are left as they are (not in any library on the sim).
 
 ## S146 — More's sub-screens in the calm style (2026-10-08)
