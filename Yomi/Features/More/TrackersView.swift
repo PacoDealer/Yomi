@@ -1,6 +1,8 @@
 import SwiftUI
 
 // MARK: - TrackersView
+//
+// S146 calm pass (RESEARCH §26): services first, then the one setting; bold sentence-case titles, no separators.
 
 struct TrackersView: View {
     @Environment(\.yomiCanvas) private var canvas
@@ -11,22 +13,25 @@ struct TrackersView: View {
     @State private var bangumi   = BangumiService.shared
 
     var body: some View {
-        List {
-            Section {
-                Toggle("Auto-update on chapter finish", isOn: $settings.trackerAutoUpdate)
-            } footer: {
-                Text("Sends your reading progress to every connected tracker below whenever you finish a chapter.")
-            }
-
-            Section("Connect") {
+        CalmList {
+            Section(calm: "Services") {
                 row("TrackerLogoMAL", MALService.displayName, isLoggedIn: mal.isLoggedIn, username: mal.username, error: mal.errorMessage) { MALView() }
                 row("TrackerLogoAniList", AniListTrackerService.displayName, isLoggedIn: aniList.isLoggedIn, username: aniList.username, error: aniList.errorMessage) { AniListView() }
                 row("TrackerLogoShikimori", ShikimoriService.displayName, isLoggedIn: shikimori.isLoggedIn, username: shikimori.username, error: shikimori.errorMessage) { ShikimoriView() }
                 row("TrackerLogoBangumi", BangumiService.displayName, wordmark: true, isLoggedIn: bangumi.isLoggedIn, username: bangumi.username, error: bangumi.errorMessage) { BangumiView() }
             }
+
+            Section(calm: "Progress") {
+                Toggle(isOn: $settings.trackerAutoUpdate) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Update when I finish a chapter")
+                        Text("Sends your progress to every connected service.")
+                            .font(.footnote)
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                }
+            }
         }
-        .listStyle(.insetGrouped)
-        .yomiListCanvas()
         .navigationTitle("Trackers")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -40,17 +45,26 @@ struct TrackersView: View {
         NavigationLink(destination: destination) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 12) {
-                    TrackerLogo(name: logo, width: wordmark ? 72 : 28, height: 28)
-                    Text(name)
-                        .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.body))
-                        .foregroundStyle(canvas.textPrimary)
+                    // Bangumi's only official mark is a wordmark that already spells the name — a second
+                    // "Bangumi" next to it pushed that row's text out of line with the others.
+                    if wordmark {
+                        TrackerLogo(name: logo, width: 80, height: 22)
+                            .frame(height: 28) // same row height as the square logos
+                            .accessibilityLabel(name)
+                    } else {
+                        TrackerLogo(name: logo, width: 28, height: 28)
+                        Text(name)
+                            .font(.body)
+                            .foregroundStyle(canvas.textPrimary)
+                    }
                     Spacer()
                     Text(isLoggedIn ? (username ?? "Connected") : "Not connected")
                         .foregroundStyle(canvas.textSecondary)
-                        .font(YomiTokens.Font.mono(12))
+                        .font(.body)
                 }
                 // A failed progress sync is otherwise invisible — "Connected" alone used to be
                 // shown even when every write to the service had been failing for months.
+                .padding(.vertical, 4)
                 if isLoggedIn, let error {
                     Text(error)
                         .font(.caption)
