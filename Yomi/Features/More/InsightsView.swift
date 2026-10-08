@@ -4,11 +4,11 @@ import Kingfisher
 
 // MARK: - InsightsView
 //
-// Design spec: YOMI Screens.dc.html N.14 (Insights).
+// S146 calm pass (RESEARCH §26): system nav bar, numbers on the canvas instead of cards, bold sentence-case
+// section titles, no mono caps. Same data as before.
 
 struct InsightsView: View {
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.yomiCanvas) private var canvas
 
     // MARK: - State
@@ -21,9 +21,9 @@ struct InsightsView: View {
     @State private var mostRead: [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)] = []
     @State private var readingCalendar: [DateComponents: Int] = [:]
 
-    private let cardColumns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+    private let statColumns = [
+        GridItem(.flexible(), spacing: 16, alignment: .leading),
+        GridItem(.flexible(), spacing: 16, alignment: .leading)
     ]
 
     // MARK: - Body
@@ -36,30 +36,22 @@ struct InsightsView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Insights")
-                            .font(YomiTokens.Font.grotesk(26, weight: .medium))
-                            .foregroundStyle(canvas.textPrimary)
-                            .padding(.bottom, 16)
-
-                        LazyVGrid(columns: cardColumns, spacing: 12) {
-                            statCard(num: "\(streak)", label: "DAY STREAK")
-                            statCard(num: "\(readChaptersCount)", label: "CHAPTERS READ")
-                            statCard(num: formatDuration(totalSeconds), label: "TIME READ")
-                            statCard(num: "\(titlesStarted)", label: "TITLES STARTED")
+                        LazyVGrid(columns: statColumns, alignment: .leading, spacing: 22) {
+                            stat(num: "\(streak)", label: "Day streak")
+                            stat(num: readChaptersCount.formatted(), label: "Chapters read")
+                            stat(num: formatDuration(totalSeconds), label: "Time reading")
+                            stat(num: titlesStarted.formatted(), label: "Titles started")
                         }
-                        .padding(.bottom, 24)
+                        .padding(.top, 8)
+                        .padding(.bottom, 32)
 
+                        sectionTitle("Activity")
                         ActivityHeatmap(calendarMap: readingCalendar)
-                            .padding(.bottom, 24)
+                            .padding(.bottom, 32)
 
                         if !mostRead.isEmpty {
-                            Text("MOST READ")
-                                .font(YomiTokens.Font.mono(11))
-                                .tracking(0.6)
-                                .foregroundStyle(canvas.textSecondary)
-                                .padding(.bottom, 14)
-
-                            VStack(spacing: 14) {
+                            sectionTitle("Most read")
+                            VStack(spacing: 16) {
                                 ForEach(mostRead, id: \.title) { stat in
                                     MostReadRow(
                                         title: stat.title,
@@ -72,56 +64,39 @@ struct InsightsView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 60)
+                    .padding(.horizontal, YomiTokens.Layout.screenMargin)
                     .padding(.bottom, 28)
                 }
                 .refreshable { await loadStats() }
             }
         }
         .background(canvas.bg.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar)
-        .swipeBackEnabled()
-        .overlay(alignment: .top) { glassNavBar }
+        .navigationTitle("Insights")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await loadStats() }
     }
 
-    // MARK: - Glass nav bar (DESIGN_SYSTEM §14 — floating chrome over the backdrop)
+    // MARK: - Pieces
 
-    private var glassNavBar: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .glassChip()
-
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-    }
-
-    // MARK: - Stat card
-
-    @ViewBuilder
-    private func statCard(num: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func stat(num: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(num)
-                .font(YomiTokens.Font.grotesk(30, weight: .medium))
-                .tracking(-1)
+                .font(.system(.largeTitle, design: .rounded).weight(.semibold))
                 .foregroundStyle(canvas.textPrimary)
+                .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
             Text(label)
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.5)
+                .font(.subheadline)
                 .foregroundStyle(canvas.textSecondary)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(canvas.surface1)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.bold())
+            .foregroundStyle(canvas.textPrimary)
+            .padding(.bottom, 12)
     }
 
     // MARK: - Load
@@ -258,8 +233,7 @@ private struct ActivityHeatmap: View {
 
     @Environment(\.yomiCanvas) private var canvas
 
-    private let weeks = 18
-    private let cellSize: CGFloat = 12
+    private let weeks = 22
     private let gap: CGFloat = 3
     private let cal = Calendar.current
 
@@ -286,18 +260,12 @@ private struct ActivityHeatmap: View {
     private var edgeMonths: (first: String, last: String) {
         let f = DateFormatter(); f.dateFormat = "MMM"
         let d = days
-        return (f.string(from: d.first!.date).uppercased(), f.string(from: d.last!.date).uppercased())
+        return (f.string(from: d.first!.date), f.string(from: d.last!.date))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("ACTIVITY · LAST \(weeks) WEEKS")
-                .font(YomiTokens.Font.mono(11))
-                .tracking(0.6)
-                .foregroundStyle(canvas.textSecondary)
-                .padding(.bottom, 12)
-
-            VStack(spacing: 14) {
+            VStack(spacing: 10) {
                 let dayCounts = days
                 HStack(alignment: .top, spacing: gap) {
                     ForEach(0..<weeks, id: \.self) { weekIdx in
@@ -306,34 +274,30 @@ private struct ActivityHeatmap: View {
                                 let index = weekIdx * 7 + dayIdx
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(Color.accentColor.opacity(opacity(for: dayCounts[index].count)))
-                                    .frame(width: cellSize, height: cellSize)
+                                    .aspectRatio(1, contentMode: .fit)
                             }
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack {
                     Text(edgeMonths.first)
                     Spacer()
                     HStack(spacing: 5) {
-                        Text("LESS")
+                        Text("Less")
                         ForEach([0.14, 0.45, 0.8, 1.0], id: \.self) { op in
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(Color.accentColor.opacity(op))
                                 .frame(width: 9, height: 9)
                         }
-                        Text("MORE")
+                        Text("More")
                     }
                     Spacer()
                     Text(edgeMonths.last)
                 }
-                .font(YomiTokens.Font.mono(10))
-                .foregroundStyle(canvas.textSecondary.opacity(0.7))
+                .font(.caption)
+                .foregroundStyle(canvas.textSecondary)
             }
-            .padding(16)
-            .background(canvas.surface1)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 }
@@ -361,12 +325,13 @@ private struct MostReadRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(title)
-                        .font(YomiTokens.Font.grotesk(14))
+                        .font(.body)
                         .foregroundStyle(canvas.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Text(Notation.readingTimeShort(seconds: seconds))
-                        .font(YomiTokens.Font.mono(12))
+                        .font(.subheadline)
+                        .monospacedDigit()
                         .foregroundStyle(canvas.textSecondary)
                 }
                 GeometryReader { geo in
@@ -375,7 +340,7 @@ private struct MostReadRow: View {
                         Capsule().fill(Color.accentColor).frame(width: geo.size.width * fraction)
                     }
                 }
-                .frame(height: 5)
+                .frame(height: 4)
             }
         }
     }
@@ -391,9 +356,8 @@ private struct MostReadRow: View {
                 CoverImage(url: coverURL)
             }
         }
-        .frame(width: 34)
-        .cornerRadius(5)
-        .clipped()
+        .frame(width: 40)
+        .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
     }
 }
 
