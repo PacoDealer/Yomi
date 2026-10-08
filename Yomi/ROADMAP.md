@@ -21,6 +21,29 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S147 — Imports that work + first run that does the setup (§25.10 #6, #3) (2026-10-08)
+
+- **Audit finding:** the `.tachibk` import existed but filed every source except MangaDex under a dead
+  `tachiyomi_<id>` id — imported titles could never open or refresh. Keiyoushi runs the same Mihon extensions with
+  the same source ids, so titles now come in as `keiyoushi_<id>` with the exact ids/paths the bridge makes
+  (`edd3ca4`). Memo (Asura's slug, tachiyomix 1.6) re-attached the `BridgeMemo` way. Field numbers checked against
+  Mihon's live `backup/models/*.kt`; manga categories are category ORDER values (Mihon's `MangaRestorer`).
+- Import brings categories, real read dates (history), source names, repositories; merge never replaces and is
+  idempotent. New import sheet: per source Ready ✓ / Add / Not found; repositories from the backup added only on tap.
+- Martin's call on missing sources: keep them, make them movable → "Source missing" line in Library, a card on the
+  detail screen (Add extension when a repo has it / Find on Another Source), listed first in Migrate. Migrate now
+  searches Keiyoushi sources too (it only searched JS plugins) and is calm. Export: Keiyoushi titles keep their real
+  Mihon id + memo.
+- **First run** (`7d25b53`): one calm screen — import .tachibk / restore Yomi backup / add a repository / Skip for
+  Now → Start Reading. Still no bundled or suggested repository (S140).
+- Verified in the simulator only, with a synthetic Mihon backup built from real sim rows (Asura + MangaFire + a fake
+  source): no duplicates (117/864 chapters unchanged), read flags + history dates, categories, extension install with
+  only the needed language, repo add, card, Migrate list, re-import idempotent. NOT verified: opening/refreshing an
+  imported Keiyoushi title and migrating to a Keiyoushi source (needs the device JVM); a real Tachimanga export —
+  Martin is sending one.
+- Not done: Tachimanga `.tmb` (Tachimanga exports .tachibk too), local CBZ/EPUB (part C, later). Old pre-S147
+  `tachiyomi_` rows are left as they are (not in any library on the sim).
+
 ## S146 — More's sub-screens in the calm style (2026-10-08)
 
 - Downloads, Categories, Insights, Trackers (+ MAL/AniList/Shikimori/Bangumi account screens), Backup, Sync →
