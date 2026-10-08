@@ -13,7 +13,7 @@ struct BackupView: View {
     @State private var showImportPicker = false
     @State private var showImportSuccess = false
     @State private var showTachiyomiPicker = false
-    @State private var showTachiyomiSuccess = false
+    @State private var tachiyomiReport: BackupManager.TachiyomiImportReport? = nil
     @State private var exportedTachiyomiURL: URL? = nil
     @State private var showTachiyomiShareSheet = false
     @State private var showRestoreConfirm = false
@@ -68,7 +68,7 @@ struct BackupView: View {
             if case .success(let url) = result {
                 Task {
                     await backupManager.importTachiyomiBackup(from: url)
-                    if backupManager.errorMessage == nil { showTachiyomiSuccess = true }
+                    tachiyomiReport = backupManager.lastTachiyomiImport
                 }
             }
         }
@@ -91,12 +91,8 @@ struct BackupView: View {
         .alert("Import complete", isPresented: $showImportSuccess) {
             Button("OK", role: .cancel) {}
         }
-        .alert("Tachiyomi import complete", isPresented: $showTachiyomiSuccess) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            if let summary = backupManager.lastTachiyomiImportSummary {
-                Text(summary)
-            }
+        .sheet(item: $tachiyomiReport) { report in
+            TachiyomiImportView(report: report)
         }
     }
 
@@ -251,11 +247,11 @@ struct BackupView: View {
                 busyRow("Importing…")
             } else {
                 actionRow("Import .tachibk",
-                          note: "Your manga library and read history. Sources Yomi doesn't have come in as placeholders.") {
+                          note: "From Mihon, Tachiyomi or Tachimanga: your manga library, categories and read history.") {
                     showTachiyomiPicker = true
                 }
                 actionRow("Export .tachibk",
-                          note: "For moving to Tachiyomi, Mihon or a fork. Sources they don't know come across as metadata only.") {
+                          note: "For Mihon, Tachiyomi or a fork. Mihon-extension titles open there as they are; titles from Yomi's own sources come across as metadata only.") {
                     Task {
                         if let url = await backupManager.exportTachiyomiBackup() {
                             exportedTachiyomiURL = url
@@ -264,7 +260,7 @@ struct BackupView: View {
                     }
                 }
             }
-        } header: { CalmSectionHeader("Tachiyomi / Mihon") }
+        } header: { CalmSectionHeader("Mihon / Tachiyomi / Tachimanga") }
     }
 
     // MARK: - Error Section

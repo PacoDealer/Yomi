@@ -23,7 +23,6 @@ enum ICloudSyncStatus: Equatable {
     var isImporting = false
     var lastBackupDate: Date? = nil
     var errorMessage: String? = nil
-    var lastTachiyomiImportSummary: String? = nil
 
     // MARK: - iCloud state
 
@@ -50,10 +49,27 @@ enum ICloudSyncStatus: Equatable {
 
     // MARK: - Tachiyomi Import
 
+    /// What a `.tachibk` import brought in — the import sheet resolves each source against the user's
+    /// repositories live (S147).
+    struct TachiyomiImportReport: Identifiable {
+        let id = UUID()
+        let titleCount: Int
+        let libraryCount: Int
+        let categoryCount: Int
+        /// Mihon source id → number of imported titles from it.
+        let titlesPerSource: [String: Int]
+        /// Mihon source id → name, as the backup recorded it.
+        let sourceNames: [String: String]
+        /// Repository links the backup carried.
+        let repoURLs: [String]
+    }
+
+    var lastTachiyomiImport: TachiyomiImportReport? = nil
+
     func importTachiyomiBackup(from url: URL) async {
         isImporting = true
         errorMessage = nil
-        lastTachiyomiImportSummary = nil
+        lastTachiyomiImport = nil
         defer { isImporting = false }
 
         do {
@@ -61,19 +77,89 @@ enum ICloudSyncStatus: Equatable {
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
             let data = try Data(contentsOf: url)
-            let result = try TachiyomiBackupParser.parse(data)
-
-            for manga in result.mangas {
-                try MangaQueries.upsert(manga)
-            }
-            for chapter in result.chapters {
-                try ChapterQueries.upsert(chapter)
-            }
-
-            lastTachiyomiImportSummary = "\(result.mangas.count) manga imported (\(result.mappedCount) matched, \(result.unmappedCount) unrecognized sources)"
+            lastTachiyomiImport = try await Task.detached(priority: .userInitiated) {
+                let result = try TachiyomiBackupParser.parse(data)
+                guard !result.mangas.isEmpty else { throw BackupParseError.empty }
+                let categoryCount = try Self.mergeTachiyomiImport(result)
+                var names = UserDefaults.standard.dictionary(forKey: SourceStatus.importedNamesKey) as? [String: String] ?? [:]
+                names.merge(result.sourceNames) { _, new in new }
+                UserDefaults.standard.set(names, forKey: SourceStatus.importedNamesKey)
+                var perSource: [String: Int] = [:]
+                for manga in result.mangas { perSource[KeiyoushiMapping.mihonSourceId(manga.sourceId), default: 0] += 1 }
+                return TachiyomiImportReport(
+                    titleCount: result.mangas.count,
+                    libraryCount: result.mangas.filter(\.inLibrary).count,
+                    categoryCount: categoryCount,
+                    titlesPerSource: perSource,
+                    sourceNames: result.sourceNames,
+                    repoURLs: result.repoURLs)
+            }.value
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Merges an import into the library in one transaction — nothing the user already has is replaced:
+    /// a title already present keeps its row (it only gains "in library" and a later last-read date), chapters
+    /// are INSERT OR IGNORE, and a chapter read in the backup is marked read here too. Categories are matched by
+    /// name. Returns how many categories the imported titles were filed into.
+    nonisolated private static func mergeTachiyomiImport(_ result: TachiyomiBackupParser.ImportResult) throws -> Int {
+        let existingCategories = try CategoryQueries.fetchAll()
+        var categoryIdByName = Dictionary(existingCategories.map { ($0.name.lowercased(), $0.id) },
+                                          uniquingKeysWith: { first, _ in first })
+        // Only the categories some imported title is actually in.
+        let usedOrders = Set(result.mangaCategoryOrders.values.flatMap { $0 })
+        var categoryIdByOrder: [Int64: String] = [:]
+        for category in result.categories where usedOrders.contains(category.order) {
+            let key = category.name.lowercased()
+            if categoryIdByName[key] == nil {
+                categoryIdByName[key] = try CategoryQueries.insert(name: category.name).id
+            }
+            categoryIdByOrder[category.order] = categoryIdByName[key]
+        }
+
+        var links: [(mangaId: String, categoryId: String)] = []
+        for (mangaId, orders) in result.mangaCategoryOrders {
+            for order in orders { if let c = categoryIdByOrder[order] { links.append((mangaId, c)) } }
+        }
+
+        _ = try appDatabase.write { db in
+            for manga in result.mangas {
+                try manga.insert(db, onConflict: .ignore)
+                if manga.inLibrary {
+                    try db.execute(sql: "UPDATE manga SET inLibrary = 1 WHERE id = ?", arguments: [manga.id])
+                }
+                // A cover missing here, or a dead pre-S134 bridge proxy link, is replaced by the backup's.
+                if let cover = manga.coverURL, !KeiyoushiCovers.isProxyURL(cover) {
+                    try db.execute(sql: """
+                        UPDATE manga SET coverURL = ? WHERE id = ?
+                        AND (coverURL IS NULL OR coverURL LIKE 'http://127.0.0.1:%/image/%')
+                        """, arguments: [cover.absoluteString, manga.id])
+                }
+                if let last = manga.lastReadAt {
+                    try db.execute(sql: "UPDATE manga SET lastReadAt = ? WHERE id = ? AND (lastReadAt IS NULL OR lastReadAt < ?)",
+                                   arguments: [last, manga.id, last])
+                }
+            }
+            for chapter in result.chapters {
+                try chapter.insert(db, onConflict: .ignore)
+                if chapter.isRead {
+                    try db.execute(sql: "UPDATE chapter SET isRead = 1, progress = 1, readAt = COALESCE(readAt, ?) WHERE id = ?",
+                                   arguments: [chapter.readAt, chapter.id])
+                } else if chapter.lastPageRead > 0 {
+                    try db.execute(sql: "UPDATE chapter SET lastPageRead = ? WHERE id = ? AND isRead = 0 AND lastPageRead < ?",
+                                   arguments: [chapter.lastPageRead, chapter.id, chapter.lastPageRead])
+                }
+            }
+            for link in links {
+                try db.execute(sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
+                               arguments: [link.mangaId, link.categoryId])
+            }
+        }
+        markCloudDirtyBatch(.manga, keys: result.mangas.map(\.id))
+        markCloudDirtyBatch(.mangaChapterState, keys: result.chapters.map { "\($0.mangaId)|\($0.id)" })
+        markCloudDirtyBatch(.mangaCategoryLink, keys: links.map { "\($0.mangaId)|\($0.categoryId)" })
+        return Set(links.map(\.categoryId)).count
     }
 
     // MARK: - Export
