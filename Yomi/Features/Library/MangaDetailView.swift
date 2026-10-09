@@ -472,6 +472,15 @@ struct MangaDetailView: View {
                     Label("Change cover", systemImage: "photo")
                 }
 
+                if !manga.isLocal {
+                    // Tachimanga parity (S149): migrate / copy one title from its own page.
+                    Button {
+                        showMigratePicker = true
+                    } label: {
+                        Label("Migrate", systemImage: "arrow.left.arrow.right")
+                    }
+                }
+
                 Button {
                     withAnimation(.spring(duration: 0.2)) {
                         isSelectingChapters = true
