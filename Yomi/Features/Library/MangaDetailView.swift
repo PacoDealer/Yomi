@@ -20,7 +20,7 @@ struct MangaDetailView: View {
     /// (Known Issue #131).
     private var canOpenReader: Bool {
         bridge != nil || SuwayomiService.isSuwayomiSourceId(manga.sourceId)
-            || KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId)
+            || KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) || manga.isLocal
     }
     @State private var showCFBypass = false
     /// Site to open in `CFBypassView` when a Keiyoushi extension got a Cloudflare 403 (its cookies then reach
@@ -569,7 +569,8 @@ struct MangaDetailView: View {
                     .buttonStyle(.plain)
                     .disabled(chapters.isEmpty || !canOpenReader)
 
-                    downloadMenu
+                    // Local files are already on the phone (S148).
+                    if !manga.isLocal { downloadMenu }
                 }
                 .padding(.top, 20)
             }
@@ -843,7 +844,7 @@ struct MangaDetailView: View {
                 }
             }
         } else if bridge == nil && !SuwayomiService.isSuwayomiSourceId(manga.sourceId)
-                    && !KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
+                    && !KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) && !manga.isLocal {
             Text("No source available for this manga.")
                 .font(.subheadline).foregroundStyle(.secondary)
         } else if let cfURL = bridge?.cfBlockedURL, !cfURL.isEmpty {
@@ -1227,6 +1228,15 @@ struct MangaDetailView: View {
         }
         if KeiyoushiMapping.isKeiyoushiSourceId(sourceId) {
             await loadKeiyoushiChapters()
+            return
+        }
+        // Local files (S148): "refresh" = look for new chapter files, then show what's saved.
+        if LocalLibrary.isLocalSourceId(sourceId) {
+            chapters = await Task.detached(priority: .userInitiated) {
+                _ = LocalLibrary.scan()
+                return (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
+            }.value
+            isLoadingChapters = false
             return
         }
 

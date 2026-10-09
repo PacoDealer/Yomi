@@ -39,6 +39,32 @@ The research audit revealed that 800+ sources are already available across four 
 - Sim-verified on a copy of Martin's real DB (Aqua Manga → Yomi's Asura JS plugin): 3 titles, read flags/dates,
   categories, History order, old entries intact. Found: Yomi's Asura JS plugin returns max 100 chapters (KNOWN_ISSUES).
 - Tachimanga changelog v1.1→v5.1 re-checked against code: TACHIMANGA_PARITY.md "S148 re-check".
+- Device: Release `d0d2a11` installed (exp 2026-10-16 14:28 UTC); phone DB backed up first
+  (`phone-backups/S148-before-migrate`, quick_check ok, 148 library / 16,696 read). Martin's 2-title migration test
+  pending (he left with the phone).
+
+### S148 part C — local CBZ/EPUB (§25.10 #6)
+- Martin's picks: EPUB = a NOVEL (TOC → chapters, novel reader with his typography/Pages/read-aloud); files come in
+  two ways — Import (copied into `Documents/Local`) AND a linked Files folder; CBR/RAR skipped (KNOWN_ISSUES #195).
+- Finding: iOS can only show an app's WHOLE Documents in Files, and Yomi keeps yomi.db there → no
+  UIFileSharingEnabled. Instead the user links any folder once (security-scoped bookmark) — Mihon's "storage
+  location" model; works for On My iPhone and iCloud Drive.
+- Layout = Mihon's local source (live docs): series folder → CBZ/ZIP or image folder per chapter, cover.jpg;
+  folders of series nest up to 3 levels; loose CBZs group by ComicInfo `<Series>` or file name. ComicInfo.xml gives
+  number/title/summary/writer/genres.
+- New: `Core/ZipArchive.swift` (no dependency — stored + deflate via Compression, memory-mapped; ZIP64/encrypted
+  refused), `Features/Local/LocalLibrary.swift` (roots, scan, import, pages, `NovelContent`), `EpubBook.swift`
+  (container → OPF → spine; nav.xhtml or toc.ncx titles; images inlined as data: URIs; scripts/styles stripped),
+  `LocalSourceView.swift` (Browse → On This iPhone → Local Files). CBZ pages unpack once into Caches/LocalPages.
+  Titles = normal rows, sourceId "local", straight into the Library; skipped by Updates, Downloads, Migrate.
+  "Open in Yomi" for .cbz/.epub (CFBundleDocumentTypes + `com.yomi.cbz` UTI) → ContentView.onOpenURL imports.
+  Never deletes: a missing file (offline iCloud) keeps its chapters/read state.
+- Sim-verified with generated fixtures (CBZ deflate + stored + ComicInfo, image folders + cover, EPUB 3 nav +
+  image + unlisted spine doc, EPUB 2 ncx + meta cover, a .cbr): link via real picker, bookmark survives relaunch,
+  import via picker, CBZ/folder/EPUB reading, inline EPUB image in Pages mode, read state saved, Library/Continue.
+  Bugs found while testing + fixed: picker mode lost on dismiss (Link imported instead), folder-of-series read as
+  one series, Download pills shown for local titles. UI tests 12/13 + the 13th passes alone (#196).
+  NOT verified: on device, iCloud Drive folder, a real-world EPUB/CBZ collection, large archives (memory/speed).
 
 ## S147 — Imports that work + first run that does the setup (§25.10 #6, #3) (2026-10-08)
 

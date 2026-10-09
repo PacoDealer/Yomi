@@ -2,7 +2,7 @@
 
 Moved out of `CLAUDE.md` in S137 (2026-10-03) to keep CLAUDE.md under ~200 lines. Rows are
 numbered and permanent — add new rows at the bottom, mark fixed rows with ~~strikethrough~~ + ✅.
-Open rows as of S147 (191, 192 fixed; 193 flaky test): 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 176.
+Open rows as of S148 (193, 196 flaky tests; 194 Asura JS 100-chapter cap; 195 CBR backlog): 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 176.
 
 
 | # | Issue | Notes |
@@ -202,4 +202,6 @@ Open rows as of S147 (191, 192 fixed; 193 flaky test): 4 (App Store Connect data
 | 192 | ~~Keiyoushi repository index never refreshed (phone used a Sep 24 index)~~ | ✅ Fixed S147 `8d72de7`: `refreshIfStale()` (> 6 h) on Extensions / Repositories / import sheet; install retries a 404 with a fresh index. Symptom: MangaPill / Qi Scans / Webtoons "Add" failed (deleted APK versions), no extension update badges. |
 | 193 | UI test `testPagesWithoutContinueEndOnNextChapterPage` flaky | S147: failed once in the full 13-test run, passed alone right after. Timing-sensitive (Pages mode end-of-chapter). Not caused by S147 (no reader code touched). Re-run before treating as a regression. |
 | 194 | Yomi's Asura Scans JS plugin returns at most 100 chapters | Open (S148): Absolute Regression (121 ch) came back as Ch. 22–121, Absolute Sword Sense (204) as 100. Plugin source only in `Firebase/public/asurascans.js`. Keiyoushi's Asura is unaffected. Migration to this plugin carries read state only for the chapters it lists. |
+| 195 | CBR/RAR (and CB7/7z) comic archives not supported | Open — backlog, Martin S148: "skip for now but don't forget". Local Files shows "CBR/RAR isn't supported yet — convert to CBZ". Needs a RAR decoder; check the unRAR license (restrictive) or a clean-room/libarchive option before adding. |
+| 196 | UI test `testNextChapterShowsNewText` flaky | S148: failed once in the full 13-test run, passed alone right after (28 s, timing-sensitive). The S148 change on that path (`NovelContent.html`) keeps the same order for plugin novels (downloaded copy → plugin). Re-run alone before treating as a regression. |
 

@@ -15,6 +15,8 @@ struct ContentView: View {
     @State private var listen = ListenPlayer.shared
     @State private var showListenPlayer = false
     @State private var listenReader: ListenReaderTarget?
+    /// Result of a CBZ/EPUB opened from Files or the share sheet ("Open in Yomi", S148).
+    @State private var openedFileReport: String?
     /// The device's light/dark setting — the Automatic theme follows it (S142).
     @Environment(\.colorScheme) private var colorScheme
 
@@ -54,7 +56,28 @@ struct ContentView: View {
         // and the old switch had no UI left, so anyone who had it on was stuck with it.
         .environment(\.yomiCanvas, palette)
         .background(palette.bg.ignoresSafeArea())
-        .onOpenURL { url in TrackerManager.route(url: url) }
+        .onOpenURL { url in
+            guard url.isFileURL else { TrackerManager.route(url: url); return }
+            Task {
+                let report = await Task.detached(priority: .userInitiated) { () -> String in
+                    let imported = LocalLibrary.importItems([url])
+                    let scan = LocalLibrary.scan()
+                    if !imported.imported.isEmpty {
+                        return scan.newTitles > 0
+                            ? "Added to your Library — find it in Browse → Local Files too."
+                            : "Added \(scan.newChapters) chapter\(scan.newChapters == 1 ? "" : "s") to a title you already have."
+                    }
+                    return imported.skipped.joined(separator: "\n")
+                }.value
+                openedFileReport = report.isEmpty ? nil : report
+            }
+        }
+        .alert("Local Files", isPresented: Binding(get: { openedFileReport != nil },
+                                                   set: { if !$0 { openedFileReport = nil } })) {
+            Button("OK") { openedFileReport = nil }
+        } message: {
+            Text(openedFileReport ?? "")
+        }
     }
 
     @TabContentBuilder<Int>

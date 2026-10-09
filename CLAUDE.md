@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S147 — 2026-10-08)
+## Current state (S148 — 2026-10-09)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -57,20 +57,26 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   S147 (DEVICE-verified with Martin's 148-title Tachimanga export): `.tachibk` import → working Keiyoushi titles (same ids/paths as the bridge, memo, categories,
   history, repos), import sheet, "Source missing" + Migrate (now searches Keiyoushi), calm first-run screen.
   Keiyoushi indexes refresh when > 6 h old (#192). v25 removed dead pre-S147 import rows.
-  Next: local CBZ/EPUB (#6 rest) → legal last (incl. #170).
+  S148: **Migrate by source** (Browse → Migrate = sources → titles → ordered targets → review → migrate; old entry
+  only leaves the Library; Mihon read rule; real read dates kept — `MassMigration.swift`, `MigrationService`).
+  **Local files** (`Features/Local/`): Browse → On This iPhone → Local Files; Import (→ `Documents/Local`) + a
+  linked Files folder (bookmark — Documents is NOT exposed, it holds yomi.db); CBZ/ZIP/image folders = manga,
+  EPUB = novel (`EpubBook`, `NovelContent.html` for all novel content); own ZIP reader `Core/ZipArchive.swift`;
+  "Open in Yomi" for .cbz/.epub. CBR/RAR = backlog #195. Part C sim-verified only.
+  Next: Martin's device check of both (migration of 2 Aqua titles first, DB compared to S148 backup) → legal last (incl. #170).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
   Backlog: pinch-zoom in vertical (webtoon) mode (S145).
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
-  no local CBZ/EPUB; GPLv3 NewPipe still in the extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S147 Release build (`b511849`), profile expires **2026-10-14 20:46 UTC**. Free team = 7 days —
+  no CBR/RAR; GPLv3 NewPipe still in the extension-server jar; notification prompt on a fresh install not yet observed on device.
+- Phone has the S148 Release build (`d0d2a11`, migrate only — not part C yet), profile expires **2026-10-16 14:28 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v26_`**. UI tests 13/13 (S147; #193 is flaky — re-run alone).
+- Next GRDB migration prefix: **`v26_`**. UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in

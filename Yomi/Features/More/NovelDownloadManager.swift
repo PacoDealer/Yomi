@@ -149,6 +149,8 @@ nonisolated enum NovelDownloadStore {
     /// Queues the chapters that aren't downloaded or already queued. `front` puts them ahead of a bulk
     /// download — download-ahead from the reader must not wait behind "Download all".
     func enqueue(_ chapters: [NovelChapter], novel: Novel, front: Bool = false) {
+        // A local EPUB is already on the phone — nothing to download (S148).
+        guard !LocalLibrary.isLocalSourceId(novel.sourceId) else { return }
         let novelId = novel.id
         let jobs = chapters
             .filter { ch in

@@ -112,7 +112,11 @@ struct BrowseView: View {
         let hasOPDS     = OPDSService.shared.isEnabled
         let hasKeiyoushi = !keiyoushi.installed.isEmpty
         if extensionManager.installed.isEmpty && !hasSuwayomi && !hasOPDS && !hasKeiyoushi {
-            emptyState
+            // Local files need no extension, so the row stays reachable on a fresh install (S148).
+            VStack(spacing: 0) {
+                localSection
+                emptyState
+            }
         } else {
             ScrollView {
                 VStack(spacing: 0) {
@@ -122,6 +126,7 @@ struct BrowseView: View {
                     if !novelItems.isEmpty { sourceSection("Novels", novelItems, count: novelItems.count) }
                     if hasSuwayomi { suwayomiSection }
                     if hasOPDS { opdsSection }
+                    localSection
                     Color.clear.frame(height: 24)
                 }
             }
@@ -362,6 +367,42 @@ struct BrowseView: View {
                 }
                 .padding(.horizontal, 16)
             }
+        }
+        .padding(.top, 22)
+    }
+
+    // MARK: Local files (S148)
+
+    private var localSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle("On This iPhone")
+            NavigationLink {
+                LocalSourceView()
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "folder.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 44, height: 44)
+                        .background(canvas.textSecondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Local Files")
+                            .font(.body)
+                            .foregroundStyle(canvas.textPrimary)
+                        Text("CBZ, ZIP, EPUB and image folders")
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(canvas.textSecondary.opacity(0.6))
+                }
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
         }
         .padding(.top, 22)
     }
