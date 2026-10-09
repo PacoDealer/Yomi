@@ -182,14 +182,17 @@ enum CategoryQueries {
         }
     }
 
-    /// Returns total item count (manga + novels) per category ID.
+    /// Returns total item count (manga + novels) per category ID — Library titles only. A title that left the
+    /// Library keeps its links (a migrated title's old entry, S148), and the Library doesn't show it.
     nonisolated static func fetchItemCounts() throws -> [String: Int] {
         try appDatabase.read { db in
             let rows = try Row.fetchAll(db, sql: """
                 SELECT categoryId, SUM(cnt) AS total FROM (
-                    SELECT categoryId, COUNT(*) AS cnt FROM manga_category GROUP BY categoryId
+                    SELECT mc.categoryId, COUNT(*) AS cnt FROM manga_category mc
+                        JOIN manga m ON m.id = mc.mangaId WHERE m.inLibrary = 1 GROUP BY mc.categoryId
                     UNION ALL
-                    SELECT categoryId, COUNT(*) AS cnt FROM novel_category GROUP BY categoryId
+                    SELECT nc.categoryId, COUNT(*) AS cnt FROM novel_category nc
+                        JOIN novel n ON n.id = nc.novelId WHERE n.inLibrary = 1 GROUP BY nc.categoryId
                 ) GROUP BY categoryId
                 """)
             return Dictionary(uniqueKeysWithValues: rows.map {
