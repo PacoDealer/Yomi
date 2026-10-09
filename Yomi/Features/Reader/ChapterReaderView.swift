@@ -756,10 +756,17 @@ private struct MangaPageView: View {
                 MagnifyGesture()
                     .onChanged { value in
                         scale = min(max(lastScale * value.magnification, 1.0), 4.0)
+                        // Zoom around the fingers, not the page centre: keep the content point that was under the
+                        // pinch's start location under it. Position on screen = centre + point * scale + offset.
+                        let f = CGPoint(x: value.startLocation.x - geo.size.width / 2,
+                                        y: value.startLocation.y - geo.size.height / 2)
+                        let px = (f.x - lastOffset.width) / lastScale, py = (f.y - lastOffset.height) / lastScale
+                        offset = clamped(CGSize(width: f.x - px * scale, height: f.y - py * scale), in: geo.size)
                         if scale > 1.0, !isZoomed { isZoomed = true }
                     }
                     .onEnded { _ in
                         lastScale = scale
+                        lastOffset = offset
                         if scale <= 1.0 { resetZoom() }
                     }
             )
@@ -767,12 +774,8 @@ private struct MangaPageView: View {
             .simultaneousGesture(
                 DragGesture()
                     .onChanged { value in
-                        let maxX = (scale - 1) * geo.size.width / 2
-                        let maxY = (scale - 1) * geo.size.height / 2
-                        offset = CGSize(
-                            width:  min(max(lastOffset.width  + value.translation.width,  -maxX), maxX),
-                            height: min(max(lastOffset.height + value.translation.height, -maxY), maxY)
-                        )
+                        offset = clamped(CGSize(width: lastOffset.width + value.translation.width,
+                                                height: lastOffset.height + value.translation.height), in: geo.size)
                     }
                     .onEnded { _ in
                         lastOffset = offset
@@ -783,6 +786,12 @@ private struct MangaPageView: View {
                 if !zoomed { withAnimation(.spring(duration: 0.3)) { resetZoom() } }
             }
         }
+    }
+
+    /// Keeps the zoomed page covering the screen: no panning past its edges.
+    private func clamped(_ o: CGSize, in size: CGSize) -> CGSize {
+        let maxX = (scale - 1) * size.width / 2, maxY = (scale - 1) * size.height / 2
+        return CGSize(width: min(max(o.width, -maxX), maxX), height: min(max(o.height, -maxY), maxY))
     }
 
     private func resetZoom() {
