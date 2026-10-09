@@ -5,7 +5,7 @@ import GRDB
 //
 // Tachimanga/Mihon parity: move a library manga from one source to another, preserving reading
 // progress/categories/status. S148 (Martin's picks): the old entry leaves the Library but stays in the database
-// (nothing is deleted — downloads included); every chapter up to the highest one read becomes read (Mihon's
+// (nothing is deleted unless "Remove downloads" is on — S149); every chapter up to the highest one read becomes read (Mihon's
 // `MigrateMangaUseCase` rule — sources number a little differently, e.g. 107 vs 107.5); real read dates move with
 // the title, so History and the "Last Read" sort don't jump to today; one transaction per title.
 
@@ -18,13 +18,18 @@ enum MigrationService {
         let newChapterCount: Int
     }
 
-    /// What moves with a title (Mihon's `MigrationFlag`, minus trackers — Yomi links trackers by title — and minus
-    /// "remove downloads": Martin, S148, no delete).
+    /// What moves with a title — Tachimanga's "Select data to include" (S149): Mihon's `MigrationFlag` + Copy.
     nonisolated struct Options: Sendable, Equatable {
         var chapters = true
         var categories = true
         var customCover = true
         var notes = true
+        /// Trackers find a title by name: keep searching under the old name when the new source names it differently.
+        var tracking = true
+        /// Delete the old entry's downloaded chapters (off by default — Martin, S148: nothing deleted unless asked).
+        var removeDownloads = false
+        /// Copy instead of Migrate: the old entry stays in the Library too.
+        var keepOld = false
     }
 
     enum MigrationError: LocalizedError {
@@ -67,6 +72,10 @@ enum MigrationService {
                 target.notes = current.isEmpty ? notes : current.contains(notes) ? current : "\(current)\n\n\(notes)"
             }
             if target.customCoverPath == nil, let coverPath { target.customCoverPath = coverPath }
+            if options.tracking, target.trackingTitle == nil {
+                let name = oldManga.trackingTitle ?? oldManga.title
+                if name != target.title { target.trackingTitle = name }
+            }
             target.lastReadAt = [target.lastReadAt, oldManga.lastReadAt].compactMap { $0 }.max()
             // max, not sum: migrating the same pair twice must not double the time.
             target.readingSeconds = max(target.readingSeconds, oldManga.readingSeconds)
@@ -105,14 +114,21 @@ enum MigrationService {
                 }
             }
 
-            // The old entry stays (chapters, read flags, downloads, category links) — it only leaves the Library,
-            // and its last-read date moved to the new title, so History doesn't show the title twice.
-            try db.execute(sql: "UPDATE manga SET inLibrary = 0, lastReadAt = NULL WHERE id = ?",
-                           arguments: [oldManga.id])
+            // Migrate: the old entry stays (chapters, read flags, category links) — it only leaves the Library, and
+            // its last-read date moved to the new title, so History doesn't show the title twice. Copy: untouched.
+            if !options.keepOld {
+                try db.execute(sql: "UPDATE manga SET inLibrary = 0, lastReadAt = NULL WHERE id = ?",
+                               arguments: [oldManga.id])
+            }
 
             let newCount = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM chapter WHERE mangaId = ?",
                                             arguments: [newManga.id]) ?? 0
             return Result(readChapters: marked, oldReadChapters: readOld.count, newChapterCount: newCount)
+        }
+
+        if options.removeDownloads {
+            let downloaded = (try? DownloadQueries.fetchDownloaded(mangaId: oldManga.id)) ?? []
+            Task { @MainActor in for chapter in downloaded { DownloadManager.shared.deleteDownload(chapter: chapter) } }
         }
 
         markCloudDirty(.manga, key: newManga.id)
