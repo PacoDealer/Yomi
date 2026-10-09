@@ -75,7 +75,7 @@ final class ListenPlayer {
     // MARK: Starting
 
     /// Starts (or restarts) listening at `sentence` of chapter `index`, whose text the caller already has.
-    func start(novel: Novel, bridge: JSBridge, chapters: [NovelChapter], index: Int,
+    func start(novel: Novel, bridge: JSBridge?, chapters: [NovelChapter], index: Int,
                sentences list: [String], from sentence: Int, language: String?) {
         guard chapters.indices.contains(index) else { return }
         flushListeningTime()
@@ -340,13 +340,14 @@ final class ListenPlayer {
     }
 
     private func fetchSentences(for chapter: NovelChapter) async -> [String]? {
-        guard let novel, let bridge else { return nil }
+        guard let novel else { return nil }
         let novelId = novel.id
         let path = chapter.path
+        let bridge = self.bridge
         let task = UIApplication.shared.beginBackgroundTask(withName: "Listen: next chapter")
         defer { if task != .invalid { UIApplication.shared.endBackgroundTask(task) } }
         return await Task.detached(priority: .userInitiated) { () -> [String]? in
-            let html = NovelDownloadStore.content(novelId: novelId, chapterPath: path) ?? bridge.parseChapter(path: path)
+            let html = NovelContent.html(novelId: novelId, path: path, bridge: bridge)
             guard !html.isEmpty else { return nil }
             return ListenText.sentences(fromHTML: html)
         }.value

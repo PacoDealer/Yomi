@@ -30,7 +30,8 @@ enum NovelTheme: String, CaseIterable {
 
 struct TextReaderView: View {
     let novel: Novel
-    let bridge: JSBridge
+    /// Nil for a local EPUB (S148) — its chapters are read from the file, see `NovelContent`.
+    let bridge: JSBridge?
     let chapters: [NovelChapter]
     private let startIndex: Int
 
@@ -86,7 +87,7 @@ struct TextReaderView: View {
     @State private var player = ListenPlayer.shared
     @State private var showPlayerSheet = false
 
-    init(novel: Novel, bridge: JSBridge, chapters: [NovelChapter], startIndex: Int = 0) {
+    init(novel: Novel, bridge: JSBridge?, chapters: [NovelChapter], startIndex: Int = 0) {
         self.novel   = novel
         self.bridge  = bridge
         self.chapters = chapters
@@ -285,7 +286,7 @@ struct TextReaderView: View {
             let path = activeChapter.path
             let b = bridge
             sourceURL = await Task.detached(priority: .background) {
-                b.resolveSourceURL(path: path)
+                b?.resolveSourceURL(path: path)
             }.value
         }
         .sheet(isPresented: $showPlayerSheet) {
@@ -606,8 +607,7 @@ struct TextReaderView: View {
         let novelId = novel.id
         let b = bridge
         return await Task.detached(priority: .userInitiated) {
-            NovelDownloadStore.content(novelId: novelId, chapterPath: path)
-                ?? b.parseChapter(path: path)
+            NovelContent.html(novelId: novelId, path: path, bridge: b)
         }.value
     }
 
@@ -626,8 +626,7 @@ struct TextReaderView: View {
         let novelId = novel.id
         let b = bridge
         Task.detached(priority: .background) {
-            let html = NovelDownloadStore.content(novelId: novelId, chapterPath: path)
-                ?? b.parseChapter(path: path)
+            let html = NovelContent.html(novelId: novelId, path: path, bridge: b)
             await MainActor.run {
                 preloadingChapterIds.remove(nextId)
                 // Only cache if this chapter is still "next" — a jump may have evicted it meanwhile (#94).

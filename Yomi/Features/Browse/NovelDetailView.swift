@@ -188,8 +188,9 @@ struct NovelDetailView: View {
             chaptersShownAfter = 0
         }
         .navigationDestination(item: $chapterForNav) { ch in
-            if let b = bridge, let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
-                TextReaderView(novel: novel, bridge: b, chapters: chapters, startIndex: idx)
+            if bridge != nil || LocalLibrary.isLocalSourceId(novel.sourceId),
+               let idx = chapters.firstIndex(where: { $0.id == ch.id }) {
+                TextReaderView(novel: novel, bridge: bridge, chapters: chapters, startIndex: idx)
             }
         }
         .toolbar {
@@ -537,6 +538,7 @@ struct NovelDetailView: View {
                     .buttonStyle(.plain)
                     .disabled(isLoadingChapters || chapters.isEmpty)
 
+                    if !LocalLibrary.isLocalSourceId(novel.sourceId) {
                     Menu {
                         Button("Next 10 unread") {
                             download(Array(chapters.filter { !$0.isRead }.prefix(10)))
@@ -548,6 +550,7 @@ struct NovelDetailView: View {
                             .detailPillLabel()
                     }
                     .disabled(chapters.isEmpty)
+                    }
                 }
                 .padding(.top, 20)
             }
@@ -970,6 +973,16 @@ struct NovelDetailView: View {
             }
         }
 
+        // Local EPUB (S148): its chapters come from the file; a scan picks up a replaced/added book.
+        if LocalLibrary.isLocalSourceId(sourceId) {
+            chapters = await Task.detached(priority: .userInitiated) {
+                _ = LocalLibrary.scan()
+                return (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            }.value
+            isLoadingChapters = false
+            return
+        }
+
         // Always resolve a fresh bridge — reusing a bridge from SourceBrowseView risks
         // JSContext thread-safety issues when the context was last used on a different thread.
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) {
@@ -1106,7 +1119,7 @@ extension NovelDetailView {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .disabled(selectedChapterIds.subtracting(downloadedIds).isEmpty)
+            .disabled(selectedChapterIds.subtracting(downloadedIds).isEmpty || LocalLibrary.isLocalSourceId(novel.sourceId))
 
             Button {
                 let doomed = chapters.filter { selectedChapterIds.contains($0.id) && downloadedIds.contains($0.id) }

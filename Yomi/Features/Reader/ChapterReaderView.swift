@@ -480,6 +480,12 @@ struct ChapterReaderView: View {
     /// `URLSession` work and needs no hop. So is the Keiyoushi path: the extension runs in the embedded JVM
     /// and pages come back as `http://127.0.0.1:<port>/image/<id>` URLs served by the on-device bridge.
     static func fetchPages(bridge: JSBridge?, path: String) async -> [String] {
+        if path.hasPrefix(LocalLibrary.mangaScheme) {
+            // A CBZ is unpacked into Caches on first open — off the main actor (S148).
+            return await Task.detached(priority: .userInitiated) {
+                ((try? LocalLibrary.pageURLs(chapterPath: path)) ?? []).map(\.absoluteString)
+            }.value
+        }
         if SuwayomiService.chapterRef(from: path) != nil {
             return (try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? []
         }
