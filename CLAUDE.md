@@ -63,7 +63,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   linked Files folder (bookmark — Documents is NOT exposed, it holds yomi.db); CBZ/ZIP/image folders = manga,
   EPUB = novel (`EpubBook`, `NovelContent.html` for all novel content); own ZIP reader `Core/ZipArchive.swift`;
   "Open in Yomi" for .cbz/.epub. CBR/RAR = backlog #195. Part C sim-verified only.
-  Next: Martin's device check of both (migration of 2 Aqua titles first, DB compared to S148 backup) → legal last (incl. #170).
+  Migration device-verified (AllManga → MangaFire, DB compared). NEXT: Martin's manga reader report KNOWN_ISSUES #197–#200
+  (paged chapter swipe, continuous starts at end, continuous over-zoom, pinch-zoom dead) → part C device check → publishing path (ROADMAP S148).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
   Backlog: pinch-zoom in vertical (webtoon) mode (S145).
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
@@ -71,7 +72,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
   no CBR/RAR; GPLv3 NewPipe still in the extension-server jar; notification prompt on a fresh install not yet observed on device.
-- Phone has the S148 Release build (`d0d2a11`, migrate only — not part C yet), profile expires **2026-10-16 14:28 UTC**. Free team = 7 days —
+- Phone has the S148 Release build (`9955a0f`, migrate + local files), profile expires **2026-10-16 14:28 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.

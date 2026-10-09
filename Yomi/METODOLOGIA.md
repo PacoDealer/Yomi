@@ -2133,3 +2133,12 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Protobuf defaults are part of the format.** kotlinx omits fields equal to their declared default, and Mihon's
   `favorite` defaults to TRUE — read every field's DEFAULT in the source model, not just its number. A synthetic test
   file written by me always set the field, so only Martin's real export exposed it: test with a real third-party file.
+
+### S148 lessons
+- `.fileImporter(isPresented:)` bound to an optional mode: the setter clears the mode BEFORE the completion runs —
+  "Link a Folder" silently imported. Keep the mode in its own state.
+- The Files picker is a remote view: `snapshot_ui` can't see it; tap by coordinates (points = px × 402 / width).
+- Apple's required-reason codes: my recall swapped them; the doc page is JS-rendered — read
+  `developer.apple.com/tutorials/data/documentation/...json` and walk the termList in order.
+- Migration audit lesson: "carry over read state" code that calls the normal mark-read helpers inherits their
+  side effects (readAt = now, lastReadAt = now). Bulk data moves need their own transaction-level writes.
