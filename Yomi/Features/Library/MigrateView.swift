@@ -322,8 +322,13 @@ struct MigrateTargetView: View {
                         Toggle("Categories", isOn: $options.categories)
                         Toggle("Custom cover", isOn: $options.customCover)
                         Toggle("Notes", isOn: $options.notes)
+                        Toggle("Tracking", isOn: $options.tracking)
+                        Toggle("Remove downloads", isOn: $options.removeDownloads)
+                        Toggle("Keep old entries (Copy)", isOn: $options.keepOld)
                     } header: { CalmSectionHeader("Carry over") } footer: {
-                        Text("The titles leave the Library from \(sourceName). Nothing is deleted — they stay saved with their chapters and downloads.")
+                        Text(options.keepOld
+                             ? "The titles stay in the Library from \(sourceName) too."
+                             : "The titles leave the Library from \(sourceName), but stay saved with their chapters\(options.removeDownloads ? "" : " and downloads").")
                             .font(.footnote)
                             .foregroundStyle(canvas.textSecondary)
                     }
@@ -568,13 +573,13 @@ struct MigrationReviewView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.accentColor)
-            Text("Migrated \(summary.migrated) title\(summary.migrated == 1 ? "" : "s")")
+            Text("\(model.options.keepOld ? "Copied" : "Migrated") \(summary.migrated) title\(summary.migrated == 1 ? "" : "s")")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(canvas.textPrimary)
             Text("\(summary.readChapters) read chapter\(summary.readChapters == 1 ? "" : "s") carried over.")
                 .font(.footnote)
                 .foregroundStyle(canvas.textSecondary)
-            if left > 0 {
+            if left > 0, !model.options.keepOld {
                 Text("\(left) still in the Library from \(sourceName)\(notFound > 0 ? " (\(notFound) not found)" : "").")
                     .font(.footnote)
                     .foregroundStyle(canvas.textSecondary)
@@ -615,6 +620,7 @@ struct MigrateSourcePickerView: View {
     @State private var searchGeneration = 0
 
     @State private var chosen: (manga: Manga, target: MigrationTarget)? = nil
+    @State private var lastKeptOld = false
     @State private var isWorking = false
     @State private var migrationResult: MigrationService.Result? = nil
     @State private var migrationError: String? = nil
@@ -666,7 +672,7 @@ struct MigrateSourcePickerView: View {
         .task { runSearch() }
         .confirmationDialog(
             onPick == nil ? "Migrate to this source?" : "Use this match?",
-            isPresented: Binding(get: { chosen != nil }, set: { if !$0 { chosen = nil } }),
+            isPresented: Binding(get: { chosen != nil && onPick != nil }, set: { if !$0 { chosen = nil } }),
             titleVisibility: .visible
         ) {
             // Capture `target` by value — the auto-dismiss setter clears `chosen` in the same transaction as the tap,
@@ -680,6 +686,14 @@ struct MigrateSourcePickerView: View {
                 Text(onPick == nil
                      ? "Read chapters, status, and categories carry over to \"\(target.manga.title)\" on \(target.target.name). The old entry leaves the Library; nothing is deleted."
                      : "\"\(target.manga.title)\" on \(target.target.name).")
+            }
+        }
+        .sheet(isPresented: Binding(get: { chosen != nil && onPick == nil }, set: { if !$0 { chosen = nil } })) {
+            if let choice = chosen {
+                MigrateChoiceSheet(manga: choice.manga, sourceName: choice.target.name) { options in
+                    chosen = nil
+                    Task { await confirm(choice, options: options) }
+                }
             }
         }
         .overlay {
@@ -759,7 +773,7 @@ struct MigrateSourcePickerView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.accentColor)
-            Text("Migrated")
+            Text(lastKeptOld ? "Copied" : "Migrated")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(canvas.textPrimary)
             // Always state the new source's real chapter count — a migration that "succeeded"
@@ -833,7 +847,8 @@ struct MigrateSourcePickerView: View {
 
     // MARK: - Confirm
 
-    private func confirm(_ choice: (manga: Manga, target: MigrationTarget)) async {
+    private func confirm(_ choice: (manga: Manga, target: MigrationTarget),
+                         options: MigrationService.Options = MigrationService.Options()) async {
         isWorking = true
         defer { isWorking = false }
         do {
@@ -844,12 +859,82 @@ struct MigrateSourcePickerView: View {
             }
             let old = oldManga
             let new = choice.manga
+            lastKeptOld = options.keepOld
             let newChapters = try await choice.target.chapters(for: new)
             migrationResult = try await Task.detached(priority: .userInitiated) {
-                try MigrationService.migrate(from: old, to: new, newChapters: newChapters)
+                try MigrationService.migrate(from: old, to: new, newChapters: newChapters, options: options)
             }.value
         } catch {
             migrationError = error.localizedDescription
         }
+    }
+}
+
+// MARK: - MigrateChoiceSheet
+//
+// Tachimanga's "Select data to include" (S149): what carries over, then Show Entry / Copy / Migrate.
+
+private struct MigrateChoiceSheet: View {
+    let manga: Manga
+    let sourceName: String
+    let onConfirm: (MigrationService.Options) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.yomiCanvas) private var canvas
+    @State private var options = MigrationService.Options()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Toggle("Read chapters", isOn: $options.chapters)
+                    Toggle("Categories", isOn: $options.categories)
+                    Toggle("Tracking", isOn: $options.tracking)
+                    Toggle("Custom cover", isOn: $options.customCover)
+                    Toggle("Notes", isOn: $options.notes)
+                    Toggle("Remove downloads", isOn: $options.removeDownloads)
+                } header: { CalmSectionHeader("Carry over") } footer: {
+                    Text("Downloaded chapters don't move with a migration.")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                }
+                Section {
+                    NavigationLink("Show Entry") { MangaDetailView(manga: manga) }
+                } footer: {
+                    Text("Copy keeps the old entry in the Library too. Migrate takes it out of the Library; it stays saved.")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(canvas.bg.ignoresSafeArea())
+            .navigationTitle("\(manga.title) · \(sourceName)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 12) {
+                    Button { confirm(keepOld: true) } label: {
+                        Text("Copy").font(.headline).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+                    Button { confirm(keepOld: false) } label: {
+                        Text("Migrate").font(.headline).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+                .controlSize(.large)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func confirm(keepOld: Bool) {
+        var picked = options
+        picked.keepOld = keepOld
+        onConfirm(picked)
     }
 }

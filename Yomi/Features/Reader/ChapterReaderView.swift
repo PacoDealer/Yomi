@@ -232,7 +232,7 @@ struct ChapterReaderView: View {
                 markChapterRead()
                 if AppSettings.shared.trackerAutoUpdate && !didUpdateTrackerForCurrentChapter {
                     didUpdateTrackerForCurrentChapter = true
-                    let mangaTitle = manga.title
+                    let mangaTitle = manga.trackingTitle ?? manga.title
                     let chapNum = Int(activeChapter.chapterNumber ?? 0)
                     Task {
                         for tracker in TrackerManager.loggedInTrackers {
@@ -863,6 +863,7 @@ struct WebtoonReaderView: View {
                 withAnimation { proxy.scrollTo(newId, anchor: .top) }
             }
         }
+        .modifier(ReaderZoom(scrollAxis: .vertical))
         .ignoresSafeArea()
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -958,6 +959,71 @@ struct ChapterBoundaryCard: View {
     }
 }
 
+// MARK: - ReaderZoom
+//
+// Pinch-zoom for the scrolling modes (webtoon, continuous; #200). The whole scroll view is scaled, so scrolling keeps
+// working while zoomed; the pinch anchors at the fingers (Martin S149: zoom wherever you want), one finger pans across
+// the scroll direction, a tap zooms back out.
+
+struct ReaderZoom: ViewModifier {
+    let scrollAxis: Axis
+
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+    @State private var size: CGSize = .zero
+
+    private var isZoomed: Bool { scale > 1.01 }
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(scale)
+            .offset(offset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .contentShape(Rectangle())
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .onChanged { value in
+                        scale = min(max(lastScale * value.magnification, 1), 4)
+                        // Keep the point that was under the fingers under them: screen = centre + point * scale + offset.
+                        let fx = value.startLocation.x - size.width / 2, fy = value.startLocation.y - size.height / 2
+                        let px = (fx - lastOffset.width) / lastScale, py = (fy - lastOffset.height) / lastScale
+                        offset = clamped(CGSize(width: fx - px * scale, height: fy - py * scale))
+                    }
+                    .onEnded { _ in
+                        lastScale = scale
+                        lastOffset = offset
+                        if !isZoomed { reset() }
+                    }
+            )
+            // Across the scroll direction only; along it, the scroll view itself moves.
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        var o = lastOffset
+                        if scrollAxis == .vertical { o.width += value.translation.width } else { o.height += value.translation.height }
+                        offset = clamped(o)
+                    }
+                    .onEnded { _ in lastOffset = offset },
+                including: isZoomed ? .all : .subviews
+            )
+            .gesture(TapGesture().onEnded { withAnimation(.spring(duration: 0.3)) { reset() } },
+                     including: isZoomed ? .all : .subviews)
+    }
+
+    private func clamped(_ o: CGSize) -> CGSize {
+        let maxX = (scale - 1) * size.width / 2, maxY = (scale - 1) * size.height / 2
+        return CGSize(width: min(max(o.width, -maxX), maxX), height: min(max(o.height, -maxY), maxY))
+    }
+
+    private func reset() {
+        scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero
+    }
+}
+
 // MARK: - ContinuousHorizontalReaderView
 
 struct ContinuousHorizontalReaderView: View {
@@ -1018,6 +1084,7 @@ struct ContinuousHorizontalReaderView: View {
                 withAnimation { proxy.scrollTo(newId, anchor: .center) }
             }
         }
+        .modifier(ReaderZoom(scrollAxis: .horizontal))
         .ignoresSafeArea()
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.2)) {

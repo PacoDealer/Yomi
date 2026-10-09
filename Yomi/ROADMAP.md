@@ -27,7 +27,8 @@ The research audit revealed that 800+ sources are already available across four 
 - #200 pinch: tap-zone overlay swallowed all touches → zones computed from tap location; zoomed = pan, paging off, tap zooms out. Continuous/webtoon zoom still open.
 - #198 Continuous RTL opened at the last page (RTL only on the stack, not the ScrollView). #199 continuous pages fit height only → fit screen.
 - All sim-verified on the local "Test Hero" CBZ (tap, swipe, two-finger pinch, continuous RTL start). NOT on device yet.
-- Martin sent Tachimanga migrate screenshots → KNOWN_ISSUES #201 (Tracking / Copy / remove downloads) — his call.
+- Device (Martin): paging slide + swipe and continuous ✅; asked zoom to anchor at the fingers → done. Then "fix 200 + all of 201":
+  continuous/webtoon zoom (`ReaderZoom`), Tachimanga migrate options (sheet + Copy + Tracking via v26 `trackingTitle` + Remove downloads).
 
 ---
 
