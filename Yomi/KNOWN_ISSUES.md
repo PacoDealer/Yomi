@@ -2,7 +2,7 @@
 
 Moved out of `CLAUDE.md` in S137 (2026-10-03) to keep CLAUDE.md under ~200 lines. Rows are
 numbered and permanent — add new rows at the bottom, mark fixed rows with ~~strikethrough~~ + ✅.
-Open rows as of S148 (193, 196 flaky tests; 194 Asura JS 100-chapter cap; 195 CBR backlog): 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 176.
+Open rows as of S148 (193, 196 flaky tests; 194 Asura JS 100-chapter cap; 195 CBR backlog; 197–200 Martin's manga reader report — FIRST next session): 4 (App Store Connect data), 6, 12 (device check), 21 (site-side), 27 (by design), 47 (paid Program), 49 (mobile-mcp — try XcodeBuildMCP ui-automation instead), 55, 69, 71, 78, 106, 109, 110, 112, 113, 151–162, 164, 170, 171, 172, 176.
 
 
 | # | Issue | Notes |
@@ -204,4 +204,9 @@ Open rows as of S148 (193, 196 flaky tests; 194 Asura JS 100-chapter cap; 195 CB
 | 194 | Yomi's Asura Scans JS plugin returns at most 100 chapters | Open (S148): Absolute Regression (121 ch) came back as Ch. 22–121, Absolute Sword Sense (204) as 100. Plugin source only in `Firebase/public/asurascans.js`. Keiyoushi's Asura is unaffected. Migration to this plugin carries read state only for the chapters it lists. |
 | 195 | CBR/RAR (and CB7/7z) comic archives not supported | Open — backlog, Martin S148: "skip for now but don't forget". Local Files shows "CBR/RAR isn't supported yet — convert to CBZ". Needs a RAR decoder; check the unRAR license (restrictive) or a clean-room/libarchive option before adding. |
 | 196 | UI test `testNextChapterShowsNewText` flaky | S148: failed once in the full 13-test run, passed alone right after (28 s, timing-sensitive). The S148 change on that path (`NovelContent.html`) keeps the same order for plugin novels (downloaded copy → plugin). Re-run alone before treating as a regression. |
+| 197 | Manga paged RTL/LTR: no swipe to the previous/next chapter at a chapter's edge | Open — Martin S148 (device): "the swipe like the novels should work too". Novels have `novelSwipeChapters` (S133); manga paged modes stop at the first/last page. |
+| 198 | Manga continuous mode opens at the END of the chapter | Open — Martin S148 (device). Check the resume/scroll-to-page logic in the continuous reader (`ContinuousHorizontalReaderView` / webtoon) — likely restores lastPageRead/progress wrongly or scrolls before layout. |
+| 199 | Manga continuous mode zoomed in too far — content cut off | Open — Martin S148 (device): "continuous zooms way too much and you lose content". Page fit/scale in continuous mode. |
+| 200 | Pinch-to-zoom doesn't work in any manga mode, any source | Open — Martin S148 (device). Related backlog: webtoon pinch-zoom (S145). S136 kept `.readerPage()` without downsampling BECAUSE he pinch-zooms detailed art — so this is a regression or never worked on device; check `MangaPageView` gestures vs the reader's tap/swipe recognizers and the >4096 px strip view (S145, #190). |
+| 201 | ~~PrivacyInfo.xcprivacy: File Timestamp reason for user-picked files~~ | ✅ Fixed S148: manifest already had C617.1 (app container); added 3B52.1 (files the user granted via the document picker — the linked Local folder, whose dates `LocalLibrary.pageURLs` reads). |
 

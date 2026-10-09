@@ -65,6 +65,17 @@ The research audit revealed that 800+ sources are already available across four 
   Bugs found while testing + fixed: picker mode lost on dismiss (Link imported instead), folder-of-series read as
   one series, Download pills shown for local titles. UI tests 12/13 + the 13th passes alone (#196).
   NOT verified: on device, iCloud Drive folder, a real-world EPUB/CBZ collection, large archives (memory/speed).
+- **Device (end of S148):** Martin migrated AllManga → MangaFire ("The Fragrant Flower Blooms with Dignity") — DB
+  copy vs morning backup: library 148 = 148, read through Ch. 203 carried with the ORIGINAL Oct 2 dates, category
+  carried, old entry kept out of the Library with its 232 read chapters (`phone-backups/S148-after-migrate`, quick_check
+  ok). Part C installed (`9955a0f`, exp 2026-10-16 14:28 UTC) — not yet tried by Martin.
+- Martin's manga reader report → KNOWN_ISSUES #197–#200 (paged chapter swipe, continuous starts at the end,
+  continuous over-zoomed, pinch-zoom dead everywhere). **NEXT SESSION starts there** (stability-first rule, S144).
+- Privacy manifest: + File Timestamp reason 3B52.1 (user-picked files), checked against Apple's live definitions.
+- Martin asked about publishing → see chat answer recorded in this entry's last bullet: blockers = paid Apple
+  Developer Program, GPLv3 NewPipe in the extension-server jar, Keiyoushi (downloaded Java run on device) review
+  risk vs 2.5.2/4.7, #170 legal pass, then the App Store checklist below (age rating, description, screenshots,
+  support URL, ATS note). Suggested path: fix #197–#200 → legal/licence pass → paid account → TestFlight.
 
 ## S147 — Imports that work + first run that does the setup (§25.10 #6, #3) (2026-10-08)
 
