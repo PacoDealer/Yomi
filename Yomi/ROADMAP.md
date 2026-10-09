@@ -21,6 +21,16 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S149 — Manga reader report #197–#200 (2026-10-09)
+
+- #197 reinterpreted by Martin: page-to-page SLIDE like novel Pages mode (not chapter swipe). Taps animate; swipe was blocked by a 1x pan gesture on every page → pan only while zoomed.
+- #200 pinch: tap-zone overlay swallowed all touches → zones computed from tap location; zoomed = pan, paging off, tap zooms out. Continuous/webtoon zoom still open.
+- #198 Continuous RTL opened at the last page (RTL only on the stack, not the ScrollView). #199 continuous pages fit height only → fit screen.
+- All sim-verified on the local "Test Hero" CBZ (tap, swipe, two-finger pinch, continuous RTL start). NOT on device yet.
+- Martin sent Tachimanga migrate screenshots → KNOWN_ISSUES #201 (Tracking / Copy / remove downloads) — his call.
+
+---
+
 ## S148 — Migrate by source (mass migration) (2026-10-09)
 
 - Martin's request (S147 last bullet). Audit of the old one-title Migrate found real bugs: every carried chapter got
