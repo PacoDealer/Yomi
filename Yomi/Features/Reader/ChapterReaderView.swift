@@ -559,6 +559,8 @@ struct MangaReaderView: View {
 
     @State private var settings = AppSettings.shared
     @State private var viewportIsLandscape = false
+    @State private var isZoomed = false
+    @State private var viewSize: CGSize = .zero
 
     // MARK: - Double-page spreads
     //
@@ -606,6 +608,7 @@ struct MangaReaderView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .scrollDisabled(isZoomed)   // zoomed in: one finger pans the page instead of turning it
             .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
             .ignoresSafeArea()
             .background {
@@ -618,20 +621,22 @@ struct MangaReaderView: View {
                 }
             }
 
-            tapZoneOverlay
-                .ignoresSafeArea()
         }
+        .contentShape(Rectangle())
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        .onTapGesture(coordinateSpace: .local) { handleTap(at: $0, in: viewSize) }
+        .onChange(of: currentPage) { _, _ in isZoomed = false }
     }
 
     @ViewBuilder
     private func spreadContent(_ group: [Int]) -> some View {
         if group.count == 2 {
             HStack(spacing: 0) {
-                MangaPageView(url: pages[group[0]])
-                MangaPageView(url: pages[group[1]])
+                MangaPageView(url: pages[group[0]], isZoomed: $isZoomed)
+                MangaPageView(url: pages[group[1]], isZoomed: $isZoomed)
             }
         } else {
-            MangaPageView(url: pages[group[0]])
+            MangaPageView(url: pages[group[0]], isZoomed: $isZoomed)
         }
     }
 
@@ -656,7 +661,7 @@ struct MangaReaderView: View {
         let next = groups[targetIdx].first!
         if next != currentPage {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            currentPage = next
+            withAnimation(.easeInOut(duration: 0.3)) { currentPage = next }   // slide, like novel Pages mode
         }
     }
 
@@ -664,122 +669,50 @@ struct MangaReaderView: View {
         withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
     }
 
-    @ViewBuilder
-    private var tapZoneOverlay: some View {
-        let layout = settings.tapZoneLayout
+    // MARK: - Tap zones
+    //
+    // Resolved from the tap location instead of an overlay of tap views: an overlay sits on top of
+    // the pages and swallows pinch + swipe (#200 — pinch never worked on device).
 
-        if layout == "disabled" {
-            Color.clear.contentShape(Rectangle())
-                .onTapGesture(perform: tapMenu)
-        } else {
-            GeometryReader { geo in
-                switch layout {
-                case "lShaped":   lShapedZones(geo: geo)
-                case "kindle":    kindleZones(geo: geo)
-                case "rightLeft": rightLeftZones(geo: geo)
-                case "sides":     thirdsOrEdgeZones(geo: geo, sides: true)
-                default:          thirdsOrEdgeZones(geo: geo, sides: false)
-                }
-            }
+    private enum TapAction { case left, right, menu }
+
+    private func tapAction(at p: CGPoint, in size: CGSize) -> TapAction {
+        let w = size.width, h = size.height
+        switch settings.tapZoneLayout {
+        case "disabled":
+            return .menu
+        case "lShaped":   // left column + bottom band go "left", top strip = menu, rest "right"
+            if p.y < h * 0.12 { return .menu }
+            return (p.x < w * 0.28 || p.y > h * 0.82) ? .left : .right
+        case "kindle", "rightLeft":   // top strip = menu; thin left strip (Kindle) or half (Right-and-Left)
+            if p.y < h * 0.12 { return .menu }
+            return p.x < w * (settings.tapZoneLayout == "kindle" ? 0.2 : 0.5) ? .left : .right
+        default:          // "default" equal thirds / "sides" a.k.a. Edge (20 · 60 · 20)
+            let edge: CGFloat = settings.tapZoneLayout == "sides" ? 0.2 : 1.0 / 3.0
+            if p.x < w * edge { return .left }
+            if p.x > w * (1 - edge) { return .right }
+            return .menu
         }
     }
 
-    // MARK: - Tap zone layouts
-
-    /// "default" (equal thirds) / "sides" a.k.a. Edge (20 · 60 · 20)
-    @ViewBuilder
-    private func thirdsOrEdgeZones(geo: GeometryProxy, sides: Bool) -> some View {
-        let w = geo.size.width
-        let leftFraction: CGFloat = sides ? 0.2 : 1.0 / 3.0
-        let rightFraction: CGFloat = sides ? 0.2 : 1.0 / 3.0
-        let centerFraction = 1.0 - leftFraction - rightFraction
-        HStack(spacing: 0) {
-            Color.clear.contentShape(Rectangle())
-                .frame(width: w * leftFraction)
-                .onTapGesture(perform: tapLeft)
-            Color.clear.contentShape(Rectangle())
-                .frame(width: w * centerFraction)
-                .onTapGesture(perform: tapMenu)
-            Color.clear.contentShape(Rectangle())
-                .frame(width: w * rightFraction)
-                .onTapGesture(perform: tapRight)
-        }
-    }
-
-    /// L-Shaped: left column + bottom band both go "left" (the L), a top menu strip, everything
-    /// else goes "right" — approximates Tachimanga's L-Shaped tap zone preset.
-    @ViewBuilder
-    private func lShapedZones(geo: GeometryProxy) -> some View {
-        let w = geo.size.width
-        let h = geo.size.height
-        let menuHeight = h * 0.12
-        let bottomBandHeight = h * 0.18
-        let leftWidth = w * 0.28
-
-        ZStack(alignment: .top) {
-            HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle())
-                    .frame(width: leftWidth, height: h)
-                    .onTapGesture(perform: tapLeft)
-                Color.clear.contentShape(Rectangle())
-                    .frame(width: w - leftWidth, height: h)
-                    .onTapGesture(perform: tapRight)
-            }
-
-            VStack(spacing: 0) {
-                Spacer()
-                Color.clear.contentShape(Rectangle())
-                    .frame(width: w, height: bottomBandHeight)
-                    .onTapGesture(perform: tapLeft)
-            }
-            .frame(height: h)
-
-            Color.clear.contentShape(Rectangle())
-                .frame(width: w, height: menuHeight)
-                .onTapGesture(perform: tapMenu)
-        }
-        .frame(width: w, height: h)
-    }
-
-    /// Kindle-ish: a thin left strip goes back, the rest of the screen advances — optimized for
-    /// mostly-forward reading. Top strip reaches the menu.
-    @ViewBuilder
-    private func kindleZones(geo: GeometryProxy) -> some View {
-        edgeWeightedZones(geo: geo, leftFraction: 0.2)
-    }
-
-    /// Right-and-Left: a plain 50/50 split, top strip reaches the menu.
-    @ViewBuilder
-    private func rightLeftZones(geo: GeometryProxy) -> some View {
-        edgeWeightedZones(geo: geo, leftFraction: 0.5)
-    }
-
-    @ViewBuilder
-    private func edgeWeightedZones(geo: GeometryProxy, leftFraction: CGFloat) -> some View {
-        let w = geo.size.width
-        let h = geo.size.height
-        let menuHeight = h * 0.12
-        let leftWidth = w * leftFraction
-        VStack(spacing: 0) {
-            Color.clear.contentShape(Rectangle())
-                .frame(width: w, height: menuHeight)
-                .onTapGesture(perform: tapMenu)
-            HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle())
-                    .frame(width: leftWidth, height: h - menuHeight)
-                    .onTapGesture(perform: tapLeft)
-                Color.clear.contentShape(Rectangle())
-                    .frame(width: w - leftWidth, height: h - menuHeight)
-                    .onTapGesture(perform: tapRight)
-            }
+    private func handleTap(at p: CGPoint, in size: CGSize) {
+        // Zoomed in: a tap zooms back out rather than turning the page under your finger.
+        if isZoomed { withAnimation(.spring(duration: 0.3)) { isZoomed = false }; return }
+        switch tapAction(at: p, in: size) {
+        case .left:  tapLeft()
+        case .right: tapRight()
+        case .menu:  tapMenu()
         }
     }
 }
 
-// MARK: - MangaPageView (single page with pinch-to-zoom + double-tap reset)
+// MARK: - MangaPageView (single page with pinch-to-zoom; tap zooms back out)
 
 private struct MangaPageView: View {
     let url: String
+    /// Shared with the reader: true while this page is pinched in (TabView paging is off); the reader sets it
+    /// back to false on a tap or a page change, which zooms the page out.
+    @Binding var isZoomed: Bool
 
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -820,22 +753,20 @@ private struct MangaPageView: View {
             .onChange(of: url) { _, _ in loadFailed = false; attempt = 0 }
             .background(Color.black)
             .gesture(
-                MagnificationGesture()
+                MagnifyGesture()
                     .onChanged { value in
-                        scale = min(max(lastScale * value, 1.0), 4.0)
+                        scale = min(max(lastScale * value.magnification, 1.0), 4.0)
+                        if scale > 1.0, !isZoomed { isZoomed = true }
                     }
                     .onEnded { _ in
                         lastScale = scale
-                        if scale == 1.0 {
-                            offset = .zero
-                            lastOffset = .zero
-                        }
+                        if scale <= 1.0 { resetZoom() }
                     }
             )
+            // Pan only while zoomed: a drag gesture on the page at 1x steals the page swipe from the TabView.
             .simultaneousGesture(
                 DragGesture()
                     .onChanged { value in
-                        guard scale > 1.0 else { return }
                         let maxX = (scale - 1) * geo.size.width / 2
                         let maxY = (scale - 1) * geo.size.height / 2
                         offset = CGSize(
@@ -845,25 +776,18 @@ private struct MangaPageView: View {
                     }
                     .onEnded { _ in
                         lastOffset = offset
-                    }
+                    },
+                including: isZoomed ? .all : .subviews
             )
-            .simultaneousGesture(
-                TapGesture(count: 2)
-                    .onEnded {
-                        withAnimation(.spring()) {
-                            if scale > 1.0 {
-                                scale = 1.0
-                                lastScale = 1.0
-                                offset = .zero
-                                lastOffset = .zero
-                            } else {
-                                scale = 2.0
-                                lastScale = 2.0
-                            }
-                        }
-                    }
-            )
+            .onChange(of: isZoomed) { _, zoomed in
+                if !zoomed { withAnimation(.spring(duration: 0.3)) { resetZoom() } }
+            }
         }
+    }
+
+    private func resetZoom() {
+        scale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
+        isZoomed = false
     }
 }
 
@@ -1057,13 +981,15 @@ struct ContinuousHorizontalReaderView: View {
                         }
                     }
                 }
-                .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
                 .scrollTargetLayout()
             }
+            // RTL on the ScrollView itself, not just its stack: with only the stack flipped the scroll view
+            // still starts at its left edge = the LAST page (#198).
+            .environment(\.layoutDirection, isRTL ? .rightToLeft : .leftToRight)
             .scrollPosition(id: $visibleId, anchor: .center)
             .onAppear {
                 if currentPage > 0 {
-                    proxy.scrollTo("cur:\(currentPage)", anchor: .center)
+                    visibleId = "cur:\(currentPage)"
                 }
             }
             .onChange(of: visibleId) { _, id in
@@ -1092,7 +1018,10 @@ struct ContinuousHorizontalReaderView: View {
     }
 
     private func pageImage(_ url: String) -> some View {
+        // Fit each page inside the screen. Height-only fit made a portrait page ~1.5x wider than a phone, so
+        // the sides were cut off (#199).
         StripPageImage(url: url, axis: .horizontal)
+            .containerRelativeFrame([.horizontal, .vertical])
     }
 }
 
@@ -1102,12 +1031,13 @@ struct VerticalPagedReaderView: View {
     let pages: [String]
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
+    @State private var isZoomed = false
 
     var body: some View {
         GeometryReader { geo in
             TabView(selection: $currentPage) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                    MangaPageView(url: url)
+                    MangaPageView(url: url, isZoomed: $isZoomed)
                         .frame(width: geo.size.height, height: geo.size.width)
                         .rotationEffect(.degrees(-90))
                         .tag(index)
@@ -1117,14 +1047,17 @@ struct VerticalPagedReaderView: View {
             .rotationEffect(.degrees(90))
             .frame(width: geo.size.width, height: geo.size.height)
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .scrollDisabled(isZoomed)
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
         .onTapGesture {
+            if isZoomed { isZoomed = false; return }
             withAnimation(.easeInOut(duration: 0.2)) {
                 showOverlay.toggle()
             }
         }
+        .onChange(of: currentPage) { _, _ in isZoomed = false }
     }
 }
 
