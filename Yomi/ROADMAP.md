@@ -21,6 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S148 — Migrate by source (mass migration) (2026-10-09)
+
+- Martin's request (S147 last bullet). Audit of the old one-title Migrate found real bugs: every carried chapter got
+  `readAt = now` and the title's `lastReadAt = now` (all migrated titles would jump to the top of History and "Last
+  Read"); no transaction; exact-number matching only; "remove old" deleted downloads; migrating into a saved title
+  overwrote it; old entry stayed in History.
+- Martin's picks: old entry leaves the Library but is kept (no delete, downloads kept); Mihon's read rule (everything
+  ≤ highest read number); ordered target sources + review. Reference read live: Mihon `MigrateMangaUseCase`,
+  `MigrationListViewModel`, `BaseSmartSearchEngine` (normalized Levenshtein ≥ 0.4, ported as `TitleMatch`).
+- Built: Browse → Migrate = sources with title counts (missing first; "Keiyoushi"/"Plugin" label when two share a
+  name) → titles (select some/all) → sheet: target sources in tap order (remembered) + "Most chapters" + carry over
+  (read chapters, categories, custom cover, notes) → review (found / not found / skipped; tap = search by hand or
+  skip) → migrate → summary. `MassMigration.swift` (engine), `MigrationService` rewritten (one transaction, merge,
+  real dates), `MigrateView.swift` (screens + picker reused for detail-screen migration and pick mode).
+- Also fixed: category counts counted titles outside the Library (`CategoryQueries.fetchItemCounts`).
+- Sim-verified on a copy of Martin's real DB (Aqua Manga → Yomi's Asura JS plugin): 3 titles, read flags/dates,
+  categories, History order, old entries intact. Found: Yomi's Asura JS plugin returns max 100 chapters (KNOWN_ISSUES).
+- Tachimanga changelog v1.1→v5.1 re-checked against code: TACHIMANGA_PARITY.md "S148 re-check".
+
 ## S147 — Imports that work + first run that does the setup (§25.10 #6, #3) (2026-10-08)
 
 - **Audit finding:** the `.tachibk` import existed but filed every source except MangaDex under a dead
