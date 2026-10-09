@@ -225,6 +225,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
     nonisolated private static func eligibleTargets(_ s: RefreshSettings) -> [UpdateTarget] {
         var out: [UpdateTarget] = []
         for manga in (try? MangaQueries.fetchLibrary()) ?? [] {
+            if manga.isLocal { continue }  // local files: nothing to check online (S148)
             if s.skipNotStarted && manga.lastReadAt == nil { continue }
             if s.skipCompleted && manga.status == .completed { continue }
             if s.skipWithUnread, !((try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []).isEmpty { continue }
@@ -235,6 +236,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             out.append(.manga(manga))
         }
         for novel in (try? NovelQueries.fetchLibrary()) ?? [] {
+            if LocalLibrary.isLocalSourceId(novel.sourceId) { continue }
             if s.skipNotStarted && novel.lastReadAt == nil { continue }
             if s.skipCompleted && novel.status.lowercased().contains("completed") { continue }
             if s.skipWithUnread,

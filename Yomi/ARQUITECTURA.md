@@ -606,6 +606,16 @@ ContentView.onOpenURL (S115 — was MALView's own .onOpenURL; now one router for
 
 ## Components
 
+### Local files (Yomi/Features/Local/, S148)
+
+`LocalLibrary` scans two roots — `Documents/Local` (Import copies here) and a user-linked Files folder
+(security-scoped bookmark `localFolderBookmark`) — in Mihon's local-source layout and writes ordinary `manga`/`novel`
+rows with `sourceId = "local"` (manga `isLocal = true`). Chapter paths: `local://<app|folder>/<rel>` (CBZ/ZIP or image
+folder; CBZ unpacked once to `Caches/LocalPages/<key>`) and `local-epub://<root>/<rel>#<spine href>`. Novel chapter
+HTML for every screen goes through `NovelContent.html` (local EPUB → `NovelDownloadStore` → plugin). ZIP reading:
+`Core/ZipArchive.swift` (Compression framework, no dependency). Covers: `Documents/LocalCovers/<id>.<ext>`, stored
+relative in `customCoverPath`.
+
 ### ContinueReadingRow (Yomi/Features/Library/ContinueReadingRow.swift)
 - Horizontal scrollable row at the top of LibraryView
 - Data: `MangaQueries.fetchRecentlyRead(limit: 10)`

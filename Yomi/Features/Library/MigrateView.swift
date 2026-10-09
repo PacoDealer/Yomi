@@ -40,6 +40,7 @@ enum SourceStatus {
 
     /// The installed source's display name for a stored source id (a plugin id or `keiyoushi_<id>`).
     static func sourceName(_ sourceId: String) -> String {
+        if LocalLibrary.isLocalSourceId(sourceId) { return "Local Files" }
         if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) { return ext.name }
         if KeiyoushiMapping.isKeiyoushiSourceId(sourceId) {
             let keiyoushiId = KeiyoushiMapping.mihonSourceId(sourceId)
