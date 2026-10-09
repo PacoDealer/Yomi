@@ -368,6 +368,12 @@ final class DatabaseManager {
             try db.execute(sql: "DROP TABLE dead_import_ids")
         }
 
+        // Migrate's "Tracking" option (S149, Tachimanga parity): trackers find a title by NAME, so a title migrated
+        // to a source that names it differently would stop syncing. The old name rides along here.
+        migrator.registerMigration("v26_manga_tracking_title") { db in
+            try db.alter(table: "manga") { t in t.add(column: "trackingTitle", .text) }
+        }
+
         try migrator.migrate(db)
     }
 

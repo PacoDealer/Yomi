@@ -61,6 +61,9 @@ struct Manga: Identifiable, Codable {
     /// Relative path under Documents (e.g. "Covers/<id>.jpg"). Absolute paths are legacy.
     var customCoverPath: String? = nil
     var notes: String? = nil
+    /// The name trackers search for, when it differs from `title` — set by Migrate (S149) so a title keeps syncing
+    /// after moving to a source that names it differently.
+    var trackingTitle: String? = nil
 
     /// Returns the absolute filesystem path for the custom cover, handling both
     /// legacy absolute paths (stored before S78 fix) and new relative paths.
