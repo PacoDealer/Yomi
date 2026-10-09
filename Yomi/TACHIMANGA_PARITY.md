@@ -16,6 +16,40 @@ premium tier, so matching them means shipping them free. Flagged inline as [prem
 
 ---
 
+## S148 re-check (2026-10-09): Tachimanga changelog v1.1 → v5.1 against Yomi's code
+
+Source: every entry of https://tachimanga.app/docs/changelogs.html (v1.1 May 2023 → Stable v5.1 Oct 8 2026, read in
+full). Each feature was checked by grepping Yomi's source (not this file's older rows); hits were spot-read. A missing
+keyword is strong evidence, not proof. Supersedes older rows below where they disagree.
+
+**Missing in Yomi (code search found nothing):**
+- Reader: chapter bookmarks (v2.1 import); press-and-hold scroll (v4.6); crop white/black borders (v4.18); copy
+  text from a page / OCR (v4.17); manga reader background colour (v5.0 — novels have it); double page "separate first
+  page" / "invert" / wide-page detection (v3.2, v4.14); pinch-zoom off, strict scale, scroll indicator (v3.1, v4.12);
+  custom reader toolbar (v5.1).
+- Library: pinned sources + reorder (v2.2, v4.1); source filter include/exclude (v4.15, v5.0); tracker filters
+  (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
+- Updates/downloads: refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
+  an hour (v3.4); Retry All failed downloads (v4.8); low-storage warning (v4.14).
+- Extensions: extension details page with changelog/readme (v2.1); open a source's website without installing it
+  (v4.14).
+- Trackers: MangaUpdates, MangaBaka, enhanced Komga/Kavita/Suwayomi, tracker → local progress sync, refresh, bulk
+  add tracking (v4.20, v5.0). Yomi trackers find a title by name — no stored per-title link.
+- Local source (CBZ etc.) — S148 part C.
+
+**Present in Yomi:** incognito, app lock, secure screen, notes, custom cover, random entry, chapter search, range +
+invert select, download next N, delete after reading, scanlator filter + one-per-chapter, auto webtoon by tags, page
+x / total, separate tap-zone presets, tab customisation, alternate icons, History search + Clear all, storage screen,
+Update All extensions, multiple repositories, Tachiyomi backup import + export (incl. history), iCloud backup,
+rotation setting, keep screen on, Cloudflare WebView, **bulk migration (S148)**.
+
+**Migration specifics (Tachimanga v2.8, v3.2, v4.1, v4.2, v4.13, v4.16):** obsolete/missing sources listed in Migrate ✅
+(S147); bulk migrate ✅ (S148); "most chapters across sources" ✅ (S148 "Most chapters" toggle); history + reading
+duration carried ✅ (S148: read dates kept, duration = max); remove downloads on migrate — deliberately not offered
+(Martin S148: no delete).
+
+---
+
 ## 1. Reader — reading modes & page layout
 
 | Feature | Tachimanga | Yomi | Status |
