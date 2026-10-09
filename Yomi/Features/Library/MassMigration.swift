@@ -154,7 +154,7 @@ final class MassMigration {
     var items: [Item]
     let targets: [MigrationTarget]
     let mostChapters: Bool
-    let options: MigrationService.Options
+    private(set) var options: MigrationService.Options
     private(set) var isMigrating = false
     private(set) var migratedCount = 0
     var summary: Summary?
@@ -250,8 +250,10 @@ final class MassMigration {
 
     // MARK: Migrate
 
-    func migrateReady() async {
+    /// `keepOld` = the Copy button (S149): the old entries stay in the Library too.
+    func migrateReady(keepOld: Bool = false) async {
         guard !isMigrating else { return }
+        options.keepOld = keepOld
         isMigrating = true
         var summary = Summary()
         let options = options
