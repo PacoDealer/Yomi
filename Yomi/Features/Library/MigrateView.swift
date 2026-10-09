@@ -324,11 +324,8 @@ struct MigrateTargetView: View {
                         Toggle("Notes", isOn: $options.notes)
                         Toggle("Tracking", isOn: $options.tracking)
                         Toggle("Remove downloads", isOn: $options.removeDownloads)
-                        Toggle("Keep old entries (Copy)", isOn: $options.keepOld)
                     } header: { CalmSectionHeader("Carry over") } footer: {
-                        Text(options.keepOld
-                             ? "The titles stay in the Library from \(sourceName) too."
-                             : "The titles leave the Library from \(sourceName), but stay saved with their chapters\(options.removeDownloads ? "" : " and downloads").")
+                        Text("At the end you choose Copy (the titles stay in the Library from \(sourceName) too) or Migrate (they leave it, but stay saved).")
                             .font(.footnote)
                             .foregroundStyle(canvas.textSecondary)
                     }
@@ -446,15 +443,16 @@ struct MigrationReviewView: View {
             }
         }
         .confirmationDialog(
-            "Migrate \(model.readyCount) title\(model.readyCount == 1 ? "" : "s")?",
+            "Move \(model.readyCount) title\(model.readyCount == 1 ? "" : "s")?",
             isPresented: $confirm, titleVisibility: .visible
         ) {
             Button("Migrate") { Task { await model.migrateReady() } }
+            Button("Copy") { Task { await model.migrateReady(keepOld: true) } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.isSearching
-                 ? "Titles still searching stay where they are. Moved titles leave the Library from \(sourceName); nothing is deleted."
-                 : "They leave the Library from \(sourceName) and move to the matches shown. Nothing is deleted.")
+                 ? "Titles still searching stay where they are. Copy keeps the old entries in the Library; Migrate takes them out (they stay saved)."
+                 : "They move to the matches shown. Copy keeps the old entries in the Library from \(sourceName); Migrate takes them out (they stay saved).")
         }
         .confirmationDialog(
             actionItem?.old.title ?? "",
