@@ -29,6 +29,8 @@ The research audit revealed that 800+ sources are already available across four 
 - All sim-verified on the local "Test Hero" CBZ (tap, swipe, two-finger pinch, continuous RTL start). NOT on device yet.
 - Device (Martin): paging slide + swipe and continuous ✅; asked zoom to anchor at the fingers → done. Then "fix 200 + all of 201":
   continuous/webtoon zoom (`ReaderZoom`), Tachimanga migrate options (sheet + Copy + Tracking via v26 `trackingTitle` + Remove downloads).
+- Device round 2: webtoon zoom ✅, remove downloads ✅, Copy from the Migrate tab ✅ (phone DB 148→149 after adding Migrate / Copy buttons to the final dialog, `205b593`). Title page ⋯ had no Migrate entry → added (`0e3732d`).
+- **NEXT (S150):** Martin checks ⋯ → Migrate → options sheet (Copy / Migrate) on device; then publishing path (S148 last bullet).
 
 ---
 
