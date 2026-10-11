@@ -45,6 +45,7 @@ The research audit revealed that 800+ sources are already available across four 
 - Source icons (Martin's screenshot): the coloured "border" was `SourceIconBadge`'s fallback gradient showing through
   the transparent margin of Mihon extension icons. Gradient + initials are now only the fallback (no icon / loading /
   failed); Keiyoushi rows pass `isMihonIcon` so the artwork is zoomed 1.2× to fill the badge. Sim screenshot checked.
+  Browse → Migrate source rows show the same icons (`SourceStatus.icon`).
 - **NEXT:** stage + install the new jar and device-check Keiyoushi; licence notices screen (OpenJDK GPLv2+CPE,
   M-Extension-Server MPL-2.0 + our patch, bundled fonts/JS libs) and a LICENSE for the public repo; after enrollment:
   paid-team signing config with Keiyoushi embedded (today only `Personal.xcconfig` embeds it), CloudKit container,
