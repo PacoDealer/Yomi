@@ -2,8 +2,8 @@
 // Unlike Personal.xcconfig this keeps the project's real entitlements (CloudKit, push, App Group — the paid team
 // can sign them) and does not define YOMI_PERSONAL. It only adds the team and the on-device Keiyoushi runtime.
 // Usage: scripts/build-testflight.sh   (passes this file with -xcconfig, overriding every target)
-// The Team ID is on developer.apple.com/account → Membership details (10 characters; NOT the free team's F9R33MN82P).
-DEVELOPMENT_TEAM = PAID_TEAM_ID_HERE
+// Same Team ID as the old free Personal Team: Apple upgraded it in place when Martin enrolled (S151).
+DEVELOPMENT_TEAM = F9R33MN82P
 CODE_SIGN_STYLE = Automatic
 
 // On-device Keiyoushi (S124): see Personal.xcconfig.
