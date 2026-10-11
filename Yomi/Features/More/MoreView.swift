@@ -151,49 +151,6 @@ private struct AboutView: View {
     }
 }
 
-// MARK: - LicensesView
-
-private struct LicensesView: View {
-    var body: some View {
-        List {
-            LicenseRow(
-                name:    "GRDB.swift",
-                license: "MIT License",
-                url:     URL(string: "https://github.com/groue/GRDB.swift")!
-            )
-        }
-        .navigationTitle("Licenses")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: - LicenseRow
-
-private struct LicenseRow: View {
-    let name: String
-    let license: String
-    let url: URL
-
-    @Environment(\.openURL) private var openURL
-
-    var body: some View {
-        Button {
-            openURL(url)
-        } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(name)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(license)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 2)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Preview
 
 #Preview {
