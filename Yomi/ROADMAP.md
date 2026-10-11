@@ -35,6 +35,12 @@ The research audit revealed that 800+ sources are already available across four 
   no bank account). Only needed to charge money. Martin left the tax forms for later. W-8BEN notes: Part II (treaty)
   stays empty — Argentina is not on the IRS treaty list (irs.gov "tax treaties A to Z", read 2026-10-11); line 6a =
   CUIT/CUIL; he types the IDs and submits himself (cannot be edited after Submit).
+- **Martin installed build 493 through TestFlight** (first TestFlight install) and reports the webtoon fix #203 "I
+  think has worked" — soft confirmation.
+- Correction: Claude said an `ITSAppUsesNonExemptEncryption` key would stop the per-build encryption question. Not
+  verified — for the "standard algorithms outside Apple's OS" category the honest value is YES, and recall says YES
+  without a compliance code still asks (Apple's doc page would not load to confirm). Key NOT added; the question
+  takes two clicks per build.
 - Not done: TestFlight Test Information (only for external testers), App Store listing forms (age rating,
   description, support URL, screenshots), S151 list items 3–6 (reader fix #203 check, CloudKit schema → Production,
   `build-personal.sh` real entitlements, #170).
