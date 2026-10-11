@@ -58,9 +58,30 @@ The research audit revealed that 800+ sources are already available across four 
   review notes that present Yomi as a reader for own files + user-added repositories. Not yet done.
 - Martin wants friends on TestFlight as soon as possible → external group + Beta App Review, after a new build with
   the genres fix and the #170 changes. Feedback email martin@gamberg.com.ar.
-- Not done: TestFlight Test Information (only for external testers), App Store listing forms (age rating,
-  description, support URL, screenshots), S151 list items 3–6 (reader fix #203 check, CloudKit schema → Production,
-  `build-personal.sh` real entitlements, #170).
+- **#170 done in the app (`d2b20c8`, build 502):** no link from the app to any page that lists repositories. "How
+  to find repositories" → in-app "About repositories" (`RepositoryHelpView`, PluginsView.swift; sim-verified from
+  the welcome screen); welcome cards / Add Repository footer / Suwayomi footer no longer name other apps or
+  "1000+ sources"; About: GitHub row removed, Report a Bug = mailto martin@gamberg.com.ar with version + device.
+  README: "Getting Started" (own files first, the three repository links with a responsibility note) — the README
+  is where new users learn; friends get its link from Martin. Still naming other apps in the UI (not changed):
+  Backup screen ("Mihon / Tachiyomi / Tachimanga"), Local Files footer, several "Keiyoushi" strings in Settings.
+- **App Store wording of comparable apps (iTunes lookup API, US store, 2026-10-11):** Tachimanga, Lipex, Madomi,
+  Eclipse describe ONLY local files (CBZ/EPUB) + Komga/self-hosted — no word about sources or extensions; Paperback:
+  "Komga client … scripting API to extend the app"; Suwatte is the one that says it: "Install optional source
+  plugins from lists you trust" + "does not include a content catalog or provide access to content. You are
+  responsible for the files, services, and plugins you choose to use." All 17+ except Suwatte (12+); category
+  Entertainment or Book. Aidoku: not found in the US store search.
+- **Build 1.0 (502) uploaded** (genres fix + #170), verify-then-upload path of `build-testflight.sh` ran end to end.
+- **TestFlight Test Information saved:** beta description, feedback + contact = martin@gamberg.com.ar, review notes
+  (reader for own files; optional user-added repositories, none bundled or linked; HTTP only for self-hosted
+  servers), privacy URL `https://yomi-plugins.web.app/privacy.html`.
+- **Found: the in-app Privacy Policy link is dead** — `/privacy` returns 404, the page is `/privacy.html`; and the
+  policy was stale (said data never leaves the device, said Yomi hosts plugins for third-party sites, contact =
+  GitHub issues). Rewritten LOCALLY in `Firebase/public/privacy.html` (old one in `Firebase/privacy-2026-04-08.backup.html`)
+  + `cleanUrls` in firebase.json so `/privacy` works. NOT DEPLOYED — needs Martin's OK. The site's home page is
+  still the Firebase placeholder; a Support URL page is needed for the App Store listing.
+- Not done: encryption answer on 502, external group + Beta App Review submission, App Store listing forms (age
+  rating, description, support URL, screenshots), `build-personal.sh` real entitlements, W-8BEN / bank (paid apps).
 
 ---
 
