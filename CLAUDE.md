@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S150 — 2026-10-11)
+## Current state (S151 — 2026-10-11)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -75,7 +75,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - S149–S150: manga reader slide/swipe/zoom everywhere; Migrate = sources (with icons) → titles → carry-over options →
   **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
-  Publishing: Developer Program PAID 2026-10-11 (awaiting Apple); repo = all rights reserved (`LICENSE`); NEXT in ROADMAP S150.
+  Publishing: Developer Program ACTIVE 2026-10-11; repo = all rights reserved (`LICENSE`). S151: licence notices
+  screen (`LicensesView.swift`, texts from `scripts/build-licenses.sh` — re-run after dependency changes; gaps #202);
+  `Config/TestFlight.xcconfig` + `scripts/build-testflight.sh` written, NOT run (paid Team ID still a placeholder).
+  NEXT in ROADMAP S151.
 - Phone has the S150 Release build (`4ab9ba6`, NewPipe-free jar), profile expires **2026-10-18 11:52 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.

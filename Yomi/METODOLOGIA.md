@@ -2142,3 +2142,9 @@ previously here was removed during the 2026-08-04 doc restructure.
   `developer.apple.com/tutorials/data/documentation/...json` and walk the termList in order.
 - Migration audit lesson: "carry over read state" code that calls the normal mark-read helpers inherits their
   side effects (readAt = now, lastReadAt = now). Bulk data moves need their own transaction-level writes.
+
+## S151 lessons
+- Licence texts are collected by script from the exact copies we build from, never typed. `require.resolve(name +
+  "/package.json")` misses packages with an `exports` map (found 3 of cheerio's 23) — walk `node_modules` by hand.
+- Xcode's cached team list (`defaults read com.apple.dt.Xcode IDEProvisioningTeamByIdentifier`) does not refresh by
+  just opening Xcode after enrolling — the paid Team ID has to come from Martin or the Accounts pane.
