@@ -1,3 +1,24 @@
+diff --git a/server/build.gradle.kts b/server/build.gradle.kts
+index 247626b..e7d5fc3 100644
+--- a/server/build.gradle.kts
++++ b/server/build.gradle.kts
+@@ -20,10 +20,15 @@ dependencies {
+     implementation(libs.bundles.asm)
+     implementation(libs.icu4j.charset)
+     implementation(libs.quickjs4j)
+-    implementation(libs.newpipe.extractor)
+     implementation(libs.protobuf.javalite)
+     if (iosRuntime) {
++        // Yomi: NewPipe Extractor is GPLv3 — compiled against, never shipped. /youtube/resolve answers 500.
++        compileOnly(libs.newpipe.extractor)
++        // NewPipe used to pull jsoup 1.22.2 in; keep the version every device test ran on.
++        implementation("org.jsoup:jsoup:1.22.2")
+         runtimeOnly(libs.slf4jsimple)
++    } else {
++        implementation(libs.newpipe.extractor)
+     }
+     testImplementation(kotlin("test"))
+ 
 diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
 index f7a664c..d82b70d 100644
 --- a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
