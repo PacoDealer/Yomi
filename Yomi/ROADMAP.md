@@ -23,6 +23,19 @@ The research audit revealed that 800+ sources are already available across four 
 
 ## S151 — Publishing path, step 2 (2026-10-11)
 
+> **S152 starts here.** Build 1.0 (493) was uploaded 2026-10-11 and was still processing at session close.
+> 1. Ask Martin for Apple's processing mail (any validation problem with `OpenJDKRuntime.framework` shows up there).
+> 2. He answers the encryption question on the build (category in the submission checklist), makes an Internal
+>    Testing group, installs through the TestFlight app.
+> 3. His check of the webtoon reader fix (#203, on the phone, UNCONFIRMED — never reproduced).
+> 4. CloudKit: one development run with the real entitlements so the schema exists → deploy to Production in
+>    CloudKit Console (TestFlight builds use Production; sync does nothing there until then).
+> 5. Switch `scripts/build-personal.sh` to the real entitlements (same team, now paid) — widget data + iCloud on device.
+> 6. Before EXTERNAL testers: #170 (legal link), French encryption declaration research (ANSSI side), age rating 18+.
+> Uploading needs the local "Apple Distribution: Martín Gamberg" certificate in this Mac's keychain; the new
+> verify-then-upload path of `scripts/build-testflight.sh` has not run end to end yet. The notes below are in the
+> order things happened — the early "Team ID not known" line is corrected further down (same ID, upgraded in place).
+
 - **Apple confirmed the Developer Program membership** (welcome mail + "You now have access to App Store Connect",
   2026-10-11). Xcode on the Mac still lists only the free Personal Team `F9R33MN82P` — the paid Team ID is not known
   yet (Martin: developer.apple.com/account → Membership details, and refresh Xcode → Settings → Accounts).
