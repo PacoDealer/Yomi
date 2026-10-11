@@ -41,6 +41,23 @@ The research audit revealed that 800+ sources are already available across four 
   verified — for the "standard algorithms outside Apple's OS" category the honest value is YES, and recall says YES
   without a compliance code still asks (Apple's doc page would not load to confirm). Key NOT added; the question
   takes two clicks per build.
+- **CloudKit schema DEPLOYED TO PRODUCTION** (Martin clicked Deploy; verified in the console: 7 record types, Manga 22
+  fields). Created by one development run in the simulator (iPhone 17 Pro 26.3 signed in to his iCloud, a copy of
+  his library: 18,056 records). Found there: an empty `genres` list cannot initialise a new field → 4 novels rejected
+  and dropped, sync still said success → fixed `4598c3c` (send nil when empty); the silent drop itself = KNOWN_ISSUES
+  #204. `Manga.notes` never got created by data (a fetch right after the bootstrap overwrote the test note, then the
+  second 18k bootstrap got rate-limited) → added by hand in the console (STRING, no indexes — sync never queries).
+  Schema fields only exist for values that were non-nil at least once: after adding ANY synced field, check the
+  console before deploying. Simulator Yomi then reset to a fresh install; its data is in
+  `phone-backups/S152-sim-before-reset`. Development environment still holds the 18k test records (harmless).
+- **#170 read against the live guidelines (2026-10-11):** 4.7 "You are responsible for all such software offered in
+  your app", 5.2.2 permission from third-party services, 2.2 TestFlight builds must comply. Exposure: the welcome
+  screen, Extensions empty state and Add Repository sheet link to the README (`kYomiSetupGuideURL`), which lists the
+  three repository URLs with "1000+ manga sources"; More → GitHub / Report a Bug open the same page; the welcome
+  cards name Mihon, Tachimanga, LNReader. Martin approved: links out of the README path, neutral card wording,
+  review notes that present Yomi as a reader for own files + user-added repositories. Not yet done.
+- Martin wants friends on TestFlight as soon as possible → external group + Beta App Review, after a new build with
+  the genres fix and the #170 changes. Feedback email martin@gamberg.com.ar.
 - Not done: TestFlight Test Information (only for external testers), App Store listing forms (age rating,
   description, support URL, screenshots), S151 list items 3–6 (reader fix #203 check, CloudKit schema → Production,
   `build-personal.sh` real entitlements, #170).
