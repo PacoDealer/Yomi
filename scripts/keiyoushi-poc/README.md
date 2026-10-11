@@ -11,7 +11,7 @@ Plan, results and next steps: **`Yomi/KEIYOUSHI_POC.md`**. Big downloads/builds 
 | `build-runtime-framework.sh` | Wraps OpenJDK Mobile's static `libdevice.a` into a device-only `OpenJDKRuntime.framework`, with the Java home at `lib/` (the only place iOS HotSpot looks). Consumed by `Labs/YomiBridgeLab/prepare.sh`. |
 | `Launcher.java` | Mac stand-in for the iOS host: calls `mextensionserver.EmbeddedBridge.start(port, dir)`. |
 | `jul-shim/` | Our 2-class `java.util.logging` stand-in (the iOS runtime has no `java.logging`). |
-| `patches/m-extension-server-yomi.patch` | Our MPL-2.0 changes to M-Extension-Server (`NoZstdInterceptor`). Publish with any build we distribute. |
+| `patches/m-extension-server-yomi.patch` | Our MPL-2.0 changes to M-Extension-Server (`NoZstdInterceptor`, jar cache, wire stats, iOS build without NewPipe). Publish with any build we distribute. |
 
 Quick check that everything still works:
 
@@ -22,5 +22,5 @@ pkill -f "Launcher 18765"
 ```
 
 Licences: M-Extension-Server MPL-2.0 (our patch must stay public); OpenJDK GPLv2 + Classpath Exception;
-the server jar still contains NewPipe Extractor (GPLv3) — remove before any App Store build.
+NewPipe Extractor (GPLv3) is left out of the iOS jar since S150 (`compileOnly`; `stage-vendor.sh` refuses a jar that has it).
 `kodjodevf/m_extension_server` (Mangayomi's Flutter plugin) has **no licence** — read for facts only, never copy.

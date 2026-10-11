@@ -10,7 +10,10 @@ OUT="$ROOT/Vendor/Keiyoushi"
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp -R "$WORK/build/OpenJDKRuntime.framework" "$OUT/"
 rm -rf "$OUT/OpenJDKRuntime.framework/Headers"   # headers are only needed at compile time (Yomi/Keiyoushi/JNI)
-cp "$(ls "$WORK"/M-Extension-Server/server/build/MExtensionServer-*.jar | head -1)" "$OUT/MExtensionServer.jar"
+JAR="$(ls "$WORK"/M-Extension-Server/server/build/MExtensionServer-*.jar | head -1)"
+# NewPipe Extractor is GPLv3 and must never ship (S150). Our patch builds without it; an unpatched jar still has it.
+if unzip -Z1 "$JAR" | grep -q '^org/schabi/'; then echo "Refusing to stage: $JAR contains NewPipe (org/schabi)" >&2; exit 1; fi
+cp "$JAR" "$OUT/MExtensionServer.jar"
 cp "$WORK/harness/java-logging-shim.jar" "$OUT/"
 xattr -cr "$OUT"   # Desktop copies carry xattrs; codesign rejects them
 echo "Staged $(du -sh "$OUT" | cut -f1) into $OUT"
