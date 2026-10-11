@@ -572,7 +572,9 @@ private extension CloudSyncManager {
         record["author"]        = manga.author
         record["artist"]        = manga.artist
         record["status"]        = manga.status.rawValue
-        record["genres"]        = manga.genres
+        // CloudKit rejects an empty list on a field it has not seen yet ("cannot use an empty list to initialize a
+        // new field", S152) and the failed record is then dropped — send nothing instead.
+        record["genres"]        = manga.genres.isEmpty ? nil : manga.genres
         record["inLibrary"]     = manga.inLibrary
         record["lastReadAt"]    = manga.lastReadAt
         record["lastUpdatedAt"] = manga.lastUpdatedAt
@@ -590,7 +592,9 @@ private extension CloudSyncManager {
         record["summary"]       = novel.summary
         record["author"]        = novel.author
         record["status"]        = novel.status
-        record["genres"]        = novel.genres
+        // CloudKit rejects an empty list on a field it has not seen yet ("cannot use an empty list to initialize a
+        // new field", S152) and the failed record is then dropped — send nothing instead.
+        record["genres"]        = novel.genres.isEmpty ? nil : novel.genres
         record["inLibrary"]     = novel.inLibrary
         record["lastReadAt"]    = novel.lastReadAt
         record["lastUpdatedAt"] = novel.lastUpdatedAt
