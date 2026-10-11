@@ -38,6 +38,16 @@ enum SourceStatus {
         return "Plugin"
     }
 
+    /// The source's icon for a stored source id; nil when Yomi knows none (the badge then shows initials).
+    static func icon(_ sourceId: String) -> (url: URL?, isMihon: Bool) {
+        if let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) { return (ext.iconURL, false) }
+        guard KeiyoushiMapping.isKeiyoushiSourceId(sourceId) else { return (nil, false) }
+        let keiyoushiId = KeiyoushiMapping.mihonSourceId(sourceId)
+        let icon = KeiyoushiRepository.shared.installedExtension(forSourceId: keiyoushiId)?.info.iconURL
+            ?? KeiyoushiRepository.shared.available.first { $0.sources.contains { $0.id == keiyoushiId } }?.iconURL
+        return (icon.flatMap(URL.init(string:)), true)
+    }
+
     /// The installed source's display name for a stored source id (a plugin id or `keiyoushi_<id>`).
     static func sourceName(_ sourceId: String) -> String {
         if LocalLibrary.isLocalSourceId(sourceId) { return "Local Files" }
@@ -120,14 +130,18 @@ struct MigrateView: View {
         NavigationLink {
             MigrateTitlesView(sourceId: group.id, sourceName: group.name)
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(group.name)
-                    .foregroundStyle(canvas.textPrimary)
-                    .lineLimit(1)
-                Text("\(group.titles.count) title\(group.titles.count == 1 ? "" : "s")"
-                     + (groups.filter { $0.name == group.name }.count > 1 ? " · \(SourceStatus.kindLabel(group.id))" : ""))
-                    .font(.footnote)
-                    .foregroundStyle(canvas.textSecondary)
+            HStack(spacing: 14) {
+                let icon = SourceStatus.icon(group.id)
+                SourceIconBadge(name: group.name, iconURL: icon.url, size: 44, isMihonIcon: icon.isMihon)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(group.name)
+                        .foregroundStyle(canvas.textPrimary)
+                        .lineLimit(1)
+                    Text("\(group.titles.count) title\(group.titles.count == 1 ? "" : "s")"
+                         + (groups.filter { $0.name == group.name }.count > 1 ? " · \(SourceStatus.kindLabel(group.id))" : ""))
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                }
             }
             .padding(.vertical, 4)
         }
