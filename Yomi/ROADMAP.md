@@ -62,11 +62,18 @@ The research audit revealed that 800+ sources are already available across four 
 - Martin set the team + iCloud container + App Group in Xcode → **first paid archive SUCCEEDED** (build 492, 100 MB,
   real entitlements, Keiyoushi runtime inside, signature verifies). Not uploaded: the app record doesn't exist yet.
   French declaration + listing name written into the App Store submission checklist.
-- **NEXT:** Martin registers container + group → `--archive-only` → he creates the app record (SKU e.g. `yomi-ios`,
-  Full Access) → upload → internal testers. Then: run a dev build with the real entitlements once so CloudKit creates
-  the schema, deploy it to Production in CloudKit Console (TestFlight uses production). `Personal.xcconfig` is now
-  obsolete in principle (same team, paid: real entitlements + 1-year profiles) — switch the phone build over.
-  #170 before EXTERNAL testers.
+- App record created by Martin ("Yomi Manga and Novels Reader", non-trader for now). **Upload of build 493 REJECTED
+  twice: "Invalid Signature. Code failed to satisfy specified code requirement(s)"** on app, widget and runtime.
+  Root cause found by exporting locally: `codesign --verify` → "does not satisfy its designated Requirement". Xcode's
+  cloud signing passes `--requirements … leaf[subject.CN] = "Apple Distribution: Martín Gamberg (F9R33MN82P)"`; the
+  compiled requirement holds the **í decomposed** (`69 cc 81`) while the certificate's CN has it **precomposed**
+  (`c3 ad`) → never matches. Triggered by the accent in the account name; nothing wrong with the app or the runtime.
+- **NEXT:** Martin creates a LOCAL distribution certificate (Xcode → Settings → Apple Accounts → team → Manage
+  Certificates → + → Apple Distribution) so the export signs with plain codesign instead of cloud signing → export
+  locally first and `codesign --verify --strict` the .ipa (must NOT say "does not satisfy") → only then upload. If
+  Xcode still passes the bad requirement: sign by hand with the local identity + upload the .ipa. Then internal
+  testers; CloudKit schema → Production; switch `build-personal.sh` to the real entitlements. #170 before EXTERNAL
+  testers.
 
 ---
 

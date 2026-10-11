@@ -2148,3 +2148,8 @@ previously here was removed during the 2026-08-04 doc restructure.
   "/package.json")` misses packages with an `exports` map (found 3 of cheerio's 23) — walk `node_modules` by hand.
 - Xcode's cached team list (`defaults read com.apple.dt.Xcode IDEProvisioningTeamByIdentifier`) does not refresh by
   just opening Xcode after enrolling — the paid Team ID has to come from Martin or the Accounts pane.
+- "Invalid Signature … code requirement" on upload: export with `destination=export` and run
+  `codesign --verify --strict -vv` + `codesign -d -r-` on the .ipa contents before blaming the app. S151: accented
+  account name ("Martín") → cloud-signed designated requirement had the CN in NFD, certificate in NFC.
+- A free team that enrolls keeps its Team ID; `xcodebuild -allowProvisioningUpdates` enables capabilities but does not
+  create the iCloud container / App Group — those need Xcode's Signing & Capabilities once.
