@@ -80,8 +80,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   `Config/TestFlight.xcconfig` + `scripts/build-testflight.sh`: team `F9R33MN82P` is now the PAID team (upgraded in
   place); archive fails until `iCloud.pacodealer.Yomi` + `group.pacodealer.Yomi` are registered on the account.
   NEXT in ROADMAP S151.
-- Phone has the S150 Release build (`4ab9ba6`, NewPipe-free jar), profile expires **2026-10-18 11:52 UTC**. Free team = 7 days —
-  `scripts/build-personal.sh` prints the real expiry; read it.
+- Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
+  expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).

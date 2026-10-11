@@ -1461,6 +1461,15 @@ private struct PageRetryButton: View {
     }
 }
 
+/// Width / height of every page shown in the scrolling readers, kept for as long as the app runs.
+@MainActor private enum PageShapes {
+    static var known: [String: CGFloat] = [:]
+    static func remember(_ url: String, _ aspect: CGFloat) {
+        if known.count > 5000 { known.removeAll() }
+        known[url] = aspect
+    }
+}
+
 /// One page in the long strip / continuous horizontal readers. Used to stay a grey placeholder forever on failure.
 /// Loads through KingfisherManager itself instead of KFImage (S145): a very tall page must never reach the screen
 /// in one piece, and KFImage could show it without calling `onSuccess`, so the strips weren't always made.
@@ -1487,11 +1496,27 @@ private struct StripPageImage: View {
             }
             .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
         } else {
-            Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .aspectRatio(2 / 3, contentMode: .fit)
-                .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+            placeholder
                 .task(id: attempt) { await load() }
+        }
+    }
+
+    /// The lazy stack throws a page's state away once it is far off screen, so scrolling back meets a placeholder
+    /// again. It must be exactly as big as the page was, or everything below it jumps (a long-strip page is ~10x
+    /// taller than the old 2:3 box: pages seemed to skip, and scrolling up fought back — Martin, S151).
+    @ViewBuilder private var placeholder: some View {
+        let box = Rectangle().fill(Color.gray.opacity(0.2))
+        if let aspect = PageShapes.known[url] {
+            box.aspectRatio(aspect, contentMode: .fit)
+                .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+        } else if axis == .vertical {
+            // Never seen: a full screen, so a flick can't pass several unloaded pages that then grow behind you.
+            box.containerRelativeFrame(.vertical)
+                .frame(maxWidth: .infinity)
+                .overlay { ProgressView().tint(.white) }
+        } else {
+            box.aspectRatio(2 / 3, contentMode: .fit)
+                .frame(maxHeight: .infinity)
         }
     }
 
@@ -1500,6 +1525,7 @@ private struct StripPageImage: View {
         do {
             let result = try await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions)
             let image = result.image
+            if image.size.height > 0 { PageShapes.remember(url, image.size.width / image.size.height) }
             pieces = (axis == .vertical ? Self.strips(of: image) : nil) ?? [image]
         } catch {
             if Task.isCancelled { return }   // scrolled away; .task starts again when the page comes back
