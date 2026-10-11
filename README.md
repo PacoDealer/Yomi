@@ -67,4 +67,4 @@ https://github.com/keiyoushi/extensions/raw/repo/index.pb
 
 ## License
 
-MIT
+All rights reserved — see [LICENSE](LICENSE). The code is public to be read, not reused.
