@@ -1,6 +1,6 @@
 # Yomi — iOS Manga & Novel Reader
 
-A clean, fast manga, manhwa, manhua and light novel reader for iOS. Extensible architecture — community source repositories provide hundreds of reading sources.
+A clean, fast manga, manhwa, manhua and light novel reader for iOS. It reads your own files (CBZ, ZIP, EPUB) and can be extended with repositories you add by link.
 
 ---
 
