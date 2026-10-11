@@ -77,8 +77,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
   Publishing: Developer Program ACTIVE 2026-10-11; repo = all rights reserved (`LICENSE`). S151: licence notices
   screen (`LicensesView.swift`, texts from `scripts/build-licenses.sh` — re-run after dependency changes; #202 closed);
-  `Config/TestFlight.xcconfig` + `scripts/build-testflight.sh`: team `F9R33MN82P` is now the PAID team (upgraded in
-  place); archive fails until `iCloud.pacodealer.Yomi` + `group.pacodealer.Yomi` are registered on the account.
+  `scripts/build-testflight.sh` (Config/TestFlight.xcconfig, paid team `F9R33MN82P`) → **build 1.0 (493) uploaded
+  2026-10-11**. Needs the LOCAL Apple Distribution cert in the keychain (cloud signing breaks on the í in "Martín").
   NEXT in ROADMAP S151.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).

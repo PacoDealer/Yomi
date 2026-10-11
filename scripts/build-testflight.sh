@@ -36,6 +36,19 @@ cat >"$OPTS" <<PLIST
   <key>signingStyle</key><string>automatic</string>
 </dict></plist>
 PLIST
+# Export locally first and check every signature: Xcode's CLOUD signing writes "Martín" decomposed into the designated
+# requirement and Apple rejects the upload as "Invalid Signature" (S151). The local Apple Distribution certificate in
+# the keychain signs correctly — this guard catches the day it is missing or expired.
+CHECK="$OUT/check-$BUILD"; mkdir -p "$CHECK"
+sed 's|<string>upload</string>|<string>export</string>|' "$OPTS" > "$CHECK/opts.plist"
+xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$CHECK/opts.plist" -exportPath "$CHECK" \
+  -allowProvisioningUpdates >"$LOG" 2>&1 || { echo "Local export failed — full log: $LOG"; exit 1; }
+( cd "$CHECK" && unzip -q -o Yomi.ipa )
+for b in Yomi.app Yomi.app/PlugIns/YomiWidget.appex Yomi.app/Frameworks/OpenJDKRuntime.framework; do
+  codesign --verify --strict -vv "$CHECK/Payload/$b" 2>&1 | grep -q "satisfies its Designated Requirement" \
+    || { echo "Bad signature on $b — not uploading (is the local Apple Distribution certificate in the keychain?)" >&2; exit 1; }
+done
+echo "Signatures verified; uploading…"
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OPTS" -exportPath "$OUT/export-$BUILD" \
   -allowProvisioningUpdates 2>&1 | tee "$LOG" | grep -E "error|Upload|EXPORT (SUCCEEDED|FAILED)" || true
 grep -q "EXPORT SUCCEEDED" "$LOG" || { echo "Upload failed — full log: $LOG"; exit 1; }
