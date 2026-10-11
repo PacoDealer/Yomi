@@ -21,6 +21,32 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S151 — Publishing path, step 2 (2026-10-11)
+
+- **Apple confirmed the Developer Program membership** (welcome mail + "You now have access to App Store Connect",
+  2026-10-11). Xcode on the Mac still lists only the free Personal Team `F9R33MN82P` — the paid Team ID is not known
+  yet (Martin: developer.apple.com/account → Membership details, and refresh Xcode → Settings → Accounts).
+- **Licence notices screen** — More → About → Open Source Licenses (`Features/More/LicensesView.swift`): App (GRDB,
+  Kingfisher, Pulse in DEBUG only — it is not compiled into Release), Plugin runtime (cheerio + its 22 dependencies,
+  Day.js, core-js), Reader fonts (4 × OFL), Mihon extension runtime (OpenJDK GPLv2+CPE with the source manifest,
+  M-Extension-Server MPL-2.0 with the link to our patch, the libraries inside the server jar). Each row opens the full
+  text (UITextView — the server-libraries file is 475 KB). Texts are in `Resources/Licenses`, collected by
+  `scripts/build-licenses.sh` from the copies we build from (SwiftPM checkouts, node_modules, the jar, the JDK legal
+  folder) — re-run it after any dependency change. Sim-verified (list, biggest text). Gaps → KNOWN_ISSUES #202.
+- **Paid-team build**: `Config/TestFlight.xcconfig` (paid team + Keiyoushi embedded, real entitlements, no
+  `YOMI_PERSONAL`) and `scripts/build-testflight.sh` (archive Release → upload; build number = commit count;
+  `--archive-only` to check signing without uploading). **NOT RUN** — the Team ID placeholder is still in the xcconfig.
+- Xcode rewrote `project.pbxproj` on open (reordered exceptions, "GRDB.swift" → "GRDB" comment); same content.
+- Martin asked about the App Store "Xcode extensions" story: none needed (they are editor add-ons for typing code).
+- Still open from S150: Martin's device check (Asura + MangaFire on the new jar, all-sources migrate).
+- **NEXT:** Team ID → `build-testflight.sh --archive-only` (first paid signing: App ID, iCloud container, App Group,
+  push get registered by automatic signing) → Martin creates the app record in App Store Connect → upload → internal
+  testers. Before a TestFlight build syncs: deploy the CloudKit schema to Production (TestFlight uses the production
+  environment). Unknown until the first upload: whether App Store validation accepts `OpenJDKRuntime.framework`
+  (non-code `lib/` folder inside a framework) and the export-compliance answer. #170 + #202 before EXTERNAL testers.
+
+---
+
 ## S150 — Publishing path, step 1 (2026-10-10/11)
 
 - Martin decided to enroll in the paid Apple Developer Program (individual) to give friends a TestFlight build.
