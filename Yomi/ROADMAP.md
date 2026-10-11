@@ -55,6 +55,10 @@ The research audit revealed that 800+ sources are already available across four 
   embedded OpenJDK does its own TLS, so the honest category is "industry standard algorithm, not provided within the
   Apple operating system" → needs a French encryption declaration ONLY if the app is distributed on the App Store in
   France; nothing to upload otherwise. Martin's declaration to make; `ITSAppUsesNonExemptEncryption` not set yet.
+- Martin's field report: manhwa reader "skips a few pages, won't let me go up" → KNOWN_ISSUES #203, fix on phone
+  (Release, paid profile — expires 2027-10-11, no more 7-day reinstalls), awaiting his check. App Store name "Yomi" is
+  taken → he needs another listing name (the name under the icon stays Yomi). French encryption declaration: not
+  researched yet beyond Apple's page — only matters for App Store distribution in France.
 - **NEXT:** Martin registers container + group → `--archive-only` → he creates the app record (SKU e.g. `yomi-ios`,
   Full Access) → upload → internal testers. Then: run a dev build with the real entitlements once so CloudKit creates
   the schema, deploy it to Production in CloudKit Console (TestFlight uses production). `Personal.xcconfig` is now
