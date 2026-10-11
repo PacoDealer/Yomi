@@ -8,6 +8,7 @@ WORK="${KEIYOUSHI_POC_WORK:-$HOME/Desktop/Projects/Yomi/Tools/keiyoushi-poc}"
 PKGS="${YOMI_SOURCE_PACKAGES:-$HOME/Library/Developer/Xcode/DerivedData/Yomi-personal/SourcePackages/checkouts}"
 JAR="$ROOT/Vendor/Keiyoushi/MExtensionServer.jar"
 OUT="$ROOT/Yomi/Resources/Licenses"
+TP="$ROOT/scripts/third-party-licences"   # committed copies, so the build needs no network
 for need in "$PKGS/GRDB.swift/LICENSE" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
             "$WORK/M-Extension-Server/LICENSE" "$WORK/openjdk-ios/SOURCE_MANIFEST.txt"; do
   [ -e "$need" ] || { echo "Missing $need" >&2; exit 1; }
@@ -56,6 +57,7 @@ for (const root of ["cheerio", "dayjs", "core-js"]) {
   cat "$WORK/openjdk-ios/SOURCE_MANIFEST.txt"
   for f in LICENSE ASSEMBLY_EXCEPTION ADDITIONAL_LICENSE_INFO; do rule "$f"; cat "$WORK/jre-base/legal/java.base/$f"; done
   for f in "$WORK"/jre-base/legal/java.base/*.md; do rule "Third-party notice: $(basename "$f" .md)"; cat "$f"; done
+  rule "libffi (linked into the runtime)"; cat "$TP/libffi.txt"
 } > "$OUT/licence-openjdk.txt"
 
 # M-Extension-Server (MPL-2.0) — we ship a modified build; MPL requires saying where the changes are.
@@ -99,6 +101,11 @@ SLF4J [MIT]
 EOF
   unzip -Z1 "$JAR" | grep -E '(^|/)(LICENSE|NOTICE)[^/]*$|^META-INF/[^/]*-(LICENSE|NOTICE)$|^NOTICES/.+' | sort -u | while read -r f; do
     rule "From the server archive: $f"; unzip -p "$JAR" "$f"
+  done
+  # Libraries whose jars carry no licence file: texts fetched once from each project's repository (S151).
+  for f in "$TP"/*.txt; do
+    [ "$(basename "$f")" = libffi.txt ] && continue
+    rule "$(basename "$f" .txt)"; cat "$f"
   done
 } > "$OUT/licence-server-libraries.txt"
 
