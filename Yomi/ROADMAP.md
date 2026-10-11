@@ -42,6 +42,9 @@ The research audit revealed that 800+ sources are already available across four 
   the `migrationTargetOrder` default are gone. Sim-verified with one target (Aqua → Asura plugin: options screen,
   review, row tap → manual search); the many-Keiyoushi-sources case (speed, picks) is device-only — unchecked.
   Novels: there is no novel migration at all yet (Migrate lists manga only; LNReader plugins are never targets).
+- Source icons (Martin's screenshot): the coloured "border" was `SourceIconBadge`'s fallback gradient showing through
+  the transparent margin of Mihon extension icons. Gradient + initials are now only the fallback (no icon / loading /
+  failed); Keiyoushi rows pass `isMihonIcon` so the artwork is zoomed 1.2× to fill the badge. Sim screenshot checked.
 - **NEXT:** stage + install the new jar and device-check Keiyoushi; licence notices screen (OpenJDK GPLv2+CPE,
   M-Extension-Server MPL-2.0 + our patch, bundled fonts/JS libs) and a LICENSE for the public repo; after enrollment:
   paid-team signing config with Keiyoushi embedded (today only `Personal.xcconfig` embeds it), CloudKit container,

@@ -244,7 +244,7 @@ struct BrowseView: View {
                           subtitle: sources.count == 1
                               ? "\(SourceLanguage.displayName(for: sources[0].lang)) · Manga\(origin)"
                               : "\(sources.count) languages · Manga\(origin)",
-                          isNSFW: ext.info.isNSFW)
+                          isNSFW: ext.info.isNSFW, isMihonIcon: true)
             }
             .buttonStyle(.plain)
         case .keiyoushiSource(let ext, let source):
@@ -252,7 +252,7 @@ struct BrowseView: View {
                 KeiyoushiBrowseView(source: source)
             } label: {
                 SourceRow(name: ext.info.name, iconURL: URL(string: ext.info.iconURL),
-                          subtitle: "\(SourceLanguage.displayName(for: source.lang)) · Manga\(origin)", isNSFW: ext.info.isNSFW)
+                          subtitle: "\(SourceLanguage.displayName(for: source.lang)) · Manga\(origin)", isNSFW: ext.info.isNSFW, isMihonIcon: true)
             }
             .buttonStyle(.plain)
         }
@@ -554,6 +554,9 @@ struct SourceIconBadge: View {
     let name: String
     let iconURL: URL?
     var size: CGFloat = 36
+    /// Mihon extension icons are Android launcher icons with a transparent margin all round; zoomed so the artwork
+    /// fills the badge like every other icon.
+    var isMihonIcon = false
 
     private static let gradients: [[Color]] = [
         [Color(hex: "#7A1C14"), Color(hex: "#C23A2B")],
@@ -576,20 +579,28 @@ struct SourceIconBadge: View {
 
     var body: some View {
         // The image lives in an overlay so a non-square icon can't widen the badge (it shifted rows, S140).
-        LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+        // The gradient is only the fallback: behind a real icon it showed through the icon's transparent margin
+        // as a coloured border (Keiyoushi icons, S150).
+        Color.clear
             .frame(width: size, height: size)
             .overlay {
                 if let iconURL {
                     KFImage(iconURL)
-                        .placeholder { initialsText }
+                        .placeholder { fallback }
                         .fade(duration: 0.2)
                         .resizable()
                         .scaledToFill()
+                        .scaleEffect(isMihonIcon ? 1.2 : 1)
                 } else {
-                    initialsText
+                    fallback
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
+    }
+
+    private var fallback: some View {
+        LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+            .overlay { initialsText }
     }
 
     private var initialsText: some View {
@@ -606,11 +617,12 @@ private struct SourceRow: View {
     let iconURL: URL?
     let subtitle: String
     let isNSFW: Bool
+    var isMihonIcon = false
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 14) {
-            SourceIconBadge(name: name, iconURL: iconURL, size: 44)
+            SourceIconBadge(name: name, iconURL: iconURL, size: 44, isMihonIcon: isMihonIcon)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
