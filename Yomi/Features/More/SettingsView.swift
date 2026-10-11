@@ -457,7 +457,7 @@ struct SuwayomiSettingsView: View {
                     }
                 }
             } footer: {
-                Text("Self-host Suwayomi to browse 1000+ Mihon/Keiyoushi sources. Install the server on your computer or NAS, then paste the local IP here.")
+                Text("For people who run their own Suwayomi server. Install it on your computer or NAS, then paste the local IP here.")
                     .font(.caption)
             }
         }

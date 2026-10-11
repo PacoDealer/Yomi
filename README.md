@@ -4,48 +4,33 @@ A clean, fast manga, manhwa, manhua and light novel reader for iOS. Extensible a
 
 ---
 
-## Quick Start
+## Getting Started
 
-Yomi comes with no sources. You add **repositories** by link, then add the extensions you want from them.
+Yomi is a reader. It comes with **no sources and no content**. You can read your own files, or add **repositories**
+(lists of extensions published by other projects) by pasting their link.
 
-1. Open **Yomi** → **Browse** → **Extensions**
-2. Tap **Add Repository** (or **⋯ → Add Repository**) and paste a repository link from below
-3. Tap **Add** next to any extension, then open **Browse → Sources**
+### Read your own files
+**Browse → On This iPhone → Local Files** — import CBZ, ZIP or EPUB files, or link a folder from the Files app.
 
----
+### Add a repository
+1. Copy a repository link (see the list below, or the project that publishes it)
+2. In Yomi: **Browse → Extensions → Add Repository** (or **⋯ → Add Repository**) — paste the link → **Add**
+3. Every extension in that repository appears under **Available** — tap **Add** on the ones you want
+4. Open **Browse → Sources** and pick a source
+5. Updates show up under **Updates**; swipe left on an extension to delete it
+6. Manage repositories in **⋯ → Repositories** or **More → Settings → Repositories** (swipe left to remove one)
 
-## Source Repositories
+### Repositories that work with Yomi
 
-| | **Yomi Catalog** | **LNReader Novels** | **Keiyoushi** |
-|---|---|---|---|
-| **Content** | Curated manga + novels | 500+ light novel sources | 1000+ manga sources |
-| **Languages** | EN | 18+ languages | All |
+Yomi reads three repository formats. These are the public ones it is tested with — they are run by their own
+projects (the first one by this project), not shipped inside the app. You are responsible for the repositories you
+add and for using sources you are allowed to use.
 
-### Yomi Catalog
-```
-https://yomi-plugins.web.app/index.json
-```
-
-### LNReader Novels
-```
-https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json
-```
-
-### Keiyoushi (1000+ manga)
-Keiyoushi (Mihon) extensions run on the phone. Add its repository like any other:
-```
-https://github.com/keiyoushi/extensions/raw/repo/index.pb
-```
-
----
-
-## How to Add a Repository
-
-1. Copy a repository link (above, or from the project that publishes it)
-2. In Yomi: **Browse → Extensions → ⋯ → Add Repository** — paste the link → **Add**
-3. Every extension in that repository appears under **Available** — tap **Add**
-4. Updates show up under **Updates**; swipe left on an extension to delete it
-5. Manage repositories in **⋯ → Repositories** or **More → Settings → Repositories** (swipe left to remove one)
+| Repository | What it has | Link to paste |
+|---|---|---|
+| Yomi Catalog | A small set of manga + novel plugins | `https://yomi-plugins.web.app/index.json` |
+| LNReader plugins | Light novel sources, many languages | `https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json` |
+| Keiyoushi | Mihon-format manga extensions (they run on the phone) | `https://github.com/keiyoushi/extensions/raw/repo/index.pb` |
 
 ---
 

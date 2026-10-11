@@ -120,8 +120,9 @@ private struct AboutView: View {
                     .moreRowStyle()
             }
             Section {
-                linkRow("GitHub", icon: "chevron.left.forwardslash.chevron.right", url: "https://github.com/PacoDealer/Yomi")
-                linkRow("Report a Bug", icon: "ladybug", url: "https://github.com/PacoDealer/Yomi/issues")
+                // S152 (#170): no link to the GitHub repository from the app. Bug reports go by mail, with the
+                // version and device filled in.
+                linkRow("Report a Bug", icon: "ladybug", url: Self.bugReportURL)
                 linkRow("Privacy Policy", icon: "hand.raised", url: "https://yomi-plugins.web.app/privacy")
             }
             Section {
@@ -133,6 +134,19 @@ private struct AboutView: View {
         .yomiListCanvas()
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private static var bugReportURL: String {
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        var parts = URLComponents()
+        parts.scheme = "mailto"
+        parts.path = "martin@gamberg.com.ar"
+        parts.queryItems = [
+            URLQueryItem(name: "subject", value: "Yomi \(version) — bug report"),
+            URLQueryItem(name: "body", value: "What happened:\n\n\nWhat I expected:\n\n\n—\nYomi \(version) · \(UIDevice.current.model) · iOS \(UIDevice.current.systemVersion)"),
+        ]
+        return parts.string ?? "mailto:martin@gamberg.com.ar"
     }
 
     private func linkRow(_ label: String, icon: String, url: String) -> some View {
