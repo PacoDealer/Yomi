@@ -118,8 +118,8 @@ enum TitleMatch {
 
 // MARK: - MassMigration
 //
-// One run of Browse → Migrate: for each picked title, search the chosen targets in order (or all of them, keeping
-// the match with the most chapters), fetch the match's chapter list, let the user review, then migrate.
+// One run of Browse → Migrate: for each picked title, search EVERY installed manga source (S150, Martin: no picking
+// sources), keep the match that reaches the highest chapter, let the user review, then migrate.
 
 @Observable
 final class MassMigration {
@@ -136,8 +136,6 @@ final class MassMigration {
         var oldLatest: Double?
         var state: SearchState = .waiting
         var migrated = false
-        /// Left out by the user (the match is kept, so un-skipping costs nothing).
-        var skipped = false
         var error: String?
         var id: String { old.id }
 
@@ -153,7 +151,6 @@ final class MassMigration {
 
     var items: [Item]
     let targets: [MigrationTarget]
-    let mostChapters: Bool
     private(set) var options: MigrationService.Options
     private(set) var isMigrating = false
     private(set) var migratedCount = 0
@@ -161,10 +158,9 @@ final class MassMigration {
 
     @ObservationIgnored private var searchTask: Task<Void, Never>?
 
-    init(titles: [Manga], targets: [MigrationTarget], mostChapters: Bool, options: MigrationService.Options) {
+    init(titles: [Manga], targets: [MigrationTarget], options: MigrationService.Options) {
         self.items = titles.map { Item(old: $0) }
         self.targets = targets
-        self.mostChapters = mostChapters
         self.options = options
     }
 
@@ -172,11 +168,11 @@ final class MassMigration {
         items.filter { if case .waiting = $0.state { return false }; if case .searching = $0.state { return false }; return true }.count
     }
     var isSearching: Bool { searchedCount < items.count }
-    var readyCount: Int { items.filter { if case .found = $0.state { return !$0.migrated && !$0.skipped }; return false }.count }
+    var readyCount: Int { items.filter { if case .found = $0.state { return !$0.migrated }; return false }.count }
 
     // MARK: Search
 
-    /// Searches three titles at a time (the Keiyoushi pool size Updates uses).
+    /// Two titles at a time; each title asks all its sources at once (like the manual search screen).
     func start() {
         guard searchTask == nil else { return }
         let ids = items.map(\.id)
@@ -192,7 +188,7 @@ final class MassMigration {
                     next += 1
                     group.addTask { await self.search(itemId: id) }
                 }
-                for _ in 0..<3 { addNext() }
+                for _ in 0..<2 { addNext() }
                 for await _ in group {
                     if Task.isCancelled { break }
                     addNext()
@@ -209,14 +205,26 @@ final class MassMigration {
         guard let i = index(itemId), case .waiting = items[i].state else { return }
         items[i].state = .searching
         let title = items[i].old.title
-        var best: (Manga, MigrationTarget, [Chapter])?
-        for target in targets {
-            if Task.isCancelled { return }
-            guard let match = await Self.find(title, on: target, excludingPath: items[i].old.path),
-                  let chapters = try? await target.chapters(for: match), !chapters.isEmpty else { continue }
-            if !mostChapters { best = (match, target, chapters); break }
-            if best == nil || Self.latest(chapters) > Self.latest(best!.2) { best = (match, target, chapters) }
+        let oldPath = items[i].old.path
+        let targets = targets
+        var hits: [(Int, Manga, [Chapter])] = []
+        await withTaskGroup(of: (Int, Manga, [Chapter])?.self) { group in
+            for (n, target) in targets.enumerated() {
+                group.addTask {
+                    guard !Task.isCancelled, let match = await Self.find(title, on: target, excludingPath: oldPath),
+                          let chapters = try? await target.chapters(for: match), !chapters.isEmpty else { return nil }
+                    return (n, match, chapters)
+                }
+            }
+            for await hit in group { if let hit { hits.append(hit) } }
         }
+        if Task.isCancelled { return }
+        // Highest chapter wins; a tie goes to the source that comes first by name (stable between runs).
+        let best = hits.sorted { $0.0 < $1.0 }
+            .reduce(nil as (Manga, MigrationTarget, [Chapter])?) { best, hit in
+                if let best, Self.latest(hit.2) <= Self.latest(best.2) { return best }
+                return (hit.1, targets[hit.0], hit.2)
+            }
         guard let i = index(itemId) else { return }
         items[i].state = best.map { .found(match: $0.0, target: $0.1, chapters: $0.2) } ?? .notFound
     }
@@ -234,11 +242,6 @@ final class MassMigration {
     }
 
     // MARK: Review
-
-    func toggleSkip(_ id: String) {
-        guard let i = index(id) else { return }
-        items[i].skipped.toggle()
-    }
 
     /// A match the user picked by hand (the per-title search screen).
     func choose(_ match: Manga, on target: MigrationTarget, for id: String) async throws {
@@ -258,7 +261,7 @@ final class MassMigration {
         var summary = Summary()
         let options = options
         for item in items {
-            guard case .found(let match, _, let chapters) = item.state, !item.migrated, !item.skipped else { continue }
+            guard case .found(let match, _, let chapters) = item.state, !item.migrated else { continue }
             let old = item.old
             do {
                 let result = try await Task.detached(priority: .userInitiated) {

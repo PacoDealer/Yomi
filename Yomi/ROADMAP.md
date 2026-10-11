@@ -32,8 +32,16 @@ The research audit revealed that 800+ sources are already available across four 
   refers to them except the dead YouTube resolver; **all other 18k files byte-identical**. 47.9 → 45.8 MB.
   Mac run (java.base-only, `-Xint`): Asura and MangaFire popular → search → details → chapters → pages → first image OK.
   `stage-vendor.sh` now refuses a jar that contains `org/schabi`.
-- **NOT done:** the new jar is NOT in `Vendor/Keiyoushi` and not on the phone — Martin device-checks it first (old jar
-  kept at `Tools/keiyoushi-poc/MExtensionServer-with-newpipe.jar`). S149's ⋯ → Migrate sheet device check still open.
+- New jar staged into `Vendor/Keiyoushi` and installed on the phone (Release, profile exp 2026-10-18 11:52 UTC; old jar
+  kept at `Tools/keiyoushi-poc/MExtensionServer-with-newpipe.jar`). Keiyoushi on device with it: NOT yet checked by Martin.
+- Martin on device: S149's ⋯ → Migrate options sheet works ✅.
+- Martin's migrate feedback → done: **Skip removed** (a review row tap goes straight to the manual search; a title is
+  either migrated to the suggested match or re-picked by hand) and **no picking sources** — every installed manga
+  source except the title's own is searched, the match reaching the highest chapter is suggested (ties: first by
+  name). Sources are asked in parallel per title, two titles at a time. Source-order list, "Most chapters" toggle and
+  the `migrationTargetOrder` default are gone. Sim-verified with one target (Aqua → Asura plugin: options screen,
+  review, row tap → manual search); the many-Keiyoushi-sources case (speed, picks) is device-only — unchecked.
+  Novels: there is no novel migration at all yet (Migrate lists manga only; LNReader plugins are never targets).
 - **NEXT:** stage + install the new jar and device-check Keiyoushi; licence notices screen (OpenJDK GPLv2+CPE,
   M-Extension-Server MPL-2.0 + our patch, bundled fonts/JS libs) and a LICENSE for the public repo; after enrollment:
   paid-team signing config with Keiyoushi embedded (today only `Personal.xcconfig` embeds it), CloudKit container,
