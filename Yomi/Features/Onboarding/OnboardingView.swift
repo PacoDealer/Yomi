@@ -22,6 +22,7 @@ struct OnboardingView: View {
     /// What the open picker is for — kept apart from `picking`, which the dismissal clears before the completion runs.
     @State private var pickedKind: Option = .mihon
     @State private var showAddRepo = false
+    @State private var showRepoHelp = false
     @State private var importReport: BackupManager.TachiyomiImportReport? = nil
     @State private var busy: Option? = nil
     @State private var done: Set<Option> = []
@@ -42,8 +43,8 @@ struct OnboardingView: View {
                 VStack(spacing: 12) {
                     optionCard(.mihon,
                                systemImage: "arrow.down.doc",
-                               title: "Coming from Mihon or Tachimanga?",
-                               detail: "Import a .tachibk backup — your library, categories and reading progress come along.") {
+                               title: "Import a Backup",
+                               detail: "Bring a .tachibk backup from another reader — your library, categories and reading progress come along.") {
                         pickedKind = .mihon; picking = .mihon
                     }
                     optionCard(.yomi,
@@ -55,7 +56,7 @@ struct OnboardingView: View {
                     optionCard(.repo,
                                systemImage: "link",
                                title: "Add a Repository",
-                               detail: "Paste the link of a Mihon, LNReader or Yomi repository, then add the sources you want.") {
+                               detail: "Paste a repository's link, then add the sources you want.") {
                         repoCountAtOpen = repoCount
                         showAddRepo = true
                     }
@@ -65,7 +66,7 @@ struct OnboardingView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
-                Link("How to find repositories", destination: kYomiSetupGuideURL)
+                Button("About repositories") { showRepoHelp = true }
                     .font(.subheadline)
             }
             .padding(.horizontal, 24)
@@ -93,6 +94,7 @@ struct OnboardingView: View {
         }) {
             AddRepoSheet()
         }
+        .sheet(isPresented: $showRepoHelp) { RepositoryHelpSheet() }
         // fullScreenCover presents a separate view hierarchy that doesn't inherit YomiApp's .tint().
         .tint(accent)
     }
@@ -110,7 +112,7 @@ struct OnboardingView: View {
             }
             Text("Welcome to Yomi")
                 .font(.largeTitle.weight(.bold))
-            Text("Manga, manhwa and light novels from the sources you add. Yomi comes with none — start with one of these, or skip and do it later from Browse.")
+            Text("Manga, manhwa and light novels from your own files and the sources you add. Yomi comes with none — start with one of these, or skip and do it later from Browse.")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }

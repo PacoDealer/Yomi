@@ -4,7 +4,53 @@ import Kingfisher
 
 // MARK: - Constants
 
-let kYomiSetupGuideURL = URL(string: "https://github.com/PacoDealer/Yomi#how-to-add-a-repository")!
+// S152 (#170): the app links to no page that lists repositories — the old guide link opened the README. What a
+// repository is and how to add one is explained in the app (RepositoryHelpView); where to find one is not Yomi's
+// to say (App Review Guidelines 4.7, 5.2.2).
+
+/// "About Repositories" — pushed inside a NavigationStack, or shown alone in a sheet via `RepositoryHelpSheet`.
+struct RepositoryHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                topic("Yomi is a reader",
+                      "It comes with no sources and no content, and it doesn't provide or recommend any.")
+                topic("What a repository is",
+                      "A list of extensions published by someone else. Each extension adds one source to Browse.")
+                topic("Adding one",
+                      "If you have a repository's link, paste it in Add Repository. Its extensions appear under Available — tap Add on the ones you want. Swipe left to remove an extension or a repository.")
+                topic("Your choice, your responsibility",
+                      "Yomi doesn't check what a repository contains. Only add repositories you trust and sources you're allowed to use.")
+                topic("No repository?",
+                      "Yomi also reads your own files: Browse → On This iPhone → Local Files opens CBZ, ZIP and EPUB.")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(24)
+        }
+        .navigationTitle("About Repositories")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func topic(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.headline)
+            Text(text).font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct RepositoryHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            RepositoryHelpView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                }
+        }
+    }
+}
 
 // S140 (RESEARCH §26): Yomi ships with no repositories. The user adds every repository by pasting its link;
 // once a repository is added, every extension in it is one tap ("Add"). Removing is a swipe (red trash), both
@@ -24,6 +70,7 @@ struct PluginsView: View {
     @State private var searchText       = ""
     @State private var showInstallSheet = false
     @State private var showAddRepoSheet = false
+    @State private var showRepoHelp = false
     @State private var showRepositories = false
     /// Rows with an install or update running ("js:<id>" / "kei:<package>").
     @State private var busy: Set<String> = []
@@ -178,6 +225,7 @@ struct PluginsView: View {
         .sheet(isPresented: $showAddRepoSheet) {
             AddRepoSheet()
         }
+        .sheet(isPresented: $showRepoHelp) { RepositoryHelpSheet() }
         .confirmationDialog(
             langPickerGroup.map { "Add \($0.name)" } ?? "",
             isPresented: Binding(get: { langPickerGroup != nil }, set: { if !$0 { langPickerGroup = nil } }),
@@ -281,8 +329,8 @@ struct PluginsView: View {
                 .multilineTextAlignment(.center)
             PillButton(title: "Add Repository") { showAddRepoSheet = true }
                 .padding(.top, 4)
-            Link(destination: kYomiSetupGuideURL) {
-                Text("How to find repositories")
+            Button { showRepoHelp = true } label: {
+                Text("About repositories")
                     .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
             }
@@ -778,11 +826,11 @@ struct AddRepoSheet: View {
                 } header: {
                     Text("Repository Link")
                 } footer: {
-                    Text("A Mihon / Tachiyomi repository (index.pb or index.min.json), or a Yomi or LNReader repository (.json).")
+                    Text("Supported: an extension index (index.pb or index.min.json) or a plugin list (.json).")
                 }
                 Section {
-                    Link(destination: kYomiSetupGuideURL) {
-                        Label("How to find repositories", systemImage: "book")
+                    NavigationLink { RepositoryHelpView() } label: {
+                        Label("About repositories", systemImage: "book")
                     }
                 }
             }
