@@ -277,12 +277,8 @@ struct MigrateTargetView: View {
     /// Closes the whole sheet (a pushed screen's `dismiss` would only pop itself).
     let close: () -> Void
 
-    nonisolated static let orderKey = "migrationTargetOrder"
-
     @Environment(\.yomiCanvas) private var canvas
     @State private var available: [MigrationTarget] = []
-    @State private var order: [String] = []
-    @State private var mostChapters = false
     @State private var options = MigrationService.Options()
     @State private var isLoading = true
     @State private var showReview = false
@@ -297,27 +293,6 @@ struct MigrateTargetView: View {
             } else {
                 CalmList {
                     Section {
-                        ForEach(available) { target in
-                            Button { toggle(target.id) } label: { targetRow(target) }
-                                .buttonStyle(.plain)
-                        }
-                    } header: { CalmSectionHeader("Search on") } footer: {
-                        Text(order.count > 1 && !mostChapters
-                             ? "Searched in the order you picked them — the first source with a match wins."
-                             : "Tap sources in the order you want them searched.")
-                            .font(.footnote)
-                            .foregroundStyle(canvas.textSecondary)
-                    }
-                    if order.count > 1 {
-                        Section {
-                            Toggle("Most chapters", isOn: $mostChapters)
-                        } footer: {
-                            Text("Search every picked source and keep the match with the most chapters. Slower.")
-                                .font(.footnote)
-                                .foregroundStyle(canvas.textSecondary)
-                        }
-                    }
-                    Section {
                         Toggle("Read chapters", isOn: $options.chapters)
                         Toggle("Categories", isOn: $options.categories)
                         Toggle("Custom cover", isOn: $options.customCover)
@@ -325,7 +300,7 @@ struct MigrateTargetView: View {
                         Toggle("Tracking", isOn: $options.tracking)
                         Toggle("Remove downloads", isOn: $options.removeDownloads)
                     } header: { CalmSectionHeader("Carry over") } footer: {
-                        Text("At the end you choose Copy (the titles stay in the Library from \(sourceName) too) or Migrate (they leave it, but stay saved).")
+                        Text("Yomi searches every other manga source on this iPhone and suggests the match with the most chapters. At the end you choose Copy (the titles stay in the Library from \(sourceName) too) or Migrate (they leave it, but stay saved).")
                             .font(.footnote)
                             .foregroundStyle(canvas.textSecondary)
                     }
@@ -343,10 +318,7 @@ struct MigrateTargetView: View {
         .safeAreaInset(edge: .bottom) {
             if !available.isEmpty {
                 Button {
-                    UserDefaults.standard.set(order, forKey: Self.orderKey)
-                    let targets = order.compactMap { id in available.first { $0.id == id } }
-                    let model = MassMigration(titles: titles, targets: targets, mostChapters: mostChapters,
-                                              options: options)
+                    let model = MassMigration(titles: titles, targets: available, options: options)
                     run?.cancel()
                     run = model
                     model.start()
@@ -356,7 +328,6 @@ struct MigrateTargetView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
-                .disabled(order.isEmpty)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             }
@@ -366,42 +337,8 @@ struct MigrateTargetView: View {
         }
         .task {
             available = await MigrationTarget.available(excluding: sourceId)
-            let saved = UserDefaults.standard.stringArray(forKey: Self.orderKey) ?? []
-            order = saved.filter { id in available.contains { $0.id == id } }
             isLoading = false
         }
-    }
-
-    private func targetRow(_ target: MigrationTarget) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(target.name)
-                    .foregroundStyle(canvas.textPrimary)
-                if available.filter({ $0.name == target.name }).count > 1 {
-                    Text(SourceStatus.kindLabel(target.id))
-                        .font(.footnote)
-                        .foregroundStyle(canvas.textSecondary)
-                }
-            }
-            Spacer()
-            if let position = order.firstIndex(of: target.id) {
-                Text("\(position + 1)")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 24, height: 24)
-                    .background(Circle().fill(Color.accentColor))
-            } else {
-                Image(systemName: "circle")
-                    .font(.title3)
-                    .foregroundStyle(canvas.textSecondary)
-            }
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-    }
-
-    private func toggle(_ id: String) {
-        if let i = order.firstIndex(of: id) { order.remove(at: i) } else { order.append(id) }
     }
 }
 
@@ -413,7 +350,6 @@ struct MigrationReviewView: View {
     let close: () -> Void
 
     @Environment(\.yomiCanvas) private var canvas
-    @State private var actionItem: MassMigration.Item?
     @State private var manualItem: MassMigration.Item?
     @State private var confirm = false
 
@@ -454,17 +390,6 @@ struct MigrationReviewView: View {
                  ? "Titles still searching stay where they are. Copy keeps the old entries in the Library; Migrate takes them out (they stay saved)."
                  : "They move to the matches shown. Copy keeps the old entries in the Library from \(sourceName); Migrate takes them out (they stay saved).")
         }
-        .confirmationDialog(
-            actionItem?.old.title ?? "",
-            isPresented: Binding(get: { actionItem != nil }, set: { if !$0 { actionItem = nil } }),
-            titleVisibility: .visible
-        ) {
-            if let item = actionItem {
-                Button("Search Manually") { manualItem = item }
-                Button(item.skipped ? "Include" : "Skip") { model.toggleSkip(item.id) }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
         .navigationDestination(item: $manualItem) { item in
             MigrateSourcePickerView(oldManga: item.old, targets: model.targets) { match, target in
                 try await model.choose(match, on: target, for: item.id)
@@ -485,9 +410,9 @@ struct MigrationReviewView: View {
         CalmList {
             Section {
                 ForEach(model.items) { item in
-                    Button { actionItem = item } label: { row(item) }
+                    Button { manualItem = item } label: { row(item) }
                         .buttonStyle(.plain)
-                        .disabled(model.isMigrating)
+                        .disabled(model.isMigrating || item.migrated)
                 }
             } header: {
                 if model.isSearching {
@@ -526,7 +451,6 @@ struct MigrationReviewView: View {
                 matchView(item)
             }
         }
-        .opacity(item.skipped ? 0.45 : 1)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
     }
@@ -537,7 +461,7 @@ struct MigrationReviewView: View {
         case .waiting, .searching:
             Text("Searching…").font(.footnote).foregroundStyle(canvas.textSecondary)
         case .notFound:
-            Text("Not found — tap to search").font(.footnote).foregroundStyle(canvas.textSecondary)
+            Text("Not found — tap to search by hand").font(.footnote).foregroundStyle(canvas.textSecondary)
         case .found(let match, let target, let chapters):
             HStack(spacing: 12) {
                 CoverImage(url: match.coverURL)
@@ -559,7 +483,6 @@ struct MigrationReviewView: View {
     private func status(_ item: MassMigration.Item, target: MigrationTarget, chapters: [Chapter]) -> String {
         if let error = item.error { return error }
         if item.migrated { return "Migrated · \(target.name)" }
-        if item.skipped { return "Skipped" }
         let latest = chapters.compactMap(\.chapterNumber).max().map { " · up to \(Notation.chapter($0))" } ?? ""
         return "\(target.name) · \(chapters.count) chapter\(chapters.count == 1 ? "" : "s")\(latest)"
     }
