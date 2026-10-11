@@ -383,7 +383,7 @@ struct PluginsView: View {
                          detail: update.map { "Version \($0.versionName)" }
                             ?? keiyoushiDetail(installed.info, enabled: Set(installed.enabledSources.map(\.lang)),
                                                origin: origin),
-                         isNSFW: installed.info.isNSFW) {
+                         isNSFW: installed.info.isNSFW, isMihonIcon: true) {
                 if let update {
                     PillButton(title: "Update", busy: busy.contains(item.id) || isUpdatingAll) {
                         Task { await installKeiyoushi(update, langs: nil) }
@@ -412,7 +412,7 @@ struct PluginsView: View {
         case .availableKeiyoushi(let ext):
             ExtensionRow(name: ext.name, iconURL: URL(string: ext.iconURL),
                          detail: keiyoushiDetail(ext, enabled: nil, origin: origin),
-                         isNSFW: ext.isNSFW) {
+                         isNSFW: ext.isNSFW, isMihonIcon: true) {
                 PillButton(title: "Add", busy: busy.contains(item.id)) {
                     if Set(ext.sources.map(\.lang)).count > 1 {
                         keiyoushiInstallPick = ext
@@ -577,12 +577,13 @@ private struct ExtensionRow<Trailing: View>: View {
     let iconURL: URL?
     let detail: String
     let isNSFW: Bool
+    var isMihonIcon = false
     @ViewBuilder let trailing: Trailing
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
         HStack(spacing: 14) {
-            SourceIconBadge(name: name, iconURL: iconURL, size: 44)
+            SourceIconBadge(name: name, iconURL: iconURL, size: 44, isMihonIcon: isMihonIcon)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.body)
