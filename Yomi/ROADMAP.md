@@ -68,12 +68,14 @@ The research audit revealed that 800+ sources are already available across four 
   cloud signing passes `--requirements … leaf[subject.CN] = "Apple Distribution: Martín Gamberg (F9R33MN82P)"`; the
   compiled requirement holds the **í decomposed** (`69 cc 81`) while the certificate's CN has it **precomposed**
   (`c3 ad`) → never matches. Triggered by the accent in the account name; nothing wrong with the app or the runtime.
-- **NEXT:** Martin creates a LOCAL distribution certificate (Xcode → Settings → Apple Accounts → team → Manage
-  Certificates → + → Apple Distribution) so the export signs with plain codesign instead of cloud signing → export
-  locally first and `codesign --verify --strict` the .ipa (must NOT say "does not satisfy") → only then upload. If
-  Xcode still passes the bad requirement: sign by hand with the local identity + upload the .ipa. Then internal
-  testers; CloudKit schema → Production; switch `build-personal.sh` to the real entitlements. #170 before EXTERNAL
-  testers.
+- Martin created a local Apple Distribution certificate → local export verifies ("satisfies its Designated
+  Requirement", CN bytes `c3 ad`) → **build 1.0 (493) UPLOADED to App Store Connect 2026-10-11** ("Upload succeeded",
+  processing). `build-testflight.sh` now exports locally and verifies all three signatures before uploading (that
+  path is written but not yet run end to end). Harmless warning: no dSYM for OpenJDKRuntime.framework.
+- **NEXT:** wait for processing mail (it reports any validation problem with the runtime framework) → Martin answers
+  the encryption question on the build → TestFlight → Internal Testing group → he installs via the TestFlight app.
+  Then: CloudKit schema → Production (sync won't work in TestFlight before that); switch `build-personal.sh` to the
+  real entitlements; reader fix #203 still awaits his check. #170 before EXTERNAL testers.
 
 ---
 
