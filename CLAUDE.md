@@ -76,8 +76,9 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
   Publishing: Developer Program ACTIVE 2026-10-11; repo = all rights reserved (`LICENSE`). S151: licence notices
-  screen (`LicensesView.swift`, texts from `scripts/build-licenses.sh` — re-run after dependency changes; gaps #202);
-  `Config/TestFlight.xcconfig` + `scripts/build-testflight.sh` written, NOT run (paid Team ID still a placeholder).
+  screen (`LicensesView.swift`, texts from `scripts/build-licenses.sh` — re-run after dependency changes; #202 closed);
+  `Config/TestFlight.xcconfig` + `scripts/build-testflight.sh`: team `F9R33MN82P` is now the PAID team (upgraded in
+  place); archive fails until `iCloud.pacodealer.Yomi` + `group.pacodealer.Yomi` are registered on the account.
   NEXT in ROADMAP S151.
 - Phone has the S150 Release build (`4ab9ba6`, NewPipe-free jar), profile expires **2026-10-18 11:52 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
