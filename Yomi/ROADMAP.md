@@ -21,6 +21,26 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S150 — Publishing path, step 1 (2026-10-10/11)
+
+- Martin decided to enroll in the paid Apple Developer Program (individual) to give friends a TestFlight build.
+  Live rules checked: internal testers ≤ 100 = users on his App Store Connect account; external ≤ 10,000 by
+  email/public link, first build goes through TestFlight App Review; builds last 90 days.
+- **NewPipe (GPLv3) is out of the extension-server jar.** `server/build.gradle.kts`: `compileOnly` in iOS mode, jsoup
+  pinned to 1.22.2 (it came in through NewPipe; without the pin the jar fell back to 1.21.2). New jar vs old, file by
+  file: removed = `org/schabi` (479), Rhino, nanojson, jsr305 — nothing left in the jar or in the two test extensions
+  refers to them except the dead YouTube resolver; **all other 18k files byte-identical**. 47.9 → 45.8 MB.
+  Mac run (java.base-only, `-Xint`): Asura and MangaFire popular → search → details → chapters → pages → first image OK.
+  `stage-vendor.sh` now refuses a jar that contains `org/schabi`.
+- **NOT done:** the new jar is NOT in `Vendor/Keiyoushi` and not on the phone — Martin device-checks it first (old jar
+  kept at `Tools/keiyoushi-poc/MExtensionServer-with-newpipe.jar`). S149's ⋯ → Migrate sheet device check still open.
+- **NEXT:** stage + install the new jar and device-check Keiyoushi; licence notices screen (OpenJDK GPLv2+CPE,
+  M-Extension-Server MPL-2.0 + our patch, bundled fonts/JS libs) and a LICENSE for the public repo; after enrollment:
+  paid-team signing config with Keiyoushi embedded (today only `Personal.xcconfig` embeds it), CloudKit container,
+  App Group, push, App Store Connect record, first upload. #170 before any EXTERNAL tester.
+
+---
+
 ## S149 — Manga reader report #197–#200 (2026-10-09)
 
 - #197 reinterpreted by Martin: page-to-page SLIDE like novel Pages mode (not chapter swipe). Taps animate; swipe was blocked by a 1x pan gesture on every page → pan only while zoomed.

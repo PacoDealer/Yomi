@@ -71,7 +71,7 @@ expected to be noticeably slower. The Mac numbers prove *correctness*, not phone
 | **MangaFire shape-captcha** → extension calls `runWebViewBlocking` (Android WebView) | Only when MangaFire challenges (not seen in testing) | Yomi shows the site in a WKWebView, user solves, cookies forwarded via the bridge's Cookie header |
 | ~~**APK→JAR (dex2jar) runs every launch**~~ **FIXED S124** — our patch persists converted jars in `<appDir>/extension-jars/<server revision>/<apk sha256>.jar` | Mac, first call after relaunch: Asura 6.0 → **1.6 s**, MangaFire 3.5 → **0.5 s**. iPhone re-measure pending | — (Keiyoushi's prebuilt `.jar` would skip even the first conversion; not needed yet) |
 | **Duplicate translations** — MangaFire's Devil Butler: 1,516 chapters, all English, **592 chapter numbers twice** (`official` + `unofficial` scanlator) | Same "clones" problem Martin hit on MangaDex — it's a Keiyoushi-wide pattern, not a MangaDex quirk | **Yomi feature, not bridge:** per-title "one translation per chapter" (dedupe by chapter number, preferred scanlator), like Mihon's scanlator filter |
-| NewPipe Extractor (GPLv3) is inside the server jar | Licence, only matters when shipping | Build variant without `org/schabi` before any App Store build |
+| ~~NewPipe Extractor (GPLv3) is inside the server jar~~ **FIXED S150 (Mac-verified; device check pending)** — iOS build takes NewPipe as `compileOnly`; jsoup pinned to 1.22.2 (NewPipe used to pull it in) | Removed with it: Rhino, nanojson, jsr305. Every kept file is byte-identical to the old jar. `/youtube/resolve` answers 500 (Yomi never calls it) | Old jar kept at `Tools/keiyoushi-poc/MExtensionServer-with-newpipe.jar` until the device check passes |
 
 ## Phase 1 — on the iPhone ✅ DONE (S124, 2026-09-24)
 

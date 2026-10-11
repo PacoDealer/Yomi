@@ -71,7 +71,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
-  no CBR/RAR; GPLv3 NewPipe still in the extension-server jar; notification prompt on a fresh install not yet observed on device.
+  no CBR/RAR; NewPipe-free extension-server jar built S150 but not yet staged/device-checked (ROADMAP S150); notification prompt on a fresh install not yet observed on device.
 - Phone has the S148 Release build (`9955a0f`, migrate + local files), profile expires **2026-10-16 14:28 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
