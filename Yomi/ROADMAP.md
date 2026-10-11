@@ -39,11 +39,27 @@ The research audit revealed that 800+ sources are already available across four 
 - Xcode rewrote `project.pbxproj` on open (reordered exceptions, "GRDB.swift" → "GRDB" comment); same content.
 - Martin asked about the App Store "Xcode extensions" story: none needed (they are editor add-ons for typing code).
 - Still open from S150: Martin's device check (Asura + MangaFire on the new jar, all-sources migrate).
-- **NEXT:** Team ID → `build-testflight.sh --archive-only` (first paid signing: App ID, iCloud container, App Group,
-  push get registered by automatic signing) → Martin creates the app record in App Store Connect → upload → internal
-  testers. Before a TestFlight build syncs: deploy the CloudKit schema to Production (TestFlight uses the production
-  environment). Unknown until the first upload: whether App Store validation accepts `OpenJDKRuntime.framework`
-  (non-code `lib/` folder inside a framework) and the export-compliance answer. #170 + #202 before EXTERNAL testers.
+- **Part 2 (same day).** Correction: there is NO new Team ID — Apple upgraded `F9R33MN82P` in place (Xcode now
+  reports it as `Individual`, not free). It is in `TestFlight.xcconfig`. Martin: all-sources migrate device-checked ✅
+  (moved several Aqua titles to other sources).
+- First paid archive (`build-testflight.sh --archive-only`) **fails at signing**: Xcode issued new 1-year profiles
+  with push/iCloud/App Groups enabled but EMPTY container and group lists — `xcodebuild -allowProvisioningUpdates`
+  does not create `iCloud.pacodealer.Yomi` / `group.pacodealer.Yomi`. They must be registered once (Xcode →
+  Signing & Capabilities, or developer.apple.com → Identifiers). Waiting on Martin.
+- #202 closed: licence names checked against each project's LICENSE; missing texts + libffi in
+  `scripts/third-party-licences/`, appended by `build-licenses.sh`.
+- Runtime framework, static check: `Vendor/Keiyoushi` holds exactly one Mach-O (the framework binary, arm64, iOS
+  platform, minos 15.0), no loose dylibs/executables, jars carry no native libraries. Nothing known to fail
+  validation; only a real upload proves it.
+- Export compliance (Apple help page read 2026-10-11, "Export compliance documentation for encryption"): Yomi's
+  embedded OpenJDK does its own TLS, so the honest category is "industry standard algorithm, not provided within the
+  Apple operating system" → needs a French encryption declaration ONLY if the app is distributed on the App Store in
+  France; nothing to upload otherwise. Martin's declaration to make; `ITSAppUsesNonExemptEncryption` not set yet.
+- **NEXT:** Martin registers container + group → `--archive-only` → he creates the app record (SKU e.g. `yomi-ios`,
+  Full Access) → upload → internal testers. Then: run a dev build with the real entitlements once so CloudKit creates
+  the schema, deploy it to Production in CloudKit Console (TestFlight uses production). `Personal.xcconfig` is now
+  obsolete in principle (same team, paid: real entitlements + 1-year profiles) — switch the phone build over.
+  #170 before EXTERNAL testers.
 
 ---
 
