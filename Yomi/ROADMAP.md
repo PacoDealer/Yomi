@@ -59,6 +59,9 @@ The research audit revealed that 800+ sources are already available across four 
   (Release, paid profile — expires 2027-10-11, no more 7-day reinstalls), awaiting his check. App Store name "Yomi" is
   taken → he needs another listing name (the name under the icon stays Yomi). French encryption declaration: not
   researched yet beyond Apple's page — only matters for App Store distribution in France.
+- Martin set the team + iCloud container + App Group in Xcode → **first paid archive SUCCEEDED** (build 492, 100 MB,
+  real entitlements, Keiyoushi runtime inside, signature verifies). Not uploaded: the app record doesn't exist yet.
+  French declaration + listing name written into the App Store submission checklist.
 - **NEXT:** Martin registers container + group → `--archive-only` → he creates the app record (SKU e.g. `yomi-ios`,
   Full Access) → upload → internal testers. Then: run a dev build with the real entitlements once so CloudKit creates
   the schema, deploy it to Production in CloudKit Console (TestFlight uses production). `Personal.xcconfig` is now
@@ -2995,6 +2998,8 @@ These items must ALL be complete before submitting to App Store Connect:
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
 | Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). Design + functional work both complete since S96 — nothing code-side is blocking this anymore. |
 | Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |
+| French encryption declaration | ❌ Pending (S151) | Yomi's embedded OpenJDK does its own TLS = "industry standard algorithm, not provided within the Apple operating system" (Apple help: Export compliance documentation for encryption, read 2026-10-11). Needed ONLY for App Store distribution in France; uploaded in App Store Connect → App Information → App Encryption Documentation, Apple reviews in ~2 business days, then a key goes in Info.plist. NOT yet researched: the French (ANSSI) side — the form and any waiting period. Martin wants to do it if it isn't hard; until done, leave France out of availability. Not needed for TestFlight. |
+| App Store name | ✅ S151 | "Yomi" is taken → listing name **"Yomi Manga and Novels Reader"** (28 chars). Home-screen name stays Yomi. |
 | ATS review notes (`NSAllowsArbitraryLoads`) | ❌ Pending | Blanket exception (S89, for self-hosted Suwayomi/OPDS over HTTP) has no per-domain scoping — target hosts aren't known in advance, so scoping isn't feasible. Not a code change: add an App Store Connect review-note at submission explaining the self-hosted-server feature. Revisit scoping only if reviewers push back. |
 
 ## App Store compliance
