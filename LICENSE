@@ -1,0 +1,12 @@
+Copyright (c) 2026 Martin Gamberg. All rights reserved.
+
+This repository is public so the code can be read. No licence is granted: you may not copy, modify,
+distribute or publish this software or any part of it, in source or binary form, without written
+permission from the copyright holder.
+
+Exceptions — parts that are not covered by the notice above and keep their own licences:
+
+- scripts/keiyoushi-poc/patches/m-extension-server-yomi.patch — changes to M-Extension-Server
+  (https://github.com/kodjodevf/M-Extension-Server), Mozilla Public License 2.0.
+- Third-party software that Yomi bundles or downloads when it is built (OpenJDK, M-Extension-Server,
+  Kingfisher, GRDB, cheerio, dayjs, core-js, the reader fonts and others) remains under its own licence.
