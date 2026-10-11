@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S148 — 2026-10-09)
+## Current state (S150 — 2026-10-11)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -71,8 +71,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
 - Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
-  no CBR/RAR; NewPipe-free extension-server jar built S150 but not yet staged/device-checked (ROADMAP S150); notification prompt on a fresh install not yet observed on device.
-- Phone has the S148 Release build (`9955a0f`, migrate + local files), profile expires **2026-10-16 14:28 UTC**. Free team = 7 days —
+  no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
+- S149–S150: manga reader slide/swipe/zoom everywhere; Migrate = sources (with icons) → titles → carry-over options →
+  **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
+  Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
+  Publishing: Developer Program PAID 2026-10-11 (awaiting Apple); repo = all rights reserved (`LICENSE`); NEXT in ROADMAP S150.
+- Phone has the S150 Release build (`4ab9ba6`, NewPipe-free jar), profile expires **2026-10-18 11:52 UTC**. Free team = 7 days —
   `scripts/build-personal.sh` prints the real expiry; read it.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
