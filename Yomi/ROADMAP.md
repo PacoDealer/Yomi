@@ -21,6 +21,26 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S152 — App Store Connect: build 493 into TestFlight (2026-10-11)
+
+- **Build 1.0 (493) processed with no validation problem** (read on the TestFlight tab; the processing mail goes to
+  the Apple ID address `tintin@…`, not the Gmail account Claude can read). `OpenJDKRuntime.framework` was not flagged.
+- **Encryption question answered on the build** (Martin's declaration, saved in App Store Connect): "Standard
+  encryption algorithms instead of, or in addition to, using or accessing the encryption within Apple's operating
+  system" + distribution in France = **No**. Status went Missing Compliance → Ready to Submit, expires in 90 days.
+  Every new build asks again until `ITSAppUsesNonExemptEncryption` is in Info.plist (not set yet).
+- **Internal Testing group "Internal"** created (automatic distribution on — cannot be changed later), build 493
+  attached, Martin added as the only tester → status Invited. He installs through the TestFlight app.
+- App Store Connect → Business: Free Apps Agreement Active; Paid Apps Agreement "Pending User Info" (W-8BEN missing,
+  no bank account). Only needed to charge money. Martin left the tax forms for later. W-8BEN notes: Part II (treaty)
+  stays empty — Argentina is not on the IRS treaty list (irs.gov "tax treaties A to Z", read 2026-10-11); line 6a =
+  CUIT/CUIL; he types the IDs and submits himself (cannot be edited after Submit).
+- Not done: TestFlight Test Information (only for external testers), App Store listing forms (age rating,
+  description, support URL, screenshots), S151 list items 3–6 (reader fix #203 check, CloudKit schema → Production,
+  `build-personal.sh` real entitlements, #170).
+
+---
+
 ## S151 — Publishing path, step 2 (2026-10-11)
 
 > **S152 starts here.** Build 1.0 (493) was uploaded 2026-10-11 and was still processing at session close.
