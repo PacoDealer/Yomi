@@ -48,7 +48,13 @@ The research audit revealed that 800+ sources are already available across four 
   all 6 configs; built Info.plist `UIDeviceFamily = [1]`); iPad and maybe iPhone Duo = a later update. iCloud sync
   stays in the description. Widget + trackers: to be tested on TestFlight before they are mentioned. Build 0
   warnings. Not on the phone, not uploaded. Remaining risk on the switch is written in the listing doc §4.1.
-- **NEXT:** Martin approves/edits the draft → decide points 2–4 above → test widget + trackers → screenshots → type the fields into App
+- **Martin asked Claude to research and decide points 2–4 — decided:** (2) separate neutral Firebase site
+  `yomi-reader` (same project; home + support + privacy only; files in `Firebase/site/`, support.html moved there from
+  `public/`); (3) Content Rights = Yes; (4) home page written. **Site NOT created, NOT deployed** — waiting for his go.
+  Steps then: `firebase hosting:sites:create yomi-reader` → hosting targets in firebase.json/.firebaserc →
+  `firebase deploy --only hosting:site` → check the three URLs → in-app Privacy link to the new host.
+  Name `yomi-reader` looked free (404 on web.app) — only the create command proves it.
+- **NEXT:** Martin approves/edits the draft → his go for the site → test widget + trackers → screenshots → type the fields into App
   Store Connect. Still open from S153: encryption answer on 508, review result for 504, two-device sync test.
 
 ---
