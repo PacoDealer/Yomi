@@ -141,12 +141,12 @@ private struct AboutView: View {
         let version = "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
         var parts = URLComponents()
         parts.scheme = "mailto"
-        parts.path = "martin@gamberg.com.ar"
+        parts.path = "yomiappreader@gmail.com"
         parts.queryItems = [
             URLQueryItem(name: "subject", value: "Yomi \(version) — bug report"),
             URLQueryItem(name: "body", value: "What happened:\n\n\nWhat I expected:\n\n\n—\nYomi \(version) · \(UIDevice.current.model) · iOS \(UIDevice.current.systemVersion)"),
         ]
-        return parts.string ?? "mailto:martin@gamberg.com.ar"
+        return parts.string ?? "mailto:yomiappreader@gmail.com"
     }
 
     private func linkRow(_ label: String, icon: String, url: String) -> some View {
