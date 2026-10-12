@@ -36,7 +36,10 @@ The research audit revealed that 800+ sources are already available across four 
 - Not verified: two real devices; a failed delete; Release build; nothing here is on the phone or in TestFlight.
 - Simulator now holds a copy of the library from the development environment with sync ON (no longer the fresh
   install of S152).
-- **NEXT:** review result for 504 → build 505 with these fixes (encryption question by hand) → two-device test
+- **Build 1.0 (508) uploaded** (`7a566e2` + docs; the number is the commit count, not 505), signatures verified,
+  processing at Apple. Not added to Friends: Apple allows one build per version in review, 504 is still waiting.
+  Internal group gets it automatically once Martin answers the encryption question.
+- **NEXT:** Martin answers the encryption question on 508 → review result for 504 → add 508 to Friends → two-device test
   (simulator ↔ phone needs the phone on a development-environment build, or two TestFlight devices) → App Store
   listing forms.
 
