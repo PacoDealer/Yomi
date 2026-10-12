@@ -21,6 +21,32 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S154 — App Store listing drafted (2026-10-12)
+
+- **Draft for Martin's approval: `Yomi/APP_STORE_LISTING.md`** — subtitle, promotional text, description, keywords,
+  category, copyright, age rating answers (all 7 steps), Content Rights, App Review notes, competitor table, sources.
+  **Nothing typed into App Store Connect**; every listing field there is still empty (read today).
+- **Support page drafted: `Firebase/public/support.html`** (contact e-mail + FAQ). NOT deployed.
+- Read live today: guidelines 1.2, 1.5, 2.3.x, 4.7.x, 5.2.2; Apple's age rating + field-limit help pages; the real
+  age rating and Content Rights dialogs in App Store Connect (opened, cancelled); listings + recent reviews of
+  Tachimanga, Paperback, Eclipse, Lipex, Suwatte, ArcReader, Panels.
+- **Age rating proposal:** Unrestricted Web Access = Yes (the Cloudflare sheet has an address bar) → 16+, content
+  lines like Eclipse, the two "graphic" lines = None (anything else = Unrated, not allowed on the store), then
+  override to 18+.
+- **Found — decide before submitting (listing doc §4):**
+  1. The in-app "Show 18+ content" switch (Settings + Extensions). Guideline 1.2 allows mature content only when
+     turned on "via your website"; Apple pulled Reddit clients over an in-app switch in 2016. 4.7.5 wants a
+     declared-age gate. Code change, not done.
+  2. Support + privacy pages share the host `yomi-plugins.web.app` with `index.json` (16 source plugins).
+  3. The site's home page is still the Firebase placeholder.
+  4. Content Rights is a yes/no declaration — Martin's call (lean: Yes).
+- Not done: screenshots (plan in the doc), iPad layout check, the [CHECK] claims in the description (sync on two
+  devices, read aloud on device, trackers, widget).
+- **NEXT:** Martin approves/edits the draft → decide the four points above → screenshots → type the fields into App
+  Store Connect. Still open from S153: encryption answer on 508, review result for 504, two-device sync test.
+
+---
+
 ## S153 — Sync fixes while build 504 waits for Beta App Review (2026-10-12)
 
 - **#204 fixed** (`11bbc03` + this session's follow-up): a change iCloud refuses for good stays visible (More → Sync:
