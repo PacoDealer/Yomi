@@ -545,7 +545,9 @@ extension CloudSyncManager: CKSyncEngineDelegate {
     private func noteFailedChange(recordID: CKRecord.ID, isDelete: Bool, error: CKError) {
         guard !Self.selfRetriedErrors.contains(error.code) else { return }
         NSLog("CloudSync: %@ of %@ rejected: %@", isDelete ? "delete" : "save", recordID.recordName, "\(error)")
-        failedChanges[recordID.recordName] = FailedChange(isDelete: isDelete, reason: error.localizedDescription)
+        // The server's own sentence when there is one — `localizedDescription` is mostly the record ID.
+        let reason = error.userInfo["ServerErrorDescription"] as? String ?? error.localizedDescription
+        failedChanges[recordID.recordName] = FailedChange(isDelete: isDelete, reason: reason)
         Self.markPending(recordName: recordID.recordName, change: isDelete ? "delete" : "save")
     }
 
@@ -690,6 +692,9 @@ private extension CloudSyncManager {
     nonisolated func applyRemote(record: CKRecord) {
         guard let type = CloudRecordType(ckRecordType: record.recordType) else { return }
         Self.rememberMapping(recordName: record.recordID.recordName, type: type, key: mapKey(for: type, record: record))
+        // Keep the server's change tag: a later local edit sent without it comes back as a conflict, and the
+        // server copy then overwrites the edit (#205).
+        Self.cacheRecord(record)
 
         switch type {
         case .manga:
