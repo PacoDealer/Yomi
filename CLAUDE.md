@@ -86,8 +86,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   S153: sync fixes #204 (refused changes stay visible + retried) and #205 (received records keep their change tag —
   504 lacks this; **build 508 uploaded** with both, add it to Friends once 504 is approved), both run against CloudKit in the simulator.
   S154: App Store listing DRAFTED in `Yomi/APP_STORE_LISTING.md` (waiting for Martin's approval; nothing entered in
-  App Store Connect) + `Firebase/public/support.html` (not deployed). Open decisions in its §4 — first one: the in-app
-  "Show 18+ content" switch vs guideline 1.2. NEXT in ROADMAP S154.
+  App Store Connect) + `Firebase/public/support.html` (not deployed). The 18+ switch now lives ONLY in
+  `RepositoriesView` (off by default; Martin's decision — don't add it back to Extensions or Settings → Privacy).
+  **App is iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`); iPad comes as a later update. Open decisions in the listing
+  doc §4. NEXT in ROADMAP S154.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.

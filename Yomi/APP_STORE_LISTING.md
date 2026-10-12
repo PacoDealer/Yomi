@@ -30,7 +30,7 @@ A calm reader for manga, webtoons and light novels. Your own files, your own lib
 
 ### Description (4,000 max, plain text)
 ```
-Yomi is a calm, fast reader for manga, manhwa, webtoons and light novels on iPhone and iPad. No ads, no account, no tracking.
+Yomi is a calm, fast reader for manga, manhwa, webtoons and light novels on iPhone. No ads, no account, no tracking.
 
 READ YOUR OWN FILES
 • Open CBZ, ZIP and EPUB files, or link a folder from the Files app
@@ -69,13 +69,13 @@ Questions or problems: yomiappreader@gmail.com
 ```
 
 Claims to confirm before this goes live:
-- **[CHECK] iCloud sync** — two real devices were never tested (S153). Drop the line or test first.
+- iCloud sync stays in (Martin, S154: "iCloud sync will work"). The two-device test is still worth doing before release.
 - **[CHECK] Read aloud** — rebuilt in S143, only checked in the simulator.
-- **[CHECK] "on iPhone and iPad"** — the build targets both, but the iPad layout was never reviewed. If it stays, iPad
-  screenshots are required too.
-- Not in the draft on purpose: trackers (MyAnimeList, AniList, …) — the last note on them says the sign-in needs
-  Martin's own OAuth keys; add a line only once one tracker works on the TestFlight build. Home Screen widget —
-  exists in the project, never checked on a paid-team build.
+- iPad removed (Martin, S154): the project is iPhone-only now (`TARGETED_DEVICE_FAMILY = 1`), so no iPad screenshots.
+  iPad — and maybe iPhone Duo — come as a later update. An iPhone-only app can still be opened on an iPad in a
+  phone-sized window, and App Review may try it there.
+- Not in the draft until tested (Martin agreed, S154): trackers (MyAnimeList, AniList, …) and the Home Screen widget —
+  both need a check on a TestFlight build; add a line for each once it works.
 
 ### Keywords (100 bytes max, comma-separated, no spaces)
 ```
@@ -196,12 +196,11 @@ loud sample.
 
 ## 4. Problems found while drafting (need a decision before submitting)
 
-1. **The in-app "Show 18+ content" switch.** Guideline 1.2 (read live 2026-10-12): mature content may be shown
-   "provided that the content is hidden by default and only displayed when the user turns it on **via your
-   website**". In 2016 Apple pulled third-party Reddit apps over exactly this — an in-app NSFW switch — and let them
-   back once the switch was removed. Yomi has the switch in Settings and in Extensions. Guideline 4.7.5 also asks for
-   "an age restriction mechanism based on verified or declared age". Safest fix: remove the two switches and keep
-   18+-marked extensions hidden (or gate them behind a declared-age question). This is a code change — not done.
+1. **The 18+ switch — DECIDED by Martin (S154), done in code.** It stays, hidden: removed from the Extensions menu and
+   from Settings → Privacy; it now lives only in Repositories (Settings → Repositories, or Browse → ⋯ →
+   Repositories), off by default. Remaining risk, stated plainly: guideline 1.2 says such content may be shown only
+   when turned on "via your website", and 4.7.5 asks for a declared-age gate — an in-app switch, even a buried one, is
+   what Apple objected to in 2016. If App Review raises it, the fallback is to remove the switch.
 2. **The support address shares a host with the plugin catalog.** `yomi-plugins.web.app/index.json` lists 16
    source plugins (scanlation and novel sites) on the same host as the Support and Privacy pages, and the host name
    itself says "plugins". The app no longer links there, but a reviewer or rights holder looking at the support
@@ -231,6 +230,7 @@ HOW TO TEST WITH REAL CONTENT
 OPTIONAL FEATURES
 - OPDS: the user can enter the address of an OPDS catalog on a server they run or are allowed to use.
 - Extensions: the user can paste the link of a repository and add extensions from it (JavaScript, and Mihon-format extensions run by an embedded OpenJDK runtime). No repository or extension is included in the app, and the app does not link to or suggest any. Extensions do not change the purpose of the app: they are additional places the reader can list and open titles from.
+- A switch in Repositories (off by default) decides whether extensions that a repository marks as 18+ are listed.
 - A web sheet with an address bar appears when a site asks the user to pass a browser check. Because of it we declared "Unrestricted Web Access".
 - iCloud sync (off by default) stores the user's library in their private CloudKit database.
 
