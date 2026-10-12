@@ -21,6 +21,27 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S153 — Sync fixes while build 504 waits for Beta App Review (2026-10-12)
+
+- **#204 fixed** (`11bbc03` + this session's follow-up): a change iCloud refuses for good stays visible (More → Sync:
+  "N items could not sync" + the server's reason), is sent again on the next launch and on Sync Now.
+- **#205 found and fixed — more serious than #204:** records a device RECEIVED from iCloud had no cached change tag,
+  so the first local edit came back as a conflict and the server copy overwrote it. Affects any second device and
+  any reinstall. **Build 504 has it** → the next upload (505) should go to the Friends group before anyone relies on
+  sync across two devices.
+- **Verified against CloudKit** (simulator, development environment, Martin signed the simulator in again):
+  fresh install → 18,060 records fetched, all with a cached record; note on a fetched title survives a sync (lost
+  before the fix); forced rejection (`-yomiSyncRejectManga`) → row on the Sync screen, kept pending, retried on
+  relaunch, goes through once the rejection stops. Build: 0 warnings. Probe note removed from the test record.
+- Not verified: two real devices; a failed delete; Release build; nothing here is on the phone or in TestFlight.
+- Simulator now holds a copy of the library from the development environment with sync ON (no longer the fresh
+  install of S152).
+- **NEXT:** review result for 504 → build 505 with these fixes (encryption question by hand) → two-device test
+  (simulator ↔ phone needs the phone on a development-environment build, or two TestFlight devices) → App Store
+  listing forms.
+
+---
+
 ## S152 — App Store Connect: build 493 into TestFlight (2026-10-11)
 
 - **Build 1.0 (493) processed with no validation problem** (read on the TestFlight tab; the processing mail goes to
