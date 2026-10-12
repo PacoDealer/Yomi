@@ -208,10 +208,6 @@ struct PluginsView: View {
                     Button { showInstallSheet = true } label: {
                         Label("Add Extension from Link", systemImage: "link")
                     }
-                    Divider()
-                    Toggle(isOn: $settings.showNSFW) {
-                        Label("Show 18+ Extensions", systemImage: "eye")
-                    }
                 } label: {
                     Image(systemName: "ellipsis")
                 }
@@ -753,6 +749,14 @@ struct RepositoriesView: View {
                 .font(.footnote)
                 .foregroundStyle(canvas.textSecondary)
                 .padding(.top, 8)
+            }
+
+            // The only place this switch lives (S154): off by default, the user has to come here to turn it on.
+            Section(calm: "Content") {
+                Toggle(isOn: $settings.showNSFW) {
+                    Text("Show 18+ extensions")
+                    Text("Off hides extensions their repository marks as 18+.")
+                }
             }
         }
         .navigationTitle("Repositories")

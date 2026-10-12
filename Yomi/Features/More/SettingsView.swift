@@ -135,7 +135,6 @@ struct SettingsView: View {
                 toggle("Incognito", isOn: $settings.isIncognito, note: "Reading progress and history aren't saved.")
                 toggle("App Lock", isOn: appLockBinding, note: "Face ID or passcode when you open Yomi.")
                 toggle("Hide in App Switcher", isOn: $settings.secureScreenEnabled)
-                toggle("Show 18+ content", isOn: $settings.showNSFW, note: "Extensions marked 18+ in Browse.")
             } header: { CalmSectionHeader("Privacy") }
 
             Section {
