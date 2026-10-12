@@ -2143,6 +2143,19 @@ previously here was removed during the 2026-08-04 doc restructure.
 - Migration audit lesson: "carry over read state" code that calls the normal mark-read helpers inherits their
   side effects (readAt = now, lastReadAt = now). Bulk data moves need their own transaction-level writes.
 
+## S153 lessons
+
+- **Test a sync fix with a probe that goes through the server, not with a fake.** The plan was a fake failure to
+  check the new row; running the real path instead (edit a row in SQLite, set `cloud_sync_map.pendingChange='save'`,
+  launch, read the row back) exposed #205 on the first try — the edit came back erased.
+- **CKSyncEngine: cache every record you receive, not only the ones you send.** A save without the server's change
+  tag is a conflict by definition.
+- A wrong-typed value on an existing field is a reliable way to make the development environment reject a save
+  (a NEW field name is not — development creates it).
+- `simctl spawn defaults read` did not show `lastCloudSyncDate` although the app had written it — read app state
+  from the DB or the screen instead.
+- Reinstalling over an app in the simulator changes its data-container path: ask `get_app_container` again.
+
 ## S151 lessons
 - Licence texts are collected by script from the exact copies we build from, never typed. `require.resolve(name +
   "/package.json")` misses packages with an `exports` map (found 3 of cheerio's 23) — walk `node_modules` by hand.
