@@ -95,12 +95,13 @@ Primary **Books**, secondary **Entertainment** — same as Suwatte, Eclipse, Pan
 
 ### Support URL / Marketing URL / Privacy Policy URL
 ```
-Support:  https://yomi-plugins.web.app/support
-Privacy:  https://yomi-plugins.web.app/privacy
+Support:  https://yomi-reader.web.app/support
+Privacy:  https://yomi-reader.web.app/privacy
 Marketing: (leave empty)
 ```
-Support page draft: `Firebase/public/support.html` — written, **not deployed**. See §4 for a problem with this
-address.
+**Decided S154:** a separate, neutral site `yomi-reader` in the same Firebase project — home, support and privacy
+only, files in `Firebase/site/`. **Not created or deployed yet** (waiting for Martin's go). The old
+`yomi-plugins.web.app/privacy` stays up: builds already on TestFlight link to it.
 
 ---
 
@@ -144,11 +145,13 @@ Also on that page — **Content Rights** (two choices, read from the dialog):
 - "Yes, it contains, shows, or accesses third-party content, and I have the necessary rights"
 - "No, it does not contain, show, or access third-party content"
 
-This is Martin's declaration. My lean is **Yes**: Yomi "accesses" whatever the user points it at, and an Apple
-forum answer on this question says it is not conditional on a feature being optional. "No" would contradict the
-extension feature named in the review notes (2.3.1(b): dishonesty = removal from the program). "Yes" means Apple can
-ask for proof under 5.2.2 ("Authorization must be provided upon request") — the answer then is that the app ships
-nothing and the user supplies files, servers and extensions. Not found: what any comparable app answered.
+**Decided S154: answer Yes.** Apple's wording is "contain, show, or access" — Yomi accesses whatever the user points it
+at, and the App Review notes say so. "No" would contradict those notes, and guideline 2.3.1(b) treats dishonesty as
+grounds for removal from the program; a wrong "Yes" at worst brings a question. What "Yes" costs: Apple can ask for
+proof (5.2.2, "Authorization must be provided upon request"). The answer then: the app ships no content; files,
+servers and extensions are supplied by the user. Searched and not found: any Apple statement on this question for
+reader or browser apps, or what comparable apps answered — the only guidance is a non-staff forum opinion ("the
+question isn't conditional… answer yes").
 
 ---
 
@@ -201,13 +204,12 @@ loud sample.
    Repositories), off by default. Remaining risk, stated plainly: guideline 1.2 says such content may be shown only
    when turned on "via your website", and 4.7.5 asks for a declared-age gate — an in-app switch, even a buried one, is
    what Apple objected to in 2016. If App Review raises it, the fallback is to remove the switch.
-2. **The support address shares a host with the plugin catalog.** `yomi-plugins.web.app/index.json` lists 16
-   source plugins (scanlation and novel sites) on the same host as the Support and Privacy pages, and the host name
-   itself says "plugins". The app no longer links there, but a reviewer or rights holder looking at the support
-   site is one URL away. Option: a second, neutral Firebase site for support + privacy only. Changing the privacy
-   URL means changing it in the app and in App Store Connect.
-3. **The site's home page is still "Welcome to Firebase Hosting".** Replace it with a plain page before the
-   Support URL goes into the listing.
+2. **Support address — DECIDED S154: separate site `yomi-reader.web.app`** (see §1). Why not the alternatives: staying on
+   `yomi-plugins.web.app` keeps the support page one URL from a list of 16 source plugins on a host named "plugins";
+   GitHub Pages would sit next to a README that lists repository links. A second site in the same Firebase project
+   is free and takes two commands. After it is live: point the in-app Privacy Policy link at it in the next build.
+3. **Home page — done in the same step:** `Firebase/site/index.html` (plain page: what Yomi is, support, privacy,
+   contact). The placeholder on the old plugin host is left as it is.
 4. **Screenshots** — not drafted this session. Proposal: use only free-licence content (Pepper & Carrot, CC BY, with
    credit; a Project Gutenberg or Standard Ebooks novel), six screens: library, comic reader, novel reader with the
    text panel, read aloud, downloads/offline, sync + backup. Guideline 2.3.8: screenshots must suit a 4+ audience
