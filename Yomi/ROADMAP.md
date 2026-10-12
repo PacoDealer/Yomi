@@ -80,6 +80,18 @@ The research audit revealed that 800+ sources are already available across four 
   GitHub issues). Rewritten LOCALLY in `Firebase/public/privacy.html` (old one in `Firebase/privacy-2026-04-08.backup.html`)
   + `cleanUrls` in firebase.json so `/privacy` works. NOT DEPLOYED — needs Martin's OK. The site's home page is
   still the Firebase placeholder; a Support URL page is needed for the App Store listing.
+- **Review-notes research (2026-10-12, live guideline text + web):** Guideline 2.3.1(a): "Don't include any hidden,
+  dormant, or undocumented features… your app's functionality should be clear to end users and App Review. All new
+  features… must be described with specificity in the Notes for Review… (generic descriptions will be rejected)";
+  2.3.1(b): dishonesty = removal from the Developer Program. Intro "Before You Submit": "Include detailed
+  explanations of non-obvious features… in the App Review notes" and give App Review everything needed to review.
+  → the repository/extension feature MUST be named in the notes (leaving it out is the risky direction); a way to
+  test with real content must be given (sample public-domain EPUB link). Approved "bring your own content" apps
+  (IPTV players, Suwatte) state "does not provide content / users add their own" in their public listings — that
+  sentence is the category convention, not a red flag. Not found anywhere: the actual notes any comparable app
+  submitted, or a rejection report for Paperback/Tachimanga/Suwatte. Beta App Review is lighter than App Review.
+- Martin made an app mailbox: **yomiappreader@gmail.com** — in Report a Bug (`f82c36a`) and the local privacy page.
+  Firebase deploy FAILED: credentials expired (`firebase login --reauth`, Martin) — privacy page still the old one.
 - Not done: encryption answer on 502, external group + Beta App Review submission, App Store listing forms (age
   rating, description, support URL, screenshots), `build-personal.sh` real entitlements, W-8BEN / bank (paid apps).
 
@@ -3092,7 +3104,7 @@ These items must ALL be complete before submitting to App Store Connect:
 Yomi is App Store compliant via the extension model:
 - App binary ships with ZERO plugin files
 - Users install plugins themselves from Firebase catalog (user action, not Apple's)
-- Legal precedent: Paperback, Aidoku use identical model and are on App Store
+- Precedent: Paperback, Tachimanga, Suwatte, Eclipse, Lipex are on the App Store with user-added sources (checked 2026-10-11). **Aidoku is NOT on the App Store** (its own FAQ: no App Store plans yet) — do not cite it
 - App Store description: "extensible reader with user-installed JavaScript plugins"
 - Never reference specific source sites in App Store listing or screenshots
 - Onboarding must make the install-a-source flow feel easy (under 60 seconds)
