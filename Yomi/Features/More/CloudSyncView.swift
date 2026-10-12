@@ -26,10 +26,11 @@ struct CloudSyncView: View {
 
                 if settings.cloudSyncEnabled {
                     statusRow
+                    failedRow
 
                     if sync.status != .unavailable {
                         Button {
-                            Task { await sync.syncNow() }
+                            Task { await sync.syncNow(retryFailed: true) }
                         } label: {
                             Text("Sync Now")
                                 .foregroundStyle(sync.status == .syncing ? canvas.textSecondary : Color.accentColor)
@@ -51,6 +52,27 @@ struct CloudSyncView: View {
         .task {
             if settings.cloudSyncEnabled {
                 await sync.syncNow()
+            }
+        }
+    }
+
+    /// Changes iCloud refused (#204) — "Last synced" alone would hide them.
+    @ViewBuilder
+    private var failedRow: some View {
+        let count = sync.failedChanges.count
+        if count > 0 {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(count == 1 ? "1 item could not sync" : "\(count) items could not sync",
+                      systemImage: "exclamationmark.icloud")
+                Text("Yomi tries again when it next opens, or tap Sync Now.")
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+                if let reason = sync.failedChanges.values.first?.reason {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(canvas.textSecondary)
+                        .lineLimit(3)
+                }
             }
         }
     }

@@ -135,6 +135,17 @@ final class CloudSyncManager: NSObject {
     var lastSyncDate: Date? = UserDefaults.standard.object(forKey: "lastCloudSyncDate") as? Date
     var isAccountAvailable = false
 
+    /// Changes the server refused for good (recordName → what was sent + why). CKSyncEngine forgets such a
+    /// change, so without this list the next sync would report success (#204). An entry leaves when the
+    /// record is sent successfully; each one is also stashed in `cloud_sync_map.pendingChange`, so the next
+    /// `enable()` (next launch — maybe a newer build) sends it again.
+    private(set) var failedChanges: [String: FailedChange] = [:]
+
+    struct FailedChange: Equatable {
+        var isDelete: Bool
+        var reason: String
+    }
+
     /// Guards `enable()` against a double-call race (code-review finding #44): cold-launch auto-enable
     /// and a fast manual Settings toggle can both reach the `await container.accountStatus()` call
     /// before `cloudSyncEngine` is assigned. Set synchronously before the first `await`, so the second
@@ -224,9 +235,18 @@ final class CloudSyncManager: NSObject {
 
     /// Explicit fetch+send, called on app foreground/background (see YomiApp.swift) rather than
     /// relying on real-time push — see Yomi/CLOUDKIT_SYNC_DESIGN.md's "sync latency" decision.
-    func syncNow() async {
+    func syncNow(retryFailed: Bool = false) async {
         guard let engine = cloudSyncEngine else { return }
         status = .syncing
+        if retryFailed, !failedChanges.isEmpty {
+            // Failures come back through `handleEvent` and land in `failedChanges` again.
+            let retries: [CKSyncEngine.PendingRecordZoneChange] = failedChanges.map { recordName, failure in
+                let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
+                return failure.isDelete ? .deleteRecord(recordID) : .saveRecord(recordID)
+            }
+            failedChanges = [:]
+            engine.state.add(pendingRecordZoneChanges: retries)
+        }
         do {
             try await engine.sendChanges()
             try await engine.fetchChanges()
@@ -434,6 +454,12 @@ final class CloudSyncManager: NSObject {
         } ?? nil
     }
 
+    private nonisolated static func clearCachedRecord(recordName: String) {
+        _ = try? appDatabase.write { db in
+            try db.execute(sql: "UPDATE cloud_sync_map SET recordData = NULL WHERE recordName = ?", arguments: [recordName])
+        }
+    }
+
     private nonisolated static func cacheRecord(_ record: CKRecord) {
         guard let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) else { return }
         _ = try? appDatabase.write { db in
@@ -476,8 +502,16 @@ extension CloudSyncManager: CKSyncEngineDelegate {
         case .sentRecordZoneChanges(let event):
             for saved in event.savedRecords {
                 Self.cacheRecord(saved)
+                failedChanges[saved.recordID.recordName] = nil
+            }
+            for deleted in event.deletedRecordIDs {
+                failedChanges[deleted.recordName] = nil
+            }
+            for (recordID, error) in event.failedRecordDeletes {
+                noteFailedChange(recordID: recordID, isDelete: true, error: error)
             }
             for failedSave in event.failedRecordSaves {
+                let recordID = failedSave.record.recordID
                 switch failedSave.error.code {
                 case .serverRecordChanged:
                     // v1 conflict policy: last write wins, server's committed value is authoritative —
@@ -488,15 +522,31 @@ extension CloudSyncManager: CKSyncEngineDelegate {
                     }
                 case .zoneNotFound:
                     syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
-                    syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(failedSave.record.recordID)])
+                    syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
+                case .unknownItem:
+                    // Gone from the server, so the cached copy's change tag points at nothing — send it as new.
+                    Self.clearCachedRecord(recordName: recordID.recordName)
+                    syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
                 default:
-                    break
+                    noteFailedChange(recordID: recordID, isDelete: false, error: failedSave.error)
                 }
             }
 
         default:
             break
         }
+    }
+
+    /// The engine retries these itself and keeps the change pending — same list as Apple's CKSyncEngine sample.
+    private static let selfRetriedErrors: Set<CKError.Code> = [
+        .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .notAuthenticated, .operationCancelled
+    ]
+
+    private func noteFailedChange(recordID: CKRecord.ID, isDelete: Bool, error: CKError) {
+        guard !Self.selfRetriedErrors.contains(error.code) else { return }
+        NSLog("CloudSync: %@ of %@ rejected: %@", isDelete ? "delete" : "save", recordID.recordName, "\(error)")
+        failedChanges[recordID.recordName] = FailedChange(isDelete: isDelete, reason: error.localizedDescription)
+        Self.markPending(recordName: recordID.recordName, change: isDelete ? "delete" : "save")
     }
 
     func nextRecordZoneChangeBatch(
@@ -575,6 +625,10 @@ private extension CloudSyncManager {
         // CloudKit rejects an empty list on a field it has not seen yet ("cannot use an empty list to initialize a
         // new field", S152) and the failed record is then dropped — send nothing instead.
         record["genres"]        = manga.genres.isEmpty ? nil : manga.genres
+        #if DEBUG
+        // `-yomiSyncRejectManga`: a wrong-typed field, so the server rejects every Manga save (#204 check).
+        if ProcessInfo.processInfo.arguments.contains("-yomiSyncRejectManga") { record["status"] = 1 }
+        #endif
         record["inLibrary"]     = manga.inLibrary
         record["lastReadAt"]    = manga.lastReadAt
         record["lastUpdatedAt"] = manga.lastUpdatedAt
