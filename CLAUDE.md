@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S151 — 2026-10-11)
+## Current state (S152 — 2026-10-12)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -79,7 +79,11 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   screen (`LicensesView.swift`, texts from `scripts/build-licenses.sh` — re-run after dependency changes; #202 closed);
   `scripts/build-testflight.sh` (Config/TestFlight.xcconfig, paid team `F9R33MN82P`) → **build 1.0 (493) uploaded
   2026-10-11**. Needs the LOCAL Apple Distribution cert in the keychain (cloud signing breaks on the í in "Martín").
-  NEXT in ROADMAP S151.
+  S152: build 493 on TestFlight (Internal group, Martin installed it); **CloudKit schema in Production**; #170 app
+  changes (no link from the app to any repository list — in-app `RepositoryHelpView`; Report a Bug = mail to
+  yomiappreader@gmail.com); **build 504 submitted to Beta App Review 2026-10-12** (external group "Friends", public
+  link in ROADMAP S152). Each upload needs the encryption question answered by hand (standard algorithms, France No).
+  NEXT in ROADMAP S152.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.

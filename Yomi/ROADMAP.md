@@ -92,8 +92,21 @@ The research audit revealed that 800+ sources are already available across four 
   submitted, or a rejection report for Paperback/Tachimanga/Suwatte. Beta App Review is lighter than App Review.
 - Martin made an app mailbox: **yomiappreader@gmail.com** — in Report a Bug (`f82c36a`) and the local privacy page.
   Firebase deploy FAILED: credentials expired (`firebase login --reauth`, Martin) — privacy page still the old one.
-- Not done: encryption answer on 502, external group + Beta App Review submission, App Store listing forms (age
-  rating, description, support URL, screenshots), `build-personal.sh` real entitlements, W-8BEN / bank (paid apps).
+- **Privacy page DEPLOYED** (after Martin's `firebase login --reauth`): `https://yomi-plugins.web.app/privacy` → 200
+  (cleanUrls), new text, contact yomiappreader@gmail.com. The in-app link works again for every build.
+- **Build 1.0 (504) uploaded** (`f82c36a`, Report a Bug → yomiappreader@gmail.com), encryption answered (502 too).
+- **SUBMITTED TO BETA APP REVIEW 2026-10-12:** external group **"Friends"**, build 504 = "Waiting for Review".
+  Review notes as Martin approved (reader; CBZ/ZIP/EPUB + OPDS; extensions from a repository link, none included;
+  how to test with a Project Gutenberg EPUB; no sign-in; HTTP for self-hosted servers), "Sign-in required" off,
+  What to Test filled, feedback email = app mailbox, review contact = Martin's own (only Apple sees it).
+  **Public link: https://testflight.apple.com/join/Jgz5CYRg** (limit 50) — testers cannot join until the build is
+  approved. NOT tested: the Gutenberg EPUB named in the notes was never opened in Yomi (no download permission
+  asked/answered); the Report a Bug mail row (needs a mail account).
+- **NEXT (S153):** review result (App Store Connect → TestFlight → Friends, or mail to tintin@). If approved: Martin
+  sends the link + the README link to friends. If rejected: read the Resolution Center message first. Then: App
+  Store listing forms (age rating, description, support URL — site home page is still the Firebase placeholder,
+  screenshots), #204 (silent sync drop), two-device sync test, `build-personal.sh` real entitlements, remaining
+  other-app names in the UI (#170), W-8BEN/bank only if he wants paid features.
 
 ---
 
