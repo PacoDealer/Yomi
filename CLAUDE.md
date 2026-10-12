@@ -84,7 +84,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   yomiappreader@gmail.com); **build 504 submitted to Beta App Review 2026-10-12** (external group "Friends", public
   link in ROADMAP S152). Each upload needs the encryption question answered by hand (standard algorithms, France No).
   S153: sync fixes #204 (refused changes stay visible + retried) and #205 (received records keep their change tag —
-  **504 lacks this, upload 505**), both run against CloudKit in the simulator. NEXT in ROADMAP S153.
+  504 lacks this; **build 508 uploaded** with both, add it to Friends once 504 is approved), both run against CloudKit in the simulator. NEXT in ROADMAP S153.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
