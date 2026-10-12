@@ -42,7 +42,13 @@ The research audit revealed that 800+ sources are already available across four 
   4. Content Rights is a yes/no declaration — Martin's call (lean: Yes).
 - Not done: screenshots (plan in the doc), iPad layout check, the [CHECK] claims in the description (sync on two
   devices, read aloud on device, trackers, widget).
-- **NEXT:** Martin approves/edits the draft → decide the four points above → screenshots → type the fields into App
+- **Martin's answers (same day) — done:** the 18+ switch stays but hidden → removed from the Extensions ⋯ menu and
+  Settings → Privacy, now only in `RepositoriesView` ("Content" section), default off (unchanged). Simulator-checked
+  (Privacy section without it; Repositories shows it, off). **App is iPhone-only now** (`TARGETED_DEVICE_FAMILY = 1`,
+  all 6 configs; built Info.plist `UIDeviceFamily = [1]`); iPad and maybe iPhone Duo = a later update. iCloud sync
+  stays in the description. Widget + trackers: to be tested on TestFlight before they are mentioned. Build 0
+  warnings. Not on the phone, not uploaded. Remaining risk on the switch is written in the listing doc §4.1.
+- **NEXT:** Martin approves/edits the draft → decide points 2–4 above → test widget + trackers → screenshots → type the fields into App
   Store Connect. Still open from S153: encryption answer on 508, review result for 504, two-device sync test.
 
 ---
