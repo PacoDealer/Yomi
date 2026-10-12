@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S153 — 2026-10-12)
+## Current state (S154 — 2026-10-12)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -84,7 +84,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   yomiappreader@gmail.com); **build 504 submitted to Beta App Review 2026-10-12** (external group "Friends", public
   link in ROADMAP S152). Each upload needs the encryption question answered by hand (standard algorithms, France No).
   S153: sync fixes #204 (refused changes stay visible + retried) and #205 (received records keep their change tag —
-  504 lacks this; **build 508 uploaded** with both, add it to Friends once 504 is approved), both run against CloudKit in the simulator. NEXT in ROADMAP S153.
+  504 lacks this; **build 508 uploaded** with both, add it to Friends once 504 is approved), both run against CloudKit in the simulator.
+  S154: App Store listing DRAFTED in `Yomi/APP_STORE_LISTING.md` (waiting for Martin's approval; nothing entered in
+  App Store Connect) + `Firebase/public/support.html` (not deployed). Open decisions in its §4 — first one: the in-app
+  "Show 18+ content" switch vs guideline 1.2. NEXT in ROADMAP S154.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
