@@ -30,9 +30,19 @@ struct KeiyoushiBrowseView: View {
     @State private var loadGeneration = 0
     /// True once the extension is known to declare settings of its own — only then is the gear shown.
     @State private var hasSettings = false
+    /// The extension's search filters with nothing chosen (empty = the source has none → no filter button),
+    /// and the reader's choices. Chosen filters turn the screen into a search, with or without words (Mihon).
+    @State private var filterDefaults: [KeiyoushiFilter] = []
+    @State private var filters: [KeiyoushiFilter] = []
+    @State private var showFilters = false
 
     private let bridge = KeiyoushiBridge.shared
     private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
+
+    private var filterList: [[String: Any]] { KeiyoushiFilter.wire(filters, defaults: filterDefaults) }
+    private var isFiltering: Bool { filters != filterDefaults }
+    /// Searching by words, by filters, or both — all one request to the extension.
+    private var usesSearch: Bool { isSearching || isFiltering }
 
     var body: some View {
         Group {
@@ -59,7 +69,8 @@ struct KeiyoushiBrowseView: View {
                 }
             } else if mangas.isEmpty && !hasNextPage {
                 YomiEmptyState(systemImage: "magnifyingglass", title: "Nothing found",
-                               message: isSearching ? "No results for \u{201C}\(searchQuery)\u{201D}." : "This feed is empty.")
+                               message: isSearching ? "No results for \u{201C}\(searchQuery)\u{201D}."
+                                   : isFiltering ? "No title matches these filters." : "This feed is empty.")
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
@@ -87,7 +98,7 @@ struct KeiyoushiBrowseView: View {
         .navigationTitle(source.name)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .top, spacing: 0) {
-            if supportsLatest && !isSearching {
+            if supportsLatest && !usesSearch {
                 Picker("Feed", selection: $selectedFeed) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
@@ -108,6 +119,18 @@ struct KeiyoushiBrowseView: View {
             if new.isEmpty && isSearching { Task { await reset(); await loadMore() } }
         }
         .toolbar {
+            if filterDefaults.contains(where: \.isEditable) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showFilters = true
+                    } label: {
+                        Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill"
+                                                      : "line.3.horizontal.decrease")
+                    }
+                    .accessibilityLabel("Filters")
+                    .accessibilityValue(isFiltering ? "On" : "Off")
+                }
+            }
             if hasSettings {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -124,6 +147,15 @@ struct KeiyoushiBrowseView: View {
                 MangaDetailView(manga: manga)
             }
         }
+        .sheet(isPresented: $showFilters) {
+            KeiyoushiFilterSheet(defaults: filterDefaults, draft: filters) {
+                try? await bridge.filters(sourceId: source.id)
+            } onSearch: { chosen, defaults in
+                filterDefaults = defaults
+                filters = chosen
+                Task { await reset(keepQuery: isSearching); await loadMore() }
+            }
+        }
         .sheet(isPresented: $showCFBypass) {
             CFBypassView(initialURL: cloudflareURL ?? source.homeURL) {
                 Task { await reset(keepQuery: isSearching); await loadMore() }
@@ -134,6 +166,10 @@ struct KeiyoushiBrowseView: View {
             await loadMore()
             supportsLatest = await bridge.supportsLatest(sourceId: source.id)
             hasSettings = ((try? await bridge.preferences(sourceId: source.id)) ?? []).isEmpty == false
+            if filterDefaults.isEmpty {
+                filterDefaults = (try? await bridge.filters(sourceId: source.id)) ?? []
+                filters = filterDefaults
+            }
         }
     }
 
@@ -149,8 +185,9 @@ struct KeiyoushiBrowseView: View {
         cloudflareURL = nil
         do {
             let page: KeiyoushiMangaPage
-            if isSearching {
-                page = try await bridge.search(sourceId: source.id, query: searchQuery, page: currentPage)
+            if usesSearch {
+                page = try await bridge.search(sourceId: source.id, query: isSearching ? searchQuery : "",
+                                               page: currentPage, filterList: filterList)
             } else if supportsLatest && selectedFeed == .latest {
                 page = try await bridge.latest(sourceId: source.id, page: currentPage)
             } else {

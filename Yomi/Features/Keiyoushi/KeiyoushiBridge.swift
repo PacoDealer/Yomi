@@ -237,9 +237,17 @@ final class KeiyoushiBridge {
         await withCovers(sourceId, try await call(sourceId: sourceId, method: "getLatestManga", params: ["page": page]))
     }
 
-    func search(sourceId: String, query: String, page: Int) async throws -> KeiyoushiMangaPage {
+    /// `filterList` = `KeiyoushiFilter.wire` (empty = the extension's own defaults).
+    func search(sourceId: String, query: String, page: Int,
+                filterList: [[String: Any]] = []) async throws -> KeiyoushiMangaPage {
         await withCovers(sourceId, try await call(sourceId: sourceId, method: "getSearchManga",
-                                                      params: ["page": page, "search": query, "filterList": [Any]()]))
+                                                      params: ["page": page, "search": query, "filterList": filterList]))
+    }
+
+    /// The source's search filters as the extension has them now, nothing chosen. Some extensions (Asura) fetch
+    /// part of the list in the background on the first ask, so a later ask can return more.
+    func filters(sourceId: String) async throws -> [KeiyoushiFilter] {
+        KeiyoushiFilter.numbered(try await call(sourceId: sourceId, method: "filtersManga", params: [:]))
     }
 
     private var imageHeaders: [String: [String: String]] = [:]   // sourceId → the source's request headers
