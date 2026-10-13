@@ -47,10 +47,18 @@ The research audit revealed that 800+ sources are already available across four 
   one "Import a Backup" card instead of two. No .tmb export: it is Tachimanga's whole database + extension jars.
   Simulator-checked: menu, Yomi export → share sheet, .json import ("Import complete"), .tachibk import (sheet).
   Onboarding card: compile only. **In no uploaded build yet.**
-- **Seen in Martin's screenshot, NOT fixed:** iCloud section shows "The file doesn't exist." on TestFlight builds —
-  `url(forUbiquityContainerIdentifier:)` returns nil. Likely cause (not proven): both entitlements files list only
-  `CloudKit` under `icloud-services`, no `CloudDocuments`. The error also hides "Back Up Now" for good.
-- **NEXT (old):** Martin answers the encryption question on 515 → adds it to Friends → the friend updates and imports his .tmb.
+- **iCloud backup (More → Backup → iCloud) fails on every TestFlight build up to 515**: "The file doesn't exist."
+  = `url(forUbiquityContainerIdentifier:)` nil. Roadmap check: S69 asked for the "iCloud Documents" capability and
+  the feature was "not checked" ever since (no iCloud in sim / free-team builds). Both entitlements files listed only
+  `CloudKit` under `icloud-services`. **Fix (`a150737`): `CloudDocuments` added to both**; the error row no longer
+  replaces "Back Up Now" + the auto toggle; clearer message (`ICloudFolderError`). `--archive-only` build 518 signs,
+  signature lists CloudDocuments + CloudKit. **Cause NOT proven** — needs a TestFlight build on Martin's phone.
+- **Nothing after 515 is uploaded.** An upload of 518 was started and stopped on Martin's word before the export
+  step (he wants to batch more work). Uploads need his explicit go each time.
+- **NEXT (S156):** more work Martin has in mind → on his go, `scripts/build-testflight.sh` → he answers the
+  encryption question → on HIS phone first: Back Up Now, restore from the list, the single Import row with a .json /
+  .tachibk / .tmb, the Export menu, onboarding's one import card (compile-only so far) → then add the build to
+  Friends. Still open from S154: listing approval, widget + trackers + two-device sync on TestFlight, screenshots.
 
 ---
 

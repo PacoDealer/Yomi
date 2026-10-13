@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S154 — 2026-10-12)
+## Current state (S155 — 2026-10-13)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -70,8 +70,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
-- Open gaps: Keiyoushi first page 4–6 s; no Tachimanga `.tmb` import (Tachimanga exports .tachibk, which works);
-  no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
+- Open gaps: Keiyoushi first page 4–6 s; no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
 - S149–S150: manga reader slide/swipe/zoom everywhere; Migrate = sources (with icons) → titles → carry-over options →
   **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
@@ -89,7 +88,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   App Store Connect) + `Firebase/public/support.html` (not deployed). The 18+ switch now lives ONLY in
   `RepositoriesView` (off by default; Martin's decision — don't add it back to Extensions or Settings → Privacy).
   **App is iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`); iPad comes as a later update. Open decisions in the listing
-  doc §4. NEXT in ROADMAP S154.
+  doc §4.
+  S155: **build 515 on TestFlight, in Friends; a friend imported his Tachimanga .tmb with it.** Tachimanga `.tmb`
+  import (`TachiyomiBackupParser.parseTachimanga`; `ZipArchive` reads per-entry ZIP64). After 515, pushed but in NO
+  build: Backup screen = ONE Import (json/.tachibk/.tmb, `importAnyBackup`) + ONE Export menu (Martin's design —
+  don't split them again; never two `.fileImporter`s on a view); iCloud backup fix (`CloudDocuments` entitlement —
+  unproven until on a phone). **Never upload to TestFlight without Martin's explicit go for that build.**
+  NEXT in ROADMAP S155.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
