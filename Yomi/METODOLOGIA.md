@@ -2143,6 +2143,27 @@ previously here was removed during the 2026-08-04 doc restructure.
 - Migration audit lesson: "carry over read state" code that calls the normal mark-read helpers inherits their
   side effects (readAt = now, lastReadAt = now). Bulk data moves need their own transaction-level writes.
 
+## S155 lessons
+
+- **A same-moment pair of exports is a free oracle.** Martin had a .tmb and a .tachibk taken a minute apart: decode
+  both in Python first to learn the mapping (which rows Tachimanga itself exports), then import each into a fresh
+  simulator DB and diff the two SQLite files. Path strings differed on 15,911 rows for a non-reason
+  (`JSONSerialization` key order) — diff ids and state, not encoded blobs.
+- **Run the real file through the real picker.** The .tmb parser compiled and its SQL was checked, and the first
+  real run still failed: Tachimanga marks every zip entry ZIP64. `unzip` on the Mac reads it happily — our reader
+  didn't.
+- **Two `.fileImporter`s on one view: only the last presents.** Known since onboarding (a code comment said so), and
+  `BackupView` shipped that exact bug to TestFlight. When a lesson lives in a comment, grep for the pattern elsewhere.
+- **A feature never run with its real entitlement is unverified, whatever the build says.** iCloud backup (S69) was
+  "not checked" for months because sim and free-team builds have no iCloud; TestFlight was its first real run and it
+  failed. Before the next upload: list what only a paid-team build can exercise and try each on Martin's phone.
+- A fresh-DB test in the simulator: move `yomi.db` aside (and copy it to `phone-backups/`), don't import into the
+  working library; put it back after.
+- XcodeBuildMCP's default simulator was `47D5D5EB…`, not the pinned `F31CC190…` — `session_show_defaults` first.
+  Its `snapshot_ui` returned no targets this session; mobile-mcp `list_elements` + taps by ref worked.
+- **Don't start a TestFlight upload on an inferred yes** — "bundle it with the fix" is about content, not timing.
+  `--archive-only` is free; the upload waits for "upload build N now".
+
 ## S153 lessons
 
 - **Test a sync fix with a probe that goes through the server, not with a fake.** The plan was a fake failure to

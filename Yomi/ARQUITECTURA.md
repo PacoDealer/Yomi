@@ -95,7 +95,7 @@ Yomi/
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift     # First-launch full-screen card, rebuilt S95 (N.08 spec): one shared OnboardingPage template (150×150 icon box, wordmark/title, description, page dots, accent CTA) reused across 3 pages. Own explicit .tint() (fullScreenCover doesn't inherit YomiApp's). Real app icon via a plain OnboardingIcon.imageset (UIImage(named:) can't load .appiconset entries directly). Gated by AppSettings.hasSeenOnboarding via YomiApp's single merged .fullScreenCover (S95 — was two chained covers, silently broken; see METODOLOGIA S95).
 │   ├── Backup/
-│   │   └── TachiyomiBackupParser.swift  # Hand-written protobuf3 decoder + gzip decompressor (libz via bridging header). ProtoReader class. Decodes BackupManga + BackupChapter matching Mihon proto schema. Source ID map [UInt64: String]. Unmapped sources → "tachiyomi_{id}" placeholder.
+│   │   └── TachiyomiBackupParser.swift  # Hand-written protobuf3 decoder + gzip decompressor (libz via bridging header). ProtoReader class. Decodes BackupManga + BackupChapter matching Mihon proto schema. Source ID map [UInt64: String]. Unmapped sources → "tachiyomi_{id}" placeholder. S155: also reads Tachimanga .tmb (`parseTachimanga(at:)` — zip → contents.zip → tachimanga.db via GRDB); `backupFileTypes` + `isOtherReaderBackup` feed the ONE import picker (`BackupManager.importAnyBackup`).
 │   └── Extensions/
 │       ├── JSBridge.swift           # JavaScriptCore bridge — Formats A/B/C/D; shims; require(); searchManga; POST support; Cloudflare detection
 │       ├── ExtensionManager.swift   # Install/remove plugins; seedBundledPlugins() #if DEBUG only — wraps test-source.js install for Simulator; guarded in init()
