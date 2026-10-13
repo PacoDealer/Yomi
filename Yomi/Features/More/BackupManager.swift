@@ -66,6 +66,19 @@ enum ICloudSyncStatus: Equatable {
 
     var lastTachiyomiImport: TachiyomiImportReport? = nil
 
+    /// The one way in for every backup Yomi reads (S155): a .tachibk or Tachimanga .tmb is told by its first bytes,
+    /// anything else is a Yomi backup. `lastTachiyomiImport` is set only for the first two.
+    func importAnyBackup(from url: URL) async {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        lastTachiyomiImport = nil
+        if TachiyomiBackupParser.isOtherReaderBackup(url) {
+            await importTachiyomiBackup(from: url)
+        } else {
+            await importBackup(from: url)
+        }
+    }
+
     func importTachiyomiBackup(from url: URL) async {
         isImporting = true
         errorMessage = nil
