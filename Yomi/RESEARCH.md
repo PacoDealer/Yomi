@@ -2308,3 +2308,31 @@ memory; licence notice; a real CBR (RAR4 and RAR5) through the real Files picker
 
 Not checked: App Store precedent by name (which iOS readers ship UnRAR), behaviour on a multi-GB solid archive
 (solid = every page before the wanted one is decoded).
+
+### §27.1 Second pass — what other readers and tools do (S156, same day)
+
+Read from each project's own repository / issue tracker today (dependency lists, READMEs, issues).
+
+| Project | Platform | RAR decoder | Note |
+|---|---|---|---|
+| **Suwatte** (GPL-3.0) | **iOS** manga/comic reader, TestFlight | **mtgto/Unrar.swift** (`Shared/ArchiveHelper/Controllers/AH+Rar.swift`) + ZIPFoundation | The closest app to Yomi; README lists "External Comics (CBR, CBZ, RAR, ZIP)". Same library as recommended. |
+| Aidoku (GPL-3.0) | iOS | none — ZIPFoundation only | 0 issues mentioning cbr/rar. |
+| Paperback | iOS | none found | 1 old request for local files. |
+| Mihon (Apache-2.0) | Android | libarchive (`me.zhanghai.android.libarchive` 1.1.7) | Open issues: archive crash (#2587), SIGSEGV use-after-close (#3092), slow CBR/CBZ on weak devices (#1973). |
+| Komga (MIT) | server | libarchive for RAR5 | #2021 "RAR5 with recovery record crashes libarchive 3.7.7+" (JVM SIGSEGV; RAR4 fine); #2228 RAR 7.20 archive needs RAR5 support enabled. |
+| YACReader (GPL-3.0) | desktop | pluggable (unarr / 7-Zip / libarchive) | |
+| unarr (LGPL-3.0) | C library | own RAR code | README: "RAR5 is currently not supported". |
+| XADMaster (LGPL-2.1, The Unarchiver's engine) | Objective-C | own clean-room RAR incl. RAR5 (`XADRAR50Handle.m`) | No Swift package (Package.swift 404); LGPL on iOS = must ship as a replaceable dynamic framework + offer relinking. |
+| junrar | Java | RAR4 only by design | not usable from Swift anyway. |
+| App Store readers (xiComic, ComiQuest, KedaReader) | iOS | closed source | Listings advertise CBR/RAR (xiComic: "RAR5 is included") — proves App Review accepts RAR readers, not which library. |
+
+**What it changes:** nothing in the recommendation; it strengthens it.
+- Every free decoder that is NOT RARLAB's code has a hole exactly where modern files are: RAR5 (unarr: none; junrar:
+  none; libarchive: "some limitations" + real crashes reported by Komga and Mihon users).
+- The only clean-room decoder with RAR5 is XADMaster, and its LGPL costs more work and obligations on iOS than
+  UnRAR's one-paragraph notice.
+- An iOS manga reader already ships Unrar.swift (Suwatte), so the integration path is proven on this platform.
+- "Free for us" is satisfied by all options; UnRAR's licence is free of charge for any software.
+
+**Not found:** academic papers relevant to this choice (it is a licensing/engineering question); Reddit threads (the
+search returned none); the share of CBRs in the wild that are RAR5 or solid.
