@@ -1015,6 +1015,7 @@ struct NovelDetailView: View {
         if let summary = source.summary, !summary.isEmpty { novel.summary = summary }
         if let author = source.author, !author.isEmpty { novel.author = author }
         if let status = source.status, !status.isEmpty { novel.status = status }
+        if !source.genres.isEmpty { novel.genres = source.genres }
         if let coverStr = source.cover, !coverStr.isEmpty, let coverURL = URL(string: coverStr) {
             novel.coverURL = coverURL
         }

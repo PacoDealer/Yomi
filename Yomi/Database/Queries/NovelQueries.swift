@@ -137,14 +137,19 @@ enum NovelQueries {
     /// novel in History behind chapters read since (S141, Martin: "opened RTOC, not in History").
     nonisolated static func updateSourceMetadata(_ novel: Novel) throws {
         _ = try appDatabase.write { db in
+            var assignments = [
+                Column("summary").set(to: novel.summary),
+                Column("author").set(to: novel.author),
+                Column("status").set(to: novel.status),
+                Column("coverURL").set(to: novel.coverURL),
+            ]
+            // Stored as JSON text, like the record's own encoding. A source without genres keeps the saved ones.
+            if !novel.genres.isEmpty, let json = String(data: try JSONEncoder().encode(novel.genres), encoding: .utf8) {
+                assignments.append(Column("genres").set(to: json))
+            }
             try Novel
                 .filter(Column("id") == novel.id)
-                .updateAll(db, [
-                    Column("summary").set(to: novel.summary),
-                    Column("author").set(to: novel.author),
-                    Column("status").set(to: novel.status),
-                    Column("coverURL").set(to: novel.coverURL),
-                ])
+                .updateAll(db, assignments)
         }
         markCloudDirty(.novel, key: novel.id)
     }
