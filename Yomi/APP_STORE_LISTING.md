@@ -25,7 +25,7 @@ Apple documents — not verified.)
 
 ### Promotional text (170 max — can be changed any time without a new version)
 ```
-A calm reader for manga, webtoons and light novels. Your own files, your own library, no ads and no account.
+A calm reader for manga, webtoons, light novels and books. Your own files, your own library, no ads and no account.
 ```
 
 ### Description (4,000 max, plain text)
