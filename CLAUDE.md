@@ -167,7 +167,7 @@ scripts/build-js-libs.mjs, build-reader-fonts.sh, keiyoushi/, perf/
 
 ## Plugins on Firebase
 Plugin sources live only in `~/Desktop/Projects/Yomi/Firebase/public/` (not git).
-Deploy: `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting`.
+Deploy: `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting:plugins` (S154: second target `site` = support/privacy pages in `site/`, host `yomi-reader`).
 
 ## Session close
 1. Update ROADMAP.md (session entry) + METODOLOGIA.md (lessons) + ARQUITECTURA.md (if structure changed);
