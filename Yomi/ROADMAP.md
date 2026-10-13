@@ -21,6 +21,38 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S157 — Tachimanga parity re-check + source filters (2026-10-13)
+
+Build 1.0 (529) is uploaded (S156). Martin asked for a parity check, then to start on the gaps.
+
+- **Parity re-check** → `TACHIMANGA_PARITY.md` "S157 re-check": Tachimanga has nothing newer than Stable v5.1; the
+  S148 "Missing" list still stands. New gaps found: source filters, save/share a page. Correction: tap zones are
+  one setting for every mode (the doc said separate presets existed).
+- **Source filters for Keiyoushi sources (in NO build yet):** the extension server already had it
+  (`filtersManga`; `getSearchManga` takes a `filterList` matched BY NAME). New `KeiyoushiFilter.swift` (model: the
+  list comes with no kind field, so the kind is read from the shape of `state`; `wire` sends only what differs from
+  the extension's defaults), `KeiyoushiBridge.filters` + `search(filterList:)`, `KeiyoushiFilterSheet.swift`
+  (pick one, text, switch, include/exclude, sort + ascending, groups on their own screen; Reset asks the extension
+  again; nothing is searched until "Search"). `KeiyoushiBrowseView`: a filter button (filled while filters are on)
+  shown only when the source has filters; chosen filters make the screen a search, with or without words.
+  **Checked (Mac test server, the app's own model file compiled standalone):** Asura — sort A–Z ascending, status,
+  min chapters each change the results; MangaFire — Type → Manhwa + Genres (+Isekai, −Action) + sort changes them.
+  **Checked (simulator, sample data, temporary launch hook — removed):** the sheet, the group screen,
+  include → exclude → ignored, "2 chosen" on the group row. Build 0 warnings.
+  **NOT checked:** the real Browse screen with the button and a filtered result grid (Keiyoushi does not run in the
+  simulator) → a device; light theme; UI tests not run.
+  **Bridge limits:** inside a group only check boxes, include/exclude and pick-one are applied (a text field, sort
+  or group inside a group is ignored by the server, so Yomi hides those). **KNOWN_ISSUES #207:** filters an
+  extension fetches from its site (Asura's Genres, Author/Artist) never load — zstd JNI missing in the runtime.
+- Not done: filters for Yomi's own JS plugins and LNReader plugins (`plugin.filters` exists in the shim, no UI).
+- #206 (double back button) still open — started, no code changed.
+- **Waiting on Martin (unchanged from S156):** 529 → encryption answer + add to Friends → Asura gear check → phone
+  tests (iCloud backup, widget, trackers, two-device sync) → App Store listing.
+- **NEXT (parity order proposed):** #207 server patch (Asura genres) → per-mode tap zones → save/share a page →
+  Retry All downloads → library source filter. Martin picks.
+
+---
+
 ## S156 — onboarding import check + backlog (2026-10-13)
 
 Martin's order: 1 onboarding import card → 2 backlog → 3 phone tests (iCloud backup, widget, trackers, two-device
