@@ -332,6 +332,61 @@ struct ICloudFolderError: LocalizedError {
         }
     }
 
+    // MARK: - On-device backups (S156)
+    //
+    // The same Yomi backup file, kept in Application Support/Backups — not Documents (that holds yomi.db and
+    // must stay private) and not iCloud, so it works for everyone. Automatic = at most one a day, written when
+    // the app goes to the background; the newest `maxRetainedBackups` are kept.
+
+    var isSavingLocalBackup = false
+
+    @discardableResult
+    func saveLocalBackup() async -> Bool {
+        guard !isSavingLocalBackup else { return false }
+        isSavingLocalBackup = true
+        defer { isSavingLocalBackup = false }
+        errorMessage = nil
+        do {
+            let data = try await buildBackupData()
+            try await Task.detached {
+                let dir = try Self.localBackupsDirectory()
+                let datePart = Date().formatted(.iso8601).replacingOccurrences(of: ":", with: "-")
+                try data.write(to: dir.appendingPathComponent(
+                    "\(Self.backupFilePrefix)\(datePart)\(Self.backupFileSuffix)"), options: .atomic)
+                try Self.pruneOldBackups(in: dir)
+            }.value
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// The automatic one: skipped when today's backup exists, or when there is nothing to back up yet.
+    func saveLocalBackupIfDue() async {
+        let due = await Task.detached {
+            if let newest = (try? Self.listBackupFiles(in: Self.localBackupsDirectory()))?.first,
+               Calendar.current.isDateInToday(newest.date) { return false }
+            let titles = ((try? MangaQueries.fetchLibrary().count) ?? 0) + ((try? NovelQueries.fetchLibrary().count) ?? 0)
+            return titles > 0
+        }.value
+        if due { await saveLocalBackup() }
+    }
+
+    func listLocalBackups() async -> [ICloudBackupEntry] {
+        await Task.detached {
+            (try? Self.listBackupFiles(in: Self.localBackupsDirectory())) ?? []
+        }.value
+    }
+
+    private nonisolated static func localBackupsDirectory() throws -> URL {
+        let dir = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                              appropriateFor: nil, create: true)
+            .appendingPathComponent("Backups", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     func deleteICloudBackup(_ entry: ICloudBackupEntry) async {
         await Task.detached {
             try? FileManager.default.removeItem(at: entry.url)
