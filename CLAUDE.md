@@ -100,8 +100,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). **CBR/RAR**
   via `Core/ComicArchive.swift` + Swift package Unrar.swift (RARLAB UnRAR; licence text in `licence-unrar.txt` —
   keep the package updated, it parses untrusted files; a new picker file type needs an Info.plist UTType).
-  Open: #206 double back button from Library search, per-extension settings (needs the phone), a real compressed
-  CBR test. NEXT in ROADMAP S156.
+  Open: #206 double back button from Library search, per-extension settings screen unseen on a device
+  (built + Mac-verified; `KeiyoushiSourceSettingsView`), solid/huge CBR. NEXT in ROADMAP S156.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.

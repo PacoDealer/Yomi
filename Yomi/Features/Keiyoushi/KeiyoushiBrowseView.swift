@@ -28,6 +28,8 @@ struct KeiyoushiBrowseView: View {
     @State private var selectedFeed: FeedTab = .popular
     @State private var supportsLatest = false
     @State private var loadGeneration = 0
+    /// True once the extension is known to declare settings of its own — only then is the gear shown.
+    @State private var hasSettings = false
 
     private let bridge = KeiyoushiBridge.shared
     private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
@@ -105,6 +107,18 @@ struct KeiyoushiBrowseView: View {
         .onChange(of: searchQuery) { _, new in
             if new.isEmpty && isSearching { Task { await reset(); await loadMore() } }
         }
+        .toolbar {
+            if hasSettings {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        KeiyoushiSourceSettingsView(source: source)
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Extension settings")
+                }
+            }
+        }
         .navigationDestination(isPresented: $showMangaDetail) {
             if let manga = selectedManga {
                 MangaDetailView(manga: manga)
@@ -119,6 +133,7 @@ struct KeiyoushiBrowseView: View {
         .task {
             await loadMore()
             supportsLatest = await bridge.supportsLatest(sourceId: source.id)
+            hasSettings = ((try? await bridge.preferences(sourceId: source.id)) ?? []).isEmpty == false
         }
     }
 

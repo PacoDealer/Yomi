@@ -37,6 +37,97 @@ nonisolated struct KeiyoushiPage: Decodable, Sendable {
     let imageUrl: String?
 }
 
+/// One setting an extension declares for a source (AndroidX `Preference` on Android). The bridge sends each as
+/// `{"key": …, "<kind>": {title, summary, value…}}` and takes the same shape back.
+nonisolated struct KeiyoushiPreference: Decodable, Sendable, Identifiable {
+    enum Value: Sendable, Equatable {
+        case toggle(Bool)
+        case text(String)
+        /// One of `entries`; `index` is -1 when the stored value matches none.
+        case choice(index: Int, entries: [String], entryValues: [String])
+        case multiChoice(selected: Set<String>, entries: [String], entryValues: [String])
+    }
+
+    let key: String
+    /// The bridge's name for the kind, sent back unchanged (a check box and a switch are both `.toggle`).
+    let kind: String
+    let title: String
+    let summary: String
+    var value: Value
+
+    var id: String { key }
+
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(_ string: String) { stringValue = string }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    private struct Body: Decodable {
+        let title: String?
+        let summary: String?
+        let entries: [String]?
+        let entryValues: [String]?
+        let valueIndex: Int?
+    }
+
+    /// Fails for a setting without a key or of a kind Yomi doesn't know — `LossyPreference` drops those, so one
+    /// odd setting doesn't hide the rest.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        key = try c.decode(String.self, forKey: AnyKey("key"))
+        guard let kindKey = c.allKeys.first(where: { $0.stringValue != "key" }) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath, debugDescription: "no kind"))
+        }
+        kind = kindKey.stringValue
+        let body = try c.decode(Body.self, forKey: kindKey)
+        let raw = try c.nestedContainer(keyedBy: AnyKey.self, forKey: kindKey)
+        title = body.title ?? key
+        let entries = body.entries ?? []
+        let entryValues = body.entryValues ?? []
+        switch kind {
+        case "checkBoxPreference", "switchPreferenceCompat":
+            value = .toggle((try? raw.decode(Bool.self, forKey: AnyKey("value"))) ?? false)
+        case "editTextPreference":
+            value = .text((try? raw.decode(String.self, forKey: AnyKey("value"))) ?? "")
+        case "listPreference":
+            value = .choice(index: body.valueIndex ?? -1, entries: entries, entryValues: entryValues)
+        case "multiSelectListPreference":
+            let selected = (try? raw.decode([String].self, forKey: AnyKey("values"))) ?? []
+            value = .multiChoice(selected: Set(selected), entries: entries, entryValues: entryValues)
+        default:
+            throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath, debugDescription: "unknown kind \(kind)"))
+        }
+        // Android fills "%s" in a list's summary with the chosen entry.
+        var text = body.summary ?? ""
+        if case .choice(let index, let entries, _) = value, text.contains("%s") {
+            text = text.replacingOccurrences(of: "%s", with: entries.indices.contains(index) ? entries[index] : "")
+        }
+        summary = text
+    }
+
+    /// The JSON the bridge expects for this setting with its current `value`.
+    var wire: [String: Any] {
+        let body: [String: Any]
+        switch value {
+        case .toggle(let on): body = ["value": on]
+        case .text(let text): body = ["value": text]
+        case .choice(let index, let entries, let entryValues):
+            body = ["valueIndex": index, "entries": entries, "entryValues": entryValues]
+        case .multiChoice(let selected, let entries, let entryValues):
+            body = ["values": selected.sorted(), "entries": entries, "entryValues": entryValues]
+        }
+        return ["key": key, kind: body]
+    }
+}
+
+private nonisolated struct LossyPreference: Decodable {
+    let preference: KeiyoushiPreference?
+    init(from decoder: Decoder) throws { preference = try? KeiyoushiPreference(from: decoder) }
+}
+
 private nonisolated struct BridgeErrorBody: Decodable {
     let error: String?
     let code: Int?
@@ -190,6 +281,28 @@ final class KeiyoushiBridge {
     func pages(sourceId: String, chapterURL: String, chapterName: String) async throws -> [KeiyoushiPage] {
         try await call(sourceId: sourceId, method: "getPageList",
                        params: ["chapterData": ["url": chapterURL, "name": chapterName]])
+    }
+
+    // MARK: Extension settings (S156)
+
+    /// The extension's own settings for one source (Mihon's "source preferences"), with their current values.
+    /// Empty for a source that has none. The bridge keeps the values on disk, per source id.
+    func preferences(sourceId: String) async throws -> [KeiyoushiPreference] {
+        let all: [LossyPreference] = try await call(sourceId: sourceId, method: "preferencesManga", params: [:])
+        return all.compactMap(\.preference)
+    }
+
+    /// Changes one setting and returns the whole list again — an extension may adjust the value it was given.
+    func setPreference(_ preference: KeiyoushiPreference, to value: KeiyoushiPreference.Value,
+                       sourceId: String) async throws -> [KeiyoushiPreference] {
+        var changed = preference
+        changed.value = value
+        // The bridge's protocol: a context entry naming the changed key, then that setting with its new value.
+        let all: [LossyPreference] = try await call(
+            sourceId: sourceId, method: "setPreferenceManga",
+            params: ["preferences": [["key": "__mangayomi_bridge_context__", "changedPreferenceKey": preference.key],
+                                     changed.wire]])
+        return all.compactMap(\.preference)
     }
 
     // MARK: Transport

@@ -60,15 +60,35 @@ sync) → 4 App Store listing. **Nothing uploaded; last TestFlight build is stil
   script and confirmed readable by macOS `bsdtar` → series + genres from its ComicInfo, cover, 5/5 pages in the
   reader; a ZIP renamed .cbr → imported with cover. Release build for iPhone compiles. Package's own 18 tests
   (compressed RAR4/RAR5, encrypted, multibyte names) pass on the Mac.
-  **NOT checked:** a compressed RAR4 or any RAR5 inside Yomi, a real CBR from the wild (no `rar` tool here to
-  make one — needs a file from Martin), big/solid archives (each page re-opens the archive; solid = slow), a
-  device, the licence row on screen, UI tests.
+  **Checked later (S156, real files, simulator, real Files picker):** two public-domain CBRs from archive.org
+  that Martin downloaded — `Illustrated Times #824 (1870)` = RAR4, compressed (method 0x33), 2 pages, 4.3 MB;
+  `Illustrated Sporting News #0018 (1862)` = RAR5, 6 pages, 29.8 MB; both keep their pages inside a folder.
+  "Imported 2 items", covers shown, all pages reach the reader (2/2 and 6/6), and all 8 extracted pages in
+  `Caches/LocalPages` are byte-identical (md5) to what macOS `bsdtar` extracts.
+  Correction: pages are NOT re-read from the archive one by one — `LocalLibrary` extracts the whole chapter
+  into `Caches/LocalPages` once when it is opened (so solid archives cost one pass, and a 30 MB CBR takes
+  30 MB more disk while cached).
+  **Still NOT checked:** a solid archive, a very large one (hundreds of pages), a device, the licence row on
+  screen, UI tests. Seen but not explained: in the RAR5 title a right-to-left swipe from page 1 showed pages
+  2–3 stacked vertically; the RAR4 title behaved as plain Manga (RTL) paging.
 - Also: one compiler warning removed (CFBypassView, redundant weak capture) — build is back to 0 warnings.
-- **Not done:** per-extension settings (Keiyoushi runs only on the phone; it was not connected). CB7/7z.
+- **Per-extension settings (Mihon "source preferences"):** the extension server already had it
+  (`preferencesManga` / `setPreferenceManga` on `POST /dalvik`; values kept by the bridge in
+  `…/Tachidesk/settings/source_<id>.xml`, so no Yomi-side storage). Added `KeiyoushiPreference` +
+  `KeiyoushiBridge.preferences` / `setPreference`, and `KeiyoushiSourceSettingsView` (switch, text, pick one,
+  pick several) opened from a gear in `KeiyoushiBrowseView` — the gear shows only when the source has settings.
+  Settings are per SOURCE id, so each language of a multi-language extension has its own.
+  **Checked (Mac test server, the app's own model code compiled standalone):** Asura (1 switch) and MangaFire
+  (1 pick-several + 4 switches) read, change, re-read and restore; Asura "Hide premium chapters" off → +1 chapter
+  on 8 of 14 latest titles. Simulator build clean.
+  **NOT checked:** the screen itself anywhere (Keiyoushi does not run in the simulator) → Martin on the TestFlight
+  build; the "pick one" and text kinds (neither extension has one); settings are not in Yomi's backup; no entry
+  from the Extensions list yet (Tachimanga has one there).
+- **Not done:** CB7/7z.
 - Simulator: Yomi data restored from `phone-backups/S156-sim-before-fresh` (163 titles); it now also has the two
   edited plugins installed by hand and iCloud signed out.
 - CloudKit Production `Novel.genres` exists (STRING LIST) — read in the console after Martin signed in. No deploy needed.
-- **NEXT:** a real CBR from Martin (compressed RAR4 + RAR5) → per-extension settings with the phone
+- **NEXT:** ~~a real CBR from Martin~~ (done, see above) → per-extension settings with the phone
   connected → then step 3 (upload on his go, phone tests) and step 4 (listing).
 
 ---
