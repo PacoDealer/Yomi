@@ -9,7 +9,7 @@ PKGS="${YOMI_SOURCE_PACKAGES:-$HOME/Library/Developer/Xcode/DerivedData/Yomi-per
 JAR="$ROOT/Vendor/Keiyoushi/MExtensionServer.jar"
 OUT="$ROOT/Yomi/Resources/Licenses"
 TP="$ROOT/scripts/third-party-licences"   # committed copies, so the build needs no network
-for need in "$PKGS/GRDB.swift/LICENSE" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
+for need in "$PKGS/GRDB.swift/LICENSE" "$PKGS/Unrar.swift/Sources/Cunrar/license.txt" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
             "$WORK/M-Extension-Server/LICENSE" "$WORK/openjdk-ios/SOURCE_MANIFEST.txt"; do
   [ -e "$need" ] || { echo "Missing $need" >&2; exit 1; }
 done
@@ -20,6 +20,11 @@ rule() { printf '\n\n%s\n%s\n%s\n\n' "──────────────
 cp "$PKGS/GRDB.swift/LICENSE"  "$OUT/licence-grdb.txt"
 cp "$PKGS/Kingfisher/LICENSE"  "$OUT/licence-kingfisher.txt"
 cp "$PKGS/Pulse/LICENSE.md"    "$OUT/licence-pulse.txt"
+# Unrar.swift (MIT) wraps RARLAB's UnRAR source, whose licence asks for its own text to be shown (RESEARCH §27).
+{ cat "$PKGS/Unrar.swift/LICENSE.txt"
+  rule "UnRAR source code (RARLAB) — its licence"; cat "$PKGS/Unrar.swift/Sources/Cunrar/license.txt"
+  rule "UnRAR source code (RARLAB) — acknowledgments"; cat "$PKGS/Unrar.swift/Sources/Cunrar/acknow.txt"
+} > "$OUT/licence-unrar.txt"
 
 # JS libraries bundled into Resources/yomi-js-libs.js (scripts/build-js-libs.mjs): each one plus everything it pulls in.
 ( cd "$ROOT" && node -e '

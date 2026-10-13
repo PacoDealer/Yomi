@@ -50,12 +50,26 @@ sync) → 4 App Store listing. **Nothing uploaded; last TestFlight build is stil
   with the iPhone's text size, capped at 1.5×; unchanged at the default size. Library + Browse looked right at
   the largest standard size. Readers, detail screens and accessibility sizes NOT looked at; UI tests not run.
 - **Found, not fixed — KNOWN_ISSUES #206:** two back buttons on a title opened from an active Library search.
-- **Not done:** per-extension settings (Keiyoushi runs only on the phone; it was not connected) and CBR/RAR
-  (needs a RAR decoder → licence decision first, #195).
+- **CBR / RAR (Martin: "yes, add unrar"; research = RESEARCH §27 + §27.1):** Swift package `mtgto/Unrar.swift`
+  0.5.4 (RARLAB UnRAR 7.23) added to the app target. New `Core/ComicArchive.swift` = one reader for ZIP and RAR,
+  chosen by the file's first bytes; `LocalLibrary` (cover, pages, ComicInfo) uses it. New file type `com.yomi.cbr`
+  in Info.plist (+ `com.rarlab.rar-archive` in the picker) — without it the picker greys the file out (S155
+  lesson). Licence text: `licence-unrar.txt` (package MIT + RARLAB licence + acknowledgments, copied from the
+  checkout; `build-licenses.sh` updated but NOT re-run in full) and a row in Open Source Licenses.
+  **Checked (simulator, through the real Files picker):** a RAR4 file with stored pages, written by a scratch
+  script and confirmed readable by macOS `bsdtar` → series + genres from its ComicInfo, cover, 5/5 pages in the
+  reader; a ZIP renamed .cbr → imported with cover. Release build for iPhone compiles. Package's own 18 tests
+  (compressed RAR4/RAR5, encrypted, multibyte names) pass on the Mac.
+  **NOT checked:** a compressed RAR4 or any RAR5 inside Yomi, a real CBR from the wild (no `rar` tool here to
+  make one — needs a file from Martin), big/solid archives (each page re-opens the archive; solid = slow), a
+  device, the licence row on screen, UI tests.
+- Also: one compiler warning removed (CFBypassView, redundant weak capture) — build is back to 0 warnings.
+- **Not done:** per-extension settings (Keiyoushi runs only on the phone; it was not connected). CB7/7z.
 - Simulator: Yomi data restored from `phone-backups/S156-sim-before-fresh` (163 titles); it now also has the two
   edited plugins installed by hand and iCloud signed out.
-- **NEXT:** CloudKit `Novel.genres` check → per-extension settings with the phone
-  connected → CBR decision → then step 3 (upload on his go, phone tests) and step 4 (listing).
+- CloudKit Production `Novel.genres` exists (STRING LIST) — read in the console after Martin signed in. No deploy needed.
+- **NEXT:** a real CBR from Martin (compressed RAR4 + RAR5) → per-extension settings with the phone
+  connected → then step 3 (upload on his go, phone tests) and step 4 (listing).
 
 ---
 

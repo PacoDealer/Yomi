@@ -12,6 +12,8 @@ struct LicensesView: View {
             Section(calm: "App") {
                 LicenseRow(name: "GRDB.swift", license: "MIT", file: "licence-grdb")
                 LicenseRow(name: "Kingfisher", license: "MIT", file: "licence-kingfisher")
+                LicenseRow(name: "Unrar.swift and UnRAR", license: "MIT; UnRAR source under RARLAB's licence",
+                           file: "licence-unrar")
                 #if DEBUG
                 LicenseRow(name: "Pulse", license: "MIT", file: "licence-pulse")
                 #endif
