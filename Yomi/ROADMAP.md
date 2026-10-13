@@ -21,6 +21,43 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S156 — onboarding import check + backlog (2026-10-13)
+
+Martin's order: 1 onboarding import card → 2 backlog → 3 phone tests (iCloud backup, widget, trackers, two-device
+sync) → 4 App Store listing. **Nothing uploaded; last TestFlight build is still 515.** All below = simulator only.
+
+- **Onboarding "Import a Backup" card — checked on a real fresh install** (S96 clear procedure): picker offers
+  .json/.tachibk/.tmb, the .tmb imports (148 titles, 16,723 chapters, 16,694 read), card gets its check mark.
+  **Bug found + fixed (`8518620`):** after "Start Reading" the Library said "No sources yet" — it loads on appear,
+  and it appears once, behind the first-run cover. Now reloads when `hasSeenOnboarding` changes. Re-run fresh: 148 shown.
+- **Novel genres (`eabfc09`):** `SourceNovel.genres` (LNReader comma string or array → `JSBridge.novelGenres`),
+  merged in NovelDetailView, saved by `NovelQueries.updateSourceMetadata` (a source without genres keeps the saved
+  ones). The chips UI and the DB column already existed. Plugins edited in `Firebase/public/` (originals in
+  `Firebase/plugin-backups-S156/`): WeTried 1.1.0 (API `tags`), NovelFire 1.2.0 (`div.categories a.property-item`,
+  and the stray "Summary" heading stripped). Checked with the edited files dropped into the simulator's
+  `Documents/Extensions`: both novels show chips and save them. **NOT DEPLOYED** — `firebase deploy` was blocked
+  by the permission system; Martin runs `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting:plugins`.
+- **CloudKit — check before the next upload:** novels never had genres before, so the Production schema's `Novel`
+  type may have no `genres` field (fields exist only for values that were non-nil once, S152). If it is missing,
+  novel saves with genres are refused (they would show on the Sync screen, #204). The console was signed out, so
+  this is NOT checked. A local EPUB with a genre was synced from the simulator in S152/S153, so it may exist.
+- **Automatic backup on the phone (`039d5ed`):** More → Backup → "On This iPhone": Back Up Now, "Back up
+  automatically" (default on; once a day when Yomi goes to the background, newest 8 kept), tap = restore (merge),
+  swipe = delete. Files in `Application Support/Backups` (not Documents). Skipped while the library is empty.
+  Checked: manual, automatic on Home, no second file the same day, restore → "Import complete", counts unchanged.
+- **Dynamic Type (`56dade7`):** `YomiTokens.Font.grotesk/mono` (42 call sites, the last fixed-size text) now scale
+  with the iPhone's text size, capped at 1.5×; unchanged at the default size. Library + Browse looked right at
+  the largest standard size. Readers, detail screens and accessibility sizes NOT looked at; UI tests not run.
+- **Found, not fixed — KNOWN_ISSUES #206:** two back buttons on a title opened from an active Library search.
+- **Not done:** per-extension settings (Keiyoushi runs only on the phone; it was not connected) and CBR/RAR
+  (needs a RAR decoder → licence decision first, #195).
+- Simulator: Yomi data restored from `phone-backups/S156-sim-before-fresh` (163 titles); it now also has the two
+  edited plugins installed by hand and iCloud signed out.
+- **NEXT:** Martin deploys the plugins → CloudKit `Novel.genres` check → per-extension settings with the phone
+  connected → CBR decision → then step 3 (upload on his go, phone tests) and step 4 (listing).
+
+---
+
 ## S155 — Tachimanga .tmb import (2026-10-13)
 
 - **Why:** a TestFlight friend couldn't bring a Tachimanga library over — Tachimanga's .tachibk export is Premium,

@@ -2187,3 +2187,13 @@ previously here was removed during the 2026-08-04 doc restructure.
   account name ("Martín") → cloud-signed designated requirement had the CN in NFD, certificate in NFC.
 - A free team that enrolls keeps its Team ID; `xcodebuild -allowProvisioningUpdates` enables capabilities but does not
   create the iCloud container / App Group — those need Xcode's Signing & Capabilities once.
+
+## S156 lessons
+
+- **Walk the whole path, past the step you came to check.** The onboarding import "worked" (sheet, check mark, rows
+  in the DB) — the bug was one tap later: a Library that had loaded behind the cover and never reloaded.
+- **`.onAppear` under a `fullScreenCover` fires once, before the cover's work.** Anything the cover changes needs
+  its own reload trigger.
+- A new value in a synced field is a CloudKit schema question (S152) — ask it when writing the field, not at upload.
+- To test an edited plugin before deploying: copy it to the simulator's `Documents/Extensions/<id>.js` and insert
+  the `extension` row by hand.
