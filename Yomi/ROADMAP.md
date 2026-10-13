@@ -39,7 +39,18 @@ The research audit revealed that 800+ sources are already available across four 
   dates (143 titles with a last-read date vs 130). **Not yet on a device, and only one .tmb (Tachimanga v511) tried.**
 - **Build 1.0 (515) uploaded** (`cbd130a`, 2026-10-13 12:08, "Upload succeeded", signatures verified). First build with
   the .tmb import, the 18+ switch move, iPhone-only and the new privacy link.
-- **NEXT:** Martin answers the encryption question on 515 → adds it to Friends → the friend updates and imports his .tmb.
+- **515 is in Friends; a friend imported his .tmb on his phone** (Martin, same day) — first device + second-backup proof.
+- **Backup screen: one Import, one Export (Martin's request).** "Import Backup" was DEAD on device: two
+  `.fileImporter`s on `BackupView`, only the last presents (the lesson OnboardingView already had in a comment).
+  Now one picker for .json / .tachibk / .tmb — `BackupManager.importAnyBackup` tells them apart by first bytes —
+  and Export is a menu: Yomi Backup · .tachibk. The Mihon / Tachiyomi / Tachimanga section is gone; onboarding has
+  one "Import a Backup" card instead of two. No .tmb export: it is Tachimanga's whole database + extension jars.
+  Simulator-checked: menu, Yomi export → share sheet, .json import ("Import complete"), .tachibk import (sheet).
+  Onboarding card: compile only. **In no uploaded build yet.**
+- **Seen in Martin's screenshot, NOT fixed:** iCloud section shows "The file doesn't exist." on TestFlight builds —
+  `url(forUbiquityContainerIdentifier:)` returns nil. Likely cause (not proven): both entitlements files list only
+  `CloudKit` under `icloud-services`, no `CloudDocuments`. The error also hides "Back Up Now" for good.
+- **NEXT (old):** Martin answers the encryption question on 515 → adds it to Friends → the friend updates and imports his .tmb.
 
 ---
 

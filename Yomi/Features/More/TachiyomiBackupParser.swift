@@ -358,16 +358,24 @@ nonisolated enum TachiyomiBackupParser {
 
 nonisolated extension TachiyomiBackupParser {
 
-    /// What the import pickers offer: .tachibk and Tachimanga's .tmb.
+    /// What the import picker offers: a Yomi backup (.json), .tachibk and Tachimanga's .tmb.
     static var backupFileTypes: [UTType] {
-        ["tachibk", "tmb"].map { UTType(filenameExtension: $0) ?? .data }
+        [.json] + ["tachibk", "tmb"].map { UTType(filenameExtension: $0) ?? .data }
     }
 
     /// A zip ("PK") rather than the .tachibk's gzip.
-    static func isTachimangaBackup(_ url: URL) -> Bool {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+    static func isTachimangaBackup(_ url: URL) -> Bool { leadingBytes(url) == Data([0x50, 0x4b]) }
+
+    /// A .tachibk (gzip) or a .tmb — anything else the picker lets through is a Yomi backup.
+    static func isOtherReaderBackup(_ url: URL) -> Bool {
+        let head = leadingBytes(url)
+        return head == Data([0x1f, 0x8b]) || head == Data([0x50, 0x4b])
+    }
+
+    private static func leadingBytes(_ url: URL) -> Data {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
         defer { try? handle.close() }
-        return (try? handle.read(upToCount: 2)) == Data([0x50, 0x4b])
+        return (try? handle.read(upToCount: 2)) ?? Data()
     }
 
     static func parseTachimanga(at url: URL) throws -> ImportResult {

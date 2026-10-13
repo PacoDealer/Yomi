@@ -12,10 +12,7 @@ struct BackupView: View {
     @State private var showShareSheet = false
     @State private var showImportPicker = false
     @State private var showImportSuccess = false
-    @State private var showTachiyomiPicker = false
     @State private var tachiyomiReport: BackupManager.TachiyomiImportReport? = nil
-    @State private var exportedTachiyomiURL: URL? = nil
-    @State private var showTachiyomiShareSheet = false
     @State private var showRestoreConfirm = false
     @State private var icloudBackups: [BackupManager.ICloudBackupEntry] = []
     @State private var restoreTarget: BackupManager.ICloudBackupEntry? = nil
@@ -25,14 +22,15 @@ struct BackupView: View {
 
     // MARK: - Body
     //
-    // S146 calm pass (RESEARCH §26): three groups — this iPhone's file, iCloud, Tachiyomi/Mihon — with
-    // bold sentence-case titles, plain rows, notes under the action they explain, no separators.
+    // S146 calm pass (RESEARCH §26): bold sentence-case titles, plain rows, notes under the action they explain,
+    // no separators. S155 (Martin): ONE Import and ONE Export for every format — the separate Mihon / Tachiyomi /
+    // Tachimanga group is gone. It also fixes a dead "Import Backup": with two `.fileImporter`s on one view only
+    // the last one presents.
 
     var body: some View {
         CalmList {
             fileSection
             iCloudSection
-            tachiyomiSection
             errorSection
         }
         .navigationTitle("Backup")
@@ -45,30 +43,18 @@ struct BackupView: View {
                 ActivitySheet(items: [url])
             }
         }
-        .sheet(isPresented: $showTachiyomiShareSheet) {
-            if let url = exportedTachiyomiURL {
-                ActivitySheet(items: [url])
-            }
-        }
         .fileImporter(
             isPresented: $showImportPicker,
-            allowedContentTypes: [.json]
-        ) { result in
-            if case .success(let url) = result {
-                Task {
-                    await backupManager.importBackup(from: url)
-                    if backupManager.errorMessage == nil { showImportSuccess = true }
-                }
-            }
-        }
-        .fileImporter(
-            isPresented: $showTachiyomiPicker,
             allowedContentTypes: TachiyomiBackupParser.backupFileTypes
         ) { result in
             if case .success(let url) = result {
                 Task {
-                    await backupManager.importTachiyomiBackup(from: url)
-                    tachiyomiReport = backupManager.lastTachiyomiImport
+                    await backupManager.importAnyBackup(from: url)
+                    if let report = backupManager.lastTachiyomiImport {
+                        tachiyomiReport = report
+                    } else if backupManager.errorMessage == nil {
+                        showImportSuccess = true
+                    }
                 }
             }
         }
@@ -106,20 +92,32 @@ struct BackupView: View {
 
     /// Accent action row with an optional grey note under it — the note says what the action does.
     private func actionRow(_ title: String, note: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .foregroundStyle(Color.accentColor)
-                if let note {
-                    Text(note)
-                        .font(.footnote)
-                        .foregroundStyle(canvas.textSecondary)
-                }
+        Button(action: action) { actionLabel(title, note: note) }
+            .buttonStyle(.plain)
+    }
+
+    private func actionLabel(_ title: String, note: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .foregroundStyle(Color.accentColor)
+            if let note {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(canvas.textSecondary)
+                    .multilineTextAlignment(.leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private func export(_ make: @escaping () async -> URL?) {
+        Task {
+            if let url = await make() {
+                exportedURL = url
+                showShareSheet = true
+            }
+        }
     }
 
     private func busyRow(_ text: String) -> some View {
@@ -140,15 +138,22 @@ struct BackupView: View {
             } else if backupManager.isImporting {
                 busyRow("Importing…")
             } else {
-                actionRow("Export Backup", note: "Saves your library, categories and reading progress to a file.") {
-                    Task {
-                        if let url = await backupManager.exportBackup() {
-                            exportedURL = url
-                            showShareSheet = true
-                        }
+                Menu {
+                    Button { export { await backupManager.exportBackup() } } label: {
+                        Text("Yomi Backup")
+                        Text("Everything, novels included")
                     }
+                    Button { export { await backupManager.exportTachiyomiBackup() } } label: {
+                        Text(".tachibk")
+                        Text("Manga only — for Mihon, Tachiyomi, Tachimanga")
+                    }
+                } label: {
+                    actionLabel("Export Backup",
+                                note: "Saves your library, categories and reading progress to a file — as a Yomi backup, or a .tachibk for other readers.")
                 }
-                actionRow("Import Backup", note: "Merges a Yomi backup into your library — nothing is replaced.") {
+                .buttonStyle(.plain)
+                actionRow("Import Backup",
+                          note: "A Yomi backup, a .tachibk from Mihon or Tachiyomi, or a Tachimanga .tmb. It merges into your library — nothing is replaced.") {
                     showImportPicker = true
                 }
                 if let date = backupManager.lastBackupDate {
@@ -234,33 +239,6 @@ struct BackupView: View {
                     .foregroundStyle(canvas.textSecondary)
             }
         }
-    }
-
-    // MARK: - Tachiyomi / Mihon Section
-
-    @ViewBuilder
-    private var tachiyomiSection: some View {
-        Section {
-            if backupManager.isExporting {
-                busyRow("Exporting…")
-            } else if backupManager.isImporting {
-                busyRow("Importing…")
-            } else {
-                actionRow("Import .tachibk or .tmb",
-                          note: "From Mihon, Tachiyomi or Tachimanga (its own .tmb backup works too): your manga library, categories and read history.") {
-                    showTachiyomiPicker = true
-                }
-                actionRow("Export .tachibk",
-                          note: "For Mihon, Tachiyomi or a fork. Mihon-extension titles open there as they are; titles from Yomi's own sources come across as metadata only.") {
-                    Task {
-                        if let url = await backupManager.exportTachiyomiBackup() {
-                            exportedTachiyomiURL = url
-                            showTachiyomiShareSheet = true
-                        }
-                    }
-                }
-            }
-        } header: { CalmSectionHeader("Mihon / Tachiyomi / Tachimanga") }
     }
 
     // MARK: - Error Section
