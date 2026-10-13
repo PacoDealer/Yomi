@@ -123,7 +123,7 @@ private struct AboutView: View {
                 // S152 (#170): no link to the GitHub repository from the app. Bug reports go by mail, with the
                 // version and device filled in.
                 linkRow("Report a Bug", icon: "ladybug", url: Self.bugReportURL)
-                linkRow("Privacy Policy", icon: "hand.raised", url: "https://yomi-plugins.web.app/privacy")
+                linkRow("Privacy Policy", icon: "hand.raised", url: "https://yomi-reader.web.app/privacy")
             }
             Section {
                 MoreRow(icon: "doc.text", label: "Open Source Licenses") { LicensesView() }
