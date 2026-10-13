@@ -23,6 +23,8 @@ struct LocalSourceView: View {
     }
 
     static let cbzType = UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip
+    static let cbrType = UTType("com.yomi.cbr") ?? UTType(filenameExtension: "cbr") ?? .data
+    static let rarType = UTType("com.rarlab.rar-archive") ?? UTType(filenameExtension: "rar") ?? .data
     static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
     var body: some View {
@@ -72,7 +74,7 @@ struct LocalSourceView: View {
             } header: {
                 CalmSectionHeader(manga.isEmpty && novels.isEmpty ? "Add your files" : "Files")
             } footer: {
-                Text("CBZ, ZIP and folders of images open as manga; EPUBs open as novels. A linked folder works like Mihon's local folder: one folder per series, one CBZ or image folder per chapter, cover.jpg optional. CBR/RAR isn't supported yet — convert to CBZ.")
+                Text("CBZ, CBR, ZIP, RAR and folders of images open as manga; EPUBs open as novels. A linked folder works like Mihon's local folder: one folder per series, one archive or image folder per chapter, cover.jpg optional.")
                     .font(.footnote)
                     .foregroundStyle(canvas.textSecondary)
             }
@@ -85,7 +87,7 @@ struct LocalSourceView: View {
         }
         .fileImporter(
             isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
-            allowedContentTypes: pickedMode == .linkFolder ? [.folder] : [Self.cbzType, .zip, Self.epubType, .folder],
+            allowedContentTypes: pickedMode == .linkFolder ? [.folder] : [Self.cbzType, .zip, Self.cbrType, Self.rarType, Self.epubType, .folder],
             allowsMultipleSelection: pickedMode != .linkFolder
         ) { result in
             let mode = pickedMode

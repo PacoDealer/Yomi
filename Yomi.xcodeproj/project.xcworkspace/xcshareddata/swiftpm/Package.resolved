@@ -1,5 +1,5 @@
 {
-  "originHash" : "5ea76d52c60fe56ecee0723f6ede979fdb8ef674af32627913754f0a0f947237",
+  "originHash" : "054b69e85abc33b31b4b37dca22901adcd9450c0cde105658408b06c15e7b082",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "94b92731d370c129bb771e9c18f69b0a44ccca5c",
         "version" : "5.2.3"
+      }
+    },
+    {
+      "identity" : "unrar.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mtgto/Unrar.swift",
+      "state" : {
+        "revision" : "7216007a38ac122dbdeae26cfdaf7f10775c868f",
+        "version" : "0.5.4"
       }
     }
   ],
