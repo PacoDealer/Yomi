@@ -2277,3 +2277,34 @@ choice; v1 default orange `#FF6B3D`.
 ---
 
 *End of RESEARCH.md — last compiled S138, 2026-10-03 (§26)*
+
+---
+
+## §27 CBR / RAR support — decoder options (S156, 2026-10-13)
+
+Question (KNOWN_ISSUES #195): how to read `.cbr` / `.rar` comic archives, and under which licence. Checked live today.
+
+| Option | Licence | Reads | State | For Yomi |
+|---|---|---|---|---|
+| **Unrar.swift** (mtgto) — Swift wrapper around RARLAB's own UnRAR C++ source | wrapper MIT; UnRAR source = RARLAB "freeware" licence | RAR4 + RAR5, solid, encrypted (it is the reference decoder) | 0.5.4 of 2026-06-30 carries UnRAR 7.23 (2026-06-27); three updates in 2026 | Swift package. Built here for iOS device + simulator (BUILD SUCCEEDED), its 18 tests pass on the Mac. Lists entries, extracts one entry to memory. No multi-volume (not used for comics). ~3 MB of object code in a debug build. |
+| UnrarKit (abbeycode) | BSD-2 wrapper + same UnRAR licence | same decoder | last push 2023-10-12; no Swift package (its README rival says so) | Older UnRAR code = missed security fixes. No. |
+| libarchive, bundled | BSD | "RAR and RAR 5.0 archives (with some limitations due to RAR's proprietary status)" — its own README | very active; Mihon uses it on Android (`me.zhanghai.android.libarchive`) | No ready iOS package: we would build and maintain a C library ourselves, and some CBRs would still fail. |
+| libarchive from iOS itself | — | — | the iOS SDK has `libarchive.tbd` but **no headers** | Not a public API. No. |
+| Convert to CBZ outside the app (today) | — | — | — | Zero risk, worst experience. |
+
+**UnRAR source licence (license.txt in the source, read in full):** "UnRAR source code may be used in any software to
+handle RAR archives without limitations free of charge, but cannot be used to develop RAR (WinRAR) compatible archiver
+and to re-create RAR compression algorithm, which is proprietary." Distribution inside other software is permitted
+provided that paragraph is included in the licence/documentation and in source comments. So: free, commercial use
+allowed, closed source allowed; one duty = show that paragraph (→ More → About → Open Source Licenses, via
+`scripts/build-licenses.sh`). It is not an open-source licence and is not GPL-compatible — which is why GPL apps
+avoid it (Aidoku, GPL-3.0, ships only ZIPFoundation). Yomi is all-rights-reserved, and UnRAR would not be linked
+with the GPL+Classpath OpenJDK runtime (separate framework) — Claude's reading, not legal advice.
+
+**Recommendation:** Unrar.swift. It is the only option that reads every CBR, it is maintained, and the licence asks
+for one notice. Cost: a second third-party dependency that parses untrusted files (keep it updated), ~1–3 MB.
+Work: `LocalLibrary` treats cbr/rar like cbz/zip behind one small archive protocol; cover + page extraction to
+memory; licence notice; a real CBR (RAR4 and RAR5) through the real Files picker.
+
+Not checked: App Store precedent by name (which iOS readers ship UnRAR), behaviour on a multi-GB solid archive
+(solid = every page before the wanted one is decoded).
