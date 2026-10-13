@@ -32,6 +32,7 @@ struct SourceNovel {
     var author: String?
     var summary: String?
     var status: String?
+    var genres: [String] = []
     var chapters: [JSNovelChapter]
 }
 
@@ -1697,8 +1698,17 @@ final class JSBridge {
             author:   dict["author"]  as? String,
             summary:  dict["summary"] as? String,
             status:   dict["status"]  as? String,
+            genres:   JSBridge.novelGenres(dict["genres"]),
             chapters: chapters
         )
+    }
+
+    /// LNReader plugins give genres as one comma-separated string; Yomi's own give an array.
+    nonisolated static func novelGenres(_ raw: Any?) -> [String] {
+        let parts = (raw as? [String]) ?? (raw as? String)?.components(separatedBy: ",") ?? []
+        var seen = Set<String>()
+        return parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
     }
 
     nonisolated func parseChapter(path: String) -> String {
