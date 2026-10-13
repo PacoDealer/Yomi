@@ -180,11 +180,13 @@ struct BackupView: View {
                     busyRow("Uploading to iCloud…")
                 case .downloading:
                     busyRow("Downloading from iCloud…")
-                case .error(let msg):
-                    Text(msg)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
                 default:
+                    // The error sits above the actions — it used to replace them, so one failure hid "Back Up Now".
+                    if case .error(let msg) = backupManager.iCloudStatus {
+                        Text(msg)
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                    }
                     actionRow("Back Up Now") {
                         Task {
                             await backupManager.uploadToICloud()
