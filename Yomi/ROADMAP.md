@@ -58,8 +58,17 @@ The research audit revealed that 800+ sources are already available across four 
   failed: credentials expired → he runs `firebase login --reauth`. Config is ready: `firebase.json` now has two hosting
   targets (`plugins` → public/, `site` → site/), `.firebaserc` maps them; old config in `firebase.json.before-S154`.
   **Deploy the plugin host with `firebase deploy --only hosting:plugins` from now on.**
-- **NEXT:** Martin approves/edits the draft → his go for the site → test widget + trackers → screenshots → type the fields into App
-  Store Connect. Still open from S153: encryption answer on 508, review result for 504, two-device sync test.
+- **2026-10-13: site LIVE.** After Martin's reauth: `yomi-reader` created, `firebase deploy --only hosting:site` →
+  `https://yomi-reader.web.app/` , `/support`, `/privacy` all 200 (titles checked), unknown paths 404, no
+  `index.json` there. Old `yomi-plugins.web.app/privacy` still 200 (TestFlight builds link to it). In-app Privacy
+  Policy link → `yomi-reader.web.app/privacy` (MoreView; build 0 warnings; in no uploaded build yet).
+- **Build 504 APPROVED by Beta App Review** (Martin's screenshot, 2026-10-13) — the Friends public link works now.
+  Build 508: encryption answered, "Ready to Submit", not yet in Friends.
+- **NEXT (S155):** Martin adds 508 to Friends (the + next to it) and sends friends the link → he reads/approves the
+  listing draft → test widget + trackers + two-device sync on TestFlight → screenshots → type the listing into App
+  Store Connect (Support `https://yomi-reader.web.app/support`, Privacy `https://yomi-reader.web.app/privacy`; the
+  TestFlight Test Information still has the old privacy URL) → next upload carries the 18+ switch move, iPhone-only
+  and the new privacy link.
 
 ---
 

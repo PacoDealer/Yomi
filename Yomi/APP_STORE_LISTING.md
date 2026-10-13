@@ -100,7 +100,7 @@ Privacy:  https://yomi-reader.web.app/privacy
 Marketing: (leave empty)
 ```
 **Decided S154:** a separate, neutral site `yomi-reader` in the same Firebase project — home, support and privacy
-only, files in `Firebase/site/`. **Not created or deployed yet** (waiting for Martin's go). The old
+only, files in `Firebase/site/`. **Live since 2026-10-13** (all three pages checked). The old
 `yomi-plugins.web.app/privacy` stays up: builds already on TestFlight link to it.
 
 ---
