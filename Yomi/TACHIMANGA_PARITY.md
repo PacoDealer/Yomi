@@ -48,6 +48,16 @@ rotation setting, keep screen on, Cloudflare WebView, **bulk migration (S148)**.
 duration carried ✅ (S148: read dates kept, duration = max); remove downloads on migrate — deliberately not offered
 (Martin S148: no delete).
 
+**S157 re-check (2026-10-13):** changelog re-read — nothing newer than Stable v5.1 (Oct 8). Every "Missing" line
+above was grepped again and is still missing, except Local source (done S148, CBR added S156). Done since S148:
+per-extension settings (S156, gear in the source's Browse screen; no entry from the Extensions list, unseen on a
+device), `.tmb` import (S155), daily on-device backup (S156, no frequency picker). Corrections: "separate tap-zone
+presets" is NOT present — `tapZoneLayout` is one setting for every mode (Tachimanga v5.0 splits paged/webtoon).
+New gaps this pass found: **source filters** — `KeiyoushiBridge.search` always sends an empty `filterList` and no
+Browse screen has a filter sheet (genre/sort/status inside a source); save/share a page image (no long-press menu
+in the manga reader); "Keep tab state" (v5.0) not looked at.
+**Source filters built the same session** (Keiyoushi sources; ROADMAP S157, limits + KNOWN_ISSUES #207).
+
 ---
 
 ## 1. Reader — reading modes & page layout

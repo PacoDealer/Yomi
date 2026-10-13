@@ -18,13 +18,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#190), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#207), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S156 — 2026-10-13)
+## Current state (S157 — 2026-10-13)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -100,6 +100,9 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). **CBR/RAR**
   via `Core/ComicArchive.swift` + Swift package Unrar.swift (RARLAB UnRAR; licence text in `licence-unrar.txt` —
   keep the package updated, it parses untrusted files; a new picker file type needs an Info.plist UTType).
+  S157 (in NO build): **source filters** for Keiyoushi sources (`KeiyoushiFilter.swift`, `KeiyoushiFilterSheet`,
+  filter button in `KeiyoushiBrowseView`; Mac-server + sample-data verified, real screen unseen on a device); #207 =
+  filters an extension fetches from its site (Asura genres) don't load (zstd JNI). Parity list: `TACHIMANGA_PARITY.md`.
   Open: #206 double back button from Library search, per-extension settings screen unseen on a device
   (built + Mac-verified; `KeiyoushiSourceSettingsView`), solid/huge CBR. NEXT in ROADMAP S156.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
