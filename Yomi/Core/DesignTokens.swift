@@ -15,13 +15,19 @@ enum YomiTokens {
         // don't churn; screens move to semantic styles (.headline, .subheadline…) as
         // they are redesigned. "mono" keeps tabular digits for counts and progress.
         static func grotesk(_ size: CGFloat) -> SwiftUI.Font {
-            .system(size: size)
+            .system(size: scaled(size))
         }
         static func grotesk(_ size: CGFloat, weight: SwiftUI.Font.Weight) -> SwiftUI.Font {
-            .system(size: size, weight: weight)
+            .system(size: scaled(size), weight: weight)
         }
         static func mono(_ size: CGFloat, bold: Bool = false) -> SwiftUI.Font {
-            .system(size: size, weight: bold ? .semibold : .regular).monospacedDigit()
+            .system(size: scaled(size), weight: bold ? .semibold : .regular).monospacedDigit()
+        }
+        /// S156 Dynamic Type: these sizes follow the iPhone's text size like the semantic styles do — unchanged
+        /// at the default setting, capped at 1.5× because the screens that still use them (cover grids, reader
+        /// chrome) have fixed layouts. Read when a view is drawn, so a change shows on the next redraw.
+        static func scaled(_ size: CGFloat) -> CGFloat {
+            min(size * 1.5, UIFontMetrics.default.scaledValue(for: size)).rounded()
         }
     }
 
