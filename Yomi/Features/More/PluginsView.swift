@@ -22,7 +22,7 @@ struct RepositoryHelpView: View {
                 topic("Your choice, your responsibility",
                       "Yomi doesn't check what a repository contains. Only add repositories you trust and sources you're allowed to use.")
                 topic("No repository?",
-                      "Yomi also reads your own files: Browse → On This iPhone → Local Files opens CBZ, ZIP and EPUB.")
+                      "Yomi also reads your own files: Browse → On This iPhone → Local Files opens CBZ, CBR, ZIP and EPUB.")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(24)

@@ -265,8 +265,8 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
             ticks += 1
             if ticks > 60 { t.invalidate(); return }
             webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, !self.finished else { return }
+                DispatchQueue.main.async {
+                    guard !self.finished else { return }
                     guard cookies.contains(where: { $0.name == "cf_clearance" }) else { return }
                     self.collectedCookies = cookies
                     t.invalidate()

@@ -12,7 +12,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Tech stack
 - Swift + SwiftUI, **iOS 26.2 deployment target — no older-iOS fallbacks, ever**
-- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader)
+- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader) · Unrar.swift (CBR)
 - Keiyoushi: OpenJDK Mobile Zero + patched M-Extension-Server (`Yomi/Features/Keiyoushi/`, `scripts/keiyoushi/`)
 - `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` project-wide — check build settings before claiming an isolation bug
 
@@ -62,7 +62,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   **Local files** (`Features/Local/`): Browse → On This iPhone → Local Files; Import (→ `Documents/Local`) + a
   linked Files folder (bookmark — Documents is NOT exposed, it holds yomi.db); CBZ/ZIP/image folders = manga,
   EPUB = novel (`EpubBook`, `NovelContent.html` for all novel content); own ZIP reader `Core/ZipArchive.swift`;
-  "Open in Yomi" for .cbz/.epub. CBR/RAR = backlog #195. Part C sim-verified only.
+  "Open in Yomi" for .cbz/.epub. CBR/RAR added S156. Part C sim-verified only.
   Migration device-verified (AllManga → MangaFire, DB compared). NEXT: Martin's manga reader report KNOWN_ISSUES #197–#200
   (paged chapter swipe, continuous starts at end, continuous over-zoom, pinch-zoom dead) → part C device check → publishing path (ROADMAP S148).
   New backlog: per-extension Settings screen (Mihon source preferences; e.g. Asura "Hide premium chapters").
@@ -95,10 +95,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   don't split them again; never two `.fileImporter`s on a view); iCloud backup fix (`CloudDocuments` entitlement —
   unproven until on a phone). **Never upload to TestFlight without Martin's explicit go for that build.**
   S156 (simulator only, in NO build): Library reloads when the first-run screen closes; novel genres from the
-  source (`JSBridge.novelGenres`; WeTried + NovelFire plugins deployed; check the
-  CloudKit Production `Novel.genres` field before uploading); daily on-device backup (`saveLocalBackupIfDue`,
-  More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). Open: #206 double back
-  button from Library search, per-extension settings (needs the phone), CBR (licence decision). NEXT in ROADMAP S156.
+  source (`JSBridge.novelGenres`; WeTried + NovelFire plugins deployed; CloudKit
+  Production `Novel.genres` exists); daily on-device backup (`saveLocalBackupIfDue`,
+  More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). **CBR/RAR**
+  via `Core/ComicArchive.swift` + Swift package Unrar.swift (RARLAB UnRAR; licence text in `licence-unrar.txt` —
+  keep the package updated, it parses untrusted files; a new picker file type needs an Info.plist UTType).
+  Open: #206 double back button from Library search, per-extension settings (needs the phone), a real compressed
+  CBR test. NEXT in ROADMAP S156.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.

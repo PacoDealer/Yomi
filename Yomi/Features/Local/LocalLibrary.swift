@@ -7,8 +7,8 @@ import CryptoKit
 // local-source): one folder per series; inside it each chapter is a CBZ/ZIP archive or a folder of images, plus an
 // optional cover.jpg. Martin's picks: an EPUB is a NOVEL (its table of contents = chapters, read in the novel reader),
 // files come in two ways — Import (copied into Yomi's own `Documents/Local`) and a folder the user links once in the
-// Files app (security-scoped bookmark; Yomi's Documents stays hidden because it holds the database) — and CBR/RAR is
-// skipped for now (KNOWN_ISSUES).
+// Files app (security-scoped bookmark; Yomi's Documents stays hidden because it holds the database) — and CBR/RAR was
+// skipped until S156 (now read through `ComicArchive`; CB7/7z still is).
 //
 // Titles are ordinary `manga`/`novel` rows with sourceId "local"; chapter paths say where the file is:
 //   manga chapter  local://<root>/<relative path>              (archive or image folder)
@@ -31,8 +31,8 @@ nonisolated enum LocalLibrary {
     }
 
     static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif", "bmp"]
-    static let archiveExtensions: Set<String> = ["cbz", "zip"]
-    static let unsupportedArchiveExtensions: Set<String> = ["cbr", "rar", "cb7", "7z"]
+    static let archiveExtensions: Set<String> = ["cbz", "zip", "cbr", "rar"]
+    static let unsupportedArchiveExtensions: Set<String> = ["cb7", "7z"]
 
     // MARK: - Roots
 
@@ -130,10 +130,10 @@ nonisolated enum LocalLibrary {
             } else if ext == "epub" {
                 destination = appRoot.appendingPathComponent(name)
             } else if unsupportedArchiveExtensions.contains(ext) {
-                result.skipped.append("\(name) — CBR/RAR isn't supported yet; convert it to CBZ")
+                result.skipped.append("\(name) — CB7/7z isn't supported yet; convert it to CBZ")
                 continue
             } else {
-                result.skipped.append("\(name) — not a CBZ, ZIP, EPUB or folder")
+                result.skipped.append("\(name) — not a CBZ, CBR, ZIP, RAR, EPUB or folder")
                 continue
             }
             if fm.fileExists(atPath: destination.path) {
@@ -232,7 +232,7 @@ nonisolated enum LocalLibrary {
             } else if ext == "epub" {
                 epubs.append(itemRel)
             } else if unsupportedArchiveExtensions.contains(ext) {
-                skipped.append("\(name) — CBR/RAR isn't supported yet")
+                skipped.append("\(name) — CB7/7z isn't supported yet")
             }
         }
     }
@@ -273,7 +273,7 @@ nonisolated enum LocalLibrary {
                 if child.deletingPathExtension().lastPathComponent.lowercased() == "cover" { draft.coverFile = child }
                 else { looseImages = true }
             } else if unsupportedArchiveExtensions.contains(ext) {
-                skipped.append("\(child.lastPathComponent) — CBR/RAR isn't supported yet")
+                skipped.append("\(child.lastPathComponent) — CB7/7z isn't supported yet")
             }
         }
         // A series folder holding images directly (no chapter folders) is one chapter.
@@ -350,12 +350,12 @@ nonisolated enum LocalLibrary {
             else { return nil }
             return (data, url.pathExtension.lowercased())
         }
-        guard let zip = try? ZipArchive(url: source),
-              let entry = zip.files
-                .filter({ !$0.path.hasPrefix("__MACOSX") && imageExtensions.contains(($0.path as NSString).pathExtension.lowercased()) })
-                .min(by: { $0.path.localizedStandardCompare($1.path) == .orderedAscending }),
-              let data = try? zip.contents(of: entry) else { return nil }
-        return (data, (entry.path as NSString).pathExtension.lowercased())
+        guard let archive = try? ComicArchive(url: source),
+              let path = archive.paths
+                .filter({ !$0.hasPrefix("__MACOSX") && imageExtensions.contains(($0 as NSString).pathExtension.lowercased()) })
+                .min(by: { $0.localizedStandardCompare($1) == .orderedAscending }),
+              let data = try? archive.contents(of: path) else { return nil }
+        return (data, (path as NSString).pathExtension.lowercased())
     }
 
     private static func writeCover(_ data: Data?, id: String, ext: String) -> String? {
@@ -396,17 +396,17 @@ nonisolated enum LocalLibrary {
         }
         try? fm.removeItem(at: cache)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
-        let zip = try ZipArchive(url: source)
+        let archive = try ComicArchive(url: source)
         // Mihon: folders inside an archive are ignored — every image is a page, ordered by its path.
-        let images = zip.files
-            .filter { !$0.path.hasPrefix("__MACOSX") && !($0.path as NSString).lastPathComponent.hasPrefix(".")
-                && imageExtensions.contains(($0.path as NSString).pathExtension.lowercased()) }
-            .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+        let images = archive.paths
+            .filter { !$0.hasPrefix("__MACOSX") && !($0 as NSString).lastPathComponent.hasPrefix(".")
+                && imageExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         var out: [URL] = []
-        for (i, entry) in images.enumerated() {
-            let ext = (entry.path as NSString).pathExtension.lowercased()
+        for (i, path) in images.enumerated() {
+            let ext = (path as NSString).pathExtension.lowercased()
             let file = cache.appendingPathComponent(String(format: "%04d.%@", i + 1, ext))
-            try zip.contents(of: entry).write(to: file)
+            try archive.contents(of: path).write(to: file)
             out.append(file)
         }
         try stamp.write(to: marker, atomically: true, encoding: .utf8)
@@ -515,9 +515,9 @@ nonisolated struct ComicInfo: Sendable {
     var genres: [String] = []
 
     static func read(archive url: URL) -> ComicInfo? {
-        guard let zip = try? ZipArchive(url: url),
-              let entry = zip.files.first(where: { ($0.path as NSString).lastPathComponent.lowercased() == "comicinfo.xml" }),
-              let data = try? zip.contents(of: entry),
+        guard let archive = try? ComicArchive(url: url),
+              let path = archive.paths.first(where: { ($0 as NSString).lastPathComponent.lowercased() == "comicinfo.xml" }),
+              let data = try? archive.contents(of: path),
               let xml = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else { return nil }
         func tag(_ name: String) -> String? {
             guard let r = xml.range(of: "<\(name)>([\\s\\S]*?)</\(name)>", options: [.regularExpression, .caseInsensitive])
