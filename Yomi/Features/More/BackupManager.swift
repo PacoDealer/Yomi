@@ -13,6 +13,14 @@ enum ICloudSyncStatus: Equatable {
     case error(String)
 }
 
+/// The app's iCloud folder couldn't be opened — iCloud Drive off for Yomi, or (S155, every TestFlight build up to
+/// 515) the build signed without the iCloud Documents service. Was a bare "The file doesn't exist."
+struct ICloudFolderError: LocalizedError {
+    var errorDescription: String? {
+        "Yomi couldn't open its iCloud folder. Check that iCloud Drive is on for Yomi in Settings → your name → iCloud."
+    }
+}
+
 // MARK: - BackupManager
 
 @Observable final class BackupManager {
@@ -273,9 +281,7 @@ enum ICloudSyncStatus: Equatable {
         do {
             let data = try await buildBackupData()
             try await Task.detached {
-                guard let dir = Self.iCloudBackupsDirectory() else {
-                    throw CocoaError(.fileNoSuchFile)
-                }
+                guard let dir = Self.iCloudBackupsDirectory() else { throw ICloudFolderError() }
                 let datePart = Date().formatted(.iso8601)
                     .replacingOccurrences(of: ":", with: "-")
                 let dest = dir.appendingPathComponent(
