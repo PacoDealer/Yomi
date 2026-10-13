@@ -1,8 +1,11 @@
 import Foundation
+import GRDB
+import UniformTypeIdentifiers
 
 // MARK: - TachiyomiBackupParser
 //
-// Parses Tachiyomi / Mihon .tachibk files (gzip-compressed protobuf3). Tachimanga exports this format too.
+// Parses Tachiyomi / Mihon .tachibk files (gzip-compressed protobuf3). Tachimanga exports this format too
+// (Premium only) — its own .tmb backup is read by the extension at the end of this file.
 // Zero external dependencies:
 //   • gzip decompression via libz (always linked on iOS) using inflateInit2_
 //   • protobuf decoding via hand-written varint reader matching the known schema
@@ -209,14 +212,24 @@ nonisolated enum TachiyomiBackupParser {
 
         guard !url.isEmpty, !title.isEmpty else { return nil }
 
-        let sourceId = String(mihonSourceId)
-        var manga = KeiyoushiMapping.manga(
-            from: KeiyoushiManga(url: bridgeURL(url, memo: memo), title: title, artist: artist, author: author, description: description,
-                                 genre: genres.isEmpty ? nil : genres.joined(separator: ", "),
-                                 status: Int(statusCode), thumbnail_url: thumbnailUrl, thumbnail_proxy_url: nil),
-            sourceId: sourceId)
+        let built = build(sourceId: String(mihonSourceId),
+                          manga: KeiyoushiManga(url: bridgeURL(url, memo: memo), title: title, artist: artist, author: author,
+                                                description: description,
+                                                genre: genres.isEmpty ? nil : genres.joined(separator: ", "),
+                                                status: Int(statusCode), thumbnail_url: thumbnailUrl, thumbnail_proxy_url: nil),
+                          favorite: favorite, lastReadAt: lastReadByChapterURL.values.max(),
+                          chapters: backupChapters, readAtByChapterURL: lastReadByChapterURL)
+        return (built.manga, built.chapters, categoryOrders)
+    }
+
+    /// One backup title as Yomi rows — shared by the .tachibk and the Tachimanga .tmb reader, so both produce the
+    /// ids and `keiyoushi://` paths the bridge does.
+    private static func build(sourceId: String, manga source: KeiyoushiManga, favorite: Bool, lastReadAt: Date?,
+                              chapters backupChapters: [BackupChapter],
+                              readAtByChapterURL: [String: Date]) -> (manga: Manga, chapters: [Chapter]) {
+        var manga = KeiyoushiMapping.manga(from: source, sourceId: sourceId)
         manga.inLibrary = favorite
-        manga.lastReadAt = lastReadByChapterURL.values.max()
+        manga.lastReadAt = lastReadAt
 
         var seen = Set<String>()
         let chapters: [Chapter] = backupChapters.compactMap { ch in
@@ -224,18 +237,18 @@ nonisolated enum TachiyomiBackupParser {
             var chapter = KeiyoushiMapping.chapter(
                 from: KeiyoushiChapter(url: bridgeURL(ch.url, memo: ch.memo), name: ch.name, date_upload: nil,
                                        chapter_number: ch.chapterNumber, scanlator: ch.scanlator),
-                mangaId: manga.id, sourceId: sourceId, mangaTitle: title)
+                mangaId: manga.id, sourceId: sourceId, mangaTitle: source.title)
             guard seen.insert(chapter.id).inserted else { return nil }
             chapter.isRead = ch.read
             chapter.lastPageRead = ch.lastPage
             chapter.progress = ch.read ? 1.0 : 0
             // Only a real history date: a read chapter without one stays out of History rather than
             // claiming it was read in 1970 (pre-S147 behaviour).
-            chapter.readAt = lastReadByChapterURL[ch.url] ?? (ch.read ? manga.lastReadAt : nil)
+            chapter.readAt = readAtByChapterURL[ch.url] ?? (ch.read ? manga.lastReadAt : nil)
             return chapter
         }
 
-        return (manga, chapters, categoryOrders)
+        return (manga, chapters)
     }
 
     // MARK: - Nested message decoders
@@ -330,6 +343,148 @@ nonisolated enum TachiyomiBackupParser {
     }
 }
 
+// MARK: - Tachimanga .tmb
+//
+// S155: Tachimanga's own backup (its .tachibk export is a Premium feature, so most of its users only have this).
+// A .tmb is a zip of `meta.json` + `contents.zip`; the inner zip holds `tachimanga.db` (the Suwayomi-style SQLite
+// database), the extension jars and the preference plists. Only the database is read — the plists carry tracker
+// logins and are never opened.
+//
+// Scope matches what Tachimanga itself writes to a .tachibk (checked on Martin's same-minute pair: 148 titles,
+// 16,694 read chapters, 5 categories): library titles (`in_library`), the chapters that carry state (read, a
+// saved page, a bookmark or last opened — the rest come back on the first refresh), categories, and history. The database also
+// caches every title ever browsed (28,072 rows there); those stay behind. Dates are in SECONDS here.
+// It adds two things the .tachibk lacks: a read date per chapter and the repository links.
+
+nonisolated extension TachiyomiBackupParser {
+
+    /// What the import pickers offer: .tachibk and Tachimanga's .tmb.
+    static var backupFileTypes: [UTType] {
+        ["tachibk", "tmb"].map { UTType(filenameExtension: $0) ?? .data }
+    }
+
+    /// A zip ("PK") rather than the .tachibk's gzip.
+    static func isTachimangaBackup(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: 2)) == Data([0x50, 0x4b])
+    }
+
+    static func parseTachimanga(at url: URL) throws -> ImportResult {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tmb-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDir) }
+
+        // The inner zip and the database go through disk: ZipArchive maps a file, and SQLite needs one.
+        let innerURL = workDir.appendingPathComponent("contents.zip")
+        let dbURL = workDir.appendingPathComponent("tachimanga.db")
+        guard let inner = try ZipArchive(url: url).contents(of: "contents.zip") else { throw BackupParseError.notTachimanga }
+        try inner.write(to: innerURL)
+        guard let database = try ZipArchive(url: innerURL).contents(of: "tachimanga.db") else { throw BackupParseError.notTachimanga }
+        try database.write(to: dbURL)
+
+        return try DatabaseQueue(path: dbURL.path).read { db in
+            var result = ImportResult()
+
+            // Older Tachimanga databases lack some of these (the memo columns came with tachiyomix 1.6).
+            func has(_ table: String, _ column: String) throws -> Bool {
+                try db.tableExists(table) && db.columns(in: table).contains { $0.name == column }
+            }
+            let mangaMemo = try has("Manga", "memo") ? "memo" : "NULL"
+            let chapterMemo = try has("Chapter", "memo") ? "memo" : "NULL"
+            let liveCategory = try has("Category", "is_delete") ? "c.is_delete = 0" : "1"
+
+            var lastReadByManga: [Int64: Date] = [:]
+            if try db.tableExists("History") {
+                let live = try has("History", "is_delete") ? "is_delete = 0 AND" : ""
+                for row in try Row.fetchAll(db, sql: "SELECT manga_id, last_read_at FROM History WHERE \(live) last_read_at > 0") {
+                    lastReadByManga[row["manga_id"]] = Date(timeIntervalSince1970: row["last_read_at"])
+                }
+            }
+
+            // The chapter a title was last opened on travels too, read or not — as in Tachimanga's .tachibk.
+            let lastOpened = try db.tableExists("History") ? "OR id IN (SELECT last_chapter_id FROM History)" : ""
+            var chaptersByManga: [Int64: [BackupChapter]] = [:]
+            var readAtByManga: [Int64: [String: Date]] = [:]
+            let chapterRows = try Row.fetchCursor(db, sql: """
+                SELECT manga, url, name, chapter_number, scanlator, read, last_page_read, last_read_at, \(chapterMemo) AS memo
+                FROM Chapter
+                WHERE manga IN (SELECT id FROM Manga WHERE in_library = 1) AND (read = 1 OR last_page_read > 0 OR bookmark = 1 \(lastOpened))
+                ORDER BY manga, source_order
+                """)
+            while let row = try chapterRows.next() {
+                let mangaRow: Int64 = row["manga"]
+                let chapterURL: String = row["url"]
+                let name: String = row["name"]
+                guard !name.isEmpty else { continue }
+                chaptersByManga[mangaRow, default: []].append(
+                    (url: chapterURL, name: name, read: row["read"], lastPage: row["last_page_read"],
+                     chapterNumber: row["chapter_number"], scanlator: row["scanlator"],
+                     memo: (row["memo"] as String?).map { Data($0.utf8) }))
+                // A title removed from Tachimanga's history keeps its read marks but brings no dates.
+                let readAt: Int64 = row["last_read_at"]
+                if readAt > 0, lastReadByManga[mangaRow] != nil {
+                    readAtByManga[mangaRow, default: [:]][chapterURL] = Date(timeIntervalSince1970: TimeInterval(readAt))
+                }
+            }
+
+            var mangaIdByRow: [Int64: String] = [:]
+            var seenMangaIds = Set<String>()
+            for row in try Row.fetchAll(db, sql: """
+                SELECT id, url, title, artist, author, description, genre, status, thumbnail_url, source, \(mangaMemo) AS memo
+                FROM Manga WHERE in_library = 1 AND source != 0
+                """) {
+                let rowId: Int64 = row["id"]
+                let url: String = row["url"]
+                let title: String = row["title"]
+                guard !url.isEmpty, !title.isEmpty else { continue }
+                let genre: String? = row["genre"]
+                let built = build(
+                    sourceId: String(row["source"] as Int64),
+                    manga: KeiyoushiManga(url: bridgeURL(url, memo: (row["memo"] as String?).map { Data($0.utf8) }),
+                                          title: title, artist: row["artist"], author: row["author"],
+                                          description: row["description"], genre: genre?.isEmpty == true ? nil : genre,
+                                          status: row["status"], thumbnail_url: row["thumbnail_url"], thumbnail_proxy_url: nil),
+                    favorite: true, lastReadAt: lastReadByManga[rowId],
+                    chapters: chaptersByManga[rowId] ?? [], readAtByChapterURL: readAtByManga[rowId] ?? [:])
+                guard seenMangaIds.insert(built.manga.id).inserted else { continue }
+                mangaIdByRow[rowId] = built.manga.id
+                result.mangas.append(built.manga)
+                result.chapters.append(contentsOf: built.chapters)
+            }
+
+            for row in try Row.fetchAll(db, sql: "SELECT name, \"order\" FROM Category c WHERE \(liveCategory) ORDER BY \"order\"") {
+                let name = (row["name"] as String).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { result.categories.append((name, row["order"])) }
+            }
+            for row in try Row.fetchAll(db, sql: """
+                SELECT cm.manga, c."order" FROM CategoryManga cm JOIN Category c ON c.id = cm.category WHERE \(liveCategory)
+                """) {
+                if let mangaId = mangaIdByRow[row["manga"]] {
+                    result.mangaCategoryOrders[mangaId, default: []].append(row["order"])
+                }
+            }
+
+            let needed = result.sourceIds
+            for row in try Row.fetchAll(db, sql: "SELECT id, name FROM Source") {
+                let id = String(row["id"] as Int64)
+                if needed.contains(id) { result.sourceNames[id] = row["name"] }
+            }
+
+            if try db.tableExists("Repo") {
+                let index = try has("Repo", "index_url") ? "index_url" : "NULL"
+                for row in try Row.fetchAll(db, sql: "SELECT \(index) AS index_url, meta_url FROM Repo WHERE deleted = 0") {
+                    let indexURL: String? = row["index_url"]
+                    let link = indexURL?.isEmpty == false ? indexURL! : (row["meta_url"] as String)
+                    if link.hasPrefix("http"), !result.repoURLs.contains(link) { result.repoURLs.append(link) }
+                }
+            }
+            return result
+        }
+    }
+}
+
 // MARK: - Error
 
 enum BackupParseError: LocalizedError {
@@ -337,6 +492,7 @@ enum BackupParseError: LocalizedError {
     case zlibError(Int32)
     case truncated
     case empty
+    case notTachimanga
 
     var errorDescription: String? {
         switch self {
@@ -344,6 +500,7 @@ enum BackupParseError: LocalizedError {
         case .zlibError(let c):   return "Decompression error (zlib code \(c))"
         case .truncated:           return "Backup file is incomplete"
         case .empty:               return "This backup has no titles in it"
+        case .notTachimanga:       return "This isn't a Tachimanga backup (.tmb)"
         }
     }
 }

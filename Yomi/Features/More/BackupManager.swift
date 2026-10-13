@@ -49,7 +49,7 @@ enum ICloudSyncStatus: Equatable {
 
     // MARK: - Tachiyomi Import
 
-    /// What a `.tachibk` import brought in — the import sheet resolves each source against the user's
+    /// What a `.tachibk` or Tachimanga `.tmb` import brought in — the import sheet resolves each source against the user's
     /// repositories live (S147).
     struct TachiyomiImportReport: Identifiable {
         let id = UUID()
@@ -76,9 +76,10 @@ enum ICloudSyncStatus: Equatable {
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
-            let data = try Data(contentsOf: url)
             lastTachiyomiImport = try await Task.detached(priority: .userInitiated) {
-                let result = try TachiyomiBackupParser.parse(data)
+                let result = try TachiyomiBackupParser.isTachimangaBackup(url)
+                    ? TachiyomiBackupParser.parseTachimanga(at: url)
+                    : TachiyomiBackupParser.parse(Data(contentsOf: url))
                 guard !result.mangas.isEmpty else { throw BackupParseError.empty }
                 let categoryCount = try Self.mergeTachiyomiImport(result)
                 var names = UserDefaults.standard.dictionary(forKey: SourceStatus.importedNamesKey) as? [String: String] ?? [:]
