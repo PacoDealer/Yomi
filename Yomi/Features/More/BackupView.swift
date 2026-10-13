@@ -63,7 +63,7 @@ struct BackupView: View {
         }
         .fileImporter(
             isPresented: $showTachiyomiPicker,
-            allowedContentTypes: [UTType(filenameExtension: "tachibk") ?? .data]
+            allowedContentTypes: TachiyomiBackupParser.backupFileTypes
         ) { result in
             if case .success(let url) = result {
                 Task {
@@ -246,8 +246,8 @@ struct BackupView: View {
             } else if backupManager.isImporting {
                 busyRow("Importing…")
             } else {
-                actionRow("Import .tachibk",
-                          note: "From Mihon, Tachiyomi or Tachimanga: your manga library, categories and read history.") {
+                actionRow("Import .tachibk or .tmb",
+                          note: "From Mihon, Tachiyomi or Tachimanga (its own .tmb backup works too): your manga library, categories and read history.") {
                     showTachiyomiPicker = true
                 }
                 actionRow("Export .tachibk",

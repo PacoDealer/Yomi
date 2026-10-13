@@ -6,7 +6,8 @@ import Compression
 // S148: a minimal read-only ZIP reader for local CBZ/ZIP chapters and EPUB books. Both formats only use "stored"
 // (0) and "deflate" (8) entries; deflate is raw RFC 1951, which Apple's Compression framework decodes as
 // `COMPRESSION_ZLIB`. The file is memory-mapped, so a 200 MB CBZ isn't read into RAM. ZIP64 (archives > 4 GB or
-// > 65,535 entries) and encrypted entries are refused with a clear error rather than misread.
+// > 65,535 entries) and encrypted entries are refused with a clear error rather than misread; small entries that
+// are only *marked* ZIP64 are read (S155).
 
 nonisolated struct ZipArchive: Sendable {
     struct Entry: Sendable {
@@ -110,14 +111,38 @@ nonisolated struct ZipArchive: Sendable {
             guard p + 46 <= data.count, u32(data, p) == 0x02014b50 else { throw ZipError.corrupt("directory entry") }
             let flags = u16(data, p + 8)
             let method = u16(data, p + 10)
-            let csize = u32(data, p + 20)
-            let usize = u32(data, p + 24)
+            var csize = UInt64(u32(data, p + 20))
+            var usize = UInt64(u32(data, p + 24))
             let nameLen = Int(u16(data, p + 28))
             let extraLen = Int(u16(data, p + 30))
             let commentLen = Int(u16(data, p + 32))
-            let local = u32(data, p + 42)
-            if csize == 0xFFFF_FFFF || usize == 0xFFFF_FFFF || local == 0xFFFF_FFFF { throw ZipError.zip64 }
-            guard p + 46 + nameLen <= data.count else { throw ZipError.corrupt("entry name") }
+            var local = UInt64(u32(data, p + 42))
+            guard p + 46 + nameLen + extraLen <= data.count else { throw ZipError.corrupt("entry name") }
+            // S155: some writers (Tachimanga's .tmb) mark every entry ZIP64 however small it is — the 32-bit
+            // fields read 0xFFFFFFFF and the real values sit in extra field 0x0001, in this order, only for the
+            // fields that are marked. Archives that are ZIP64 as a whole are still refused above.
+            if csize == 0xFFFF_FFFF || usize == 0xFFFF_FFFF || local == 0xFFFF_FFFF {
+                var q = p + 46 + nameLen
+                let extraEnd = q + extraLen
+                var found = false
+                while q + 4 <= extraEnd, !found {
+                    let id = u16(data, q), len = Int(u16(data, q + 2))
+                    var v = q + 4
+                    q = v + len
+                    guard id == 0x0001, q <= extraEnd else { continue }
+                    func next() throws -> UInt64 {
+                        guard v + 8 <= q else { throw ZipError.zip64 }
+                        defer { v += 8 }
+                        return UInt64(u32(data, v)) | UInt64(u32(data, v + 4)) << 32
+                    }
+                    if usize == 0xFFFF_FFFF { usize = try next() }
+                    if csize == 0xFFFF_FFFF { csize = try next() }
+                    if local == 0xFFFF_FFFF { local = try next() }
+                    found = true
+                }
+                // No usable extra field, or an entry really past 4 GB.
+                guard found, max(csize, usize, local) < 0xFFFF_FFFF else { throw ZipError.zip64 }
+            }
             let nameData = data.subdata(in: (p + 46)..<(p + 46 + nameLen))
             // Bit 11 = UTF-8 names; older tools wrote CP437, where Latin-1 is the closest Foundation decoding.
             let name = (flags & 0x0800 != 0 ? String(data: nameData, encoding: .utf8) : nil)

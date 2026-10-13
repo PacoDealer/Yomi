@@ -44,7 +44,7 @@ struct OnboardingView: View {
                     optionCard(.mihon,
                                systemImage: "arrow.down.doc",
                                title: "Import a Backup",
-                               detail: "Bring a .tachibk backup from another reader — your library, categories and reading progress come along.") {
+                               detail: "Bring a .tachibk backup from another reader, or a Tachimanga .tmb — your library, categories and reading progress come along.") {
                         pickedKind = .mihon; picking = .mihon
                     }
                     optionCard(.yomi,
@@ -78,7 +78,7 @@ struct OnboardingView: View {
         .safeAreaInset(edge: .bottom) { finishButton }
         .fileImporter(
             isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } }),
-            allowedContentTypes: pickedKind == .yomi ? [.json] : [UTType(filenameExtension: "tachibk") ?? .data]
+            allowedContentTypes: pickedKind == .yomi ? [.json] : TachiyomiBackupParser.backupFileTypes
         ) { result in
             let kind = pickedKind
             guard case .success(let url) = result else { return }
