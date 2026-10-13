@@ -24,7 +24,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S155 — 2026-10-13)
+## Current state (S156 — 2026-10-13)
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -94,7 +94,11 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   build: Backup screen = ONE Import (json/.tachibk/.tmb, `importAnyBackup`) + ONE Export menu (Martin's design —
   don't split them again; never two `.fileImporter`s on a view); iCloud backup fix (`CloudDocuments` entitlement —
   unproven until on a phone). **Never upload to TestFlight without Martin's explicit go for that build.**
-  NEXT in ROADMAP S155.
+  S156 (simulator only, in NO build): Library reloads when the first-run screen closes; novel genres from the
+  source (`JSBridge.novelGenres`; WeTried + NovelFire plugins edited in Firebase/public, **not deployed**; check the
+  CloudKit Production `Novel.genres` field before uploading); daily on-device backup (`saveLocalBackupIfDue`,
+  More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). Open: #206 double back
+  button from Library search, per-extension settings (needs the phone), CBR (licence decision). NEXT in ROADMAP S156.
 - Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
   expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
