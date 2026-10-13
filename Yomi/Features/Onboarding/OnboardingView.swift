@@ -17,10 +17,8 @@ struct OnboardingView: View {
     @State private var backupManager = BackupManager.shared
     @State private var settings = AppSettings.shared
 
-    /// One file importer for both backup kinds — two `.fileImporter`s on one view only reliably present the last.
-    @State private var picking: Option? = nil
-    /// What the open picker is for — kept apart from `picking`, which the dismissal clears before the completion runs.
-    @State private var pickedKind: Option = .mihon
+    /// One file importer for every backup kind — two `.fileImporter`s on one view only reliably present the last.
+    @State private var picking = false
     @State private var showAddRepo = false
     @State private var showRepoHelp = false
     @State private var importReport: BackupManager.TachiyomiImportReport? = nil
@@ -29,7 +27,7 @@ struct OnboardingView: View {
     @State private var errorText: String? = nil
     @State private var repoCountAtOpen = 0
 
-    private enum Option: Hashable { case mihon, yomi, repo }
+    private enum Option: Hashable { case backup, repo }
 
     /// The user's accent. `Color.accentColor` renders system blue inside this cover (separate hierarchy).
     private var accent: Color { Color(hex: settings.accentColor) }
@@ -41,17 +39,11 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 28) {
                 header
                 VStack(spacing: 12) {
-                    optionCard(.mihon,
+                    optionCard(.backup,
                                systemImage: "arrow.down.doc",
                                title: "Import a Backup",
-                               detail: "Bring a .tachibk backup from another reader, or a Tachimanga .tmb — your library, categories and reading progress come along.") {
-                        pickedKind = .mihon; picking = .mihon
-                    }
-                    optionCard(.yomi,
-                               systemImage: "clock.arrow.circlepath",
-                               title: "Restore a Yomi Backup",
-                               detail: "Bring back a library you exported from Yomi.") {
-                        pickedKind = .yomi; picking = .yomi
+                               detail: "A Yomi backup, a .tachibk from Mihon or Tachiyomi, or a Tachimanga .tmb — your library, categories and reading progress come along.") {
+                        picking = true
                     }
                     optionCard(.repo,
                                systemImage: "link",
@@ -77,12 +69,11 @@ struct OnboardingView: View {
         .background(Color(.systemBackground).ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { finishButton }
         .fileImporter(
-            isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } }),
-            allowedContentTypes: pickedKind == .yomi ? [.json] : TachiyomiBackupParser.backupFileTypes
+            isPresented: $picking,
+            allowedContentTypes: TachiyomiBackupParser.backupFileTypes
         ) { result in
-            let kind = pickedKind
             guard case .success(let url) = result else { return }
-            Task { await importBackup(kind, from: url) }
+            Task { await importBackup(from: url) }
         }
         .sheet(item: $importReport) { report in
             // Outside ContentView, so give the sheet the app's palette for the current light/dark itself.
@@ -172,27 +163,23 @@ struct OnboardingView: View {
         .background(Color(.systemBackground))
     }
 
-    private func importBackup(_ kind: Option, from url: URL) async {
-        busy = kind
+    private func importBackup(from url: URL) async {
+        busy = .backup
         errorText = nil
-        if kind == .mihon {
-            await backupManager.importTachiyomiBackup(from: url)
-        } else {
-            await backupManager.importBackup(from: url)
-        }
+        await backupManager.importAnyBackup(from: url)
         busy = nil
         if let error = backupManager.errorMessage {
             errorText = error
             return
         }
-        done.insert(kind)
-        if kind == .mihon { importReport = backupManager.lastTachiyomiImport }
+        done.insert(.backup)
+        importReport = backupManager.lastTachiyomiImport
     }
 
     private func finish() {
         settings.hasSeenOnboarding = true
         // A library came in → Library. Only a repository → its extensions, to add the first source.
-        if done.contains(.repo) && !done.contains(.mihon) && !done.contains(.yomi) {
+        if done.contains(.repo) && !done.contains(.backup) {
             appRouter.openBrowseExtensions = true
             appRouter.selectedTab = AppRouter.tabBrowse
         } else {
