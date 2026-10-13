@@ -37,7 +37,9 @@ The research audit revealed that 800+ sources are already available across four 
   (16,694 read), 5 categories, 137 category links; vs the .tachibk import: same 148 manga ids, same categories and
   links, 0 read-state differences on shared chapters, 3 unread stray chapters differ. The .tmb gives more read
   dates (143 titles with a last-read date vs 130). **Not yet on a device, and only one .tmb (Tachimanga v511) tried.**
-- **NEXT:** upload a new TestFlight build so the friend gets it.
+- **Build 1.0 (515) uploaded** (`cbd130a`, 2026-10-13 12:08, "Upload succeeded", signatures verified). First build with
+  the .tmb import, the 18+ switch move, iPhone-only and the new privacy link.
+- **NEXT:** Martin answers the encryption question on 515 → adds it to Friends → the friend updates and imports his .tmb.
 
 ---
 
