@@ -21,6 +21,26 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S155 — Tachimanga .tmb import (2026-10-13)
+
+- **Why:** a TestFlight friend couldn't bring a Tachimanga library over — Tachimanga's .tachibk export is Premium,
+  its free backup is `.tmb`, and Yomi's picker only offered `.tachibk` (the .tmb was greyed out).
+- **Done:** the same "Import" row (More → Backup, and onboarding) now takes `.tmb` too.
+  `TachiyomiBackupParser.parseTachimanga(at:)` reads `contents.zip → tachimanga.db` with GRDB: library titles,
+  chapters that carry state, categories, history (seconds, per chapter), source names and the repository links
+  (so the import sheet offers "Add" for Keiyoushi — a .tachibk from Tachimanga carries none). The preference
+  plists (tracker logins) are never opened. File kind is told apart by magic bytes (PK vs gzip).
+- **`ZipArchive`:** Tachimanga marks every entry ZIP64 (sizes 0xFFFFFFFF + extra field 0x0001) however small —
+  the reader refused it ("too large (ZIP64)"). Per-entry ZIP64 sizes are now read; whole-archive ZIP64 still refused.
+  Found only by running the real file through the picker in the simulator, not by the compile.
+- **Verified (simulator, fresh DB, Martin's same-minute pair of 2026-10-08):** .tmb → 148 titles, 16,723 chapters
+  (16,694 read), 5 categories, 137 category links; vs the .tachibk import: same 148 manga ids, same categories and
+  links, 0 read-state differences on shared chapters, 3 unread stray chapters differ. The .tmb gives more read
+  dates (143 titles with a last-read date vs 130). **Not yet on a device, and only one .tmb (Tachimanga v511) tried.**
+- **NEXT:** upload a new TestFlight build so the friend gets it.
+
+---
+
 ## S154 — App Store listing drafted (2026-10-12)
 
 - **Draft for Martin's approval: `Yomi/APP_STORE_LISTING.md`** — subtitle, promotional text, description, keywords,
