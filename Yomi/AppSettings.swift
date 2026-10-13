@@ -112,6 +112,11 @@ import Observation
         didSet { defaults.set(iCloudAutoBackup, forKey: "iCloudAutoBackup") }
     }
 
+    /// S156: a daily backup kept on the phone itself — works without iCloud.
+    var localAutoBackup: Bool {
+        didSet { defaults.set(localAutoBackup, forKey: "localAutoBackup") }
+    }
+
     // MARK: - CloudKit sync (S102 — live cross-device sync, distinct from the iCloud backup above)
 
     var cloudSyncEnabled: Bool {
@@ -641,6 +646,7 @@ import Observation
         }
         opdsPassword             = KeychainHelper.load(for: "opdsPassword") ?? ""
         iCloudAutoBackup         = d.object(forKey: "iCloudAutoBackup")        as? Bool ?? true
+        localAutoBackup          = d.object(forKey: "localAutoBackup")         as? Bool ?? true
         cloudSyncEnabled         = d.object(forKey: "cloudSyncEnabled")        as? Bool ?? false
         readingReminderEnabled   = d.object(forKey: "readingReminderEnabled") as? Bool ?? false
         readingReminderDays      = d.object(forKey: "readingReminderDays")    as? Int  ?? 2

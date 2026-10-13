@@ -16,9 +16,12 @@ struct BackupView: View {
     @State private var showRestoreConfirm = false
     @State private var icloudBackups: [BackupManager.ICloudBackupEntry] = []
     @State private var restoreTarget: BackupManager.ICloudBackupEntry? = nil
+    @State private var localBackups: [BackupManager.ICloudBackupEntry] = []
+    @State private var localRestoreTarget: BackupManager.ICloudBackupEntry? = nil
     @State private var settings = AppSettings.shared
 
     @Environment(\.yomiCanvas) private var canvas
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: - Body
     //
@@ -30,13 +33,19 @@ struct BackupView: View {
     var body: some View {
         CalmList {
             fileSection
+            localSection
             iCloudSection
             errorSection
         }
         .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            localBackups = await backupManager.listLocalBackups()
             icloudBackups = await backupManager.listICloudBackups()
+        }
+        // The automatic backup is written while the app is in the background — show it on return.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { localBackups = await backupManager.listLocalBackups() } }
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
@@ -73,6 +82,20 @@ struct BackupView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will merge the iCloud backup into your current library.")
+        }
+        // `presenting:` — a second isPresented dialog on this view would be the two-`.fileImporter`s trap again.
+        .alert("Restore this backup?", isPresented: Binding(get: { localRestoreTarget != nil },
+                                                             set: { if !$0 { localRestoreTarget = nil } }),
+               presenting: localRestoreTarget) { target in
+            Button("Restore") {
+                Task {
+                    await backupManager.importBackup(from: target.url)
+                    if backupManager.errorMessage == nil { showImportSuccess = true }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It merges into your current library — nothing is replaced.")
         }
         .alert("Import complete", isPresented: $showImportSuccess) {
             Button("OK", role: .cancel) {}
@@ -164,6 +187,66 @@ struct BackupView: View {
                 }
             }
         } header: { CalmSectionHeader("File") }
+    }
+
+    // MARK: - On This iPhone Section (S156)
+
+    @ViewBuilder
+    private var localSection: some View {
+        Section {
+            if backupManager.isSavingLocalBackup {
+                busyRow("Backing up…")
+            } else {
+                actionRow("Back Up Now") {
+                    Task {
+                        await backupManager.saveLocalBackup()
+                        localBackups = await backupManager.listLocalBackups()
+                    }
+                }
+            }
+            Toggle(isOn: $settings.localAutoBackup) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Back up automatically")
+                    Text("Once a day, when you leave Yomi. The last 8 are kept.")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                }
+            }
+            ForEach(localBackups) { entry in
+                Button {
+                    localRestoreTarget = entry
+                } label: {
+                    LabeledContent {
+                        Text(byteCountFormatter.string(fromByteCount: entry.size))
+                            .foregroundStyle(canvas.textSecondary)
+                            .monospacedDigit()
+                    } label: {
+                        Label(entry.date.formatted(date: .abbreviated, time: .shortened),
+                              systemImage: "clock.arrow.circlepath")
+                            .foregroundStyle(canvas.textPrimary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        Task {
+                            await backupManager.deleteICloudBackup(entry)
+                            localBackups = await backupManager.listLocalBackups()
+                        }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .tint(.red)
+                }
+            }
+        } header: { CalmSectionHeader("On This iPhone") } footer: {
+            Text(localBackups.isEmpty
+                 ? "Kept inside Yomi. Deleting the app deletes them — use Export or iCloud for a copy elsewhere."
+                 : "Tap a backup to restore it. Kept inside Yomi: deleting the app deletes them — use Export or iCloud for a copy elsewhere.")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+        }
     }
 
     // MARK: - iCloud Section

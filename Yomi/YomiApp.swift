@@ -257,6 +257,9 @@ struct YomiApp: App {
                 if settings.iCloudAutoBackup {
                     Task { await BackupManager.shared.uploadToICloud() }
                 }
+                if settings.localAutoBackup {
+                    Task { await BackupManager.shared.saveLocalBackupIfDue() }
+                }
                 if settings.cloudSyncEnabled {
                     Task { await CloudSyncManager.shared.syncNow() }
                 }
