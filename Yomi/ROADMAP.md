@@ -35,8 +35,9 @@ sync) → 4 App Store listing. **Nothing uploaded; last TestFlight build is stil
   ones). The chips UI and the DB column already existed. Plugins edited in `Firebase/public/` (originals in
   `Firebase/plugin-backups-S156/`): WeTried 1.1.0 (API `tags`), NovelFire 1.2.0 (`div.categories a.property-item`,
   and the stray "Summary" heading stripped). Checked with the edited files dropped into the simulator's
-  `Documents/Extensions`: both novels show chips and save them. **NOT DEPLOYED** — `firebase deploy` was blocked
-  by the permission system; Martin runs `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting:plugins`.
+  `Documents/Extensions`: both novels show chips and save them. **DEPLOYED by Martin the same day** (the permission
+  system blocks `firebase deploy` from Claude); live check: index.json lists NovelFire 1.2.0 + WeTried 1.1.0 and both
+  served files carry the genre code. Installed copies update through the normal extension update.
 - **CloudKit — check before the next upload:** novels never had genres before, so the Production schema's `Novel`
   type may have no `genres` field (fields exist only for values that were non-nil once, S152). If it is missing,
   novel saves with genres are refused (they would show on the Sync screen, #204). The console was signed out, so
@@ -53,7 +54,7 @@ sync) → 4 App Store listing. **Nothing uploaded; last TestFlight build is stil
   (needs a RAR decoder → licence decision first, #195).
 - Simulator: Yomi data restored from `phone-backups/S156-sim-before-fresh` (163 titles); it now also has the two
   edited plugins installed by hand and iCloud signed out.
-- **NEXT:** Martin deploys the plugins → CloudKit `Novel.genres` check → per-extension settings with the phone
+- **NEXT:** CloudKit `Novel.genres` check → per-extension settings with the phone
   connected → CBR decision → then step 3 (upload on his go, phone tests) and step 4 (listing).
 
 ---

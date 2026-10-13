@@ -95,7 +95,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   don't split them again; never two `.fileImporter`s on a view); iCloud backup fix (`CloudDocuments` entitlement —
   unproven until on a phone). **Never upload to TestFlight without Martin's explicit go for that build.**
   S156 (simulator only, in NO build): Library reloads when the first-run screen closes; novel genres from the
-  source (`JSBridge.novelGenres`; WeTried + NovelFire plugins edited in Firebase/public, **not deployed**; check the
+  source (`JSBridge.novelGenres`; WeTried + NovelFire plugins deployed; check the
   CloudKit Production `Novel.genres` field before uploading); daily on-device backup (`saveLocalBackupIfDue`,
   More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). Open: #206 double back
   button from Library search, per-extension settings (needs the phone), CBR (licence decision). NEXT in ROADMAP S156.
