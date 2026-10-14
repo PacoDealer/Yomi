@@ -1495,6 +1495,10 @@ private struct StripPageImage: View {
                 }
             }
             .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+            // A decoded 900x16000 Asura page is ~57 MB and the lazy stack kept every page it had built until the
+            // reader closed (S160, sim: 20 pages took the app from 908 MB to 1,964 MB). Let go of it off screen; the
+            // placeholder keeps the page's size and the page loads again from cache on the way back.
+            .onDisappear { self.pieces = nil }
         } else {
             placeholder
                 .task(id: attempt) { await load() }
@@ -1526,7 +1530,10 @@ private struct StripPageImage: View {
             let result = try await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions)
             let image = result.image
             if image.size.height > 0 { PageShapes.remember(url, image.size.width / image.size.height) }
-            pieces = (axis == .vertical ? Self.strips(of: image) : nil) ?? [image]
+            let vertical = axis == .vertical
+            let cut = await Task.detached(priority: .userInitiated) { vertical ? Self.strips(of: image) : nil }.value
+            if Task.isCancelled { return }
+            pieces = cut ?? [image]
         } catch {
             if Task.isCancelled { return }   // scrolled away; .task starts again when the page comes back
             if await PageRetry.shouldRetry(url, attempt: attempt) { attempt += 1 } else { failed = true }
@@ -1535,13 +1542,21 @@ private struct StripPageImage: View {
 
     /// A very tall page drawn as one view is taller than the GPU can draw and shows up BLACK (S145: Keiyoushi's
     /// Asura extension stitches each chapter part into one 900x16000 image = 21,000+ px on screen). Cut it into
-    /// strips; cropping shares the decoded pixels, so nothing is copied or downsampled.
-    static func strips(of image: UIImage) -> [UIImage]? {
+    /// strips. Each strip is drawn into its own bitmap: a plain `cropping` crop of an ImageIO-backed page made
+    /// ImageIO decode every strip AGAIN into buffers of its own that outlived the views (S160: 20 pages = 1.3 GB
+    /// of ImageIO memory). Copied strips are freed with the view; the source page is left to Kingfisher's cache.
+    nonisolated static func strips(of image: UIImage) -> [UIImage]? {
         guard let cg = image.cgImage, cg.height > 4096 else { return nil }
         let step = 2048
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
         return stride(from: 0, to: cg.height, by: step).compactMap { y in
-            cg.cropping(to: CGRect(x: 0, y: y, width: cg.width, height: min(step, cg.height - y)))
-                .map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) }
+            let height = min(step, cg.height - y)
+            guard let crop = cg.cropping(to: CGRect(x: 0, y: y, width: cg.width, height: height)),
+                  let context = CGContext(data: nil, width: cg.width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: 0, space: space,
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: cg.width, height: height))
+            return context.makeImage().map { UIImage(cgImage: $0, scale: image.scale, orientation: image.imageOrientation) }
         }
     }
 }

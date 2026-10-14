@@ -195,6 +195,10 @@ struct YomiApp: App {
             return KeiyoushiBridge.pointAtLivePort(request)
         }
         KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
+        // Kingfisher's memory cache defaults to a quarter of the RAM (2 GB on an iPhone 17) and counts decoded
+        // bytes — ~57 MB per Asura page. A guard, not the S160 fix (the sim never fills it): 256 MB still keeps the
+        // pages around the screen and the downsampled covers; the rest comes back from the disk cache.
+        ImageCache.default.memoryStorage.config.totalCostLimit = 256 * 1024 * 1024
         let kfSessionConfig = URLSessionConfiguration.default
         kfSessionConfig.httpCookieStorage = .shared
         kfSessionConfig.httpShouldSetCookies = true
