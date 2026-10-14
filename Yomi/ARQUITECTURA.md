@@ -65,6 +65,8 @@ Yomi/
 │   ├── Reader/
 │   │   ├── ChapterReaderView.swift  # RTL manga + webtoon, zoom+pan, overlay, prev/next chapter via currentChapterIndex+navigateToChapter, reading timer, MAL tracking. `bridge` is optional (S120) — nil for a Suwayomi manga; all 3 page-fetch sites go through fetchPages(bridge:path:), which routes to the JS plugin (detached, _fetchSync blocks) or SuwayomiService.fetchPageURLs
 │   │   │                            # Reading resume: after loadPages(), Task.detached reads chapter.progress, sets currentPage on MainActor (S22)
+│   │   │                            # Page-list cache (D12b, S164): the 3 reader sites call readerPages(bridge:path:) = PageListCache first, else fetchPages + store. First failure of a cached page (PageRetry posts pageFailed) → list fetched again once per chapter, entry replaced, pages swapped. Downloads still call fetchPages directly.
+│   │   ├── PageListCache.swift      # D12b (S164): Caches/PageLists/<sha256(path)>.json {path, pages, savedAt}, 7-day maxAge, expired files pruned once per launch. Never stores local/Suwayomi lists or bridge-proxied 127.0.0.1/image/<id> pages. DEBUG -yomiStalePageList breaks every kept URL.
 │   │   │                            # MangaPageView: GeometryReader + DragGesture with clamping, guard scale > 1.0. Double-tap resets scale+offset (S22)
 │   │   │                            # Auto-mark read: last page reached OR (multi-page && ≥80% read). Incognito guard skips markChapterRead + updateProgress.
 │   │   ├── TextReaderView.swift     # Novel reader view: chapter state machine, readerCSS, TTS (S133); bottom panel = nav + Text/Look/Reading tabs, follows the reader theme's colorScheme (S136)

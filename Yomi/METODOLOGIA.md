@@ -2227,3 +2227,16 @@ previously here was removed during the 2026-08-04 doc restructure.
   and the chapter list stay right without a migration; only the reader maps local ↔ source.
 - XcodeBuildMCP `screenshot` can return a stale frame while `snapshot_ui` is current — use the iOS Simulator
   `control` screenshot when the two disagree.
+
+## S164 lessons
+- **Before caching a URL, ask its server, not the code.** `curl` with the query changed/removed, and the
+  `cache-control` header, settled in a minute what the plugin source couldn't: Asura's `?v=` is an upload stamp (any
+  value loads, `immutable` 1 year); MangaFire's opaque tokens are the same on every fetch but 403 without the Referer.
+  The Mac Keiyoushi server (`scripts/keiyoushi-poc/run-server.sh` + `call.py`) answers JVM-only questions the
+  simulator can't, since the sim has no JVM.
+- **A cache needs a way out that's exercised, not just written.** A DEBUG switch that breaks every kept URL
+  (`-yomiStalePageList`) made the recovery path run in the sim on the real reader; without it the fallback would ship
+  untested, since real staleness takes days.
+- **Hook recovery where failures already meet.** Every page view already called `PageRetry.shouldRetry`; posting one
+  notification there covered all six reader modes without threading a callback through each.
+- Timestamps in `yomi.db` are UTC: a "downloaded 20:36" row was hours old, not another session at work.
