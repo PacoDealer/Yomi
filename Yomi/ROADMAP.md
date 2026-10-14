@@ -95,6 +95,9 @@ close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49,
   the reader closes; the prefetcher reads each prefetched page's pixel size from the cached file's header (ImageIO, no
   decode), so pages AHEAD get their real height before they appear. Sim: after one Asura chapter the file held 7 shapes,
   6 of them for pages never displayed. UI tests 13/13. 📱 device: no jumps when resuming mid-chapter after a relaunch.
+- ✅ B6 pinch-zoom in webtoon — already shipped S149 (#200, `ReaderZoom`); the S145 backlog line was stale.
+- ✅ C7 #207 — pure-JVM zstd stand-in in the server patch; Asura Genres [35] + Creators load on the Mac server (iOS-mode
+  jar), cache survives a restart, `zstd -d` reads it. Jar staged for the next device build.
 
 ## S160 — long-strip memory (2026-10-14)
 
