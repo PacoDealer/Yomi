@@ -18,16 +18,18 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#208), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#209), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S159 — 2026-10-14)
-- **S159:** Keiyoushi reader pages load natively (server bumped to `ac589a2`, page headers; Asura chapter 22.9 s → 1.5 s on
-  device, probe). Phone has this Debug build; reader screen itself unchecked. Open #208 (Aqua/Madara chapters need refresh
-  → would duplicate). Measurements + next steps: `../research_notes/Reverse engineering for Yomi/S159_measurements.md`.
+## Current state (S160 — 2026-10-14)
+- **S160:** long-strip memory fixed (#209, sim-measured: 20 tall pages 908→1,964 MB before, flat ~775 MB after) —
+  `StripPageImage` releases pages off screen and draws strips into owned bitmaps; Kingfisher memory cap 256 MB.
+  #208 (Aqua/Madara) PARKED: Aqua's site is down, only Madara source in his library. Not on the phone yet.
+- S159: Keiyoushi reader pages load natively (server `ac589a2`; Asura chapter 22.9 s → 1.5 s, device probe).
+  Measurements + next steps: `../research_notes/Reverse engineering for Yomi/S159_measurements.md`.
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
