@@ -34,8 +34,12 @@ The research audit revealed that 800+ sources are already available across four 
   (`testPagesWithoutContinueEndOnNextChapterPage` flaky, passed alone).
 - NOT checked: on the phone with real Asura pages (WebP from the network, not local JPEG); scroll-back placeholder flash.
 
-NEXT: Martin reads an Asura chapter on a new build (no upload without his go); then page preload (top-10 #1) or
-library query time.
+- **Martin's device check (S159 Debug build, Asura in the reader):** "much better than before"; scrolling a bit fast,
+  some pages still take a moment to load → page preload (top-10 #1) is the next fix. The S160 memory fix was NOT in
+  that build; `scripts/build-personal.sh --release` is blocked for me by the auto-mode classifier — Martin runs it.
+
+NEXT (new chat): Martin asked for ONE complete plan from every open issue + all research (KNOWN_ISSUES open rows,
+ROADMAP backlogs, RESEARCH §25.10, TACHIMANGA_PARITY, S158 top-10 PLAN.md, S159 notes), then execute issue by issue.
 
 ## S159 — measure before porting; Keiyoushi pages native (2026-10-14)
 
