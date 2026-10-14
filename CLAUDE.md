@@ -24,7 +24,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S160 — 2026-10-14)
+## Current state (S162 — 2026-10-14)
+- **S162:** manga downloads robust (sim only): per-page retries 2/4/8 s, resume skips pages already on disk, Pause/Resume,
+  < 200 MB free pauses the queue, Failed list + Retry All in Downloads (ROADMAP S162). S161 = ROADMAP "THE PLAN" A–K;
+  next D12 (split tall pages on download).
 - **S160:** long-strip memory fixed (#209, sim-measured: 20 tall pages 908→1,964 MB before, flat ~775 MB after) —
   `StripPageImage` releases pages off screen and draws strips into owned bitmaps; Kingfisher memory cap 256 MB.
   #208 (Aqua/Madara) PARKED: Aqua's site is down, only Madara source in his library. Not on the phone yet.

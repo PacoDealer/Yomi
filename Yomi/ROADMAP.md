@@ -21,6 +21,30 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S162 — D11 robust manga downloads (2026-10-14, simulator only)
+
+`Features/More/DownloadManager.swift`, `DownloadsView.swift`. Built to the S161 design:
+- **Retries:** each page retried after 2/4/8 s on network errors, 5xx, 408, 429; other 4xx fail at once; stops on cancel.
+- **Resume:** pages are written `.atomic`; a retry/resume skips `<idx>.dat` already on disk; extra pages beyond a
+  shorter new page list are removed. Chapter marked downloaded only when every page is on disk.
+- **Pause / Resume** in the Downloading header: the running chapter goes back to the front of the queue, its pages stay;
+  queued rows say "Paused". Cancel still deletes the chapter's pages. Cancel no longer resets `isRunning` before the
+  cancelled task ends (old race: a new download could start while the cancelled one was still cleaning up).
+- **Low storage:** < 200 MB free (`volumeAvailableCapacityForImportantUsage`) before a chapter, or after a page write
+  fails → queue pauses with "Paused — less than 200 MB free" + Resume.
+- **Failed list:** "N Failed · Retry All" section in Downloads, tap a row = retry it, swipe = remove; in memory only
+  (like the queue). Re-enqueueing a chapter removes it from the list.
+- DEBUG args: `-yomiDownloadFlakyPages` (every page's first request fails), `-yomiDownloadFailPages` (all fail),
+  `-yomiSimulateLowStorage`.
+- **Sim-verified on Absolute Regression (Asura JS):** flaky pages → 3 chapters / 57 pages all completed; pause mid-Ch. 25
+  at 9 pages → not marked downloaded, resume fetched only the 3 missing pages (the 9 files' mtimes unchanged); cancel
+  removed Ch. 27's folder; fail-all → 56 chapters in Failed, Ch. 28 "11 of 14 failed" (3 kept from an earlier pause),
+  Retry All moved them back to the queue; low storage → nothing started, message shown. 0 warnings. UI tests not run
+  (no reader code touched). NOT checked: Keiyoushi downloads (no JVM in the sim), real low disk, device.
+
+NEXT (S163, new chat): D12 split tall pages on download + page-list cache → E → F → G → H → K, then the one batched 📱
+device check (J).
+
 ## S161 — THE PLAN: every open issue + all research, grouped and ordered (2026-10-14)
 
 Sources merged: KNOWN_ISSUES open rows, ROADMAP backlogs (S142, S145, ArcReader S126), RESEARCH §25.10,
@@ -103,7 +127,7 @@ close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49,
   index (bytes differ from GitHub, checked S161) and no GitHub block was ever seen on Martin's networks.
 - ⏸ C9 Asura tiles: waits for device evidence that tile pages occur. C10 #208 parked (Aqua down).
 
-**NEXT (S162, new chat) = D11 robust manga downloads** (`Features/More/DownloadManager.swift`, `DownloadsView.swift`),
+**✅ S162 done (see above). Was: NEXT (S162) = D11 robust manga downloads** (`Features/More/DownloadManager.swift`, `DownloadsView.swift`),
 designed, no code yet: per-page retries 2/4/8 s (not on 4xx except 408/429; stop when cancelled) · resume = skip
 `<idx>.dat` already on disk + `.atomic` writes · real Pause/Resume (`isPaused`; pausing cancels the current task but
 keeps files and puts the item back first; `processQueue` guards `!isPaused`) · free space < 200 MB → pause + message ·
