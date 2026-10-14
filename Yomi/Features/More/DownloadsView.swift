@@ -100,9 +100,11 @@ struct DownloadsView: View {
     private var isHeldBack: Bool { dm.isWaitingForNetwork || ndm.isWaitingForNetwork }
     /// "Queued" normally; the real reason when the network setting is holding downloads back.
     private var queuedNote: String { isHeldBack ? (network.waitReason ?? "Queued") : "Queued" }
+    private var mangaQueuedNote: String { dm.isPaused ? "Paused" : queuedNote }
 
     private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
-    private var hasContent: Bool { hasDownloading || !vm.isEmpty }
+    private var hasMangaQueue: Bool { dm.activeChapter != nil || !dm.queue.isEmpty }
+    private var hasContent: Bool { hasDownloading || !dm.failed.isEmpty || !vm.isEmpty }
 
     var body: some View {
         Group {
@@ -158,7 +160,9 @@ struct DownloadsView: View {
         CalmList {
             if hasDownloading {
                 Section {
-                    if isHeldBack, let reason = network.waitReason {
+                    if let message = dm.pauseMessage {
+                        pauseNote(message)
+                    } else if isHeldBack, let reason = network.waitReason {
                         waitNote(reason: reason)
                     }
 
@@ -178,7 +182,7 @@ struct DownloadsView: View {
                             coverURL: idx < dm.queueMangas.count ? dm.queueMangas[idx].coverURL : nil,
                             customCoverPath: idx < dm.queueMangas.count ? dm.queueMangas[idx].resolvedCustomCoverPath : nil,
                             title: idx < dm.queueMangas.count ? dm.queueMangas[idx].title : "",
-                            note: "\(chapter.name) · \(queuedNote)",
+                            note: "\(chapter.name) · \(mangaQueuedNote)",
                             fraction: 0,
                             onCancel: { dm.cancel(chapterId: chapter.id) }
                         )
@@ -197,7 +201,60 @@ struct DownloadsView: View {
                             onCancel: { ndm.cancel(novelId: batch.novel.id) }
                         )
                     }
-                } header: { CalmSectionHeader("Downloading") }
+                } header: {
+                    HStack(alignment: .firstTextBaseline) {
+                        CalmSectionHeader("Downloading")
+                        Spacer()
+                        if hasMangaQueue || dm.isPaused {
+                            Button(dm.isPaused ? "Resume" : "Pause") {
+                                dm.isPaused ? dm.resume() : dm.pause()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .buttonStyle(.plain)
+                            .textCase(nil)
+                        }
+                    }
+                }
+            }
+
+            if !dm.failed.isEmpty {
+                Section {
+                    ForEach(dm.failed) { item in
+                        Button { dm.retry(item) } label: {
+                            FailedRow(
+                                coverURL: item.manga.coverURL,
+                                customCoverPath: item.manga.resolvedCustomCoverPath,
+                                title: item.manga.title,
+                                note: "\(item.chapter.name) · \(item.reason)"
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                dm.failed.removeAll { $0.id == item.id }
+                            } label: {
+                                Label("Remove", systemImage: "xmark")
+                            }
+                            .tint(.red)
+                        }
+                    }
+                } header: {
+                    HStack(alignment: .firstTextBaseline) {
+                        CalmSectionHeader("\(dm.failed.count) Failed")
+                        Spacer()
+                        Button("Retry All") { dm.retryAllFailed() }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .buttonStyle(.plain)
+                            .textCase(nil)
+                    }
+                } footer: {
+                    Text("Tap a chapter to retry it. Pages that already downloaded are kept.")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .padding(.top, 8)
+                }
             }
 
             if !vm.isEmpty {
@@ -238,6 +295,20 @@ struct DownloadsView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Pause note
+
+    private func pauseNote(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(message, systemImage: "externaldrive.badge.exclamationmark")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(canvas.textPrimary)
+            Text("Free up space, then tap Resume.")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Waiting note
@@ -352,6 +423,44 @@ private struct DownloadingRow: View {
             .accessibilityLabel("Cancel download")
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - FailedRow
+
+private struct FailedRow: View {
+    let coverURL: URL?
+    let customCoverPath: String?
+    let title: String
+    let note: String
+
+    @Environment(\.yomiCanvas) private var canvas
+
+    var body: some View {
+        HStack(spacing: 12) {
+            DownloadCover(coverURL: coverURL, customCoverPath: customCoverPath)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(canvas.textSecondary)
+                    .monospacedDigit()
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "arrow.clockwise")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .accessibilityLabel("Retry")
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 
