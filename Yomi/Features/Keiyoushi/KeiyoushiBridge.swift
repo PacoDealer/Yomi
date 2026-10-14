@@ -35,6 +35,9 @@ nonisolated struct KeiyoushiPage: Decodable, Sendable {
     let index: Int
     let url: String?
     let imageUrl: String?
+    /// Request headers for a page the bridge returns as a direct image URL (S159; upstream `6dc99f4`). Pages the
+    /// extension must process itself (Asura's scrambled tiles, a `fetchImage` override) still come back proxied.
+    let headers: [String: String]?
 }
 
 /// One setting an extension declares for a source (AndroidX `Preference` on Android). The bridge sends each as
@@ -287,8 +290,10 @@ final class KeiyoushiBridge {
     }
 
     func pages(sourceId: String, chapterURL: String, chapterName: String) async throws -> [KeiyoushiPage] {
-        try await call(sourceId: sourceId, method: "getPageList",
-                       params: ["chapterData": ["url": chapterURL, "name": chapterName]])
+        let pages: [KeiyoushiPage] = try await call(sourceId: sourceId, method: "getPageList",
+                                                    params: ["chapterData": ["url": chapterURL, "name": chapterName]])
+        KeiyoushiCovers.shared.remember(pages)
+        return pages
     }
 
     // MARK: Extension settings (S156)
@@ -516,6 +521,30 @@ nonisolated final class KeiyoushiCovers: @unchecked Sendable {
             }
             if changed { UserDefaults.standard.set(headersByHost, forKey: Self.defaultsKey) }
         }
+    }
+
+    /// Reader pages the bridge returns as direct URLs load natively too (S159: through the proxy each Asura page
+    /// spent 1.5–2 s in the JVM on top of its download); their headers go in the same per-host store.
+    func remember(_ pages: [KeiyoushiPage]) {
+        lock.withLock {
+            var changed = false
+            for page in pages {
+                guard let headers = page.headers, !headers.isEmpty,
+                      let host = page.imageUrl.flatMap(URL.init(string:))?.host,
+                      headersByHost[host] != headers else { continue }
+                headersByHost[host] = headers
+                changed = true
+            }
+            if changed { UserDefaults.standard.set(headersByHost, forKey: Self.defaultsKey) }
+        }
+    }
+
+    /// A plain `URLSession` request for a page or cover, with the headers Kingfisher's request modifier adds.
+    func request(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        for (name, value) in headers(for: url) { request.setValue(value, forHTTPHeaderField: name) }
+        request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
+        return request
     }
 
     /// Covers saved before S134 point at the bridge's proxy (`http://127.0.0.1:<port>/image/<token>`), which dies

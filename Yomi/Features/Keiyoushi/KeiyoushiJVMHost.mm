@@ -124,6 +124,13 @@ static NSString *takeException(JNIEnv *env) {
         "-Xmx512m",
         "-Xss8m",
     };
+#if DEBUG
+    // S159: launch with -keiyoushiWireStats to print a "YOMI-WIRE ..." line per request to the console
+    // (WireStatsInterceptor, server patch) — the first request on a connection carries the TLS handshake.
+    if ([NSProcessInfo.processInfo.arguments containsObject:@"-keiyoushiWireStats"]) {
+        opts.push_back("-Dyomi.wireStats=true");
+    }
+#endif
     std::vector<JavaVMOption> jopts(opts.size());
     for (size_t i = 0; i < opts.size(); i++) {
         jopts[i].optionString = const_cast<char *>(opts[i].c_str());
