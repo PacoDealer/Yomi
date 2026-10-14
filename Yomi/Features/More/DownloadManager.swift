@@ -186,19 +186,13 @@ import SwiftUI
     }
 
     func localURLs(for chapter: Chapter) -> [URL]? {
-        let dir = downloadsDirectory(mangaId: chapter.mangaId, chapterId: chapter.id)
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir,
-            includingPropertiesForKeys: nil
-        ) else { return nil }
-        let sorted = files
-            .filter { $0.pathExtension == "dat" }
-            .sorted {
-                let a = Int($0.deletingPathExtension().lastPathComponent) ?? 0
-                let b = Int($1.deletingPathExtension().lastPathComponent) ?? 0
-                return a < b
-            }
-        return sorted.isEmpty ? nil : sorted
+        localPages(for: chapter)?.urls
+    }
+
+    /// A downloaded chapter's images in reading order, with the source page each one belongs to (D12: a tall page may
+    /// be stored as several parts).
+    func localPages(for chapter: Chapter) -> DownloadedPages? {
+        DownloadedPages(dir: downloadsDirectory(mangaId: chapter.mangaId, chapterId: chapter.id))
     }
 
     // MARK: - Process Queue
@@ -317,10 +311,12 @@ import SwiftUI
         let dir = downloadsDirectory(mangaId: item.manga.id, chapterId: chapterId)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         Self.removeStalePages(in: dir, keepingBelow: urls.count)
+        let onDisk = DownloadedPages.scan(dir)
+        for file in onDisk.incomplete { try? FileManager.default.removeItem(at: file) }
 
         let total = urls.count
         var missing: [Int] = []
-        for idx in 0..<total where !Self.pageExists(in: dir, index: idx) { missing.append(idx) }
+        for idx in 0..<total where onDisk.pages[idx] == nil { missing.append(idx) }
         var completed = total - missing.count
         var failedPages = 0
         var outOfSpace = false
@@ -328,7 +324,8 @@ import SwiftUI
 
         // 3. Download pages — concurrent via sliding-window withTaskGroup
         let concurrentLimit = max(1, AppSettings.shared.concurrentDownloads)
-        await withTaskGroup(of: (Int, Data?).self) { group in
+        let splitTall = AppSettings.shared.splitTallPages
+        await withTaskGroup(of: (Int, [Data]?).self) { group in
             var next = 0
             func addNext() {
                 guard next < missing.count else { return }
@@ -337,20 +334,28 @@ import SwiftUI
                 group.addTask {
                     guard let url = URL(string: urlStr.trimmingCharacters(in: .whitespacesAndNewlines))
                     else { return (idx, nil) }
-                    return (idx, await Self.pageDataWithRetries(url))
+                    guard let data = await Self.pageDataWithRetries(url) else { return (idx, nil) }
+                    // D12: a very tall page is stored as parts (`TallPageSplitter`); anything else as fetched.
+                    guard splitTall, let parts = await TallPageSplitter.shared.parts(of: data) else { return (idx, [data]) }
+                    return (idx, parts)
                 }
                 next += 1
             }
             for _ in 0..<concurrentLimit { addNext() }
 
-            for await (idx, data) in group {
+            for await (idx, parts) in group {
                 // A page counts as landed only if its bytes actually reached disk — both the fetch and the write can
-                // fail, and neither must be mistaken for success.
-                if let data {
+                // fail, and neither must be mistaken for success. A split page counts once all its parts are written;
+                // a half-written set is removed (and `DownloadedPages.scan` ignores one a crash leaves behind).
+                if let parts {
+                    let files = parts.indices.map {
+                        dir.appendingPathComponent(DownloadedPages.fileName(page: idx, part: $0, of: parts.count))
+                    }
                     do {
-                        try data.write(to: dir.appendingPathComponent("\(idx).dat"), options: .atomic)
+                        for (part, file) in zip(parts, files) { try part.write(to: file, options: .atomic) }
                         completed += 1
                     } catch {
+                        for file in files { try? FileManager.default.removeItem(at: file) }
                         failedPages += 1
                         if !Self.hasRoomForDownloads() { outOfSpace = true }
                     }
@@ -372,17 +377,14 @@ import SwiftUI
         return .done
     }
 
-    nonisolated private static func pageExists(in dir: URL, index: Int) -> Bool {
-        let size = (try? dir.appendingPathComponent("\(index).dat").resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-        return (size ?? 0) > 0
-    }
-
     /// A chapter whose page list got shorter since the last try must not keep the old extra pages — `localURLs`
     /// would show them at the end.
     nonisolated private static func removeStalePages(in dir: URL, keepingBelow count: Int) {
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
         for file in files where file.pathExtension == "dat" {
-            if let idx = Int(file.deletingPathExtension().lastPathComponent), idx >= count {
+            // `<page>.dat` or a part `<page>-<part>of<count>.dat` (D12)
+            let name = file.deletingPathExtension().lastPathComponent
+            if let idx = Int(name.split(separator: "-").first ?? ""), idx >= count {
                 try? FileManager.default.removeItem(at: file)
             }
         }

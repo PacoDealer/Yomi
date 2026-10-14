@@ -42,7 +42,10 @@ struct ChapterReaderView: View {
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
     @State private var toastMessage: String? = nil
-    @State private var nextPreload: (chapter: Chapter, pages: [String])? = nil
+    @State private var nextPreload: (chapter: Chapter, pages: [String], sources: [Int]?)? = nil
+    /// Source page of each entry in `pages` when a downloaded chapter has tall pages stored as parts (D12); nil = the
+    /// same index. Saved progress (`lastPageRead`) is always in source pages.
+    @State private var pageSources: [Int]? = nil
     @State private var isPreloadingNextChapter = false
     @State private var didUpdateTrackerForCurrentChapter = false
     @State private var pagePrefetcher = ReaderPagePrefetcher()
@@ -216,7 +219,7 @@ struct ChapterReaderView: View {
             let elapsed = Int(Date().timeIntervalSince(sessionStart))
             let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
             let cid = activeChapter.id
-            let page = currentPage
+            let page = sourcePage(currentPage)
             Task.detached {
                 try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
             }
@@ -381,8 +384,8 @@ struct ChapterReaderView: View {
         // chapter-boundary preload for a downloaded (offline-read) chapter burns the full
         // network timeout below trying and failing to reach the network, silently degrading
         // the seamless-crossing feature for the offline case it matters most in. See #90.
-        if next.isDownloaded, let localURLs = DownloadManager.shared.localURLs(for: next) {
-            nextPreload = (next, localURLs.map { $0.absoluteString })
+        if next.isDownloaded, let local = DownloadManager.shared.localPages(for: next) {
+            nextPreload = (next, local.urls.map(\.absoluteString), local.sourcePages)
             return
         }
 
@@ -411,7 +414,7 @@ struct ChapterReaderView: View {
             guard isPreloadingNextChapter, nextPreload == nil,
                   hasNextChapter, chapters[currentChapterIndex + 1].id == next.id else { return }
             if let result, !result.isEmpty {
-                nextPreload = (next, result)
+                nextPreload = (next, result, nil)
             }
             isPreloadingNextChapter = false
         }
@@ -425,7 +428,7 @@ struct ChapterReaderView: View {
         let leavingElapsed = Int(Date().timeIntervalSince(sessionStart))
         let leavingProgress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let leavingId = activeChapter.id
-        let leavingPage = currentPage
+        let leavingPage = sourcePage(currentPage)
         if !AppSettings.shared.isIncognito {
             Task.detached {
                 try? ChapterQueries.updateProgress(id: leavingId, progress: leavingProgress, readingSeconds: leavingElapsed, lastPageRead: leavingPage)
@@ -435,6 +438,7 @@ struct ChapterReaderView: View {
 
         currentChapterIndex += 1
         pages = preload.pages
+        pageSources = preload.sources
         currentPage = min(idx, max(pages.count - 1, 0))
         nextPreload = nil
         didMarkCurrentChapterRead = false
@@ -454,7 +458,7 @@ struct ChapterReaderView: View {
         let elapsed = Int(Date().timeIntervalSince(sessionStart))
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
-        let page = currentPage
+        let page = sourcePage(currentPage)
         if !AppSettings.shared.isIncognito, !pages.isEmpty {   // see the exit save: empty = never loaded
             Task.detached {
                 try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
@@ -463,10 +467,19 @@ struct ChapterReaderView: View {
 
         currentChapterIndex = index
         pages = []
+        pageSources = nil
         isLoading = true
         errorMessage = nil
         currentPage = 0
         sessionStart = Date()
+
+        // A downloaded chapter opens from its files, offline too (it went to the network before D12).
+        if chapters[index].isDownloaded, let local = DownloadManager.shared.localPages(for: chapters[index]) {
+            pages = local.urls.map(\.absoluteString)
+            pageSources = local.sourcePages
+            isLoading = false
+            return
+        }
 
         let path = chapters[index].path
         let b = bridge
@@ -519,34 +532,49 @@ struct ChapterReaderView: View {
         }.value
     }
 
+    // MARK: - Page numbers
+
+    /// The source page of local page `index` — what progress is saved as.
+    private func sourcePage(_ index: Int) -> Int {
+        guard let pageSources, pageSources.indices.contains(index) else { return index }
+        return pageSources[index]
+    }
+
+    /// The first local page of source page `page` (its top part when split).
+    nonisolated static func localPage(forSource page: Int, in sources: [Int]?) -> Int {
+        guard let sources else { return page }
+        return sources.firstIndex { $0 >= page } ?? max(sources.count - 1, 0)
+    }
+
     // MARK: - Load Pages
 
     private func loadPages() async {
         sessionStart = Date()
 
-        if activeChapter.isDownloaded,
-           let localURLs = DownloadManager.shared.localURLs(for: activeChapter) {
-            pages = localURLs.map { $0.absoluteString }
-            isLoading = false
-            return
+        let result: [String]
+        if activeChapter.isDownloaded, let local = DownloadManager.shared.localPages(for: activeChapter) {
+            result = local.urls.map(\.absoluteString)
+            pageSources = local.sourcePages
+        } else {
+            result = await Self.fetchPages(bridge: bridge, path: activeChapter.path)
+            pageSources = nil
         }
-
-        let path = activeChapter.path
-        let result = await Self.fetchPages(bridge: bridge, path: path)
         pages = result
         isLoading = false
         if result.isEmpty {
             errorMessage = "No pages found for this chapter."
         } else {
             // Restore reading progress (prefer stored page number)
+            // Downloaded chapters resume too (they always opened at page 1 before D12).
             let chapterId = activeChapter.id
             let pageCount = result.count
+            let sources = pageSources
             Task.detached {
                 if let saved = try? ChapterQueries.fetchOne(id: chapterId),
                    !saved.isRead, pageCount > 1 {
                     let resumePage: Int
                     if saved.lastPageRead > 0 {
-                        resumePage = min(saved.lastPageRead, pageCount - 1)
+                        resumePage = min(Self.localPage(forSource: saved.lastPageRead, in: sources), pageCount - 1)
                     } else if saved.progress > 0 {
                         resumePage = min(Int(saved.progress * Double(pageCount - 1)), pageCount - 1)
                     } else {

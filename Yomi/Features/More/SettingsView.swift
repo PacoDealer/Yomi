@@ -84,6 +84,8 @@ struct SettingsView: View {
                 Stepper(value: $settings.concurrentDownloads, in: 1...5) {
                     valueLabel("Manga chapters at once", "\(settings.concurrentDownloads)")
                 }
+                toggle("Split tall pages", isOn: $settings.splitTallPages,
+                       note: "Long-strip pages are saved in screen-sized parts, so downloaded chapters open lighter.")
             } header: { CalmSectionHeader("Downloads") } footer: {
                 Text("Novel chapters are saved ahead while you read — see Novels. Keiyoushi downloads need Yomi open.")
             }

@@ -311,6 +311,12 @@ import Observation
         didSet { defaults.set(concurrentDownloads, forKey: "concurrentDownloads") }
     }
 
+    /// Store pages more than 3× taller than wide as screen-sized parts (D12, Mihon's default) — offline long strips
+    /// then open light. Applies to chapters downloaded after the change.
+    var splitTallPages: Bool {
+        didSet { defaults.set(splitTallPages, forKey: "splitTallPages") }
+    }
+
     // MARK: - Background tasks
 
     /// Periodically check the library for new chapters in the background (BGAppRefreshTask).
@@ -603,6 +609,7 @@ import Observation
         autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true
         deleteDownloadAfterReading = d.object(forKey: "deleteDownloadAfterReading") as? Bool ?? true
         concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 3
+        splitTallPages          = d.object(forKey: "splitTallPages")               as? Bool ?? true
         backgroundAutoRefreshEnabled = d.object(forKey: "backgroundAutoRefreshEnabled") as? Bool ?? false
         backgroundDownloadEnabled    = d.object(forKey: "backgroundDownloadEnabled")    as? Bool ?? false
         trackerAutoUpdate       = d.object(forKey: "trackerAutoUpdate")             as? Bool ?? true
