@@ -199,6 +199,7 @@ struct ChapterReaderView: View {
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             pagePrefetcher.stop()
+            PageShapes.save()
 
             let incognito = AppSettings.shared.isIncognito
 
@@ -1472,14 +1473,6 @@ private struct PageRetryButton: View {
     }
 }
 
-/// Width / height of every page shown in the scrolling readers, kept for as long as the app runs.
-@MainActor private enum PageShapes {
-    static var known: [String: CGFloat] = [:]
-    static func remember(_ url: String, _ aspect: CGFloat) {
-        if known.count > 5000 { known.removeAll() }
-        known[url] = aspect
-    }
-}
 
 /// One page in the long strip / continuous horizontal readers. Used to stay a grey placeholder forever on failure.
 /// Loads through KingfisherManager itself instead of KFImage (S145): a very tall page must never reach the screen
@@ -1521,7 +1514,7 @@ private struct StripPageImage: View {
     /// taller than the old 2:3 box: pages seemed to skip, and scrolling up fought back — Martin, S151).
     @ViewBuilder private var placeholder: some View {
         let box = Rectangle().fill(Color.gray.opacity(0.2))
-        if let aspect = PageShapes.known[url] {
+        if let aspect = PageShapes.aspect(url) {
             box.aspectRatio(aspect, contentMode: .fit)
                 .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
         } else if axis == .vertical {

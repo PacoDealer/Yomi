@@ -88,6 +88,13 @@ close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49,
   `ChapterReaderView` covers every mode. Asura JS ch. 122 (21 pages), 16 s after opening without scrolling: **7 page
   files cached vs 3** with `-noPagePrefetch` (DEBUG A/B arg, ch. 121); moving to page 2 added exactly page 8; footprint
   459 MB. UI tests 13/13. 📱 device: does fast scrolling through Asura (Keiyoushi) still wait?
+- ⏸ B4 downsampled strips — DEFERRED: Asura pages are 900 px wide, narrower than the screen (1206 px), so screen-width
+  downsampling saves nothing for Martin's main source and would blur the planned webtoon pinch-zoom (B6). Measure memory
+  per Asura page on the device first (S159 leftover).
+- ✅ B5 page heights saved — `PageShapes` moved to `ReaderPagePrefetcher.swift`, saved to `Caches/page-shapes.json` when
+  the reader closes; the prefetcher reads each prefetched page's pixel size from the cached file's header (ImageIO, no
+  decode), so pages AHEAD get their real height before they appear. Sim: after one Asura chapter the file held 7 shapes,
+  6 of them for pages never displayed. UI tests 13/13. 📱 device: no jumps when resuming mid-chapter after a relaunch.
 
 ## S160 — long-strip memory (2026-10-14)
 
