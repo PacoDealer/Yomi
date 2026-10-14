@@ -21,6 +21,34 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S163 — D12 split tall pages on download (2026-10-14, simulator only)
+
+`Features/More/TallPageSplitter.swift` (new), `DownloadManager.swift`, `ChapterReaderView.swift`, `AppSettings.swift`,
+`SettingsView.swift`.
+- **Split:** a downloaded page more than 3× taller than wide and > 4096 px is cut into equal parts ≤ 4096 px (rule from
+  Mihon's `TallImageSplitCalculator`, Apache-2.0; cap = the reader's strip threshold, so a part never takes the strip
+  path). One decode per page, split one page at a time (actor). Animated, rotated (EXIF) or undecodable pages are kept as
+  fetched. Parts are **HEIC 0.8**: on 12 real Asura pages (800×~14000 webp, 11.1 MB) HEIC 0.8 = 0.93× the originals,
+  JPEG 0.9 = 2.2× (first try was JPEG: Ch. 121 = 31 MB → 14 MB with HEIC). Settings → Downloads → "Split tall pages", on.
+- **Files:** `<page>.dat` whole, `<page>-<part>of<count>.dat` split (`DownloadedPages`). A whole page wins over parts;
+  a part set missing a part is ignored and deleted on resume, so a crash mid-split can't show a half page.
+- **Progress stays in source pages:** `lastPageRead` is the original page number online, offline and on other devices.
+  The reader keeps `pageSources` (source page of each local image), saves `sourcePage(currentPage)` at all three save
+  points and resumes at the first part of the saved page. Progress fraction stays local (images read / images).
+- **Two old reader bugs fixed on the way (#210):** a downloaded chapter always opened at page 1 (the local branch
+  returned before the resume code), and chapter-to-chapter navigation ignored downloads and went to the network.
+- **Verified (sim):** Mac harness compiling `TallPageSplitter.swift` — 14/14 (part sizes, remainder, non-tall/garbage
+  kept, crash leftovers ignored, order 0,1a,1b,2,10, source map). Absolute Regression Ch. 121 (Asura JS): 16 pages →
+  50 files (40× 900×4000 + remainders, all HEIC; 2 short webp kept); opened with saved page 5 → "16/50" (first part of
+  page 5); scrolled to 23/50, closed → DB `lastPageRead = 7`, row "Page 8"; online reader resumed same chapter at 6/16.
+  0 warnings (Yomi + YomiWidget). UI tests 13/13 (novel-reader suite; no manga-reader UI test exists).
+- **Page-list cache NOT done** (second half of D12) — see NEXT.
+
+NEXT (S164, new chat): D12b page-list cache — GRDB/JSON keyed by chapter path; check first that JS-plugin image URLs and
+Keiyoushi CDN URLs (S159) don't expire, and give the reader a way out when a cached URL fails (refetch the list once)
+before trusting it. Then E → F → G → H → K, then the one batched 📱 device check (J): also check splitting on device
+(Keiyoushi Asura 900×16000 downloads; HEIC encode time per page).
+
 ## S162 — D11 robust manga downloads (2026-10-14, simulator only)
 
 `Features/More/DownloadManager.swift`, `DownloadsView.swift`. Built to the S161 design:
