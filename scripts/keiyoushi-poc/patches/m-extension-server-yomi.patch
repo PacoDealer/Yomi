@@ -1,5 +1,5 @@
 diff --git a/server/build.gradle.kts b/server/build.gradle.kts
-index 9780c75..4ae8bff 100644
+index 9780c75..ca3b8ab 100644
 --- a/server/build.gradle.kts
 +++ b/server/build.gradle.kts
 @@ -20,10 +20,15 @@ dependencies {
@@ -19,6 +19,153 @@ index 9780c75..4ae8bff 100644
      }
      testImplementation(kotlin("test"))
  
+@@ -98,6 +103,8 @@ tasks {
+             dependencies {
+                 exclude(dependency("ch.qos.logback:logback-classic:.*"))
+                 exclude(dependency("ch.qos.logback:logback-core:.*"))
++                // Yomi #207: replaced by our pure-JVM com.squareup.zstd.okio.OkioZstd (its codec is JNI-only).
++                exclude(dependency("com.squareup.zstd:zstd-kmp-okio-jvm:.*"))
+             }
+             exclude(
+                 "AndroidManifest.xml",
+diff --git a/server/src/main/kotlin/com/squareup/zstd/okio/OkioZstd.kt b/server/src/main/kotlin/com/squareup/zstd/okio/OkioZstd.kt
+new file mode 100644
+index 0000000..7ae6200
+--- /dev/null
++++ b/server/src/main/kotlin/com/squareup/zstd/okio/OkioZstd.kt
+@@ -0,0 +1,132 @@
++@file:JvmName("OkioZstd")
++
++package com.squareup.zstd.okio
++
++import okio.Buffer
++import okio.ForwardingSource
++import okio.IOException
++import okio.Sink
++import okio.Source
++import okio.Timeout
++import okio.buffer
++
++/*
++ * Yomi patch (MPL-2.0, like the rest of this server): a pure-JVM stand-in for zstd-kmp-okio's `OkioZstd`.
++ *
++ * The real one compresses through `JniZstd`, whose native library does not exist in the iOS runtime (nor in this
++ * java.base-only jar on a Mac), so Keiyoushi's `KeiSource` filter cache (`zstdCompress()` / `zstdDecompress()`)
++ * died with NoClassDefFoundError and site-fetched filters (Asura's Genres, Author/Artist) never loaded — Yomi
++ * KNOWN_ISSUES #207. The shadow jar leaves the real module out (server/build.gradle.kts, iOS mode).
++ *
++ * Same JVM signatures. Writing produces a valid zstd frame (RFC 8878) made only of Raw blocks: uncompressed, but
++ * every zstd reader accepts it. Reading accepts Raw and RLE blocks — enough for anything written here — and fails
++ * with an IOException on a Compressed block, which callers already treat as "no cache". okhttp-zstd also calls
++ * `zstdDecompress`, but Yomi's NoZstdInterceptor keeps zstd out of Accept-Encoding, so no server sends it.
++ * Data is buffered whole: the only users are small JSON caches.
++ */
++
++private const val MAGIC = 0xFD2FB528.toInt()
++private const val BLOCK = 64 * 1024 // Block_Maximum_Size must stay <= the window (128 KiB below)
++
++fun Sink.zstdCompress(): Sink = RawZstdSink(this)
++
++fun Source.zstdDecompress(): Source = RawZstdSource(this)
++
++private class RawZstdSink(
++    private val sink: Sink,
++) : Sink {
++    private val pending = Buffer()
++    private var closed = false
++
++    override fun write(
++        source: Buffer,
++        byteCount: Long,
++    ) {
++        check(!closed) { "closed" }
++        pending.write(source, byteCount)
++    }
++
++    override fun flush() = Unit // a frame is only complete at close()
++
++    override fun timeout(): Timeout = sink.timeout()
++
++    override fun close() {
++        if (closed) return
++        closed = true
++        val out = Buffer()
++        out.writeIntLe(MAGIC)
++        out.writeByte(0x00) // descriptor: no content size, not single-segment, no checksum, no dictionary
++        out.writeByte(7 shl 3) // window descriptor: 2^(10+7) = 128 KiB
++        do {
++            val size = minOf(pending.size, BLOCK.toLong()).toInt()
++            val last = pending.size == size.toLong()
++            val header = (size shl 3) or (if (last) 1 else 0) // Block_Type 0 = Raw
++            out.writeByte(header and 0xFF)
++            out.writeByte((header ushr 8) and 0xFF)
++            out.writeByte((header ushr 16) and 0xFF)
++            out.write(pending, size.toLong())
++        } while (!last)
++        sink.use {
++            it.write(out, out.size)
++            it.flush()
++        }
++    }
++}
++
++private class RawZstdSource(
++    source: Source,
++) : ForwardingSource(source) {
++    private var decoded: Buffer? = null
++
++    override fun read(
++        sink: Buffer,
++        byteCount: Long,
++    ): Long {
++        val buffer = decoded ?: decodeAll().also { decoded = it }
++        return buffer.read(sink, byteCount)
++    }
++
++    private fun decodeAll(): Buffer {
++        val input = delegate.buffer()
++        val out = Buffer()
++        while (!input.exhausted()) {
++            val magic = input.readIntLe()
++            if ((magic and 0xFFFFFFF0.toInt()) == 0x184D2A50) { // skippable frame
++                input.skip(input.readIntLe().toLong() and 0xFFFFFFFFL)
++                continue
++            }
++            if (magic != MAGIC) throw IOException("not a zstd frame")
++            val descriptor = input.readByte().toInt() and 0xFF
++            val singleSegment = descriptor and 0x20 != 0
++            if (!singleSegment) input.skip(1) // window descriptor
++            input.skip(intArrayOf(0, 1, 2, 4)[descriptor and 0x03].toLong()) // dictionary id
++            val fcsFlag = descriptor ushr 6
++            input.skip(
++                when (fcsFlag) {
++                    0 -> if (singleSegment) 1L else 0L
++                    1 -> 2L
++                    2 -> 4L
++                    else -> 8L
++                },
++            )
++            do {
++                val b0 = input.readByte().toInt() and 0xFF
++                val b1 = input.readByte().toInt() and 0xFF
++                val b2 = input.readByte().toInt() and 0xFF
++                val header = b0 or (b1 shl 8) or (b2 shl 16)
++                val last = header and 1 != 0
++                val size = (header ushr 3).toLong()
++                when ((header ushr 1) and 0x03) {
++                    0 -> input.readFully(out, size)
++                    1 -> {
++                        val byte = input.readByte()
++                        repeat(size.toInt()) { out.writeByte(byte.toInt()) }
++                    }
++                    else -> throw IOException("compressed zstd blocks are not supported by Yomi's stand-in")
++                }
++            } while (!last)
++            if (descriptor and 0x04 != 0) input.skip(4) // content checksum
++        }
++        return out
++    }
++}
 diff --git a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt b/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
 index 51a2baf..5301cee 100644
 --- a/server/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt
