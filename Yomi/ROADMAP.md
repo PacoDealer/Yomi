@@ -98,6 +98,17 @@ close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49,
 - ✅ B6 pinch-zoom in webtoon — already shipped S149 (#200, `ReaderZoom`); the S145 backlog line was stale.
 - ✅ C7 #207 — pure-JVM zstd stand-in in the server patch; Asura Genres [35] + Creators load on the Mac server (iOS-mode
   jar), cache survives a restart, `zstd -d` reads it. Jar staged for the next device build.
+- ✖ C8 port check: NOT needed — the bridge starts on port 0 and gets the bound port back in-process (Mangayomi's
+  problem is a guessed port for a spawned process). jsDelivr index fallback DROPPED: the mirror served a stale
+  index (bytes differ from GitHub, checked S161) and no GitHub block was ever seen on Martin's networks.
+- ⏸ C9 Asura tiles: waits for device evidence that tile pages occur. C10 #208 parked (Aqua down).
+
+**NEXT (S162, new chat) = D11 robust manga downloads** (`Features/More/DownloadManager.swift`, `DownloadsView.swift`),
+designed, no code yet: per-page retries 2/4/8 s (not on 4xx except 408/429; stop when cancelled) · resume = skip
+`<idx>.dat` already on disk + `.atomic` writes · real Pause/Resume (`isPaused`; pausing cancels the current task but
+keeps files and puts the item back first; `processQueue` guards `!isPaused`) · free space < 200 MB → pause + message ·
+failed chapters kept in a list → "N failed · Retry" row in Downloads (enqueue removes from it). Then D12 → E → F → G
+→ H → K, then the one batched 📱 device check (J): build with `scripts/build-personal.sh --release` (Martin runs it).
 
 ## S160 — long-strip memory (2026-10-14)
 
