@@ -6,7 +6,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="${KEIYOUSHI_POC_WORK:-$HOME/Desktop/Projects/Yomi/Tools/keiyoushi-poc}"
 JDK=/opt/homebrew/opt/openjdk@21
-MES_COMMIT=6685bdce895bce5ff7311c76a93f4fd77971e1be   # kodjodevf/M-Extension-Server, v1.0.7+ (2026-09)
+MES_COMMIT=ac589a2700c5d54e0a19084e0de137bb455c1bf6   # kodjodevf/M-Extension-Server, v1.0.9 (2026-10-07; S159 — direct page URLs + headers)
 OPENJDK_TAG=embedded-openjdk-ios13-v16                  # 1Selxo/Mangatan release; SHA-256s below from its SHA256SUMS
 OPENJDK_XCF_SHA=f21681caae40e508647e7f18c9082f27fa9aa67ee7f1376725eae528fa2d38cb
 JAVA_BUNDLE_SHA=15369b9bb9dfdd400c18c56b30e2f6cf316b81d4e0bae5ddd6b1fe72355c4b0b

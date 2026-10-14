@@ -18,13 +18,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#207), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#208), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S157 — 2026-10-13)
+## Current state (S159 — 2026-10-14)
+- **S159:** Keiyoushi reader pages load natively (server bumped to `ac589a2`, page headers; Asura chapter 22.9 s → 1.5 s on
+  device, probe). Phone has this Debug build; reader screen itself unchecked. Open #208 (Aqua/Madara chapters need refresh
+  → would duplicate). Measurements + next steps: `../research_notes/Reverse engineering for Yomi/S159_measurements.md`.
 - S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
@@ -70,7 +73,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
-- Open gaps: Keiyoushi first page 4–6 s; no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
+- Open gaps: Keiyoushi page list ~4.5 s warm (JVM work, S159); no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
 - S149–S150: manga reader slide/swipe/zoom everywhere; Migrate = sources (with icons) → titles → carry-over options →
   **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.
