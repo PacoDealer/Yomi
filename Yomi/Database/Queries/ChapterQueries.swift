@@ -131,14 +131,35 @@ enum ChapterQueries {
     /// Inserts a manga and its chapters in a single transaction (INSERT OR IGNORE).
     /// The manga INSERT OR IGNORE ensures the FK constraint is satisfied even when
     /// the manga is not yet in the library (browsing without adding to library).
+    ///
+    /// Chapters this call really adds to a LIBRARY title are stamped `fetchedAt` (#176: the Updates feed only knew
+    /// what a refresh found; opening the detail page first hid the news). Same baseline rule as the refresh: a title
+    /// with no saved chapters yet, or whose every chapter is new (a source that moved its URLs), is not news.
     nonisolated static func insertMangaAndChapters(manga: Manga, chapters: [Chapter]) throws {
         _ = try appDatabase.write { db in
             try manga.insert(db, onConflict: .ignore)
+            let savedBefore = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM chapter WHERE mangaId = ?",
+                                               arguments: [manga.id]) ?? 0
+            var added: [String] = []
             for chapter in chapters {
                 try chapter.insert(db, onConflict: .ignore)
+                if db.changesCount > 0 { added.append(chapter.id) }
+            }
+            let inLibrary = try Bool.fetchOne(db, sql: "SELECT inLibrary FROM manga WHERE id = ?",
+                                              arguments: [manga.id]) ?? false
+            if inLibrary, savedBefore > 0, !added.isEmpty, added.count < chapters.count {
+                try stampFetched(added, table: "chapter", db: db)
             }
             try CloudSyncManager.applyPendingChapterStates(chapters, db: db)
         }
+    }
+
+    /// `fetchedAt = now` for chapters that have none yet; `table` is `chapter` or `novel_chapter`.
+    nonisolated static func stampFetched(_ ids: [String], table: String, at date: Date = Date(), db: Database) throws {
+        guard !ids.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+        try db.execute(sql: "UPDATE \(table) SET fetchedAt = ? WHERE id IN (\(placeholders)) AND fetchedAt IS NULL",
+                       arguments: StatementArguments([date] as [DatabaseValueConvertible?]) + StatementArguments(ids))
     }
 
     // MARK: - Updates feed

@@ -55,6 +55,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             errorMessage = "MyAnimeList: ignored a login callback this app didn't start."
             return
         }
+        errorMessage = nil   // #110: a stale error from an earlier attempt stayed up forever
 
         do {
             try await exchangeCode(code: code, verifier: verifier)

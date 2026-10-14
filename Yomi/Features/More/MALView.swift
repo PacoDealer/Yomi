@@ -31,6 +31,8 @@ struct MALView: View {
                 SafariView(url: url)
             }
         }
+        // #109: the login callback arrives while the Safari sheet is still up — close it on success.
+        .onChange(of: malService.isLoggedIn) { _, loggedIn in if loggedIn { showSafari = false } }
     }
 
     // MARK: - Account Section

@@ -61,6 +61,7 @@ import SwiftUI
     func enqueue(_ chapter: Chapter, manga: Manga, bridge: JSBridge?) {
         guard Self.canDownload(manga, bridge: bridge),
               !chapter.isDownloaded,
+              chapter.id != activeChapterId,   // #112: the running one already left `items`
               !items.contains(where: { $0.chapter.id == chapter.id })
         else { return }
         items.append(QueueItem(chapter: chapter, manga: manga, bridge: bridge))

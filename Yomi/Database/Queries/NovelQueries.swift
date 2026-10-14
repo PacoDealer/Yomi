@@ -237,6 +237,9 @@ enum NovelQueries {
     /// two ids, and a chapter inserted mid-list (an author's Q&A) shifted every later position onto ids that
     /// already belong to other chapters — it was silently dropped and the last chapter saved twice. Now a
     /// known path is skipped, and a new path whose id is taken gets the path-hash id instead.
+    ///
+    /// New chapters of a LIBRARY novel that already had saved chapters are stamped `fetchedAt` for the Updates
+    /// feed (#176) — same baseline rule as `ChapterQueries.insertMangaAndChapters`.
     nonisolated static func insertAllIgnoringConflicts(_ chapters: [NovelChapter]) throws {
         _ = try appDatabase.write { db in
             var known: [String: Set<String>] = [:]   // novelId → saved paths
@@ -247,14 +250,23 @@ enum NovelQueries {
                 known[novelId] = Set(rows.map { $0["path"] as String })
                 takenIds[novelId] = Set(rows.map { $0["id"] as String })
             }
+            let savedBefore = known.mapValues(\.count)
+            var added: [String: [String]] = [:]       // novelId → ids really inserted
             for var ch in chapters {
                 guard known[ch.novelId]?.contains(ch.path) != true else { continue }
                 if takenIds[ch.novelId]?.contains(ch.id) == true {
                     ch = ch.withId(NovelChapter.pathId(novelId: ch.novelId, path: ch.path))
                 }
                 try ch.insert(db, onConflict: .ignore)
+                if db.changesCount > 0 { added[ch.novelId, default: []].append(ch.id) }
                 known[ch.novelId, default: []].insert(ch.path)
                 takenIds[ch.novelId, default: []].insert(ch.id)
+            }
+            for (novelId, ids) in added where (savedBefore[novelId] ?? 0) > 0
+                && ids.count < chapters.filter({ $0.novelId == novelId }).count {
+                let inLibrary = try Bool.fetchOne(db, sql: "SELECT inLibrary FROM novel WHERE id = ?",
+                                                  arguments: [novelId]) ?? false
+                if inLibrary { try ChapterQueries.stampFetched(ids, table: "novel_chapter", db: db) }
             }
             // Replays any CloudKit chapter-state change that arrived before these chapters existed
             // locally — see CloudSyncManager's code-review finding #41.
