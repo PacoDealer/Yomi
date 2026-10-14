@@ -78,6 +78,17 @@ widget, trackers, two-device sync; then listing approval (#4), screenshots, uplo
 close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49, #71 (superseded by calm design),
 #78 (app is iPhone-only), #164/#193/#196 (flaky tests: keep, retry-alone rule), #55 (harmless, note only).
 
+**S161 progress (simulator unless said):**
+- ✅ A1 #206 — `navigationBarStaysHidden(_:)` on detail screens + readers (fix on the pushed side; ending the search
+  before the push was tried and broke SwiftUI state). Library + History search checked; UI tests 13/13. `2893ce8`
+- ✅ A2 #109/#110/#112/#172 (compile-only — OAuth, active download and first cold-launch frame aren't drivable in the
+  sim), #176 (sim: re-found LOTM chapters listed in Updates), #113 obsolete. `288f53b`
+- ✅ B3 page preload — `Features/Reader/ReaderPagePrefetcher.swift`: on every page change the next 6 pages (+1 behind,
+  spilling into the next chapter's list) go to Kingfisher's DISK cache, 3 at a time, Low Data Mode respected; one hook in
+  `ChapterReaderView` covers every mode. Asura JS ch. 122 (21 pages), 16 s after opening without scrolling: **7 page
+  files cached vs 3** with `-noPagePrefetch` (DEBUG A/B arg, ch. 121); moving to page 2 added exactly page 8; footprint
+  459 MB. UI tests 13/13. 📱 device: does fast scrolling through Asura (Keiyoushi) still wait?
+
 ## S160 — long-strip memory (2026-10-14)
 
 - **#208 parked:** Martin says Aqua is down for its own server reasons, and it is the only Madara source in his

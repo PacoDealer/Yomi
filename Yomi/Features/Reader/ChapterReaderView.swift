@@ -45,6 +45,7 @@ struct ChapterReaderView: View {
     @State private var nextPreload: (chapter: Chapter, pages: [String])? = nil
     @State private var isPreloadingNextChapter = false
     @State private var didUpdateTrackerForCurrentChapter = false
+    @State private var pagePrefetcher = ReaderPagePrefetcher()
 
     init(manga: Manga, bridge: JSBridge?, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -197,6 +198,7 @@ struct ChapterReaderView: View {
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
+            pagePrefetcher.stop()
 
             let incognito = AppSettings.shared.isIncognito
 
@@ -224,7 +226,11 @@ struct ChapterReaderView: View {
                 try? MangaQueries.addReadingSeconds(mangaId: mangaId, seconds: elapsed)
             }
         }
+        // Pages ahead load before they're reached (S161): on every page change, a new page list, the next chapter's list.
+        .onChange(of: pages) { prefetchAhead() }
+        .onChange(of: nextPreload?.pages ?? []) { prefetchAhead() }
         .onChange(of: currentPage) { _, newPage in
+            prefetchAhead()
             if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
             if pages.count > 0 && newPage >= pages.count - 2 {
                 withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
@@ -361,6 +367,10 @@ struct ChapterReaderView: View {
     // past the boundary, `crossIntoPreloadedChapter` swaps ChapterReaderView's state (chapter
     // index, active `pages`, progress bookkeeping) without touching the scroll view at all — the
     // content the user is already looking at doesn't move, only its meaning changes.
+
+    private func prefetchAhead() {
+        pagePrefetcher.update(pages: pages, current: currentPage, nextChapterPages: nextPreload?.pages ?? [])
+    }
 
     private func preloadNextChapterIfNeeded() {
         guard isContinuousReaderMode, hasNextChapter, nextPreload == nil, !isPreloadingNextChapter else { return }
