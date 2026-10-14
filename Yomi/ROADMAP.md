@@ -21,6 +21,63 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S161 — THE PLAN: every open issue + all research, grouped and ordered (2026-10-14)
+
+Sources merged: KNOWN_ISSUES open rows, ROADMAP backlogs (S142, S145, ArcReader S126), RESEARCH §25.10,
+TACHIMANGA_PARITY (S148/S157 "Missing"), S158 top-10 (`reports/Reverse engineering for Yomi.md`), S159 notes.
+Order rule: Martin's daily use first (Asura webtoon + WeTried novels), then robustness, then parity features,
+then hygiene. Items marked 📱 need his phone; they are batched into ONE device check (group J) so he is asked once.
+Execute top to bottom; one item = build 0 warnings + sim check + commit/push.
+
+**A. Daily-use bugs (small, sim-checkable)**
+1. #206 two back buttons on a title opened from a Library search.
+2. #113 Appearance "Reset" skips the blend slider · #112 re-tapping Download on the active chapter · #109/#110 tracker
+   login sheet doesn't close / stale error banner · #172 novels briefly listed as Manga · #176 Updates only knows
+   refresh-found chapters. (Each re-checked in code first — several S117/S118 rows may be fixed already.)
+
+**B. Webtoon reader (Asura, top-10 #1–#3)**
+3. Page preload: current → next → previous → rest in growing batches, next chapter after the current one (top-10 #1;
+   Martin's S159 device report "fast scrolling still waits").
+4. Screen-width downsampled strips (top-10 #2; S160 made strips own their memory, decode is still full size).
+5. Persisted page heights (part of top-10 #3, without the UIKit rewrite); UIKit list only if jumps remain.
+6. Pinch-zoom in webtoon mode (S145 backlog) · split `ChapterReaderView.swift` (#106) while in there.
+
+**C. Keiyoushi engine**
+7. #207 zstd stand-in in the server patch → Asura genre/author filters (top-10 #4; Mac-server checkable).
+8. Port check on bridge start (Mangayomi `/capabilities` idea) + jsDelivr fallback for the index (campus Wi-Fi).
+9. Asura scrambled "tiles" pages in Core Graphics (S159 §3) — L. 10. #208 Madara refresh = PARKED until Aqua is back.
+   (Top-10 #5 URLSession networking: demoted by S159, page list is JVM work not network.)
+
+**D. Downloads (top-10 #6–#7)**
+11. Retries 2/4/8 s, `_tmp` folder renamed on success, Pause, Retry All, low-storage check.
+12. Split tall pages on download + page-list cache.
+
+**E. Chapter lists / updates (top-10 #8–#9)**
+13. ChapterRecognition v2 with Mihon's tests ported first. 14. Smart updates + per-source update streams.
+15. Saved scanlator exclusion · duplicate warning on add · chapter bookmarks (needs `v26_`).
+
+**F. Manga reader parity (Tachimanga)**
+16. Separate tap zones per mode (S142) · save/share a page (long press) · press-and-hold scroll.
+17. Crop borders · double page "separate first page" + wide-page alone · automatic page background (top-10 #10).
+
+**G. Library / Browse parity**
+18. Library source filter include/exclude · pinned sources · per-category sort · filters for JS/LNReader plugins.
+
+**H. Plugin trust chain** — #151 checksum, #152 validate before overwrite + keep backup, #154 per-entry decode,
+#155 deterministic merge, #153 cache headers (Firebase, deploy = Martin), #171 same-name in two repos.
+
+**I. Later / bigger** — Spanish (§25.10 #12), lockable SFW mode, reader auto-dark at night, a11y baseline
+(Reduce Motion, Increase Contrast), perf gates in UI tests (§25.10 #11), ArcReader novel leftovers (term
+replacement, translate, letter spacing, themes), #194 Asura JS 100-chapter cap, #69 MangaDex plugin, CBR solid/huge.
+
+**J. Needs Martin (📱 one batched device check, then publishing)** — install a build with S160+ fixes
+(`scripts/build-personal.sh --release`); check #203/#209/preload on Asura, extension gear + filters, iCloud backup,
+widget, trackers, two-device sync; then listing approval (#4), screenshots, upload (his explicit go per build).
+
+**K. Docs hygiene + close stale rows** — #156–#162 doc drift; KNOWN_ISSUES header list (says "as of S148");
+close/retire: #6, #12, #14, #21, #47 (paid Program active, CloudKit works), #49, #71 (superseded by calm design),
+#78 (app is iPhone-only), #164/#193/#196 (flaky tests: keep, retry-alone rule), #55 (harmless, note only).
+
 ## S160 — long-strip memory (2026-10-14)
 
 - **#208 parked:** Martin says Aqua is down for its own server reasons, and it is the only Madara source in his

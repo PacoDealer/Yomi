@@ -179,6 +179,7 @@ struct NovelDetailView: View {
             : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(isSelectingChapters ? .visible : .hidden, for: .navigationBar)
+        .navigationBarStaysHidden(!isSelectingChapters)   // #206: an active search on the screen below
         // Selecting: Cancel is the way out and the select bar replaces the tab bar (Tachimanga).
         .navigationBarBackButtonHidden(isSelectingChapters)
         .toolbar(isSelectingChapters ? .hidden : .automatic, for: .tabBar)
