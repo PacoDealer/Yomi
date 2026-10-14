@@ -24,19 +24,20 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S163 — 2026-10-14)
-- **S163:** tall pages split on download (sim only): pages > 3× taller than wide and > 4096 px saved as HEIC parts
-  `<page>-<part>of<count>.dat` (`TallPageSplitter.swift`, `DownloadedPages`); `lastPageRead` stays in SOURCE pages
-  (reader `pageSources`). Fixed #210 (downloaded chapters never resumed; chapter nav ignored downloads). NEXT D12b
-  page-list cache (ROADMAP S163).
+## Current state (S164 — 2026-10-14)
+- **S164:** page-list cache (sim only): reopening a chapter that isn't downloaded skips `fetchPages`
+  (`Features/Reader/PageListCache.swift`, Caches JSON, 7 days; reader calls `readerPages`). A cached page's first failure
+  refetches the list once (`PageRetry.pageFailed`). Bridge-proxied `127.0.0.1/image/<id>` lists never cached. DEBUG
+  `-yomiStalePageList`. NEXT: E → F → G → H → K, then device check J (ROADMAP S164).
+- **S163:** tall pages split on download (sim only) into HEIC parts `<page>-<part>of<count>.dat` (`TallPageSplitter.swift`);
+  `lastPageRead` stays in SOURCE pages (reader `pageSources`). Fixed #210 (downloaded chapters resume).
 - **S162:** manga downloads robust (sim only): per-page retries 2/4/8 s, resume skips pages already on disk, Pause/Resume,
   < 200 MB free pauses the queue, Failed list + Retry All in Downloads (ROADMAP S162). S161 = ROADMAP "THE PLAN" A–K.
 - **S160:** long-strip memory fixed (#209, sim-measured: 20 tall pages 908→1,964 MB before, flat ~775 MB after) —
   `StripPageImage` releases pages off screen and draws strips into owned bitmaps; Kingfisher memory cap 256 MB.
   #208 (Aqua/Madara) PARKED: Aqua's site is down, only Madara source in his library. Not on the phone yet.
-- S159: Keiyoushi reader pages load natively (server `ac589a2`; Asura chapter 22.9 s → 1.5 s, device probe).
-  Measurements + next steps: `../research_notes/Reverse engineering for Yomi/S159_measurements.md`.
-- S128–S136 perf batch done: runs 1–5 hang-free on Martin's iPhone 17 (RESEARCH §23.6).
+- S159: Keiyoushi pages load natively (Asura chapter 22.9 → 1.5 s, device probe; `research_notes/…/S159_measurements.md`).
+  S128–S136 perf batch: hang-free on Martin's iPhone 17 (RESEARCH §23.6).
 - Novel reader: one persistent WKWebView + JS controller (`Features/Reader/NovelReaderWeb.swift`), infinite
   scroll, swipe, typography pass (`ReaderFonts.swift`), Pages mode, Text · Look · Reading panel tabs.
 - **Design = "calm", Apple Music-inspired (RESEARCH §26):** SF Pro everywhere, system neutrals, colour from

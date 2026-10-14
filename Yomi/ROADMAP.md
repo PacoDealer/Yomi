@@ -21,6 +21,33 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S164 — D12b page-list cache (2026-10-14, simulator only)
+
+`Features/Reader/PageListCache.swift` (new), `ChapterReaderView.swift`, `SuwayomiService.swift` (`chapterRef` nonisolated).
+Mihon's `ChapterCache` idea (research_notes `mihon_family.md` §1e): reopening a chapter that isn't downloaded skips the
+plugin/JVM `fetchPages`.
+- **URLs checked first (live, 2026-10-14):** Asura JS plugin and Keiyoushi Asura (Mac server, ext v1.6.69) both return
+  `cdn.asurascans.com/...webp?v=<upload stamp>`. No signature: the same file loads with `v` removed or set to 1/999,
+  `cache-control: immutable, max-age=1 year`. Keiyoushi MangaFire (v1.6.34): opaque `k99.mfcdn3.xyz/mf/<token>/h/p.jpg`.
+  Two fetches gave the same 112 URLs, still 200 seven minutes later (aging past that NOT tested), `max-age` 30 days,
+  **403 without the Referer** → covered by the per-host header store `KeiyoushiCovers`, which persists across launches.
+  Bridge-proxied pages (`127.0.0.1/image/<id>`, Asura tiles / `fetchImage`) are never cached: their ids live only as long as the JVM.
+- **Cache:** one JSON per chapter path in `Caches/PageLists` (sha256 name), 7-day max age, expired files pruned once per
+  launch; skips local, Suwayomi and bridge-proxied lists. Reader's 3 sites (open, chapter nav, next-chapter preload) use
+  `readerPages(bridge:path:)`; downloads still fetch fresh lists. No DB change (no `v26_` used).
+- **Way out:** a page's first failure posts `PageRetry.pageFailed`; if that page belongs to a list served from the cache
+  (current chapter or preloaded next), the list is fetched again **once**, the entry replaced, and pages swapped if they
+  changed (same index = same source page, so `lastPageRead` keeps its meaning; downloaded chapters never use the cache).
+  Strip pages got `.id(url)` so a swapped URL starts that page over. DEBUG `-yomiStalePageList` breaks every kept URL.
+- **Verified (sim, Absolute Regression Ch. 123 via Asura JS, download set aside then restored):** first open
+  `[PageListCache] miss … fetched 20 pages`; after an app relaunch `hit … 20 pages, no plugin call`, pages render;
+  with `-yomiStalePageList` → `hit`, then `page failed, list fetched again … 20 pages`, real pages render, entry
+  rewritten with the real URLs. 0 warnings (Yomi + YomiWidget). UI tests 13/13 (novel-reader suite; no manga-reader UI test exists).
+  NOT checked: Keiyoushi in the reader (no JVM in the sim), paged (non-webtoon) modes with stale URLs, device.
+
+NEXT (S165, new chat): E → F → G → H → K (ROADMAP S161), then the one batched 📱 device check (J): add to it Keiyoushi
+Asura/MangaFire reopen from the cache (expect no ~4.5 s page-list wait) and a MangaFire chapter reopened after a day.
+
 ## S163 — D12 split tall pages on download (2026-10-14, simulator only)
 
 `Features/More/TallPageSplitter.swift` (new), `DownloadManager.swift`, `ChapterReaderView.swift`, `AppSettings.swift`,

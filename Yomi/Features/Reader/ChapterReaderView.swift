@@ -46,6 +46,8 @@ struct ChapterReaderView: View {
     /// Source page of each entry in `pages` when a downloaded chapter has tall pages stored as parts (D12); nil = the
     /// same index. Saved progress (`lastPageRead`) is always in source pages.
     @State private var pageSources: [Int]? = nil
+    /// Chapters whose shown page list came from `PageListCache` and hasn't been fetched again yet (D12b).
+    @State private var cachedListPaths: Set<String> = []
     @State private var isPreloadingNextChapter = false
     @State private var didUpdateTrackerForCurrentChapter = false
     @State private var pagePrefetcher = ReaderPagePrefetcher()
@@ -232,6 +234,9 @@ struct ChapterReaderView: View {
         }
         // Pages ahead load before they're reached (S161): on every page change, a new page list, the next chapter's list.
         .onChange(of: pages) { prefetchAhead() }
+        .onReceive(NotificationCenter.default.publisher(for: PageRetry.pageFailed)) { note in
+            if let url = note.object as? String { refreshCachedList(afterFailing: url) }
+        }
         .onChange(of: nextPreload?.pages ?? []) { prefetchAhead() }
         .onChange(of: currentPage) { _, newPage in
             prefetchAhead()
@@ -401,8 +406,8 @@ struct ChapterReaderView: View {
         // underlying blocking call itself, so a truly stuck fetch still burns one background thread
         // until it eventually resolves; it just no longer holds up the preload state machine.
         Task {
-            let result: [String]? = await withTaskGroup(of: [String]?.self) { group in
-                group.addTask { await Self.fetchPages(bridge: b, path: path) }
+            let result: (pages: [String], fromCache: Bool)? = await withTaskGroup(of: (pages: [String], fromCache: Bool)?.self) { group in
+                group.addTask { await Self.readerPages(bridge: b, path: path) }
                 group.addTask {
                     try? await Task.sleep(for: .seconds(12))
                     return nil
@@ -413,8 +418,9 @@ struct ChapterReaderView: View {
             }
             guard isPreloadingNextChapter, nextPreload == nil,
                   hasNextChapter, chapters[currentChapterIndex + 1].id == next.id else { return }
-            if let result, !result.isEmpty {
-                nextPreload = (next, result, nil)
+            if let result, !result.pages.isEmpty {
+                nextPreload = (next, result.pages, nil)
+                if result.fromCache { cachedListPaths.insert(path) }
             }
             isPreloadingNextChapter = false
         }
@@ -484,15 +490,44 @@ struct ChapterReaderView: View {
         let path = chapters[index].path
         let b = bridge
         Task {
-            let result = await Self.fetchPages(bridge: b, path: path)
+            let result = await Self.readerPages(bridge: b, path: path)
             // A second, faster navigateToChapter() call (rapid double-tap, or two picks from
             // the Chapters sheet in quick succession) may have already moved past `index` by
             // the time this resolves — applying it now would overwrite the newer chapter's
             // pages with a stale result. See finding #88.
             guard currentChapterIndex == index else { return }
-            pages = result
+            pages = result.pages
+            if result.fromCache { cachedListPaths.insert(path) }
             isLoading = false
-            if result.isEmpty { errorMessage = "No pages found." }
+            if result.pages.isEmpty { errorMessage = "No pages found." }
+        }
+    }
+
+    /// A page of a cached list failed to load (D12b): its URLs may have gone stale. Fetch the list again — once per
+    /// chapter — keep it, and swap it in if it changed. Same index = same source page, so progress means the same.
+    private func refreshCachedList(afterFailing url: String) {
+        let path: String
+        if cachedListPaths.contains(activeChapter.path), pageSources == nil, pages.contains(url) {
+            path = activeChapter.path
+        } else if let preload = nextPreload, cachedListPaths.contains(preload.chapter.path), preload.pages.contains(url) {
+            path = preload.chapter.path
+        } else { return }
+        cachedListPaths.remove(path)
+        let b = bridge
+        Task {
+            let fresh = await Self.fetchPages(bridge: b, path: path)
+            #if DEBUG
+            print("[PageListCache] page failed, list fetched again for \(path): \(fresh.count) pages")
+            #endif
+            guard !fresh.isEmpty else { return }   // offline: keep what we have, its pages may still be in Kingfisher
+            Task.detached(priority: .utility) { PageListCache.store(fresh, for: path) }
+            if activeChapter.path == path, pageSources == nil {
+                guard fresh != pages else { return }
+                pages = fresh
+                currentPage = min(currentPage, fresh.count - 1)
+            } else if let preload = nextPreload, preload.chapter.path == path, fresh != preload.pages {
+                nextPreload = (preload.chapter, fresh, nil)
+            }
         }
     }
 
@@ -532,6 +567,24 @@ struct ChapterReaderView: View {
         }.value
     }
 
+    /// The reader's page list: the one kept in `PageListCache` while it is fresh (D12b — no plugin or JVM call), else
+    /// `fetchPages`, kept for the next time. Downloads keep calling `fetchPages` directly.
+    static func readerPages(bridge: JSBridge?, path: String) async -> (pages: [String], fromCache: Bool) {
+        if let kept = await Task.detached(priority: .userInitiated, operation: { PageListCache.pages(for: path) }).value {
+            #if DEBUG
+            print("[PageListCache] hit \(path): \(kept.count) pages, no plugin call")
+            #endif
+            return (kept, true)
+        }
+        let start = Date()
+        let fetched = await fetchPages(bridge: bridge, path: path)
+        #if DEBUG
+        print("[PageListCache] miss \(path): fetched \(fetched.count) pages in \(Int(Date().timeIntervalSince(start) * 1000)) ms")
+        #endif
+        Task.detached(priority: .utility) { PageListCache.store(fetched, for: path) }
+        return (fetched, false)
+    }
+
     // MARK: - Page numbers
 
     /// The source page of local page `index` — what progress is saved as.
@@ -556,8 +609,11 @@ struct ChapterReaderView: View {
             result = local.urls.map(\.absoluteString)
             pageSources = local.sourcePages
         } else {
-            result = await Self.fetchPages(bridge: bridge, path: activeChapter.path)
+            let path = activeChapter.path
+            let loaded = await Self.readerPages(bridge: bridge, path: path)
+            result = loaded.pages
             pageSources = nil
+            if loaded.fromCache { cachedListPaths.insert(path) }
         }
         pages = result
         isLoading = false
@@ -947,6 +1003,7 @@ struct WebtoonReaderView: View {
 
     private func pageImage(_ url: String) -> some View {
         StripPageImage(url: url, axis: .vertical)
+            .id(url)   // a refetched list (D12b) gives the same slot a new URL: start that page over
     }
 }
 
@@ -1137,6 +1194,7 @@ struct ContinuousHorizontalReaderView: View {
         // Fit each page inside the screen. Height-only fit made a portrait page ~1.5x wider than a phone, so
         // the sides were cut off (#199).
         StripPageImage(url: url, axis: .horizontal)
+            .id(url)   // a refetched list (D12b) gives the same slot a new URL: start that page over
             .containerRelativeFrame([.horizontal, .vertical])
     }
 }
@@ -1467,8 +1525,12 @@ private struct WebView: UIViewRepresentable {
 /// background and comes back on a new port — Martin: "the first page appeared and the rest did not load"), any
 /// other page gets a short pause for a network blip. Then it's tried again, up to 3 times, before showing Retry.
 enum PageRetry {
+    /// Posted with the page URL on a page's first failure; the reader refetches the list if it came from the cache.
+    static let pageFailed = Notification.Name("YomiReaderPageFailed")
+
     static func shouldRetry(_ url: String, attempt: Int) async -> Bool {
         guard attempt < 3 else { return false }
+        if attempt == 0 { NotificationCenter.default.post(name: pageFailed, object: url) }
         // Not while Yomi is in the background: iOS suspends us there, and the attempts would be used up for nothing.
         while UIApplication.shared.applicationState != .active {
             try? await Task.sleep(for: .milliseconds(500))
