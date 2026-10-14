@@ -218,7 +218,7 @@ import SwiftUI
                 group.addTask {
                     guard let url = URL(string: urlStr.trimmingCharacters(in: .whitespacesAndNewlines))
                     else { return (idx, nil) }
-                    let data = try? await URLSession.shared.data(from: url).0
+                    let data = await Self.pageData(url)
                     return (idx, data)
                 }
                 nextIndex += 1
@@ -250,7 +250,7 @@ import SwiftUI
                     group.addTask {
                         guard let url = URL(string: urlStr.trimmingCharacters(in: .whitespacesAndNewlines))
                         else { return (ni, nil) }
-                        let data = try? await URLSession.shared.data(from: url).0
+                        let data = await Self.pageData(url)
                         return (ni, data)
                     }
                     nextIndex += 1
@@ -280,5 +280,14 @@ import SwiftUI
         activeManga = nil
         activeChapterId = nil
         isRunning = false
+    }
+
+    /// One page's bytes, or nil. Keiyoushi pages now come back as direct CDN URLs that may need the source's headers
+    /// (S159), and a refused request returns an error page, not an image — only a 2xx body counts as a page.
+    nonisolated private static func pageData(_ url: URL) async -> Data? {
+        guard let (data, response) = try? await URLSession.shared.data(for: KeiyoushiCovers.shared.request(for: url))
+        else { return nil }
+        guard let http = response as? HTTPURLResponse else { return data }
+        return (200..<300).contains(http.statusCode) ? data : nil
     }
 }

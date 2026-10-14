@@ -2197,3 +2197,13 @@ previously here was removed during the 2026-08-04 doc restructure.
 - A new value in a synced field is a CloudKit schema question (S152) — ask it when writing the field, not at upload.
 - To test an edited plugin before deploying: copy it to the simulator's `Documents/Extensions/<id>.js` and insert
   the `extension` row by hand.
+
+## S159 lessons
+
+- **Search our own docs before calling something unmeasured.** S158's report planned a measurement S134 had already
+  made on the phone (RESEARCH §23). `grep` RESEARCH/HISTORY for the subject first.
+- **Read the version we pin, not upstream HEAD.** Reading HEAD made me claim Asura pages were already direct; at our
+  pinned commit every page was proxied. Fetch files with `?ref=<pin>` (or check out the pin) before concluding.
+- **A dependency bump can be the cheapest fix.** The 15× page speed-up was upstream's 3-week-old commit, not a port.
+  Diff the pin against upstream (`gh api repos/<r>/compare/<pin>...<head>`) before planning a rewrite.
+- A server bump changes `BuildConfig.REVISION`, which empties the converted-extension cache: measure the SECOND launch.

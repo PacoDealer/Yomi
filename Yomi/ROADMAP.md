@@ -21,6 +21,35 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S159 — measure before porting; Keiyoushi pages native (2026-10-14)
+
+Plan step from S158 (`research_notes/Reverse engineering for Yomi/PLAN.md`, track 5). Numbers:
+`research_notes/Reverse engineering for Yomi/S159_measurements.md`.
+- **REA audited** (clean: no telemetry, no install hooks, pinned jars) **and not used** — it is for binaries without
+  source; Instruments, signposts and the JVM's own logging measure Yomi better.
+- **Server-jar licence settled:** `kodjodevf/M-Extension-Server` = MPL-2.0 (LICENSE file). The unlicensed repo is the
+  Flutter wrapper `m_extension_server`; nothing copied from it.
+- **Item 5's "unmeasured guess" was measured in S134** (RESEARCH §23: 4.6–7 s CPU per Asura page in interpreted AES-GCM).
+  S158's report missed it.
+- **Keiyoushi reader pages now load natively.** Our pinned server (`6685bdc`) proxied EVERY page through the JVM; upstream
+  `6dc99f4` (2026-10-05) returns direct URLs + headers. Bumped to `ac589a2` (v1.0.9, patch rebased — one conflict in
+  `NetworkHelper.kt`), `KeiyoushiPage.headers` → per-host header store (`KeiyoushiCovers.remember(pages)`), downloader
+  sends them and only saves 2xx bodies (`DownloadManager.pageData`). Phone, Asura ch. 119 (24 pages, Debug):
+  **all pages 22.9 s → 1.5 s**, one page 2.3–3.8 s → 0.07–0.35 s; page list 5.1 s → 4.5 s warm (10.0 s on the first
+  launch after a server bump: converted-extension cache is keyed by server revision). MangaFire on the new server:
+  79/79 pages direct, 8.2 s.
+- Page-list split (warm): Java HTTP ≈ 0.75 s first request (handshake ≈ 0.6 s) + 0.14 s; the remaining ~3.5 s is JVM
+  work. So item 5 (URLSession under OkHttp) would save < 1 s → lower in the ranking.
+- New DEBUG launch arg `-keiyoushiWireStats` (one `YOMI-WIRE` line per Java request).
+- Found #208: Aqua (Madara) newest chapters fail — "Refresh the chapter list." (extension format change, not the bump).
+- Asura scrambled ("tiles") pages still go through Java and likely fail (no `javax.imageio` in java.base) — native
+  Core Graphics tile shuffle is the fix (S159 notes §3).
+- Device-verified: probe only (same page-loading code as the reader). NOT yet: the reader screen itself, downloads,
+  Aqua after a refresh. Phone has this Debug build. Not uploaded anywhere.
+
+NEXT: Martin opens an Asura chapter in the reader; #208 (match old chapters by number on refresh); then S159 leftovers
+(memory per Asura page, library query time, novel reader vs LNReader checklist) and re-rank the top-10.
+
 ## S157 — Tachimanga parity re-check + source filters (2026-10-13)
 
 Build 1.0 (529) is uploaded (S156). Martin asked for a parity check, then to start on the gaps.

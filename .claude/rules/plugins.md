@@ -18,7 +18,8 @@ paths:
 - `#if DEBUG seedBundledPlugins()` only — never in Release.
 - Keiyoushi: sourceId `keiyoushi_<Mihon id>`, chapter path `keiyoushi://…`; iOS HotSpot ignores
   `-Djava.home` (Java home = `OpenJDKRuntime.framework/lib`); runtime embedded only when
-  `YOMI_EMBED_KEIYOUSHI=YES`. Covers load natively (`KeiyoushiCovers`), reader pages still via the JVM proxy.
+  `YOMI_EMBED_KEIYOUSHI=YES`. Covers AND reader pages load natively (`KeiyoushiCovers`, per-host headers; S159 server `ac589a2`); only pages an
+  extension must process itself (Asura scrambled tiles, `fetchImage` overrides) still go through the JVM proxy.
 - App Store (Guideline 5.2.2), Martin's S140 rule: Yomi ships with **no repositories** (fresh installs start
   empty) and suggests none; the user pastes every repository link. Inside an added repository every extension
   is one tap ("Add"). Removing = swipe → red trash (extensions and repositories). Replaced S104's
