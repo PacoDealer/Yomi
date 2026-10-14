@@ -46,6 +46,8 @@ struct ShikimoriView: View {
         .sheet(isPresented: $showSafari) {
             if let url = authURL { SafariView(url: url) }
         }
+        // #109: the login callback arrives while the Safari sheet is still up — close it on success.
+        .onChange(of: service.isLoggedIn) { _, loggedIn in if loggedIn { showSafari = false } }
     }
 }
 

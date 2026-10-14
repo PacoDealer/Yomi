@@ -61,11 +61,16 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
         guard
             let fragment = url.fragment,
             let token = URLComponents(string: "?\(fragment)")?.queryItems?.first(where: { $0.name == "access_token" })?.value
-        else { return }
+        else {
+            // #110: AniList's failure path (e.g. `#error=access_denied`) used to end silently.
+            errorMessage = "AniList: login didn't complete — please try again."
+            return
+        }
         guard verifyAuthState(url: url, requireEcho: false) else {
             errorMessage = "AniList: ignored a login callback this app didn't start."
             return
         }
+        errorMessage = nil   // #110: a stale error from an earlier attempt stayed up forever
         accessToken = token
         isLoggedIn  = true
         saveToken()
