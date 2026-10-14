@@ -182,7 +182,7 @@ final class SuwayomiService {
         "suwayomi://\(mangaId)/\(chapterIndex)"
     }
 
-    static func chapterRef(from path: String) -> (mangaId: Int, index: Int)? {
+    nonisolated static func chapterRef(from path: String) -> (mangaId: Int, index: Int)? {
         guard path.hasPrefix("suwayomi://") else { return nil }
         let parts = path.dropFirst("suwayomi://".count).split(separator: "/")
         guard parts.count == 2, let mangaId = Int(parts[0]), let index = Int(parts[1]) else {
