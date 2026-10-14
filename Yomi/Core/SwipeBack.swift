@@ -34,3 +34,41 @@ private final class SwipeBackDelegate: NSObject, UIGestureRecognizerDelegate {
         return nav.viewControllers.count > 1 && nav.transitionCoordinator == nil
     }
 }
+
+// A screen that hides its navigation bar (title detail screens) still got it when it was pushed from a screen
+// with an ACTIVE search (Library, History, a source's search): UIKit keeps the bar for the search, so the
+// title showed the system back button above its own (#206). `.navigationBarStaysHidden(_:)` hides it again
+// when the screen appears. Ending the search before the push instead was tried and broke SwiftUI's state.
+extension View {
+    func navigationBarStaysHidden(_ hidden: Bool) -> some View {
+        background(NavigationBarHider(hidden: hidden).frame(width: 0, height: 0))
+    }
+}
+
+private struct NavigationBarHider: UIViewControllerRepresentable {
+    let hidden: Bool
+
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.hidden = hidden
+    }
+
+    final class Controller: UIViewController {
+        var hidden = true
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            hideIfNeeded()
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            hideIfNeeded()
+        }
+
+        private func hideIfNeeded() {
+            guard hidden, let nav = navigationController, !nav.isNavigationBarHidden else { return }
+            nav.setNavigationBarHidden(true, animated: false)
+        }
+    }
+}
