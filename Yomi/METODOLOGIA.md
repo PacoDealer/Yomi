@@ -2207,3 +2207,12 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **A dependency bump can be the cheapest fix.** The 15× page speed-up was upstream's 3-week-old commit, not a port.
   Diff the pin against upstream (`gh api repos/<r>/compare/<pin>...<head>`) before planning a rewrite.
 - A server bump changes `BuildConfig.REVISION`, which empties the converted-extension cache: measure the SECOND launch.
+
+## S160 lessons
+
+- **`footprint -v <pid>` on a simulator app names the owner of the memory.** The region list sorted by size showed 7.3 MB
+  ImageIO buffers = exactly 900×2048×4, i.e. one per strip — that pointed at `cropping`, which the S145 comment
+  claimed "shares the decoded pixels". It doesn't for an ImageIO-backed image. Measure each fix separately: the
+  cache cap I was sure about changed nothing; the strip copy was the real one.
+- A temporary NSLog on load/disappear proved the views released on time, which ruled out SwiftUI and moved the search on.
+- Martin knows when a source's site is down — ask before testing a source that failed before.

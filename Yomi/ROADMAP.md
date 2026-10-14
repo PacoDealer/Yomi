@@ -21,6 +21,22 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S160 — long-strip memory (2026-10-14)
+
+- **#208 parked:** Martin says Aqua is down for its own server reasons, and it is the only Madara source in his
+  library, so nothing to test. Read keiyoushi `MadaraBase.kt` first: chapter url = slug + memo `{mangaPath}`,
+  `getChapterUrl` throws on any url containing '/'. The "match old chapters by number on refresh" fix waits for Aqua.
+- **#209 fixed (sim only):** reading tall pages in Webtoon mode grew memory ~55 MB per page until the reader closed.
+  Test: 20 generated 900×16000 JPEGs as a local series (`Documents/Local/Tall Test`), slider dragged page 1 → 20,
+  `footprint` on the sim process. Before 908 → 1,964 MB; `.onDisappear` release → 1,385 MB; owned-bitmap strips
+  → **771 → 777 MB** (flat). `footprint -v` showed the cause: ~160 ImageIO buffers of 7.3 MB = one per 900×2048 strip.
+  Kingfisher memory cache capped at 256 MB (guard). Pages render correctly (screenshot), UI tests 13/13
+  (`testPagesWithoutContinueEndOnNextChapterPage` flaky, passed alone).
+- NOT checked: on the phone with real Asura pages (WebP from the network, not local JPEG); scroll-back placeholder flash.
+
+NEXT: Martin reads an Asura chapter on a new build (no upload without his go); then page preload (top-10 #1) or
+library query time.
+
 ## S159 — measure before porting; Keiyoushi pages native (2026-10-14)
 
 Plan step from S158 (`research_notes/Reverse engineering for Yomi/PLAN.md`, track 5). Numbers:
