@@ -273,6 +273,7 @@ struct TextReaderView: View {
         }
         .navigationBarHidden(true)
         .swipeBackEnabled()
+        .navigationBarStaysHidden(true)   // #206: opened while a search was active
         .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!showOverlay)
         .preferredColorScheme(novelTheme.colorScheme)
