@@ -55,6 +55,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             errorMessage = "Bangumi: ignored a login callback this app didn't start."
             return
         }
+        errorMessage = nil   // #110: a stale error from an earlier attempt stayed up forever
         do {
             try await exchangeCode(code: code)
             await fetchUserInfo()

@@ -692,9 +692,13 @@ enum BrowseSourceKey {
     static func keiyoushiSourceId(_ key: String) -> String? { key.hasPrefix("kei:") ? String(key.dropFirst(4)) : nil }
 }
 
-/// Which installed plugins are novel plugins, kept for the app session so Browse doesn't re-read every script.
+/// Which installed plugins are novel plugins, so Browse doesn't re-read every script. Saved across launches:
+/// in memory only, the first frame after a cold launch listed every novel plugin under Manga (#172).
 enum PluginKindCache {
-    static var isNovel: [String: Bool] = [:]
+    private static let key = "pluginKindIsNovel"
+    static var isNovel: [String: Bool] = (UserDefaults.standard.dictionary(forKey: key) as? [String: Bool]) ?? [:] {
+        didSet { UserDefaults.standard.set(isNovel, forKey: key) }
+    }
 }
 
 // MARK: - SearchScreen
