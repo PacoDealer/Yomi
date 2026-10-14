@@ -2216,3 +2216,14 @@ previously here was removed during the 2026-08-04 doc restructure.
   cache cap I was sure about changed nothing; the strip copy was the real one.
 - A temporary NSLog on load/disappear proved the views released on time, which ruled out SwiftUI and moved the search on.
 - Martin knows when a source's site is down — ask before testing a source that failed before.
+
+## S163 lessons
+- **Re-encoding changes storage, measure it on real pages.** Mihon writes split parts as JPEG; on Asura's webp pages
+  JPEG 0.9 tripled a chapter (11 → 31 MB). A 30-line Mac script comparing encoders on 12 real downloaded pages picked
+  HEIC 0.8 (0.93×) in a minute. Real data on disk beats the reference implementation's default.
+- **A pure-ImageIO/Foundation file compiles on macOS with `swiftc` + a `main.swift` harness** — real unit tests for
+  logic Yomi has no test target for (file-name parsing, split math, crash leftovers), run in seconds.
+- **Keep stored progress in the source's units when the local copy changes shape** (split pages): sync, online reading
+  and the chapter list stay right without a migration; only the reader maps local ↔ source.
+- XcodeBuildMCP `screenshot` can return a stale frame while `snapshot_ui` is current — use the iOS Simulator
+  `control` screenshot when the two disagree.

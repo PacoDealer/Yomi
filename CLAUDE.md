@@ -18,16 +18,19 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#209), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#210), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S162 — 2026-10-14)
+## Current state (S163 — 2026-10-14)
+- **S163:** tall pages split on download (sim only): pages > 3× taller than wide and > 4096 px saved as HEIC parts
+  `<page>-<part>of<count>.dat` (`TallPageSplitter.swift`, `DownloadedPages`); `lastPageRead` stays in SOURCE pages
+  (reader `pageSources`). Fixed #210 (downloaded chapters never resumed; chapter nav ignored downloads). NEXT D12b
+  page-list cache (ROADMAP S163).
 - **S162:** manga downloads robust (sim only): per-page retries 2/4/8 s, resume skips pages already on disk, Pause/Resume,
-  < 200 MB free pauses the queue, Failed list + Retry All in Downloads (ROADMAP S162). S161 = ROADMAP "THE PLAN" A–K;
-  next D12 (split tall pages on download).
+  < 200 MB free pauses the queue, Failed list + Retry All in Downloads (ROADMAP S162). S161 = ROADMAP "THE PLAN" A–K.
 - **S160:** long-strip memory fixed (#209, sim-measured: 20 tall pages 908→1,964 MB before, flat ~775 MB after) —
   `StripPageImage` releases pages off screen and draws strips into owned bitmaps; Kingfisher memory cap 256 MB.
   #208 (Aqua/Madara) PARKED: Aqua's site is down, only Madara source in his library. Not on the phone yet.
