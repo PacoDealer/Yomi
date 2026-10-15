@@ -2250,3 +2250,14 @@ previously here was removed during the 2026-08-04 doc restructure.
   already saved unless the refresh path writes the derived value back (`refreshPaths` now does, never clearing).
 - Doc drift found: `.claude/rules/grdb.md` says next migration `v27_` (v26 = manga.trackingTitle), CLAUDE.md said `v26_`.
 
+## S166 lessons
+- **Port from the version the plan names — check the clone's age first.** The research cited Mihon @446f6df; the local
+  clone was v0.19 and had a 120-line FetchInterval with 10 tests. I ported that, passed it, and only noticed when the
+  research mentioned files the clone didn't have. `git log -1` + `git cat-file -t <cited sha>` before reading code.
+- **Upstream tests leave rules unpinned; a mutation pass finds which.** 5 of 11 one-line breaks still passed Mihon's
+  36 tests. Each surviving mutation became a Yomi case with an expectation derived by hand from the Kotlin.
+- **Replay real history to judge a scheduler.** Interval histograms say little; replaying each title's last releases
+  day by day gave the numbers that decide the default (same-day share, worst delay, checks saved).
+- Two mutations applied together can cancel out on one test — run each alone.
+- zsh: `"$R:app/…"` is the `:a` modifier (absolute path), not a git `rev:path` — write `"${R}:app/…"`.
+

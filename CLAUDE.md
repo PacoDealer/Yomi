@@ -24,18 +24,20 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S165 — 2026-10-15)
+## Current state (S166 — 2026-10-15)
+- **S166:** smart updates = Mihon v0.21 FetchInterval/ReleaseSchedule/ReleasePattern port (`Core/FetchInterval.swift`,
+  tests `scripts/fetch-interval-tests/run.sh` 54/54); v27 stores `fetchInterval`/`nextUpdate` + `chapter.uploadedAt`
+  (`UpdateScheduleQueries`); "Titles not due yet" in Update Rules (off by default). Refresh = one stream per source.
+  Asura replay: 86% same day, 69% fewer checks (ROADMAP S166). NEXT: Martin on the default, device refresh time, E15.
 - **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
   Mihon's tests ported: `scripts/chapter-recognition-tests/run.sh` (103/103). Keiyoushi lists parsed as a whole
-  (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers. NEXT: E14 smart updates (ROADMAP S165).
+  (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers.
 - **S164:** page-list cache (sim only): reopening a chapter that isn't downloaded skips `fetchPages`
   (`Features/Reader/PageListCache.swift`, Caches JSON, 7 days; reader calls `readerPages`). A cached page's first failure
   refetches the list once (`PageRetry.pageFailed`). Bridge-proxied `127.0.0.1/image/<id>` lists never cached. DEBUG
-  `-yomiStalePageList`. NEXT: E → F → G → H → K, then device check J (ROADMAP S164).
-- **S163:** tall pages split on download (sim only) into HEIC parts `<page>-<part>of<count>.dat` (`TallPageSplitter.swift`);
-  `lastPageRead` stays in SOURCE pages (reader `pageSources`). Fixed #210 (downloaded chapters resume).
-- **S162:** manga downloads robust (sim only): per-page retries 2/4/8 s, resume skips pages already on disk, Pause/Resume,
-  < 200 MB free pauses the queue, Failed list + Retry All in Downloads (ROADMAP S162). S161 = ROADMAP "THE PLAN" A–K.
+  `-yomiStalePageList`.
+- **S162–S163** (sim only): robust downloads (retries, resume, Pause/Resume, low-storage pause, Failed + Retry All);
+  tall pages split into HEIC parts (`TallPageSplitter.swift`), `lastPageRead` in SOURCE pages. S161 = ROADMAP "THE PLAN" A–K.
 - **S160:** long-strip memory fixed (#209, sim-measured: 20 tall pages 908→1,964 MB before, flat ~775 MB after) —
   `StripPageImage` releases pages off screen and draws strips into owned bitmaps; Kingfisher memory cap 256 MB.
   #208 (Aqua/Madara) PARKED: Aqua's site is down, only Madara source in his library. Not on the phone yet.
@@ -54,7 +56,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   number of Mihon repositories** (`mihonRepoURLs`, `KeiyoushiRepository.repos`), `index.pb` or
   `index.min.json`, folder links accepted (S142). Catalog ↔ installed matching: `PluginCatalogEntry.installIds`.
 - **Downloads:** Keiyoushi/Suwayomi manga download too (`DownloadManager.canDownload`; Keiyoushi needs Yomi open).
-- **Updates:** refresh checks JS + Keiyoushi titles (Keiyoushi pool 3), progress row, Updates Summary
+- **Updates:** refresh checks JS + Keiyoushi titles (per-source streams: 5 plugin / 3 Keiyoushi at once), progress row, Updates Summary
   (Failed/Completed, Retry). Background refresh skips Keiyoushi. One row per chapter found (`fetchedAt`, v23).
 - **Reading state:** only reading counts toward History/Continue. ONE Continue rule for every screen:
   `ResumeReading.chapter(in:)` (ContinueReadingRow.swift) = after the end of the RUN of read chapters (S144).
@@ -125,7 +127,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v27_`** (v26 = manga.trackingTitle, S149). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v28_`** (v27 = smart-update schedule, S166). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -183,7 +185,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (free team; read the pri
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v25_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v28_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift

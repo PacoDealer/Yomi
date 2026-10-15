@@ -395,6 +395,10 @@ struct UpdatesSettingsView: View {
                     Text("Completed titles")
                     Text("Marked Completed by the source.")
                 }
+                Toggle(isOn: $settings.skipUpdateNotExpected) {
+                    Text("Titles not due yet")
+                    Text("Each title's release days tell when its next chapter is likely. Checked again from the day before.")
+                }
                 NavigationLink {
                     ExcludedCategoriesView(settings: settings)
                 } label: {
