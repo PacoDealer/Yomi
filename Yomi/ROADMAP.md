@@ -21,6 +21,44 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S166 — E14 smart updates + per-source update streams (2026-10-15, simulator + Mac-server data)
+
+`Core/FetchInterval.swift` = port of Mihon v0.21 (@446f6df, Apache-2.0) `FetchInterval` + `ReleaseSchedule` +
+`ReleasePattern` (the S165 handoff said "ReleasePattern"; it exists only in v0.21 — the local mihon-clone was at
+v0.19 and had the old 120-line FetchInterval, first ported by mistake, then redone after `git fetch`). From a title's
+release days (source upload dates, else the days a refresh found chapters): interval = median gap (1…28, 7 if too
+little), a calendar pattern when one fits (2–3 weekdays, day/weekday of the month, batches), checks spread out in a
+hiatus, a late/early/extra release keeps the schedule. `Day` = timezone-free calendar day (stands in for kotlinx).
+- **Tests first:** Mihon's `FetchIntervalTest.kt` (36 tests) ported → `scripts/fetch-interval-tests/run.sh`, plus Yomi
+  cases → **54/54**. Mutation pass: 11 one-line breaks of the port; 5 survived Mihon's own tests (lower median,
+  10-day window, 4-cycle hiatus, halfway-counts-as-late, weekday releases not snapped) → a Yomi case for each; now
+  all 11 fail the suite.
+- **DB `v27_fetch_interval`:** `chapter.uploadedAt` (Keiyoushi `date_upload`; JS plugins give no dates, novel
+  `releaseTime` is never filled by our plugins → those use v23 `fetchedAt`), `manga`/`novel.fetchInterval` + `nextUpdate`.
+  Out of the model structs, not synced. `UpdateScheduleQueries`: `setUploadDates` (Detail + refresh, Keiyoushi),
+  `recordCheck` after every successful check (Mihon's rule: recompute on a release, when never computed, or when the
+  stored day is behind the window), `notExpected` for the skip rule.
+- **Setting:** Updates → Filter (Update Rules) → "Titles not due yet" (`skipUpdateNotExpected`), **off by default**
+  like Mihon's "Outside expected release period". Skipped = next expected day after tomorrow 00:00.
+- **Per-source streams:** `runStreams` — one stream per source, its titles one at a time; 5 plugin / 3 Keiyoushi
+  streams at once, the longest stream first. Keiyoushi keeps its one-at-a-time first title per extension (APK load).
+  Before: one pool of 6 over all JS titles (calls serialise per source on the bridge lock, so slots could all wait on
+  one source) and 3 over Keiyoushi titles regardless of source.
+- **Simulator:** v27 ran on the existing DB; refresh = 154 titles (148 Keiyoushi fail — no JVM in the sim), the 6
+  checked got schedules (7-day default, little history; next day at local midnight; a title that just released → +7).
+  Setting on → **148 checked, the 6 not-due skipped**; toggle screenshot OK. Pref reset to default afterwards.
+- **Real data (Mac Keiyoushi server, Asura v1.6.69, all 87 Asura titles in the sim library):** every list has upload
+  dates; intervals 7d×77, 8d×4, 6d×2, others ×4; 1 weekday pattern; 66/87 "not due" today. **Replay of each title's last
+  5 releases (420) with daily refreshes + the rule on: 86% found the same day, 88% ≤ 1 day, p90 2 days, max 20, none
+  missed; 69% fewer checks than daily.** MangaFire's 38 titles 404'd from the Mac harness (not looked into).
+- Build 0 warnings (Yomi + YomiWidget). NOT checked: anything on the phone — Keiyoushi refresh speed with streams
+  (87 Asura titles now one at a time, was 3 at once — the extension's own rate limit already throttles, but measure
+  it), background refresh, the Detail upload-date write on a real Keiyoushi title.
+
+NEXT (S167): Martin decides whether "Titles not due yet" defaults ON (the replay above is the evidence); device check
+of refresh time with streams; then E15 (saved scanlator exclusion · duplicate warning · chapter bookmarks, `v28_`)
+→ F → G → H → K → J.
+
 ## S165 — E13 ChapterRecognition v2 (2026-10-15, compile + Mac-server data, no sim screen)
 
 `Core/ChapterRecognition.swift` rewritten as a port of Mihon v0.21 (`ChapterRecognition.kt` @446f6df, Apache-2.0):

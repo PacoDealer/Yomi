@@ -93,7 +93,7 @@ Yomi/
 │   │   ├── BangumiService.swift     # REST v0, Authorization Code Grant (requires client_secret, no PKCE) — OAuth on bgm.tv, REST on api.bgm.tv (S115)
 │   │   ├── TrackersView.swift       # More → Trackers: auto-update toggle + all 4 tracker connect rows (S115, replaces the old single MyAnimeList row)
 │   │   ├── MALView.swift            # Login/disconnect UI + SafariView (also reused by AniListView/ShikimoriView/BangumiView)
-│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable, withTaskGroup, checkUpdates per plugin) + UpdateRow. ScrollView+LazyVStack grouped by date bucket (S92 — N.12 spec), one row per title (not per chapter); long-press .contextMenu to mark all read, trailing icon jumps into reader at oldest unread chapter
+│   │   └── UpdatesView.swift        # UpdatesViewModel (@Observable; S166: one stream per source — its titles one at a time, 5 plugin / 3 Keiyoushi streams at once, longest first; each check records the update schedule) + UpdateRow. ScrollView+LazyVStack grouped by date bucket (S92 — N.12 spec), one row per title (not per chapter); long-press .contextMenu to mark all read, trailing icon jumps into reader at oldest unread chapter
 │   ├── Onboarding/
 │   │   └── OnboardingView.swift     # First-launch full-screen card, rebuilt S95 (N.08 spec): one shared OnboardingPage template (150×150 icon box, wordmark/title, description, page dots, accent CTA) reused across 3 pages. Own explicit .tint() (fullScreenCover doesn't inherit YomiApp's). Real app icon via a plain OnboardingIcon.imageset (UIImage(named:) can't load .appiconset entries directly). Gated by AppSettings.hasSeenOnboarding via YomiApp's single merged .fullScreenCover (S95 — was two chained covers, silently broken; see METODOLOGIA S95).
 │   ├── Backup/
@@ -113,6 +113,7 @@ Yomi/
 ├── Core/GlassChip.swift             # `.glassChip()` view modifier (S85) — shared 44×44 floating Liquid Glass circle for chrome buttons (reader top bars, Detail's glass nav). Factor any new floating icon button through this rather than re-inlining `.frame(44,44).background{Circle().glassEffect()}`. Any Color/Rectangle used as a purely-decorative symmetric spacer next to a glassChip needs an explicit height too (S95 finding — Color is greedy in unconstrained dimensions under .overlay).
 ├── Core/YomiEmptyState.swift        # Reusable empty-state view (S95 — N.09 spec): boxed SF Symbol (s1 card + hairline ring + accent dot), title, message, optional accent-pill action. Replaces 12 native ContentUnavailableView call sites app-wide (Library, Categories, Downloads, Updates, Browse ×4, OPDS ×2, History) — `.search(text:)` call sites stay native (system-provided, no mock equivalent).
 ├── Core/ChapterRecognition.swift    # Mihon v0.21 port (S165): volume + chapter number from names. `numbers(mangaTitle:names:sourceNumbers:)` reads a WHOLE list in either order (shared numbers ignored, unnumbered chapters filled from neighbours); `number(...)` = single name (local files, v24). Source numbers always win. Tests: scripts/chapter-recognition-tests/run.sh (swiftc, Mihon's ChapterRecognitionTest ported). Keiyoushi lists go through KeiyoushiMapping.chapters; ChapterQueries.refreshPaths writes changed numbers back onto saved rows.
+├── Core/FetchInterval.swift         # Mihon v0.21 port (S166) of FetchInterval + ReleaseSchedule + ReleasePattern: from a title's release days (upload dates, else fetch days) → interval (median gap, 1…28, default 7), calendar pattern (weekdays / day or weekday of month / batches / every N days), hiatus back-off, next expected day. `Day` = timezone-free calendar day. Tests: scripts/fetch-interval-tests/run.sh. Stored by Database/Queries/UpdateScheduleQueries.swift (`recordCheck` after each successful refresh check, `notExpected` for the "Titles not due yet" skip rule).
 ├── Core/YomiToast.swift             # `.yomiToast(_:)` view modifier (S100) — self-dismissing top banner for surfacing failures that would otherwise be silent (generalizes UpdatesView's ad-hoc refresh-summary banner). `YomiHaptics.error()` alongside it. Used by ChapterReaderView.markChapterRead and MangaDetailView.toggleLibrary's catch blocks.
 YomiWidget/                          # Widget extension target (bundle ID: pacodealer.Yomi.widget)
 ├── YomiWidget.swift                 # @main YomiWidgetBundle. ContinueReadingWidget (StaticConfiguration, kind: "YomiContinueReading"). TimelineProvider: reads from App Group UserDefaults, refreshes every 30 min. Views: small (cover+text), medium (3 tiles), large (2×3 grid).
@@ -247,7 +248,16 @@ pending_novel_chapter_state (novelId TEXT NOT NULL, chapterId TEXT NOT NULL,  --
   `pending_novel_chapter_state` tables (stashed remote chapter-state changes for chapters not yet
   locally cached, replayed on next real chapter insert) — see `CLAUDE.md` Known Issues #41/#43.
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v22_`.
+- **v22_novel_chapter_unread_index**: `idx_novel_chapter_unread` (#144)
+- **v23_chapter_fetched_at** (S141): `fetchedAt` on `chapter` + `novel_chapter` (+ indexes) — when a refresh first saw
+  a chapter; the Updates feed. Not in the model structs.
+- **v24_parse_missing_chapter_numbers** (S144), **v25_remove_dead_tachiyomi_imports** (S147),
+  **v26_manga_tracking_title** (S149)
+- **v27_fetch_interval** (S166): `chapter.uploadedAt` (Keiyoushi `date_upload`), `manga`/`novel.fetchInterval`
+  (INTEGER NOT NULL DEFAULT 0; 0 = not worked out, negative = user-set) + `nextUpdate`. Not in the model structs, not
+  synced. Read/written only by `UpdateScheduleQueries`.
+
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v28_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control

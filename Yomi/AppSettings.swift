@@ -355,6 +355,12 @@ import Observation
         didSet { defaults.set(skipUpdateCompleted, forKey: "skipUpdateCompleted") }
     }
 
+    /// Skip titles whose next expected update (learned from their release days, S166 `FetchInterval`) is after
+    /// tomorrow — Mihon's "Outside expected release period"; off by default there too.
+    var skipUpdateNotExpected: Bool {
+        didSet { defaults.set(skipUpdateNotExpected, forKey: "skipUpdateNotExpected") }
+    }
+
     /// Category IDs excluded from update checks
     var excludedCategoryIds: [String] {
         didSet { defaults.set(excludedCategoryIds, forKey: "excludedCategoryIds") }
@@ -616,6 +622,7 @@ import Observation
         skipUpdateWithUnread    = d.object(forKey: "skipUpdateWithUnread")         as? Bool ?? false
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false
+        skipUpdateNotExpected   = d.object(forKey: "skipUpdateNotExpected")        as? Bool ?? false
         excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0

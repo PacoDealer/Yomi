@@ -118,10 +118,12 @@ private struct NovelReaderDest: Identifiable, Hashable {
     /// The last refresh's per-title results (Completed / Failed), shown in the Updates Summary sheet.
     var lastRun: UpdateRunSummary?
 
-    /// Keiyoushi checks run in the embedded JVM (an interpreter on the phone), so they get a small pool;
-    /// JS plugins are cheap and already serialised per source by the bridge lock.
-    private static let keiyoushiConcurrency = 3
-    private static let pluginConcurrency = 6
+    /// Each source is checked one title at a time (its own stream, Mihon's library update, S166): a site sees one
+    /// request at a time, and a slow source no longer fills every slot — JS plugin calls were already serialised
+    /// per source by the bridge lock, so before S166 up to 6 slots could sit waiting on one source. Keiyoushi
+    /// streams run in the embedded JVM (an interpreter on the phone), so fewer of them at once.
+    private static let keiyoushiStreams = 3
+    private static let pluginStreams = 5
 
     /// Returns the number of newly-discovered unread chapters (manga + novel) found this refresh.
     /// `only` re-checks just those titles (the summary's "Retry failed"). The background task passes
@@ -138,6 +140,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             skipNotStarted: AppSettings.shared.skipUpdateNotStarted,
             skipCompleted: AppSettings.shared.skipUpdateCompleted,
             skipWithUnread: AppSettings.shared.skipUpdateWithUnread,
+            skipNotExpected: AppSettings.shared.skipUpdateNotExpected,
             excludedIds: Set(AppSettings.shared.excludedCategoryIds),
             notify: AppSettings.shared.sendUpdateNotifications,
             autoDownload: AppSettings.shared.backgroundDownloadEnabled)
@@ -156,9 +159,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         progressTotal = keiyoushi.count + plugins.count
 
         var results: [UpdateRunSummary.Result] = []
-        async let pluginResults = runBounded(plugins, limit: Self.pluginConcurrency) { target in
-            await self.check(target, settings: settings)
-        }
+        async let pluginResults = runStreams(plugins, limit: Self.pluginStreams, settings: settings)
         async let keiyoushiResults = runKeiyoushi(keiyoushi, settings: settings)
         results = await pluginResults + keiyoushiResults
 
@@ -181,7 +182,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     /// Keiyoushi titles, grouped by extension: the first call to an extension loads (and may convert) its APK,
-    /// so each extension's first title goes alone; the rest share the small pool.
+    /// so each extension's first title goes alone; the rest run as per-source streams.
     private func runKeiyoushi(_ targets: [UpdateTarget], settings: RefreshSettings) async -> [UpdateRunSummary.Result] {
         guard !targets.isEmpty else { return [] }
         var firstPerExtension: [UpdateTarget] = []
@@ -196,26 +197,39 @@ private struct NovelReaderDest: Identifiable, Hashable {
         for target in firstPerExtension {
             results.append(await check(target, settings: settings))
         }
-        results += await runBounded(rest, limit: Self.keiyoushiConcurrency) { target in
-            await self.check(target, settings: settings)
-        }
+        results += await runStreams(rest, limit: Self.keiyoushiStreams, settings: settings)
         return results
     }
 
-    /// Runs `body` over `items` with at most `limit` in flight, counting progress as each finishes.
-    private func runBounded(_ items: [UpdateTarget], limit: Int,
-                            _ body: @escaping (UpdateTarget) async -> UpdateRunSummary.Result) async
-        -> [UpdateRunSummary.Result] {
+    /// One stream per source, its titles checked one after another; at most `limit` streams at once, the longest
+    /// first so the source with the most titles doesn't start last.
+    private func runStreams(_ targets: [UpdateTarget], limit: Int,
+                            settings: RefreshSettings) async -> [UpdateRunSummary.Result] {
+        var order: [String] = []
+        var bySource: [String: [UpdateTarget]] = [:]
+        for target in targets {
+            if bySource[target.sourceId] == nil { order.append(target.sourceId) }
+            bySource[target.sourceId, default: []].append(target)
+        }
+        let streams = order.compactMap { bySource[$0] }.sorted { $0.count > $1.count }
+
         var results: [UpdateRunSummary.Result] = []
-        var iterator = items.makeIterator()
-        await withTaskGroup(of: UpdateRunSummary.Result.self) { group in
+        var iterator = streams.makeIterator()
+        await withTaskGroup(of: [UpdateRunSummary.Result].self) { group in
+            func start(_ stream: [UpdateTarget]) {
+                group.addTask {
+                    var out: [UpdateRunSummary.Result] = []
+                    for target in stream { out.append(await self.check(target, settings: settings)) }
+                    return out
+                }
+            }
             for _ in 0..<limit {
                 guard let next = iterator.next() else { break }
-                group.addTask { await body(next) }
+                start(next)
             }
-            for await result in group {
-                results.append(result)
-                if let next = iterator.next() { group.addTask { await body(next) } }
+            for await streamResults in group {
+                results += streamResults
+                if let next = iterator.next() { start(next) }
             }
         }
         return results
@@ -224,8 +238,12 @@ private struct NovelReaderDest: Identifiable, Hashable {
     /// Library titles that pass the user's skip settings (Updates → filter button).
     nonisolated private static func eligibleTargets(_ s: RefreshSettings) -> [UpdateTarget] {
         var out: [UpdateTarget] = []
+        // Titles whose next expected update (S166, `FetchInterval`) is after tomorrow.
+        let notExpectedManga = s.skipNotExpected ? ((try? UpdateScheduleQueries.notExpected(.manga)) ?? []) : []
+        let notExpectedNovels = s.skipNotExpected ? ((try? UpdateScheduleQueries.notExpected(.novel)) ?? []) : []
         for manga in (try? MangaQueries.fetchLibrary()) ?? [] {
             if manga.isLocal { continue }  // local files: nothing to check online (S148)
+            if notExpectedManga.contains(manga.id) { continue }
             if s.skipNotStarted && manga.lastReadAt == nil { continue }
             if s.skipCompleted && manga.status == .completed { continue }
             if s.skipWithUnread, !((try? ChapterQueries.fetchUnread(mangaId: manga.id)) ?? []).isEmpty { continue }
@@ -237,6 +255,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
         for novel in (try? NovelQueries.fetchLibrary()) ?? [] {
             if LocalLibrary.isLocalSourceId(novel.sourceId) { continue }
+            if notExpectedNovels.contains(novel.id) { continue }
             if s.skipNotStarted && novel.lastReadAt == nil { continue }
             if s.skipCompleted && novel.status.lowercased().contains("completed") { continue }
             if s.skipWithUnread,
@@ -268,12 +287,15 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
     /// Writes chapters a refresh found. A title with no saved chapters yet (never opened) — or whose every
     /// chapter id changed at once (a source that moved its URLs) — is a baseline, not news: its chapters are
-    /// saved but kept out of the feed, which would otherwise list hundreds of "new" chapters.
-    nonisolated private static func saveNew(_ newChapters: [Chapter], remoteCount: Int, localCount: Int, manga: Manga) {
+    /// saved but kept out of the feed, which would otherwise list hundreds of "new" chapters. Returns whether they
+    /// were news, which is a release for the update schedule (Mihon's `foundRelease`).
+    nonisolated private static func saveNew(_ newChapters: [Chapter], remoteCount: Int, localCount: Int,
+                                            manga: Manga) -> Bool {
         try? ChapterQueries.insertMangaAndChapters(manga: manga, chapters: newChapters)
         try? MangaQueries.touchLastUpdated(mangaId: manga.id)
-        guard localCount > 0, newChapters.count < remoteCount else { return }
+        guard localCount > 0, newChapters.count < remoteCount else { return false }
         try? ChapterQueries.markFetched(ids: newChapters.map(\.id))
+        return true
     }
 
     private func notify(title: String, count: Int, id: String, type: String, settings: RefreshSettings) {
@@ -301,13 +323,16 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let mangaTitle = manga.title
         let remote = KeiyoushiMapping.chapters(from: items, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
         guard !remote.isEmpty else { return .failed("The source returned no chapters") }
+        let uploadDates = KeiyoushiMapping.uploadDates(from: items, mangaId: mangaId)
 
         let newChapters = await Task.detached(priority: .utility) {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
             let localIds = Set(local.map(\.id))
             let new = remote.filter { !localIds.contains($0.id) }
             try? ChapterQueries.refreshPaths(remote.filter { localIds.contains($0.id) })
-            if !new.isEmpty { Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga) }
+            let found = !new.isEmpty && Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga)
+            try? UpdateScheduleQueries.setUploadDates(uploadDates)
+            try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
             return new
         }.value
         notify(title: manga.title, count: newChapters.count, id: mangaId, type: "manga", settings: settings)
@@ -336,9 +361,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
             let localIds = Set(local.map(\.id))
             let new = remoteChapters.filter { !localIds.contains($0.id) }
-            if !new.isEmpty {
-                Self.saveNew(new, remoteCount: remoteChapters.count, localCount: local.count, manga: manga)
-            }
+            let found = !new.isEmpty
+                && Self.saveNew(new, remoteCount: remoteChapters.count, localCount: local.count, manga: manga)
+            try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
             return new
         }.value
 
@@ -389,7 +414,13 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 )
             }
 
-        guard !newChapters.isEmpty else { return .checked(newChapters: 0) }
+        let lastUpdate = novel.lastUpdatedAt
+        guard !newChapters.isEmpty else {
+            await Task.detached(priority: .utility) {
+                try? UpdateScheduleQueries.recordCheck(.novel, id: novelId, foundRelease: false, lastUpdate: lastUpdate)
+            }.value
+            return .checked(newChapters: 0)
+        }
 
         // Same baseline rule as manga (`saveNew`): first sight of a title, or every path changed at once.
         let isNews = !localChapters.isEmpty && newChapters.count < source.chapters.count
@@ -397,6 +428,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             try? NovelQueries.insertAllIgnoringConflicts(newChapters)
             try? NovelQueries.touchLastUpdated(novelId: novelId)
             if isNews { try? NovelQueries.markFetched(ids: newChapters.map(\.id)) }
+            try? UpdateScheduleQueries.recordCheck(.novel, id: novelId, foundRelease: isNews, lastUpdate: lastUpdate)
         }.value
 
         notify(title: novel.title, count: newChapters.count, id: novelId, type: "novel", settings: settings)
@@ -478,6 +510,7 @@ private struct RefreshSettings: Sendable {
     let skipNotStarted: Bool
     let skipCompleted: Bool
     let skipWithUnread: Bool
+    let skipNotExpected: Bool
     let excludedIds: Set<String>
     let notify: Bool
     let autoDownload: Bool
