@@ -38,8 +38,9 @@ hiatus, a late/early/extra release keeps the schedule. `Day` = timezone-free cal
   Out of the model structs, not synced. `UpdateScheduleQueries`: `setUploadDates` (Detail + refresh, Keiyoushi),
   `recordCheck` after every successful check (Mihon's rule: recompute on a release, when never computed, or when the
   stored day is behind the window), `notExpected` for the skip rule.
-- **Setting:** Updates → Filter (Update Rules) → "Titles not due yet" (`skipUpdateNotExpected`), **off by default**
-  like Mihon's "Outside expected release period". Skipped = next expected day after tomorrow 00:00.
+- **Setting:** Updates → Filter (Update Rules) → "Titles not due yet" (`skipUpdateNotExpected`), **ON by default**
+  (Martin's call after the replay below; Mihon's "Outside expected release period" is off). Skipped = next expected
+  day after tomorrow 00:00. Sim with no saved pref: refresh checked 148 of 154 (the 6 not due skipped).
 - **Per-source streams:** `runStreams` — one stream per source, its titles one at a time; 5 plugin / 3 Keiyoushi
   streams at once, the longest stream first. Keiyoushi keeps its one-at-a-time first title per extension (APK load).
   Before: one pool of 6 over all JS titles (calls serialise per source on the bridge lock, so slots could all wait on
@@ -55,8 +56,7 @@ hiatus, a late/early/extra release keeps the schedule. `Day` = timezone-free cal
   (87 Asura titles now one at a time, was 3 at once — the extension's own rate limit already throttles, but measure
   it), background refresh, the Detail upload-date write on a real Keiyoushi title.
 
-NEXT (S167): Martin decides whether "Titles not due yet" defaults ON (the replay above is the evidence); device check
-of refresh time with streams; then E15 (saved scanlator exclusion · duplicate warning · chapter bookmarks, `v28_`)
+NEXT (S167): device check of refresh time with streams and of the skip rule on Martin's library; then E15 (saved scanlator exclusion · duplicate warning · chapter bookmarks, `v28_`)
 → F → G → H → K → J.
 
 ## S165 — E13 ChapterRecognition v2 (2026-10-15, compile + Mac-server data, no sim screen)

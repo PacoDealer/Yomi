@@ -356,7 +356,8 @@ import Observation
     }
 
     /// Skip titles whose next expected update (learned from their release days, S166 `FetchInterval`) is after
-    /// tomorrow — Mihon's "Outside expected release period"; off by default there too.
+    /// tomorrow — Mihon's "Outside expected release period". On by default (Martin, S166; Mihon's is off): replaying 420
+    /// real Asura releases found 86% the same day with 69% fewer checks (ROADMAP S166).
     var skipUpdateNotExpected: Bool {
         didSet { defaults.set(skipUpdateNotExpected, forKey: "skipUpdateNotExpected") }
     }
@@ -622,7 +623,7 @@ import Observation
         skipUpdateWithUnread    = d.object(forKey: "skipUpdateWithUnread")         as? Bool ?? false
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false
-        skipUpdateNotExpected   = d.object(forKey: "skipUpdateNotExpected")        as? Bool ?? false
+        skipUpdateNotExpected   = d.object(forKey: "skipUpdateNotExpected")        as? Bool ?? true
         excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
