@@ -458,6 +458,17 @@ enum KeiyoushiMapping {
         }
     }
 
+    /// The source's upload date per chapter id, for the update schedule (S166). Extensions send epoch milliseconds,
+    /// 0 when they don't know.
+    nonisolated static func uploadDates(from items: [KeiyoushiChapter], mangaId: String) -> [String: Date] {
+        var dates: [String: Date] = [:]
+        for item in items {
+            guard let ms = item.date_upload, ms > 0 else { continue }
+            dates["\(mangaId)_\(key(item.url))"] = Date(timeIntervalSince1970: Double(ms) / 1000)
+        }
+        return dates
+    }
+
     nonisolated static func chapterPath(sourceId: String, url: String, name: String) -> String {
         let payload = (try? JSONSerialization.data(withJSONObject: ["s": sourceId, "u": url, "n": name])) ?? Data()
         let b64 = payload.base64EncodedString()

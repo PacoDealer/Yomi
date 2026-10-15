@@ -374,6 +374,20 @@ final class DatabaseManager {
             try db.alter(table: "manga") { t in t.add(column: "trackingTitle", .text) }
         }
 
+        // Smart updates (S166, Mihon's FetchInterval): when each library title is next expected to get a chapter, read
+        // from its release days. `uploadedAt` = the source's date for a chapter (Keiyoushi `date_upload`; JS plugins
+        // give none). `fetchInterval` 0 = not worked out yet, negative = set by the user. Like v23 `fetchedAt`, none
+        // of these are in the model structs, so whole-row writes of those can't overwrite them.
+        migrator.registerMigration("v27_fetch_interval") { db in
+            try db.alter(table: "chapter") { t in t.add(column: "uploadedAt", .datetime) }
+            for table in ["manga", "novel"] {
+                try db.alter(table: table) { t in
+                    t.add(column: "fetchInterval", .integer).notNull().defaults(to: 0)
+                    t.add(column: "nextUpdate", .datetime)
+                }
+            }
+        }
+
         try migrator.migrate(db)
     }
 

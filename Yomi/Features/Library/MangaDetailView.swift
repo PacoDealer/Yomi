@@ -1461,9 +1461,11 @@ struct MangaDetailView: View {
         }
 
         let fetched: [Chapter]
+        let uploadDates: [String: Date]
         do {
             let items = try await KeiyoushiBridge.shared.chapters(sourceId: sourceId, mangaURL: mangaURL)
             fetched = KeiyoushiMapping.chapters(from: items, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
+            uploadDates = KeiyoushiMapping.uploadDates(from: items, mangaId: mangaId)
         } catch {
             chapters = await savedChapters(mangaId: mangaId)
             let message = error.localizedDescription
@@ -1481,6 +1483,7 @@ struct MangaDetailView: View {
         await Task.detached(priority: .userInitiated) {
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
             try? ChapterQueries.refreshPaths(fetched)
+            try? UpdateScheduleQueries.setUploadDates(uploadDates)
             try? MangaQueries.updateSourceMetadata(mangaSnapshot)
         }.value
 
