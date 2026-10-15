@@ -21,6 +21,43 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S168 — F16 reader gestures: tap zones per mode · page menu · scroll while held (2026-10-15, simulator)
+
+Tachimanga parity (TACHIMANGA_PARITY "Press and hold to scroll" + "save/share a page"; S142 backlog "separate tap zones").
+New file `Features/Reader/ReaderPageActions.swift` (`ReaderTapZones`, `StripScroller`, `.readerPageMenu`).
+- **Tap zones per mode:** paged modes keep `tapZoneLayout` (geometry moved to `ReaderTapZones.paged`; Vertical pages
+  now uses it too — before, every tap there only toggled the menu). Long strip + continuous get `stripTapZoneLayout`:
+  Off (default = old behaviour) · L-shaped (Mihon's LNavigation: top band + left middle back, bottom band + right
+  middle forward) · Top and bottom. Long strip moves ¾ of a screen (`StripScroller.page(by:)`, the hosting
+  UIScrollView found by `EnclosingScrollViewFinder`); continuous steps one page, mirrored for RTL.
+- **Long press in long strip** (`stripLongPress`): Auto-scroll on/off (default = old behaviour) · Scroll while held
+  (CADisplayLink, half a screen per second, stops on release) · Share or save the page.
+- **Page menu:** long press on a page → Share… (UIActivityViewController) · Save to Photos (add-only permission, new
+  `NSPhotoLibraryAddUsageDescription`) · Copy Image; feedback through a non-error toast. Always on in paged modes
+  and continuous; in long strip only when Long press = Share or save. Image comes from Kingfisher's cache.
+- **Settings:** More → Settings → Manga & Webtoon (Pages + Long Strip sections) and a new "Gestures" section in the
+  reader's own settings sheet (shows the paged or strip options for the mode being read; sheet now expands to large).
+- **Bug found on the way (#211, since S164 `89eaca4` — ON MARTIN'S PHONE, build `98af933`):** in long strip and
+  continuous the page counter never moved while scrolling, so the saved position (and the ≥80 % mark-read) stayed on
+  the page the chapter opened at. Cause: D12b's `.id(url)` inside each page hid the `cur:N` id from
+  `scrollPosition`. Reproduced on unmodified `fc3d3c0` (stash, same 3 swipes, stuck at 22/50). Fix: the page reloads
+  on a URL change through `.task(id: LoadKey(url, attempt))` + `onChange(of: url)` instead. Second half: SwiftUI's
+  `scrollPosition` ignores scrolling done in code, so while `StripScroller.isDriving` the page comes from
+  `onScrollTargetVisibilityChange` (top-most visible page); not at rest — a sliver of the previous page under the
+  status bar counts as visible there (opened at 21 instead of 22 when tried).
+- **Verified (sim, Absolute Regression ch. 121, downloaded, 50 split parts):** L-shaped bottom tap = ¾ screen down,
+  top tap = back to the same spot, centre = menu; hold 4.6 s moved 20,051 → 22,053 pt and stopped on release, counter
+  22 → 23 after a 7 s hold; finger swipes 22 → 23 → 24 (stuck at 22 before the fix); reader opens on 22/50; page menu:
+  Copy → "Page copied", Share → share sheet with the image, Save → Photos permission prompt with the new text →
+  "Saved to Photos"; RTL paged thirds: left = forward (22 → 24), right = back. Build 0 warnings (app + widget).
+  UI tests 12/13 in the full run, the 13th = #193 flaky, passed alone.
+- **NOT checked:** Vertical pages and continuous tap zones on screen (compile + shared code only), auto-scroll with
+  the new gestures, the menu on a split page vs a whole page in Photos, the device.
+
+NEXT (S169): F17 (crop borders · double page "separate first page" + wide page alone · automatic page background) →
+G → H → K → J. **Before J: a personal build for Martin's phone fixes #211** — worth doing soon, it hits his daily
+Asura reading (ask him).
+
 ## S167 — E15 hidden scanlation groups · duplicate warning · chapter bookmarks (2026-10-15, simulator)
 
 Mihon parity (research_notes `mihon_family.md` §2d/§2e). Migration **`v28_scanlator_exclusion_bookmarks`**: table

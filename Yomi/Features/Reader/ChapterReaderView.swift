@@ -42,6 +42,8 @@ struct ChapterReaderView: View {
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
     @State private var toastMessage: String? = nil
+    /// Non-error banner (page menu: "Saved to Photos", "Page copied").
+    @State private var infoMessage: String? = nil
     @State private var nextPreload: (chapter: Chapter, pages: [String], sources: [Int]?)? = nil
     /// Source page of each entry in `pages` when a downloaded chapter has tall pages stored as parts (D12); nil = the
     /// same index. Saved progress (`lastPageRead`) is always in source pages.
@@ -197,6 +199,8 @@ struct ChapterReaderView: View {
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .tabBar)
         .yomiToast($toastMessage)
+        .yomiToast($infoMessage, isError: false)
+        .onReceive(NotificationCenter.default.publisher(for: ReaderPageActions.toast)) { infoMessage = $0.object as? String }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
             sessionStart = Date()
@@ -728,27 +732,17 @@ struct MangaReaderView: View {
     private func spreadContent(_ group: [Int]) -> some View {
         if group.count == 2 {
             HStack(spacing: 0) {
-                MangaPageView(url: pages[group[0]], isZoomed: $isZoomed)
-                MangaPageView(url: pages[group[1]], isZoomed: $isZoomed)
+                MangaPageView(url: pages[group[0]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[0]])
+                MangaPageView(url: pages[group[1]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[1]])
             }
         } else {
-            MangaPageView(url: pages[group[0]], isZoomed: $isZoomed)
+            MangaPageView(url: pages[group[0]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[0]])
         }
     }
 
     // MARK: - Tap zone actions
     //
-    // "Left"/"right" here means physical screen side, not reading direction — RTL flips which
-    // physical side advances vs. goes back, matching the original thirds/sides behavior.
-    // Both move by a whole spread (1 or 2 pages) so they always land on a valid TabView tag.
-
-    private func tapLeft() {
-        moveSpread(forward: isRTL)
-    }
-
-    private func tapRight() {
-        moveSpread(forward: !isRTL)
-    }
+    // Moves by a whole spread (1 or 2 pages) so it always lands on a valid TabView tag.
 
     private func moveSpread(forward: Bool) {
         let groups = spreadGroups
@@ -768,36 +762,15 @@ struct MangaReaderView: View {
     // MARK: - Tap zones
     //
     // Resolved from the tap location instead of an overlay of tap views: an overlay sits on top of
-    // the pages and swallows pinch + swipe (#200 — pinch never worked on device).
-
-    private enum TapAction { case left, right, menu }
-
-    private func tapAction(at p: CGPoint, in size: CGSize) -> TapAction {
-        let w = size.width, h = size.height
-        switch settings.tapZoneLayout {
-        case "disabled":
-            return .menu
-        case "lShaped":   // left column + bottom band go "left", top strip = menu, rest "right"
-            if p.y < h * 0.12 { return .menu }
-            return (p.x < w * 0.28 || p.y > h * 0.82) ? .left : .right
-        case "kindle", "rightLeft":   // top strip = menu; thin left strip (Kindle) or half (Right-and-Left)
-            if p.y < h * 0.12 { return .menu }
-            return p.x < w * (settings.tapZoneLayout == "kindle" ? 0.2 : 0.5) ? .left : .right
-        default:          // "default" equal thirds / "sides" a.k.a. Edge (20 · 60 · 20)
-            let edge: CGFloat = settings.tapZoneLayout == "sides" ? 0.2 : 1.0 / 3.0
-            if p.x < w * edge { return .left }
-            if p.x > w * (1 - edge) { return .right }
-            return .menu
-        }
-    }
+    // the pages and swallows pinch + swipe (#200 — pinch never worked on device). Geometry: `ReaderTapZones.paged`.
 
     private func handleTap(at p: CGPoint, in size: CGSize) {
         // Zoomed in: a tap zooms back out rather than turning the page under your finger.
         if isZoomed { withAnimation(.spring(duration: 0.3)) { isZoomed = false }; return }
-        switch tapAction(at: p, in: size) {
-        case .left:  tapLeft()
-        case .right: tapRight()
-        case .menu:  tapMenu()
+        switch ReaderTapZones.paged(settings.tapZoneLayout, at: p, in: size, isRTL: isRTL) {
+        case .back:    moveSpread(forward: false)
+        case .forward: moveSpread(forward: true)
+        case .menu:    tapMenu()
         }
     }
 }
@@ -911,6 +884,11 @@ struct WebtoonReaderView: View {
     @State private var visibleId: String? = nil
     @State private var isAutoScrolling = false
     @State private var settings = AppSettings.shared
+    @State private var scroller = StripScroller()
+    /// Last page the strip reported, from either source (`scrollPosition` or visibility) — reported once.
+    @State private var observedId: String? = nil
+    @State private var viewSize: CGSize = .zero
+    @GestureState private var isHolding = false
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -931,48 +909,69 @@ struct WebtoonReaderView: View {
                 }
                 .padding(.horizontal, CGFloat(settings.webtoonHorizontalPadding))
                 .scrollTargetLayout()
+                .background(EnclosingScrollViewFinder { scroller.scrollView = $0 })
             }
             .scrollPosition(id: $visibleId, anchor: .top)
+            // `scrollPosition(id:)` only follows the reader's own finger; tap zones and scroll-while-held move the
+            // scroll view in code and it never updates (F16, sim). Visibility does — used only then: at rest a sliver
+            // of the previous page under the status bar counts as visible, one page before the `.top` anchor's.
+            .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.01) { ids in
+                guard scroller.isDriving else { return }
+                func top(_ prefix: String) -> Int? {
+                    ids.compactMap { $0.hasPrefix(prefix) ? Int($0.dropFirst(prefix.count)) : nil }.min()
+                }
+                if let page = top("cur:") { observe("cur:\(page)") } else if let page = top("next:") { observe("next:\(page)") }
+            }
             .onAppear {
                 if currentPage > 0 {
                     proxy.scrollTo("cur:\(currentPage)", anchor: .top)
                 }
             }
             .onChange(of: visibleId) { _, id in
-                guard let id else { return }
-                if id.hasPrefix("cur:"), let idx = Int(id.dropFirst(4)) {
-                    currentPage = idx
-                    if nextChapter == nil, pages.count > 0, idx >= pages.count - 3 {
-                        onNeedsNextChapterPreload?()
-                    }
-                } else if id.hasPrefix("next:"), let idx = Int(id.dropFirst(5)) {
-                    onCrossedIntoNextChapter?(idx)
-                }
+                if let id { observe(id) }
             }
+            .onChange(of: pages) { observedId = nil }   // a new chapter's "cur:N" is a different page
             .onChange(of: currentPage) { _, new in
                 // Two-way sync with the overlay's progress slider — scrolling
                 // updates currentPage above, this reflects slider drags back
                 // into the scroll position. Guarded so it's a no-op when the
                 // change originated from the scroll itself.
                 let newId = "cur:\(new)"
-                guard newId != visibleId else { return }
+                guard newId != visibleId, newId != observedId else { return }
                 withAnimation { proxy.scrollTo(newId, anchor: .top) }
             }
         }
         .modifier(ReaderZoom(scrollAxis: .vertical))
         .ignoresSafeArea()
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showOverlay.toggle()
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        .onTapGesture(coordinateSpace: .local) { p in
+            switch ReaderTapZones.strip(settings.stripTapZoneLayout, at: p, in: viewSize) {
+            case .back:    scroller.page(by: -0.75)
+            case .forward: scroller.page(by: 0.75)
+            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
+        // Long press (F16): auto-scroll on/off (the pre-F16 behaviour, default) · scroll while held · page menu
+        // (on each page, see `pageImage`). Only the chosen gesture is live.
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.6)
                 .onEnded { _ in
                     withAnimation(.easeInOut(duration: 0.2)) { isAutoScrolling.toggle() }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                }
+                },
+            including: settings.stripLongPress == "autoScroll" ? .all : .subviews
         )
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4)
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .updating($isHolding) { value, state, _ in
+                    if case .second(true, _) = value { state = true }
+                },
+            including: settings.stripLongPress == "hold" ? .all : .subviews
+        )
+        .onChange(of: isHolding) { _, holding in
+            if holding { scroller.startHold() } else { scroller.stopHold() }
+        }
         .overlay(alignment: .bottom) {
             if isAutoScrolling {
                 Label("Auto-scroll", systemImage: "arrow.down.circle.fill")
@@ -998,12 +997,25 @@ struct WebtoonReaderView: View {
                 visibleId = "cur:\(nextIdx)"
             }
         }
-        .onDisappear { isAutoScrolling = false }
+        .onDisappear { isAutoScrolling = false; scroller.stopHold() }
+    }
+
+    private func observe(_ id: String) {
+        guard id != observedId else { return }
+        observedId = id
+        if id.hasPrefix("cur:"), let idx = Int(id.dropFirst(4)) {
+            currentPage = idx
+            if nextChapter == nil, pages.count > 0, idx >= pages.count - 3 {
+                onNeedsNextChapterPreload?()
+            }
+        } else if id.hasPrefix("next:"), let idx = Int(id.dropFirst(5)) {
+            onCrossedIntoNextChapter?(idx)
+        }
     }
 
     private func pageImage(_ url: String) -> some View {
         StripPageImage(url: url, axis: .vertical)
-            .id(url)   // a refetched list (D12b) gives the same slot a new URL: start that page over
+            .readerPageMenu(url: url, enabled: settings.stripLongPress == "pageMenu")
     }
 }
 
@@ -1135,6 +1147,8 @@ struct ContinuousHorizontalReaderView: View {
     var onCrossedIntoNextChapter: ((Int) -> Void)? = nil
 
     @State private var visibleId: String? = nil
+    @State private var settings = AppSettings.shared
+    @State private var viewSize: CGSize = .zero
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -1183,18 +1197,29 @@ struct ContinuousHorizontalReaderView: View {
         }
         .modifier(ReaderZoom(scrollAxis: .horizontal))
         .ignoresSafeArea()
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showOverlay.toggle()
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        // One page per screen, so tap zones step a page (strip zones, F16); the scroll follows `currentPage`.
+        .onTapGesture(coordinateSpace: .local) { p in
+            switch ReaderTapZones.strip(settings.stripTapZoneLayout, at: p, in: viewSize, isRTL: isRTL) {
+            case .back:    step(-1)
+            case .forward: step(1)
+            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
+    }
+
+    private func step(_ delta: Int) {
+        let target = min(max(currentPage + delta, 0), pages.count - 1)
+        guard target != currentPage else { return }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        currentPage = target
     }
 
     private func pageImage(_ url: String) -> some View {
         // Fit each page inside the screen. Height-only fit made a portrait page ~1.5x wider than a phone, so
         // the sides were cut off (#199).
         StripPageImage(url: url, axis: .horizontal)
-            .id(url)   // a refetched list (D12b) gives the same slot a new URL: start that page over
+            .readerPageMenu(url: url)
             .containerRelativeFrame([.horizontal, .vertical])
     }
 }
@@ -1206,12 +1231,15 @@ struct VerticalPagedReaderView: View {
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
     @State private var isZoomed = false
+    @State private var settings = AppSettings.shared
+    @State private var viewSize: CGSize = .zero
 
     var body: some View {
         GeometryReader { geo in
             TabView(selection: $currentPage) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
                     MangaPageView(url: url, isZoomed: $isZoomed)
+                        .readerPageMenu(url: url)
                         .frame(width: geo.size.height, height: geo.size.width)
                         .rotationEffect(.degrees(-90))
                         .tag(index)
@@ -1225,13 +1253,24 @@ struct VerticalPagedReaderView: View {
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
-        .onTapGesture {
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        // Paged tap zones here too (F16; before, every tap only showed the menu). Left side = previous page.
+        .onTapGesture(coordinateSpace: .local) { p in
             if isZoomed { isZoomed = false; return }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showOverlay.toggle()
+            switch ReaderTapZones.paged(settings.tapZoneLayout, at: p, in: viewSize, isRTL: false) {
+            case .back:    step(-1)
+            case .forward: step(1)
+            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
         .onChange(of: currentPage) { _, _ in isZoomed = false }
+    }
+
+    private func step(_ delta: Int) {
+        let target = min(max(currentPage + delta, 0), pages.count - 1)
+        guard target != currentPage else { return }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.3)) { currentPage = target }
     }
 }
 
@@ -1260,6 +1299,39 @@ struct ReaderOverlayView: View {
 
     @State private var showChapterSheet = false
     @State private var showSettingsSheet = false
+    @State private var settings = AppSettings.shared
+
+    /// Same settings as More → Settings → Manga & Webtoon, for the mode being read (F16).
+    @ViewBuilder private var gesturesSection: some View {
+        switch readerMode {
+        case .verticalScroll, .continuousRTL, .continuousLTR:
+            Section("Gestures") {
+                Picker("Tap zones", selection: $settings.stripTapZoneLayout) {
+                    Text("Off").tag("disabled")
+                    Text("L-shaped").tag("lShaped")
+                    Text("Top and bottom").tag("topBottom")
+                }
+                if readerMode == .verticalScroll {
+                    Picker("Long press", selection: $settings.stripLongPress) {
+                        Text("Auto-scroll").tag("autoScroll")
+                        Text("Scroll while held").tag("hold")
+                        Text("Share or save").tag("pageMenu")
+                    }
+                }
+            }
+        default:
+            Section {
+                Picker("Tap zones", selection: $settings.tapZoneLayout) {
+                    Text("Thirds").tag("default")
+                    Text("Edges").tag("sides")
+                    Text("L-shaped").tag("lShaped")
+                    Text("Kindle").tag("kindle")
+                    Text("Left and right halves").tag("rightLeft")
+                    Text("Off").tag("disabled")
+                }
+            } header: { Text("Gestures") } footer: { Text("Hold a page to share or save it.") }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1384,6 +1456,7 @@ struct ReaderOverlayView: View {
                             .pickerStyle(.inline)
                             .labelsHidden()
                         }
+                        gesturesSection
                     }
                     .navigationTitle("Reader Settings")
                     .navigationBarTitleDisplayMode(.inline)
@@ -1393,7 +1466,7 @@ struct ReaderOverlayView: View {
                         }
                     }
                 }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
             }
 
             Spacer()
@@ -1575,6 +1648,10 @@ private struct StripPageImage: View {
     @State private var pieces: [UIImage]? = nil
 
     var body: some View {
+        page.onChange(of: url) { pieces = nil; failed = false; attempt = 0 }
+    }
+
+    @ViewBuilder private var page: some View {
         if failed {
             PageRetryButton { attempt = 0; failed = false }
                 .aspectRatio(2 / 3, contentMode: .fit)
@@ -1595,9 +1672,14 @@ private struct StripPageImage: View {
             .onDisappear { self.pieces = nil }
         } else {
             placeholder
-                .task(id: attempt) { await load() }
+                .task(id: LoadKey(url: url, attempt: attempt)) { await load() }
         }
     }
+
+    /// A refetched list (D12b) gives the same slot a new URL: start that page over. Done here and NOT with `.id(url)`
+    /// on the page: a second id inside the strip's `cur:N` id hid it from `scrollPosition`, so the current page
+    /// never changed while scrolling (found S168 — counter stuck, saved position too).
+    private struct LoadKey: Equatable { let url: String; let attempt: Int }
 
     /// The lazy stack throws a page's state away once it is far off screen, so scrolling back meets a placeholder
     /// again. It must be exactly as big as the page was, or everything below it jumps (a long-strip page is ~10x

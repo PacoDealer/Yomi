@@ -267,10 +267,20 @@ private struct MangaReaderSettingsView: View {
                     Text("Off (swipe only)").tag("disabled")
                 }
             } header: { CalmSectionHeader("Pages") } footer: {
-                Text("Tap zones turn the page in paged modes; the middle shows the menu.")
+                Text("Tap zones turn the page in paged modes; the middle shows the menu. Hold a page to share or save it.")
             }
 
-            Section(calm: "Long Strip") {
+            Section {
+                Picker("Tap zones", selection: $settings.stripTapZoneLayout) {
+                    Text("Off (tap shows the menu)").tag("disabled")
+                    Text("L-shaped").tag("lShaped")
+                    Text("Top and bottom").tag("topBottom")
+                }
+                Picker("Long press", selection: $settings.stripLongPress) {
+                    Text("Auto-scroll on/off").tag("autoScroll")
+                    Text("Scroll while held").tag("hold")
+                    Text("Share or save the page").tag("pageMenu")
+                }
                 Stepper(value: $settings.autoScrollSpeed, in: 1...10, step: 0.5) {
                     LabeledContent("Auto-scroll", value: "1 page / \(settings.autoScrollSpeed.formatted()) s")
                 }
@@ -280,6 +290,8 @@ private struct MangaReaderSettingsView: View {
                     Text("Medium").tag(16)
                     Text("Large").tag(24)
                 }
+            } header: { CalmSectionHeader("Long Strip") } footer: {
+                Text("Tap zones scroll most of a screen in long strip and turn the page in continuous; the middle shows the menu. Long press applies to long strip; in continuous, holding a page shares or saves it.")
             }
         }
         .navigationTitle("Manga & Webtoon")

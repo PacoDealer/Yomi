@@ -381,9 +381,19 @@ import Observation
 
     // MARK: - Tap zones
 
-    /// Tap zone layout for paged reader: "default" | "sides" | "disabled"
+    /// Tap zone layout for the paged modes: "default" | "sides" | "lShaped" | "kindle" | "rightLeft" | "disabled"
     var tapZoneLayout: String {
         didSet { defaults.set(tapZoneLayout, forKey: "tapZoneLayout") }
+    }
+
+    /// Tap zones in long strip + continuous (F16): "disabled" (tap = menu) | "lShaped" | "topBottom"
+    var stripTapZoneLayout: String {
+        didSet { defaults.set(stripTapZoneLayout, forKey: "stripTapZoneLayout") }
+    }
+
+    /// Long press in long strip (F16): "autoScroll" (toggle, pre-F16) | "hold" (scroll while held) | "pageMenu"
+    var stripLongPress: String {
+        didSet { defaults.set(stripLongPress, forKey: "stripLongPress") }
     }
 
     /// Manga reader page layout: "single" / "double" (spreads) / "automatic" (spreads in landscape)
@@ -628,6 +638,8 @@ import Observation
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
         tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
+        stripTapZoneLayout       = d.string(forKey: "stripTapZoneLayout")        ?? "disabled"
+        stripLongPress           = d.string(forKey: "stripLongPress")            ?? "autoScroll"
         pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
