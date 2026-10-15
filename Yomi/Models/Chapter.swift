@@ -28,4 +28,6 @@ struct Chapter: Identifiable, Codable, Hashable {
     var lastPageRead: Int
     /// Scanlation group that published this chapter (optional, provided by the plugin)
     var scanlator: String? = nil
+    /// Bookmarked by the user (v28). Read from the row, never written by a whole-row save — `setBookmarked` only.
+    var isBookmarked: Bool = false
 }

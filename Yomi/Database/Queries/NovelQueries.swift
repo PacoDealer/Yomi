@@ -156,6 +156,22 @@ enum NovelQueries {
 
     /// Adds or removes a novel from the library without touching its other columns; inserts the row first
     /// when the novel was never saved (opened from Browse).
+    /// Library novels that may be the same work (E15, Mihon's duplicate rule — see `MangaQueries.possibleDuplicates`),
+    /// each with its chapter count.
+    nonisolated static func possibleDuplicates(of novel: Novel) throws -> [(novel: Novel, chapterCount: Int)] {
+        let title = novel.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return [] }
+        return try appDatabase.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT novel.*, (SELECT COUNT(*) FROM novel_chapter WHERE novel_chapter.novelId = novel.id) AS chapterCount
+                FROM novel
+                WHERE inLibrary = 1 AND id != ? AND instr(lower(title), lower(?)) > 0
+                ORDER BY title
+                """, arguments: [novel.id, title])
+            .map { (try Novel(row: $0), $0["chapterCount"] as Int) }
+        }
+    }
+
     nonisolated static func setInLibrary(_ novel: Novel, _ inLibrary: Bool) throws {
         _ = try appDatabase.write { db in
             var row = novel
@@ -320,6 +336,17 @@ enum NovelQueries {
         }
         markCloudDirtyBatch(.novelChapterState, keys: chapterIds.map { "\(novelId)|\($0)" })
         try? touchLastRead(novelId: novelId)
+    }
+
+    /// Bookmarks or un-bookmarks novel chapters in ONE transaction (v28; the only writer of `isBookmarked`).
+    nonisolated static func setBookmarked(chapterIds: [String], novelId: String, bookmarked: Bool) throws {
+        guard !chapterIds.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: chapterIds.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE novel_chapter SET isBookmarked = ? WHERE id IN (\(placeholders))",
+                           arguments: StatementArguments([bookmarked]) + StatementArguments(chapterIds))
+        }
+        markCloudDirtyBatch(.novelChapterState, keys: chapterIds.map { "\(novelId)|\($0)" })
     }
 
     /// Marks a chapter as unread: isRead=false, readAt=nil

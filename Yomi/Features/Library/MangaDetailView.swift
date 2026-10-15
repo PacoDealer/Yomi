@@ -43,6 +43,7 @@ struct MangaDetailView: View {
         case all        = "All"
         case unread     = "Unread"
         case downloaded = "Downloaded"
+        case bookmarked = "Bookmarked"
     }
 
     enum ChapterSortOption: String, CaseIterable {
@@ -65,6 +66,8 @@ struct MangaDetailView: View {
     /// scanlation group ("feels like clones"). On by default; the preferred group is remembered per title.
     @AppStorage("oneTranslationPerChapter") private var oneTranslationPerChapter = true
     @State private var preferredScanlator: String? = nil
+    /// Groups hidden for this title (v28, Mihon's excluded scanlators) — gone from the list, counts, Continue, Updates.
+    @State private var excludedScanlators: Set<String> = []
     @State private var chapterSearchText: String = ""
 
     // Feature 6 — Custom cover
@@ -83,6 +86,11 @@ struct MangaDetailView: View {
     @State private var scrolledPastHeader = false
     @State private var isAddingSource = false
     @State private var showMigratePicker = false
+    /// E15: library titles that look like the one being added (Mihon's duplicate dialog).
+    @State private var duplicates: [(manga: Manga, chapterCount: Int)] = []
+    @State private var showDuplicateDialog = false
+    @State private var duplicateToOpen: Manga? = nil
+    @State private var showDuplicate = false
 
     @Environment(\.yomiCanvas) private var canvas
     @Environment(\.dismiss) private var dismiss
@@ -107,18 +115,36 @@ struct MangaDetailView: View {
         readingChapters.contains { $0.isRead || $0.lastPageRead > 0 }
     }
 
+    /// `chapters` without the hidden groups' versions.
+    private var shownChapters: [Chapter] { Self.withoutExcluded(chapters, excluded: excludedScanlators) }
+
     /// True when some chapter number appears more than once (one entry per scanlation group).
     private var hasDuplicateTranslations: Bool {
         var seen = Set<Double>()
-        return chapters.contains { ch in ch.chapterNumber.map { !seen.insert($0).inserted } ?? false }
+        return shownChapters.contains { ch in ch.chapterNumber.map { !seen.insert($0).inserted } ?? false }
     }
 
     /// The chapter list the reader, resume button, progress and the visible list all use: with
     /// one-translation-per-chapter on, each chapter number appears once, so Next/Prev never steps through
     /// clones. `chapters` itself stays complete (it's what gets persisted and marked read).
     private var readingChapters: [Chapter] {
-        guard oneTranslationPerChapter, hasDuplicateTranslations else { return chapters }
-        return Self.oneTranslationPerChapter(chapters, preferred: preferredScanlator)
+        guard oneTranslationPerChapter, hasDuplicateTranslations else { return shownChapters }
+        return Self.oneTranslationPerChapter(shownChapters, preferred: preferredScanlator)
+    }
+
+    /// Drops the chapters of hidden groups; a chapter without a group is always kept.
+    nonisolated static func withoutExcluded(_ chapters: [Chapter], excluded: Set<String>) -> [Chapter] {
+        guard !excluded.isEmpty else { return chapters }
+        return chapters.filter { ch in ch.scanlator.map { !excluded.contains($0) } ?? true }
+    }
+
+    /// The list every screen reads a title from outside this view (Continue, History): hidden groups dropped, then
+    /// one translation per chapter when that's on — the same rules as `readingChapters`.
+    nonisolated static func readingList(_ chapters: [Chapter], mangaId: String) -> [Chapter] {
+        let excluded = (try? ChapterQueries.excludedScanlators(mangaId: mangaId)) ?? []
+        let shown = withoutExcluded(chapters, excluded: excluded)
+        guard UserDefaults.standard.object(forKey: "oneTranslationPerChapter") as? Bool ?? true else { return shown }
+        return oneTranslationPerChapter(shown, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(mangaId)"))
     }
 
     /// Keeps one version per chapter number, in the list's existing (ascending) order. Choice per number:
@@ -187,6 +213,7 @@ struct MangaDetailView: View {
         case .all:        result = sorted
         case .unread:     result = sorted.filter { !$0.isRead }
         case .downloaded: result = sorted.filter { $0.isDownloaded }
+        case .bookmarked: result = sorted.filter { $0.isBookmarked }
         }
         // In one-per-chapter mode the chips pick the *preferred* group (applied in readingChapters);
         // only the classic mode filters the list down to a single group.
@@ -314,6 +341,27 @@ struct MangaDetailView: View {
         .navigationDestination(isPresented: $showMigratePicker) {
             MigrateSourcePickerView(oldManga: manga)
         }
+        .navigationDestination(isPresented: $showDuplicate) {
+            if let duplicateToOpen { MangaDetailView(manga: duplicateToOpen) }
+        }
+        .confirmationDialog("Already in your library?", isPresented: $showDuplicateDialog, titleVisibility: .visible) {
+            ForEach(duplicates, id: \.manga.id) { entry in
+                Button("Open \(entry.manga.title)") {
+                    duplicateToOpen = entry.manga
+                    showDuplicate = true
+                }
+            }
+            Button("Add Anyway") { Task { await toggleLibrary() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            // No count when none are saved yet (never opened here) — "0 chapters" read like a broken entry.
+            Text(duplicates.map { entry in
+                let source = SourceStatus.sourceName(entry.manga.sourceId)
+                let count = entry.chapterCount
+                return count == 0 ? "\(entry.manga.title) — \(source)"
+                                  : "\(entry.manga.title) — \(source) · \(count) chapter\(count == 1 ? "" : "s")"
+            }.joined(separator: "\n"))
+        }
         .navigationDestination(item: $chapterForNav) { chapter in
             // A Suwayomi chapter has no bridge — the reader resolves its pages over REST instead,
             // so this must not be gated on a non-nil bridge (Known Issue #131).
@@ -327,6 +375,10 @@ struct MangaDetailView: View {
             }
         }
         .task { preferredScanlator = UserDefaults.standard.string(forKey: preferredScanlatorKey) }
+        .task {
+            let mangaId = manga.id
+            excludedScanlators = await Task.detached { (try? ChapterQueries.excludedScanlators(mangaId: mangaId)) ?? [] }.value
+        }
         .task {
             await adoptSavedState()
             await loadChapters()
@@ -430,7 +482,7 @@ struct MangaDetailView: View {
             Spacer()
 
             Button {
-                Task { await toggleLibrary() }
+                Task { await heartTapped() }
             } label: {
                 Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
                     .foregroundStyle(manga.inLibrary ? Color.accentColor : .primary)
@@ -900,6 +952,22 @@ struct MangaDetailView: View {
                         Label("All chapters", systemImage: "list.bullet").tag(ChapterFilter.all)
                         Label("Unread only", systemImage: "circle").tag(ChapterFilter.unread)
                         Label("Downloaded", systemImage: "arrow.down.circle").tag(ChapterFilter.downloaded)
+                        Label("Bookmarked", systemImage: "bookmark").tag(ChapterFilter.bookmarked)
+                    }
+                    let groups = allScanlators
+                    if groups.count > 1 {
+                        Menu {
+                            ForEach(groups, id: \.self) { group in
+                                Toggle(group, isOn: Binding(
+                                    get: { !excludedScanlators.contains(group) },
+                                    set: { setGroup(group, shown: $0) }
+                                ))
+                            }
+                        } label: {
+                            Label(excludedScanlators.isEmpty ? "Scanlation groups"
+                                                             : "Scanlation groups (\(excludedScanlators.count) hidden)",
+                                  systemImage: "person.2")
+                        }
                     }
                     Picker("Sort by", selection: $chapterSortOption) {
                         Label("Chapter number", systemImage: "number").tag(ChapterSortOption.chapterNumber)
@@ -965,6 +1033,7 @@ struct MangaDetailView: View {
                     ch.id == id ? { var c = ch; c.isRead = newRead; return c }() : ch
                 }
             },
+            onToggleBookmark: { setBookmarked([chapter.id], !chapter.isBookmarked) },
             onMarkPreviousRead: {
                 let list = readingChapters
                 guard let pos = list.firstIndex(where: { $0.id == chapter.id }),
@@ -986,7 +1055,7 @@ struct MangaDetailView: View {
 
     @ViewBuilder
     private var scanlatorChipRow: some View {
-        let available = Array(Set(chapters.compactMap { $0.scanlator })).sorted()
+        let available = allScanlators.filter { !excludedScanlators.contains($0) }
         if oneTranslationPerChapter && hasDuplicateTranslations {
             preferredScanlatorRow(available)
         } else if available.count > 1 || hasDuplicateTranslations {
@@ -1002,6 +1071,26 @@ struct MangaDetailView: View {
                 }
             }
         }
+    }
+
+    /// Every group the source lists for this title, hidden ones included (the groups menu shows them all).
+    private var allScanlators: [String] {
+        Array(Set(chapters.compactMap { $0.scanlator }.filter { !$0.isEmpty })).sorted()
+    }
+
+    /// Shows or hides a group (saved, synced). The last shown group can't be hidden — the list would be empty.
+    private func setGroup(_ group: String, shown: Bool) {
+        var next = excludedScanlators
+        if shown { next.remove(group) } else { next.insert(group) }
+        guard next.count < allScanlators.count else { return }
+        excludedScanlators = next
+        if !shown, scanlatorFilter == group { scanlatorFilter = nil }
+        if !shown, preferredScanlator == group {
+            preferredScanlator = nil
+            UserDefaults.standard.removeObject(forKey: preferredScanlatorKey)
+        }
+        let mangaId = manga.id
+        Task.detached { try? ChapterQueries.setExcludedScanlators(next, mangaId: mangaId) }
     }
 
     /// One-per-chapter mode: "All versions" leaves the mode; each group chip makes that group preferred (tap
@@ -1085,6 +1174,15 @@ struct MangaDetailView: View {
             }
             .disabled(selectedChapterIds.isEmpty)
 
+            // Bookmarks all selected, or clears them when every one is already bookmarked.
+            let allBookmarked = !selected.isEmpty && selected.allSatisfy(\.isBookmarked)
+            selectionButton(allBookmarked ? "Unmark" : "Bookmark",
+                            systemImage: allBookmarked ? "bookmark.slash" : "bookmark") {
+                setBookmarked(selected.map(\.id), !allBookmarked)
+                endSelection()
+            }
+            .disabled(selectedChapterIds.isEmpty)
+
             selectionButton("Download", systemImage: "arrow.down.circle") {
                 selected.filter { !$0.isDownloaded }
                     .forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
@@ -1103,6 +1201,16 @@ struct MangaDetailView: View {
         .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    /// Bookmarks (or clears) chapters on screen and in the DB.
+    private func setBookmarked(_ ids: [String], _ bookmarked: Bool) {
+        let idSet = Set(ids)
+        chapters = chapters.map { ch in
+            idSet.contains(ch.id) ? { var c = ch; c.isBookmarked = bookmarked; return c }() : ch
+        }
+        let mangaId = manga.id
+        Task.detached { try? ChapterQueries.setBookmarked(chapterIds: ids, mangaId: mangaId, bookmarked: bookmarked) }
     }
 
     private func selectionButton(_ title: String, systemImage: String,
@@ -1144,11 +1252,28 @@ struct MangaDetailView: View {
             merged.progress     = p.progress
             merged.lastPageRead = p.lastPageRead
             merged.readAt       = p.readAt
+            merged.isBookmarked = p.isBookmarked
             return merged
         }
     }
 
     // MARK: - Toggle Library
+
+    /// Adding checks the library for the same work first (E15); removing goes straight through.
+    private func heartTapped() async {
+        if !manga.inLibrary {
+            let snapshot = manga
+            let found = await Task.detached(priority: .userInitiated) {
+                (try? MangaQueries.possibleDuplicates(of: snapshot)) ?? []
+            }.value
+            if !found.isEmpty {
+                duplicates = found
+                showDuplicateDialog = true
+                return
+            }
+        }
+        await toggleLibrary()
+    }
 
     private func toggleLibrary() async {
         do {
@@ -1315,6 +1440,9 @@ struct MangaDetailView: View {
                 merged.progress = persisted.progress
                 merged.lastPageRead = persisted.lastPageRead
                 merged.readAt = persisted.readAt
+                merged.isBookmarked = persisted.isBookmarked
+                // A source that names no group keeps the saved one (a backup or another source's import).
+                merged.scanlator = ch.scanlator ?? persisted.scanlator
                 return merged
             }
             // `loadedChapters` is in whatever order the source plugin returns (often
@@ -1407,6 +1535,9 @@ struct MangaDetailView: View {
                 merged.progress = persisted.progress
                 merged.lastPageRead = persisted.lastPageRead
                 merged.readAt = persisted.readAt
+                merged.isBookmarked = persisted.isBookmarked
+                // A source that names no group keeps the saved one (a backup or another source's import).
+                merged.scanlator = ch.scanlator ?? persisted.scanlator
                 return merged
             }
             // Suwayomi returns chapters newest-first; the reader's prev/next navigation assumes
@@ -1502,6 +1633,9 @@ struct MangaDetailView: View {
                 merged.progress = persisted.progress
                 merged.lastPageRead = persisted.lastPageRead
                 merged.readAt = persisted.readAt
+                merged.isBookmarked = persisted.isBookmarked
+                // A source that names no group keeps the saved one (a backup or another source's import).
+                merged.scanlator = ch.scanlator ?? persisted.scanlator
                 return merged
             }
             // Mihon extensions return chapters newest-first; the reader assumes ascending order (see #50).
@@ -1680,6 +1814,7 @@ private struct ChapterRow: View {
     var onTap: (() -> Void)? = nil
     var onLongPress: (() -> Void)? = nil
     var onToggleRead: (() -> Void)? = nil
+    var onToggleBookmark: (() -> Void)? = nil
     var onMarkPreviousRead: (() -> Void)? = nil
 
     private var dm: DownloadManager { DownloadManager.shared }
@@ -1718,6 +1853,12 @@ private struct ChapterRow: View {
             .padding(.vertical, 6)
             Spacer(minLength: 0)
 
+            if chapter.isBookmarked {
+                Image(systemName: "bookmark.fill")
+                    .font(.footnote)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Bookmarked")
+            }
             if chapter.isDownloaded {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.footnote)
@@ -1777,6 +1918,13 @@ private struct ChapterRow: View {
                           systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
                 }
                 .tint(chapter.isRead ? .orange : .green)
+                if let toggleBookmark = onToggleBookmark {
+                    Button(action: toggleBookmark) {
+                        Label(chapter.isBookmarked ? "Unbookmark" : "Bookmark",
+                              systemImage: chapter.isBookmarked ? "bookmark.slash" : "bookmark")
+                    }
+                    .tint(.indigo)
+                }
                 if let markPrev = onMarkPreviousRead {
                     Button(action: markPrev) {
                         Label("Mark previous", systemImage: "checkmark.circle")

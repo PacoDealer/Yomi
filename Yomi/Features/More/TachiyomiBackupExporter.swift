@@ -21,11 +21,13 @@ enum TachiyomiBackupExporter {
 
     // MARK: - Entry point
 
-    static func export(mangas: [Manga], chaptersByMangaId: [String: [Chapter]]) -> Data {
+    static func export(mangas: [Manga], chaptersByMangaId: [String: [Chapter]],
+                       excludedScanlatorsByMangaId: [String: Set<String>] = [:]) -> Data {
         var body = Data()
         for manga in mangas {
             let chapters = chaptersByMangaId[manga.id] ?? []
-            let mangaMessage = encodeManga(manga, chapters: chapters)
+            let mangaMessage = encodeManga(manga, chapters: chapters,
+                                           excludedScanlators: excludedScanlatorsByMangaId[manga.id] ?? [])
             body.appendTag(field: 1, wireType: 2)
             body.appendVarint(UInt64(mangaMessage.count))
             body.append(mangaMessage)
@@ -41,7 +43,7 @@ enum TachiyomiBackupExporter {
 
     // MARK: - BackupManga encoder
 
-    private static func encodeManga(_ manga: Manga, chapters: [Chapter]) -> Data {
+    private static func encodeManga(_ manga: Manga, chapters: [Chapter], excludedScanlators: Set<String>) -> Data {
         var out = Data()
 
         let isKeiyoushi = KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId)
@@ -68,6 +70,8 @@ enum TachiyomiBackupExporter {
         // non-library title into the Mihon library (appendField skips zero values).
         out.appendTag(field: 100, wireType: 0)
         out.appendVarint(manga.inLibrary ? 1 : 0)
+        // Mihon BackupManga.excludedScanlators = 108 (repeated string).
+        for group in excludedScanlators.sorted() { out.appendField(108, string: group) }
         if isKeiyoushi, let memo { out.appendField(112, bytes: memo) }
         return out
     }
@@ -86,6 +90,7 @@ enum TachiyomiBackupExporter {
         out.appendField(2, string: chapter.name)
         if let scanlator = chapter.scanlator { out.appendField(3, string: scanlator) }
         out.appendField(4, varint: chapter.isRead ? 1 : 0)
+        out.appendField(5, varint: chapter.isBookmarked ? 1 : 0)
         out.appendField(6, varint: UInt64(chapter.lastPageRead))
         // Unknown is -1 in Mihon; an absent field would read back as chapter 0 (its default).
         out.appendTag(field: 9, wireType: 5)

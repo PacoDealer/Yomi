@@ -2261,3 +2261,16 @@ previously here was removed during the 2026-08-04 doc restructure.
 - Two mutations applied together can cancel out on one test — run each alone.
 - zsh: `"$R:app/…"` is the `:a` modifier (absolute path), not a git `rev:path` — write `"${R}:app/…"`.
 
+## S167 lessons
+- **A new chapter field needs every field-by-field merge.** Detail pages rebuild chapters from the source list and
+  copy saved state one property at a time (4 places in MangaDetailView). The bookmark was saved in the DB but gone
+  on reopen; the sim run with a fixture caught it, the compiler couldn't. Grep `persisted.` when adding a field.
+- **Test fixtures for data the sim can't produce:** no source in the sim gives scanlation groups, so two fake groups
+  were written onto one title's chapters (DB backed up first, restored after). Write the expected numbers down
+  BEFORE looking at the screen (here: 3 → 1 unread, Continue 203 → 204).
+- **"One rule for every screen" needs checking per label, not per tap.** The Continue card's TAP used ResumeReading
+  but its LABEL still picked the newest `readAt` (random among a bulk mark-read) — found only because the fixture
+  made the two disagree.
+- Field numbers for a foreign backup format come from the source (`BackupChapter.kt` bookmark = 5,
+  `BackupManga.kt` excludedScanlators = 108), not from memory.
+

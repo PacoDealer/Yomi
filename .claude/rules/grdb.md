@@ -7,7 +7,7 @@ paths:
 
 # GRDB / database rules
 
-- Next migration prefix: `v28_` (`v27_` = fetchInterval/nextUpdate/chapter.uploadedAt for smart updates, S166). Migrations are keyed by full
+- Next migration prefix: `v29_` (`v28_` = excluded_scanlator + isBookmarked, S167; `v27_` = smart-update schedule, S166). Migrations are keyed by full
   string name; keep the numeric prefix unique and ascending (#55 is the one historical duplicate).
 - Every `*Queries` static method is `nonisolated`. Use `_ = try appDatabase.write { … }` to silence the
   unused result. `appDatabase.read` from MainActor needs `try await`.
@@ -20,4 +20,7 @@ paths:
   operations, never one per row (#74, #138, #141).
 - Update only the columns you change (`addReadingSeconds`, `updateSourceMetadata`, …); whole-row `update`
   caused a lost-update race on reader close (S124).
+- A column kept out of a struct's `encode` (v23 `fetchedAt`, v27 schedule, v28 `isBookmarked`) survives whole-row
+  saves, but every place that rebuilds a chapter from the SOURCE and copies saved state field by field
+  (`MangaDetailView` merges, `refreshChapterStates`) must copy it too — S167 found bookmarks vanishing that way.
 - Ids are content-derived (chapter path, plugin list id) — the same title gets the same id on every device.

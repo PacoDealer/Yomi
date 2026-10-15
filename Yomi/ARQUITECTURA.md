@@ -219,6 +219,11 @@ pending_novel_chapter_state (novelId TEXT NOT NULL, chapterId TEXT NOT NULL,  --
                               isRead BOOLEAN NOT NULL, readAt DATETIME,        --   novel side.
                               readingSeconds INTEGER NOT NULL,
                               PRIMARY KEY (novelId, chapterId))
+                              -- v28: both pending tables + chapter + novel_chapter gain isBookmarked BOOLEAN
+
+excluded_scanlator (mangaId TEXT NOT NULL REFERENCES manga ON DELETE CASCADE,  -- v28, S167: groups the user
+                    scanlator TEXT NOT NULL,                                     --   hid for a manga (Mihon's
+                    PRIMARY KEY (mangaId, scanlator))                            --   excluded_scanlator)
 ```
 
 ### Migrations
@@ -256,8 +261,14 @@ pending_novel_chapter_state (novelId TEXT NOT NULL, chapterId TEXT NOT NULL,  --
 - **v27_fetch_interval** (S166): `chapter.uploadedAt` (Keiyoushi `date_upload`), `manga`/`novel.fetchInterval`
   (INTEGER NOT NULL DEFAULT 0; 0 = not worked out, negative = user-set) + `nextUpdate`. Not in the model structs, not
   synced. Read/written only by `UpdateScheduleQueries`.
+- **v28_scanlator_exclusion_bookmarks** (S167, E15): `excluded_scanlator` table; `isBookmarked` on `chapter`,
+  `novel_chapter`, `pending_chapter_state`, `pending_novel_chapter_state`. `isBookmarked` is decoded into the chapter
+  structs but NOT encoded — only `ChapterQueries`/`NovelQueries.setBookmarked` write it. Hidden groups apply through
+  `ChapterQueries.notExcluded` (SQL: unread counts, Updates feed) and `MangaDetailView.readingList` (Swift: detail,
+  Continue, History, reader list, downloads). Synced: `Manga.excludedScanlators` (string list), chapter-state
+  `isBookmarked`.
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v28_`.
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v29_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
