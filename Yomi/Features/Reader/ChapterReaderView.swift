@@ -90,7 +90,7 @@ struct ChapterReaderView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            ReaderBackdrop.base(settings.readerBackground).ignoresSafeArea()
 
             // Tap-to-hide chrome — sits behind all reader content so
             // scroll/pinch gestures on the reader views still take priority.
@@ -100,10 +100,10 @@ struct ChapterReaderView: View {
 
             if isLoading {
                 ProgressView()
-                    .tint(.white)
+                    .tint(ReaderBackdrop.isLight(settings.readerBackground) ? .black : .white)
             } else if let error = errorMessage {
                 Text(error)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ReaderBackdrop.isLight(settings.readerBackground) ? .black : .white)
                     .multilineTextAlignment(.center)
                     .padding()
             } else if !pages.isEmpty {
@@ -209,6 +209,7 @@ struct ChapterReaderView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             pagePrefetcher.stop()
             PageShapes.save()
+            PageLooks.save()
 
             let incognito = AppSettings.shared.isIncognito
 
@@ -664,10 +665,11 @@ struct MangaReaderView: View {
 
     // MARK: - Double-page spreads
     //
-    // "double"/"automatic" pair consecutive pages into spreads. currentPage keeps its normal
-    // meaning everywhere else (progress, resume, scrubber) — it's just an index into `pages`.
-    // TabView only ever selects/produces spread-start indices via `spreadSelection`, a proxy
-    // binding that snaps any raw page index down to the start of its enclosing spread.
+    // "double"/"automatic" group pages into spreads (`PageSpreads`, F17: cover alone, wide pages alone, shapes must
+    // match). currentPage keeps its normal meaning everywhere else (progress, resume, scrubber) — it's just an index
+    // into `pages`. TabView only ever selects/produces spread-start indices via `spreadSelection`, a proxy binding
+    // that snaps any raw page index down to the start of its enclosing spread. Groups change as page shapes are
+    // learned; the page on screen stays on screen.
 
     private var isDoubleActive: Bool {
         switch settings.pageLayout {
@@ -679,13 +681,9 @@ struct MangaReaderView: View {
 
     private var spreadGroups: [[Int]] {
         guard isDoubleActive, pages.count > 1 else { return pages.indices.map { [$0] } }
-        var groups: [[Int]] = []
-        var i = 0
-        while i < pages.count {
-            groups.append(i + 1 < pages.count ? [i, i + 1] : [i])
-            i += 2
-        }
-        return groups
+        _ = PageShapes.changes.count   // re-pair when a shape is learned
+        return PageSpreads.groups(count: pages.count, aspect: { PageShapes.aspect(pages[$0]).map(Double.init) },
+                                  coverAlone: settings.doublePageCoverAlone)
     }
 
     private func spreadStart(for page: Int) -> Int {
@@ -726,6 +724,8 @@ struct MangaReaderView: View {
         .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
         .onTapGesture(coordinateSpace: .local) { handleTap(at: $0, in: viewSize) }
         .onChange(of: currentPage) { _, _ in isZoomed = false }
+        // Shapes of downloaded pages (and web pages already cached) before they're reached, so spreads pair right.
+        .task(id: isDoubleActive ? pages : []) { if isDoubleActive { await PageShapes.learn(pages) } }
     }
 
     @ViewBuilder
@@ -789,6 +789,13 @@ private struct MangaPageView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var loadFailed = false
     @State private var attempt = 0
+    @State private var settings = AppSettings.shared
+    /// Margins + background colour (F17), from `PageLooks`; nil until the page has been measured.
+    @State private var look: PageLook?
+    /// Loaded and being measured: hidden for that moment when cropping, so the margins don't flash before the crop.
+    @State private var measuring = false
+    /// Shows the page again (from cache) so a setting turned on mid-chapter measures the page on screen.
+    @State private var reload = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -803,8 +810,20 @@ private struct MangaPageView: View {
                         .readerPage()
                         .placeholder {
                             ProgressView()
-                                .tint(.white)
+                                .tint(ReaderBackdrop.isLight(settings.readerBackground) ? .black : .white)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                        .onSuccess { result in
+                            let size = result.image.size
+                            if size.height > 0 { PageShapes.remember(url, size.width / size.height) }
+                            guard look == nil, settings.cropBorders || settings.readerBackground == "automatic" else { return }
+                            let page = url
+                            measuring = true
+                            Task {
+                                let measured = await PageLooks.look(for: page, image: result.image)
+                                if page == url { look = measured }
+                                measuring = false
+                            }
                         }
                         .onFailure { _ in
                             Task {
@@ -812,15 +831,19 @@ private struct MangaPageView: View {
                             }
                         }
                         .resizable()
-                        .scaledToFit()
+                        .modifier(PageCrop(crop: settings.cropBorders ? look?.crop : nil, aspect: PageShapes.aspect(url)))
+                        .opacity(settings.cropBorders && measuring ? 0 : 1)
                         .scaleEffect(scale)
                         .offset(offset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .id(attempt)
-            .onChange(of: url) { _, _ in loadFailed = false; attempt = 0 }
-            .background(Color.black)
+            .id("\(attempt)-\(reload)")
+            .onChange(of: url) { _, new in loadFailed = false; attempt = 0; look = PageLooks.cached(new) }
+            .onChange(of: settings.cropBorders) { if look == nil { reload += 1 } }
+            .onChange(of: settings.readerBackground) { if look == nil { reload += 1 } }
+            .onAppear { if look == nil { look = PageLooks.cached(url) } }
+            .background { pageBackground(landscape: geo.size.width > geo.size.height) }
             .gesture(
                 MagnifyGesture()
                     .onChanged { value in
@@ -854,6 +877,15 @@ private struct MangaPageView: View {
             .onChange(of: isZoomed) { _, zoomed in
                 if !zoomed { withAnimation(.spring(duration: 0.3)) { resetZoom() } }
             }
+        }
+    }
+
+    /// The reader's background colour; "Automatic" uses the page's own margins once it has been measured (F17).
+    @ViewBuilder private func pageBackground(landscape: Bool) -> some View {
+        if settings.readerBackground == "automatic", let look {
+            ReaderBackdrop.view(landscape ? look.landscape : look.portrait)
+        } else {
+            ReaderBackdrop.base(settings.readerBackground)
         }
     }
 
@@ -1333,6 +1365,29 @@ struct ReaderOverlayView: View {
         }
     }
 
+    /// F17: spreads, crop borders and background for the mode being read (same settings as Manga & Webtoon).
+    @ViewBuilder private var pagesSection: some View {
+        Section("Pages") {
+            switch readerMode {
+            case .verticalScroll, .continuousRTL, .continuousLTR:
+                Toggle("Crop borders", isOn: $settings.cropBordersStrip)
+            case .horizontalRTL, .horizontalLTR:
+                Picker("Two-page spreads", selection: $settings.pageLayout) {
+                    Text("Off").tag("single")
+                    Text("Always").tag("double")
+                    Text("In landscape").tag("automatic")
+                }
+                if settings.pageLayout != "single" {
+                    Toggle("Cover on its own", isOn: $settings.doublePageCoverAlone)
+                }
+                Toggle("Crop borders", isOn: $settings.cropBorders)
+            default:
+                Toggle("Crop borders", isOn: $settings.cropBorders)
+            }
+            ReaderBackgroundPicker(selection: $settings.readerBackground)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Top bar — individual floating Liquid Glass chips
@@ -1457,6 +1512,7 @@ struct ReaderOverlayView: View {
                             .labelsHidden()
                         }
                         gesturesSection
+                        pagesSection
                     }
                     .navigationTitle("Reader Settings")
                     .navigationBarTitleDisplayMode(.inline)
@@ -1646,10 +1702,15 @@ private struct StripPageImage: View {
     @State private var attempt = 0
     @State private var failed = false
     @State private var pieces: [UIImage]? = nil
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         page.onChange(of: url) { pieces = nil; failed = false; attempt = 0 }
+            .onChange(of: settings.cropBordersStrip) { pieces = nil }   // load again, cut (or not)
     }
+
+    /// The crop this page is drawn with (F17, long strip + continuous), when known.
+    private var crop: CGRect? { settings.cropBordersStrip ? PageLooks.cached(url)?.crop : nil }
 
     @ViewBuilder private var page: some View {
         if failed {
@@ -1672,14 +1733,14 @@ private struct StripPageImage: View {
             .onDisappear { self.pieces = nil }
         } else {
             placeholder
-                .task(id: LoadKey(url: url, attempt: attempt)) { await load() }
+                .task(id: LoadKey(url: url, attempt: attempt, crop: settings.cropBordersStrip)) { await load() }
         }
     }
 
     /// A refetched list (D12b) gives the same slot a new URL: start that page over. Done here and NOT with `.id(url)`
     /// on the page: a second id inside the strip's `cur:N` id hid it from `scrollPosition`, so the current page
     /// never changed while scrolling (found S168 — counter stuck, saved position too).
-    private struct LoadKey: Equatable { let url: String; let attempt: Int }
+    private struct LoadKey: Equatable { let url: String; let attempt: Int; let crop: Bool }
 
     /// The lazy stack throws a page's state away once it is far off screen, so scrolling back meets a placeholder
     /// again. It must be exactly as big as the page was, or everything below it jumps (a long-strip page is ~10x
@@ -1687,7 +1748,8 @@ private struct StripPageImage: View {
     @ViewBuilder private var placeholder: some View {
         let box = Rectangle().fill(Color.gray.opacity(0.2))
         if let aspect = PageShapes.aspect(url) {
-            box.aspectRatio(aspect, contentMode: .fit)
+            // The page as it will be drawn, cropped or not.
+            box.aspectRatio(crop.map { aspect * $0.width / $0.height } ?? aspect, contentMode: .fit)
                 .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
         } else if axis == .vertical {
             // Never seen: a full screen, so a flick can't pass several unloaded pages that then grow behind you.
@@ -1704,10 +1766,17 @@ private struct StripPageImage: View {
         guard let source = URL(string: url) else { failed = true; return }
         do {
             let result = try await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions)
-            let image = result.image
+            var image = result.image
             if image.size.height > 0 { PageShapes.remember(url, image.size.width / image.size.height) }
+            if settings.cropBordersStrip, let rect = await PageLooks.look(for: url, image: image).crop, let cg = image.cgImage {
+                let source = image
+                image = await Task.detached(priority: .userInitiated) {
+                    UIImage(cgImage: cg.cropped(to: rect), scale: source.scale, orientation: source.imageOrientation)
+                }.value
+            }
             let vertical = axis == .vertical
-            let cut = await Task.detached(priority: .userInitiated) { vertical ? Self.strips(of: image) : nil }.value
+            let page = image
+            let cut = await Task.detached(priority: .userInitiated) { vertical ? Self.strips(of: page) : nil }.value
             if Task.isCancelled { return }
             pieces = cut ?? [image]
         } catch {

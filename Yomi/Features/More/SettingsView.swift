@@ -258,6 +258,13 @@ private struct MangaReaderSettingsView: View {
                     Text("Always").tag("double")
                     Text("In landscape").tag("automatic")
                 }
+                if settings.pageLayout != "single" {
+                    Toggle(isOn: $settings.doublePageCoverAlone) {
+                        Text("Cover on its own")
+                        Text("Keeps printed spreads together. Wide pages always get a screen of their own.")
+                    }
+                }
+                Toggle("Crop borders", isOn: $settings.cropBorders)
                 Picker("Tap zones", selection: $settings.tapZoneLayout) {
                     Text("Thirds").tag("default")
                     Text("Edges").tag("sides")
@@ -284,6 +291,7 @@ private struct MangaReaderSettingsView: View {
                 Stepper(value: $settings.autoScrollSpeed, in: 1...10, step: 0.5) {
                     LabeledContent("Auto-scroll", value: "1 page / \(settings.autoScrollSpeed.formatted()) s")
                 }
+                Toggle("Crop borders", isOn: $settings.cropBordersStrip)
                 Picker("Side margins", selection: $settings.webtoonHorizontalPadding) {
                     Text("None").tag(0)
                     Text("Small").tag(8)
@@ -292,6 +300,12 @@ private struct MangaReaderSettingsView: View {
                 }
             } header: { CalmSectionHeader("Long Strip") } footer: {
                 Text("Tap zones scroll most of a screen in long strip and turn the page in continuous; the middle shows the menu. Long press applies to long strip; in continuous, holding a page shares or saves it.")
+            }
+
+            Section {
+                ReaderBackgroundPicker(selection: $settings.readerBackground)
+            } header: { CalmSectionHeader("Background") } footer: {
+                Text("Automatic is white or dark grey with the iPhone's appearance; in the paged modes it takes each page's own margin colour.")
             }
         }
         .navigationTitle("Manga & Webtoon")
