@@ -1463,9 +1463,7 @@ struct MangaDetailView: View {
         let fetched: [Chapter]
         do {
             let items = try await KeiyoushiBridge.shared.chapters(sourceId: sourceId, mangaURL: mangaURL)
-            var seen = Set<String>()   // ids hash the chapter URL; never let a repeated URL become a duplicate row
-            fetched = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle) }
-                .filter { seen.insert($0.id).inserted }
+            fetched = KeiyoushiMapping.chapters(from: items, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
         } catch {
             chapters = await savedChapters(mangaId: mangaId)
             let message = error.localizedDescription

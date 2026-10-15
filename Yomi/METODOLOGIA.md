@@ -2240,3 +2240,13 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Hook recovery where failures already meet.** Every page view already called `PageRetry.shouldRetry`; posting one
   notification there covered all six reader modes without threading a callback through each.
 - Timestamps in `yomi.db` are UTC: a "downloaded 20:36" row was hours old, not another session at work.
+
+## S165 lessons
+- **A port that passes its own tests can still be a no-op on real data — measure both.** 103/103 Mihon cases passed,
+  but 9,051 real Asura/MangaFire chapters changed by 0: these sources already name chapters cleanly. Hiding the
+  source's numbers and recovering them from names (7,489 labeled chapters) is a free accuracy benchmark.
+- **Check the harness can fail.** First-try green on 103 checks → mutate two expectations, expect exactly 2 FAILs.
+- **INSERT OR IGNORE freezes every derived column**, not just read state: improving a parser does nothing for rows
+  already saved unless the refresh path writes the derived value back (`refreshPaths` now does, never clearing).
+- Doc drift found: `.claude/rules/grdb.md` says next migration `v27_` (v26 = manga.trackingTitle), CLAUDE.md said `v26_`.
+
