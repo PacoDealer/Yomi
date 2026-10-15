@@ -21,6 +21,46 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S167 — E15 hidden scanlation groups · duplicate warning · chapter bookmarks (2026-10-15, simulator)
+
+Mihon parity (research_notes `mihon_family.md` §2d/§2e). Migration **`v28_scanlator_exclusion_bookmarks`**: table
+`excluded_scanlator(mangaId, scanlator)` (FK cascade) + `isBookmarked` on `chapter`, `novel_chapter` and both pending
+tables. `isBookmarked` is read into the structs but never encoded — only `setBookmarked` writes it.
+- **Hidden groups (manga):** Detail → Filter and sort → "Scanlation groups" (a toggle per group; "(N hidden)"; the
+  last shown group can't be hidden). Saved per title, synced (`Manga.excludedScanlators`). Applied everywhere through
+  ONE list, `MangaDetailView.readingList` (hidden groups out, then one-translation-per-chapter): detail list + counts
+  + resume, reader Next/Prev, downloads, Continue (tap AND card label), History; in SQL via
+  `ChapterQueries.notExcluded`: Library unread badges, `fetchUnread`, Updates feed. NOT applied: FetchInterval
+  release days (Mihon does) and background-refresh notification counts.
+- **Duplicate warning (manga + novels):** tapping the heart on a title not in the library first looks for library
+  titles whose name contains this one (case-insensitive — Mihon's rule; Yomi keeps no tracker ids, so Mihon's
+  shared-tracker match is skipped). Dialog "Already in your library?" lists each (source · chapters, count omitted when
+  none are saved), buttons Open <title> / Add Anyway / Cancel. Removing from the library never asks.
+- **Bookmarks (manga + novels):** trailing swipe "Bookmark", select bar "Bookmark"/"Unmark", accent bookmark icon on
+  the row, "Bookmarked" in the Show filter (novels: the unread toggle became a Show picker, saved the same way).
+  Novels outside the library can't be bookmarked (no rows). Synced on MangaChapterState/NovelChapterState.
+- **Backups:** Yomi JSON (`isBookmarked` per chapter, `excludedScanlators` map; restore only adds) and `.tachibk`
+  export/import (Mihon `BackupChapter.bookmark` = 5, `BackupManga.excludedScanlators` = 108 — read from the Mihon
+  source) + Tachimanga `.tmb` bookmark column.
+- **Two bugs found on the way:** (1) detail merges copy saved state field by field (4 places) — bookmarks were saved
+  but gone on reopen; fixed, plus a source with no group keeps the saved one. (2) The Continue card LABEL picked the
+  newest `readAt` (random among a bulk mark-read: showed "Chapter 106") while its tap used ResumeReading — the label now
+  uses the same list + rule.
+- **Verified (sim, Asura JS "Absolute Sword Sense" with a fixture: even chapters "Group A", odd "Group B"; DB backed up
+  and restored after):** v28 ran on the existing 83 MB DB. Hiding Group B → 50 chapters, "49 of 50 read", resume
+  Chapter 204 (was 203), Library badge 3 → 1 unread, `excluded_scanlator` row saved, reader Next from 202 → 204, Continue
+  card "Chapter 204 · 98%", History "Chapter 204". Bookmark via select bar → icon + DB row; survived leaving and
+  reopening (after the merge fix); Bookmarked filter shows only it. Duplicate: Asura JS "Childhood Friend of the
+  Zenith" (Keiyoushi copy in library) → dialog, Open → the library copy, nothing added. Build 0 warnings.
+- **NOT checked:** the novel screens (compile only — the automation's long-press kept landing on rows under the tab
+  bar), Add Anyway, sync of the new fields, any backup round trip, Keiyoushi titles (no JVM in the sim), device.
+- **CloudKit before the next TestFlight build:** new fields `Manga.excludedScanlators` (STRING LIST),
+  `MangaChapterState.isBookmarked` + `NovelChapterState.isBookmarked` (INT64) must exist in the Production schema, or
+  saves carrying them are refused (S152 rule: fields exist only once a non-nil value was sent in Development). Add to J.
+
+NEXT (S168): F (manga reader parity: tap zones per mode · save/share page · press-and-hold scroll, then crop borders ·
+double-page options · auto background) → G → H → K → J.
+
 ## S166 — E14 smart updates + per-source update streams (2026-10-15, simulator + Mac-server data + DEVICE)
 
 `Core/FetchInterval.swift` = port of Mihon v0.21 (@446f6df, Apache-2.0) `FetchInterval` + `ReleaseSchedule` +

@@ -46,6 +46,8 @@ struct NovelChapter: Identifiable, Codable, Hashable {
     var releaseTime: String?
     var readingSeconds: Int
     var lastScrollPercent: Double? = nil
+    /// Bookmarked by the user (v28). Read from the row, never written by a whole-row save — `setBookmarked` only.
+    var isBookmarked: Bool = false
 
     /// The id the Updates refresh gives a chapter: first 8 bytes of SHA-256(novelId + path), hex.
     nonisolated static func pathId(novelId: String, path: String) -> String {
@@ -55,6 +57,6 @@ struct NovelChapter: Identifiable, Codable, Hashable {
     nonisolated func withId(_ id: String) -> NovelChapter {
         NovelChapter(id: id, novelId: novelId, path: path, name: name, chapterNumber: chapterNumber,
                      isRead: isRead, readAt: readAt, releaseTime: releaseTime, readingSeconds: readingSeconds,
-                     lastScrollPercent: lastScrollPercent)
+                     lastScrollPercent: lastScrollPercent, isBookmarked: isBookmarked)
     }
 }

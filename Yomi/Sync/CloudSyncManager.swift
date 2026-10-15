@@ -585,6 +585,10 @@ private extension CloudSyncManager {
         case .manga:
             guard let manga = try? MangaQueries.fetchOne(id: mapping.key) else { return nil }
             populate(base, from: manga)
+            // Hidden scanlation groups (v28). Sorted so the record doesn't change when the set doesn't; nil when
+            // empty — CloudKit can't start a new field with an empty list (S152).
+            let excluded = ((try? ChapterQueries.excludedScanlators(mangaId: manga.id)) ?? []).sorted()
+            base["excludedScanlators"] = excluded.isEmpty ? nil : excluded
         case .novel:
             guard let novel = try? NovelQueries.fetchOne(id: mapping.key) else { return nil }
             populate(base, from: novel)
@@ -673,6 +677,7 @@ private extension CloudSyncManager {
         record["lastPageRead"]   = Int64(chapter.lastPageRead)
         record["readAt"]         = chapter.readAt
         record["readingSeconds"] = Int64(chapter.readingSeconds)
+        record["isBookmarked"]   = chapter.isBookmarked
     }
 
     nonisolated static func populate(_ record: CKRecord, novelId: String, from chapter: NovelChapter) {
@@ -682,6 +687,7 @@ private extension CloudSyncManager {
         record["readAt"]            = chapter.readAt
         record["readingSeconds"]    = Int64(chapter.readingSeconds)
         record["lastScrollPercent"] = chapter.lastScrollPercent
+        record["isBookmarked"]      = chapter.isBookmarked
     }
 }
 
@@ -721,7 +727,11 @@ private extension CloudSyncManager {
             manga.readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             manga.readingStatus  = ReadingStatus(rawValue: record["readingStatus"] as? String ?? "none") ?? .none
             manga.notes          = record["notes"] as? String
-            _ = try? appDatabase.write { db in try manga.save(db) }
+            let excluded = Set(record["excludedScanlators"] as? [String] ?? [])
+            _ = try? appDatabase.write { db in
+                try manga.save(db)
+                try ChapterQueries.replaceExcludedScanlators(excluded, mangaId: id, db: db)
+            }
 
         case .novel:
             guard let id = record["localId"] as? String else { return }
@@ -768,13 +778,15 @@ private extension CloudSyncManager {
             let lastPageRead = Int(record["lastPageRead"] as? Int64 ?? 0)
             let readAt = record["readAt"] as? Date
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
+            let isBookmarked = record["isBookmarked"] as? Bool ?? false
             _ = try? appDatabase.write { db in
                 try db.execute(
                     sql: """
-                        UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?
+                        UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?,
+                            isBookmarked = ?
                         WHERE id = ? AND mangaId = ?
                         """,
-                    arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, chapterId, mangaId]
+                    arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, chapterId, mangaId]
                 )
                 if db.changesCount == 0 {
                     // The chapter isn't locally cached yet (its detail page has never been opened on
@@ -785,13 +797,13 @@ private extension CloudSyncManager {
                     // insertMangaAndChapters). Fixes code-review finding #41.
                     try db.execute(
                         sql: """
-                            INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(mangaId, chapterId) DO UPDATE SET
                                 isRead = excluded.isRead, progress = excluded.progress, lastPageRead = excluded.lastPageRead,
-                                readAt = excluded.readAt, readingSeconds = excluded.readingSeconds
+                                readAt = excluded.readAt, readingSeconds = excluded.readingSeconds, isBookmarked = excluded.isBookmarked
                             """,
-                        arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds]
+                        arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked]
                     )
                 } else if isRead {
                     try Manga.filter(Column("id") == mangaId).updateAll(db, [Column("lastReadAt").set(to: Date())])
@@ -805,26 +817,28 @@ private extension CloudSyncManager {
             let readAt = record["readAt"] as? Date
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             let lastScrollPercent = record["lastScrollPercent"] as? Double
+            let isBookmarked = record["isBookmarked"] as? Bool ?? false
             _ = try? appDatabase.write { db in
                 try db.execute(
                     sql: """
-                        UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?
+                        UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ?
                         WHERE id = ? AND novelId = ?
                         """,
-                    arguments: [isRead, readAt, readingSeconds, lastScrollPercent, chapterId, novelId]
+                    arguments: [isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked, chapterId, novelId]
                 )
                 if db.changesCount == 0 {
                     // Same reasoning as .mangaChapterState above — stash and replay once
                     // NovelQueries.insertAllIgnoringConflicts brings the chapter row in.
                     try db.execute(
                         sql: """
-                            INSERT INTO pending_novel_chapter_state (novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent)
-                            VALUES (?, ?, ?, ?, ?, ?)
+                            INSERT INTO pending_novel_chapter_state (novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(novelId, chapterId) DO UPDATE SET
                                 isRead = excluded.isRead, readAt = excluded.readAt,
-                                readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent
+                                readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent,
+                                isBookmarked = excluded.isBookmarked
                             """,
-                        arguments: [novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent]
+                        arguments: [novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked]
                     )
                 } else if isRead {
                     try Novel.filter(Column("id") == novelId).updateAll(db, [Column("lastReadAt").set(to: Date())])
@@ -912,16 +926,16 @@ extension CloudSyncManager {
         for chapter in chapters {
             guard let row = try Row.fetchOne(
                 db,
-                sql: "SELECT isRead, progress, lastPageRead, readAt, readingSeconds FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
+                sql: "SELECT isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
                 arguments: [chapter.mangaId, chapter.id]
             ) else { continue }
 
             let isRead = row["isRead"] as Bool
             try db.execute(
-                sql: "UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ? WHERE id = ?",
+                sql: "UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?, isBookmarked = ? WHERE id = ?",
                 arguments: [
                     isRead, row["progress"] as Double, row["lastPageRead"] as Int,
-                    row["readAt"] as Date?, row["readingSeconds"] as Int, chapter.id
+                    row["readAt"] as Date?, row["readingSeconds"] as Int, row["isBookmarked"] as Bool, chapter.id
                 ]
             )
             try db.execute(
@@ -938,16 +952,16 @@ extension CloudSyncManager {
         for chapter in chapters {
             guard let row = try Row.fetchOne(
                 db,
-                sql: "SELECT isRead, readAt, readingSeconds, lastScrollPercent FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
+                sql: "SELECT isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
                 arguments: [chapter.novelId, chapter.id]
             ) else { continue }
 
             let isRead = row["isRead"] as Bool
             try db.execute(
-                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ? WHERE id = ?",
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ? WHERE id = ?",
                 arguments: [
                     isRead, row["readAt"] as Date?, row["readingSeconds"] as Int,
-                    row["lastScrollPercent"] as Double?, chapter.id
+                    row["lastScrollPercent"] as Double?, row["isBookmarked"] as Bool, chapter.id
                 ]
             )
             try db.execute(

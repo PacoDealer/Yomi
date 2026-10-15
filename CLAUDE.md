@@ -24,11 +24,14 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S166 — 2026-10-15)
-- **S166:** smart updates = Mihon v0.21 FetchInterval/ReleaseSchedule/ReleasePattern port (`Core/FetchInterval.swift`,
-  tests `scripts/fetch-interval-tests/run.sh` 54/54); v27 stores `fetchInterval`/`nextUpdate` + `chapter.uploadedAt`
-  (`UpdateScheduleQueries`); "Titles not due yet" in Update Rules (ON by default, Martin). Refresh = one stream per source.
-  DEVICE-verified: refresh 2 checked 43 of 125 eligible (~40 s), all 21 failures = Aqua #208. NEXT: E15 (ROADMAP S166).
+## Current state (S167 — 2026-10-15)
+- **S167 (sim):** E15 — hidden scanlation groups per manga (`excluded_scanlator`, applied via
+  `MangaDetailView.readingList` + SQL `ChapterQueries.notExcluded`), duplicate warning on add (manga + novels, title
+  contains), chapter bookmarks (manga + novels; `isBookmarked` decoded, never encoded — `setBookmarked` only). v28,
+  synced, in JSON + .tachibk backups. **New CloudKit fields need the Production schema before the next TestFlight
+  build** (ROADMAP S167). NEXT: F (ROADMAP S167).
+- **S166:** smart updates = Mihon v0.21 FetchInterval port (`Core/FetchInterval.swift`, tests 54/54); v27 schedule
+  columns (`UpdateScheduleQueries`); "Titles not due yet" ON by default. Refresh = one stream per source. DEVICE-verified.
 - **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
   Mihon's tests ported: `scripts/chapter-recognition-tests/run.sh` (103/103). Keiyoushi lists parsed as a whole
   (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers.
@@ -126,7 +129,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v28_`** (v27 = smart-update schedule, S166). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v29_`** (v28 = hidden groups + bookmarks, S167). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -184,7 +187,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (free team; read the pri
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v28_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v29_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift

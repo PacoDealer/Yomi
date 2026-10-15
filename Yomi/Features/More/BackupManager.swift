@@ -172,6 +172,16 @@ struct ICloudFolderError: LocalizedError {
                     try db.execute(sql: "UPDATE chapter SET lastPageRead = ? WHERE id = ? AND isRead = 0 AND lastPageRead < ?",
                                    arguments: [chapter.lastPageRead, chapter.id, chapter.lastPageRead])
                 }
+                if chapter.isBookmarked {
+                    try db.execute(sql: "UPDATE chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
+                }
+            }
+            // Hidden groups only add — an import never shows a group the user hid here.
+            for (mangaId, groups) in result.excludedScanlators {
+                for group in groups {
+                    try db.execute(sql: "INSERT OR IGNORE INTO excluded_scanlator (mangaId, scanlator) VALUES (?, ?)",
+                                   arguments: [mangaId, group])
+                }
             }
             for link in links {
                 try db.execute(sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
@@ -218,12 +228,18 @@ struct ICloudFolderError: LocalizedError {
         do {
             // One bulk query grouped client-side, off MainActor — was one synchronous DB round-trip
             // per library manga, on the main thread (Known Issue #140).
-            let (mangas, chaptersByMangaId) = try await Task.detached(priority: .userInitiated) {
+            let (mangas, chaptersByMangaId, excluded) = try await Task.detached(priority: .userInitiated) {
                 let mangas = try MangaQueries.fetchLibrary()
                 let grouped = try ChapterQueries.fetchAllGrouped(mangaIds: mangas.map { $0.id })
-                return (mangas, grouped)
+                var excluded: [String: Set<String>] = [:]
+                for manga in mangas {
+                    let groups = try ChapterQueries.excludedScanlators(mangaId: manga.id)
+                    if !groups.isEmpty { excluded[manga.id] = groups }
+                }
+                return (mangas, grouped, excluded)
             }.value
-            let data = TachiyomiBackupExporter.export(mangas: mangas, chaptersByMangaId: chaptersByMangaId)
+            let data = TachiyomiBackupExporter.export(mangas: mangas, chaptersByMangaId: chaptersByMangaId,
+                                                      excludedScanlatorsByMangaId: excluded)
             let datePart = Date().formatted(.iso8601)
                 .replacingOccurrences(of: ":", with: "-")
             let filename = "yomi-export-\(datePart).tachibk"
@@ -252,6 +268,14 @@ struct ICloudFolderError: LocalizedError {
             }
         }
         let categories = try CategoryQueries.fetchAll()
+        // Hidden scanlation groups per manga (v28).
+        let excludedScanlators = try await appDatabase.read { db -> [String: [String]] in
+            var map: [String: [String]] = [:]
+            for row in try Row.fetchAll(db, sql: "SELECT mangaId, scanlator FROM excluded_scanlator ORDER BY scanlator") {
+                map[row["mangaId"] as String, default: []].append(row["scanlator"] as String)
+            }
+            return map
+        }
 
         // Encoding + serializing a whole library is pure CPU work and used to run on MainActor,
         // freezing "Export Backup"/"Upload to iCloud" for a large library (Known Issue #139).
@@ -267,7 +291,8 @@ struct ICloudFolderError: LocalizedError {
                 "novels":          novels.map         { Self.encodeNovel($0) },
                 "novelChapters":   novelChapters.map  { Self.encodeNovelChapter($0) },
                 "novelCategories": novelCatPairs,
-                "mangaCategories": mangaCatPairs
+                "mangaCategories": mangaCatPairs,
+                "excludedScanlators": excludedScanlators
             ]
             return try JSONSerialization.data(withJSONObject: payload)
         }.value
@@ -454,6 +479,18 @@ struct ICloudFolderError: LocalizedError {
             _ = try await appDatabase.write { db in
                 for manga in decoded.mangas { try manga.save(db) }
                 for chapter in decoded.chapters { try chapter.save(db) }
+                // `isBookmarked` isn't part of a whole-row save (v28) — set it here. A restore only adds bookmarks.
+                for chapter in decoded.chapters where chapter.isBookmarked {
+                    try db.execute(sql: "UPDATE chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
+                }
+                for (mangaId, groups) in decoded.excludedScanlators {
+                    for group in groups where !group.isEmpty {
+                        try db.execute(sql: """
+                            INSERT OR IGNORE INTO excluded_scanlator (mangaId, scanlator)
+                            SELECT ?, ? WHERE EXISTS (SELECT 1 FROM manga WHERE id = ?)
+                            """, arguments: [mangaId, group, mangaId])
+                    }
+                }
 
                 // Categories (v3 backup) — must restore before assignment pairs
                 for category in decoded.categories {
@@ -468,6 +505,9 @@ struct ICloudFolderError: LocalizedError {
                 // INSERT OR IGNORE, matching NovelQueries.insertAllIgnoringConflicts — never
                 // overwrites existing read/progress state for a chapter already present locally.
                 for chapter in decoded.novelChapters { try chapter.insert(db, onConflict: .ignore) }
+                for chapter in decoded.novelChapters where chapter.isBookmarked {
+                    try db.execute(sql: "UPDATE novel_chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
+                }
                 try CloudSyncManager.applyPendingNovelChapterStates(decoded.novelChapters, db: db)
 
                 for pair in decoded.novelCatPairs {
@@ -493,6 +533,8 @@ struct ICloudFolderError: LocalizedError {
                 keys: decoded.chapters.map { "\($0.mangaId)|\($0.id)" }
             )
             markCloudDirtyBatch(.novel, keys: decoded.novels.map(\.id))
+            let bookmarkedNovelChapters = decoded.novelChapters.filter(\.isBookmarked)
+            markCloudDirtyBatch(.novelChapterState, keys: bookmarkedNovelChapters.map { "\($0.novelId)|\($0.id)" })
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -512,6 +554,7 @@ struct ICloudFolderError: LocalizedError {
         var novelChapters: [NovelChapter] = []
         var novelCatPairs: [[String: String]] = []
         var mangaCatPairs: [[String: String]] = []
+        var excludedScanlators: [String: [String]] = [:]
     }
 
     /// Reads and fully decodes a backup file. Pure I/O + parsing, no DB access and no observable
@@ -546,6 +589,7 @@ struct ICloudFolderError: LocalizedError {
             .compactMap { decodeNovelChapter($0) }
         result.novelCatPairs = payload["novelCategories"] as? [[String: String]] ?? []
         result.mangaCatPairs = payload["mangaCategories"] as? [[String: String]] ?? []
+        result.excludedScanlators = payload["excludedScanlators"] as? [String: [String]] ?? [:]
         return result
     }
 
@@ -594,6 +638,7 @@ struct ICloudFolderError: LocalizedError {
         if let v = c.readAt        { d["readAt"]        = ISO8601DateFormatter().string(from: v) }
         if let v = c.scanlator     { d["scanlator"]     = v }
         if c.lastPageRead > 0      { d["lastPageRead"]  = c.lastPageRead }
+        if c.isBookmarked          { d["isBookmarked"]  = true }
         return d
     }
 
@@ -654,7 +699,8 @@ struct ICloudFolderError: LocalizedError {
             progress:       d["progress"]       as? Double ?? 0,
             readingSeconds: d["readingSeconds"] as? Int ?? 0,
             lastPageRead:   d["lastPageRead"]   as? Int ?? 0,
-            scanlator:      d["scanlator"]      as? String
+            scanlator:      d["scanlator"]      as? String,
+            isBookmarked:   d["isBookmarked"]   as? Bool ?? false
         )
     }
 
@@ -693,6 +739,7 @@ struct ICloudFolderError: LocalizedError {
         if let v = c.readAt           { d["readAt"]           = ISO8601DateFormatter().string(from: v) }
         if let v = c.releaseTime      { d["releaseTime"]      = v }
         if let v = c.lastScrollPercent { d["lastScrollPercent"] = v }
+        if c.isBookmarked              { d["isBookmarked"]      = true }
         return d
     }
 
@@ -742,7 +789,8 @@ struct ICloudFolderError: LocalizedError {
             readAt:         (d["readAt"] as? String).flatMap { fmt.date(from: $0) },
             releaseTime:    d["releaseTime"]   as? String,
             readingSeconds:    d["readingSeconds"]    as? Int ?? 0,
-            lastScrollPercent: d["lastScrollPercent"] as? Double
+            lastScrollPercent: d["lastScrollPercent"] as? Double,
+            isBookmarked:   d["isBookmarked"] as? Bool ?? false
         )
     }
 }

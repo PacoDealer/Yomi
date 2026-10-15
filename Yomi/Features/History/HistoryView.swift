@@ -281,10 +281,7 @@ struct HistoryView: View {
                 guard let all = try? ChapterQueries.fetchAll(mangaId: manga.id) else { continue }
                 // Same list and rule as the tap (ResumeReading.manga), so the row names what opens.
                 var chapters = all.sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
-                if UserDefaults.standard.object(forKey: "oneTranslationPerChapter") as? Bool ?? true {
-                    chapters = MangaDetailView.oneTranslationPerChapter(
-                        chapters, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(manga.id)"))
-                }
+                chapters = MangaDetailView.readingList(chapters, mangaId: manga.id)
                 guard let touched = ResumeReading.mangaChapter(in: chapters) else { continue }
                 map[manga.id] = line(name: touched.name, number: touched.chapterNumber,
                                      fraction: touched.progress, finished: touched.isRead)
