@@ -401,6 +401,25 @@ import Observation
         didSet { defaults.set(pageLayout, forKey: "pageLayout") }
     }
 
+    /// Two-page mode (F17): the first page (the cover) gets a screen of its own, so printed spreads stay together.
+    var doublePageCoverAlone: Bool {
+        didSet { defaults.set(doublePageCoverAlone, forKey: "doublePageCoverAlone") }
+    }
+
+    /// Cut the plain white/black margins off each page (F17): paged modes, and long strip + continuous.
+    var cropBorders: Bool {
+        didSet { defaults.set(cropBorders, forKey: "cropBorders") }
+    }
+    var cropBordersStrip: Bool {
+        didSet { defaults.set(cropBordersStrip, forKey: "cropBordersStrip") }
+    }
+
+    /// Behind the manga pages (F17): "black" (pre-F17) | "gray" | "white" | "automatic" (iPhone light/dark + each page's
+    /// own margins in the paged modes)
+    var readerBackground: String {
+        didSet { defaults.set(readerBackground, forKey: "readerBackground") }
+    }
+
     // MARK: - Library display mode
 
     /// Library display mode: "grid" | "list"
@@ -641,6 +660,10 @@ import Observation
         stripTapZoneLayout       = d.string(forKey: "stripTapZoneLayout")        ?? "disabled"
         stripLongPress           = d.string(forKey: "stripLongPress")            ?? "autoScroll"
         pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
+        doublePageCoverAlone     = d.object(forKey: "doublePageCoverAlone")      as? Bool ?? false
+        cropBorders              = d.object(forKey: "cropBorders")               as? Bool ?? false
+        cropBordersStrip         = d.object(forKey: "cropBordersStrip")          as? Bool ?? false
+        readerBackground         = d.string(forKey: "readerBackground")          ?? "black"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         if let urls = d.stringArray(forKey: "mihonRepoURLs") {

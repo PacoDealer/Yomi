@@ -1,5 +1,6 @@
 import Foundation
 import ImageIO
+import Observation
 import Kingfisher
 
 /// Loads the pages after the one on screen before they are reached (S161; S158 top-10 #1). Martin, S159: scrolling an
@@ -67,22 +68,7 @@ import Kingfisher
     }
 
     nonisolated private static func learnShapes(of urls: [URL]) {
-        Task { @MainActor in
-            let unknown = urls.filter { PageShapes.aspect($0.absoluteString) == nil }
-            guard !unknown.isEmpty else { return }
-            let cache = ImageCache.default
-            let paths = unknown.map { ($0.absoluteString, cache.cachePath(forKey: $0.cacheKey)) }
-            let found = await Task.detached(priority: .utility) { () -> [(String, CGFloat)] in
-                paths.compactMap { url, path in
-                    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
-                          let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-                          let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
-                          let h = props[kCGImagePropertyPixelHeight] as? CGFloat, w > 0, h > 0 else { return nil }
-                    return (url, w / h)
-                }
-            }.value
-            for (url, aspect) in found { PageShapes.remember(url, aspect) }
-        }
+        Task { @MainActor in await PageShapes.learn(urls.map(\.absoluteString)) }
     }
 
     func stop() {
@@ -108,6 +94,32 @@ import Kingfisher
         if (store?.count ?? 0) > 5000 { store?.removeAll() }
         store?[url] = aspect   // in place: no copy of the whole table per page
         dirty = true
+        changes.count += 1
+    }
+
+    /// Bumped whenever a shape is learned: two-page mode re-pairs its pages as their shapes come in (F17).
+    static let changes = Changes()
+    @Observable final class Changes { var count = 0 }
+
+    /// Reads unknown pages' shapes from the file header (no decode): downloaded and local pages from their file, web
+    /// pages from Kingfisher's disk cache when they're in it (S161, prefetched pages; F17, two-page mode).
+    static func learn(_ urls: [String]) async {
+        let cache = ImageCache.default
+        let unknown: [(String, String)] = urls.compactMap { url in
+            guard aspect(url) == nil, let u = URL(string: url) else { return nil }
+            return (url, u.isFileURL ? u.path : cache.cachePath(forKey: u.cacheKey))
+        }
+        guard !unknown.isEmpty else { return }
+        let found = await Task.detached(priority: .utility) { () -> [(String, CGFloat)] in
+            unknown.compactMap { url, path in
+                guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+                      let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                      let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
+                      let h = props[kCGImagePropertyPixelHeight] as? CGFloat, w > 0, h > 0 else { return nil }
+                return (url, w / h)
+            }
+        }.value
+        for (url, aspect) in found { remember(url, aspect) }
     }
 
     /// Called when the reader closes.
