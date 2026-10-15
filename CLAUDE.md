@@ -27,8 +27,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 ## Current state (S166 — 2026-10-15)
 - **S166:** smart updates = Mihon v0.21 FetchInterval/ReleaseSchedule/ReleasePattern port (`Core/FetchInterval.swift`,
   tests `scripts/fetch-interval-tests/run.sh` 54/54); v27 stores `fetchInterval`/`nextUpdate` + `chapter.uploadedAt`
-  (`UpdateScheduleQueries`); "Titles not due yet" in Update Rules (off by default). Refresh = one stream per source.
-  Asura replay: 86% same day, 69% fewer checks (ROADMAP S166). NEXT: Martin on the default, device refresh time, E15.
+  (`UpdateScheduleQueries`); "Titles not due yet" in Update Rules (ON by default, Martin). Refresh = one stream per source.
+  Asura replay: 86% same day, 69% fewer checks (ROADMAP S166). NEXT: device refresh time, E15.
 - **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
   Mihon's tests ported: `scripts/chapter-recognition-tests/run.sh` (103/103). Keiyoushi lists parsed as a whole
   (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers.
