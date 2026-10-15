@@ -28,7 +28,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **S166:** smart updates = Mihon v0.21 FetchInterval/ReleaseSchedule/ReleasePattern port (`Core/FetchInterval.swift`,
   tests `scripts/fetch-interval-tests/run.sh` 54/54); v27 stores `fetchInterval`/`nextUpdate` + `chapter.uploadedAt`
   (`UpdateScheduleQueries`); "Titles not due yet" in Update Rules (ON by default, Martin). Refresh = one stream per source.
-  Asura replay: 86% same day, 69% fewer checks (ROADMAP S166). NEXT: device refresh time, E15.
+  DEVICE-verified: refresh 2 checked 43 of 125 eligible (~40 s), all 21 failures = Aqua #208. NEXT: E15 (ROADMAP S166).
 - **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
   Mihon's tests ported: `scripts/chapter-recognition-tests/run.sh` (103/103). Keiyoushi lists parsed as a whole
   (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers.
@@ -122,8 +122,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   filters an extension fetches from its site (Asura genres) don't load (zstd JNI). Parity list: `TACHIMANGA_PARITY.md`.
   Open: #206 double back button from Library search, per-extension settings screen unseen on a device
   (built + Mac-verified; `KeiyoushiSourceSettingsView`), solid/huge CBR. NEXT in ROADMAP S156.
-- Phone has the S151 Release build (webtoon placeholder fix #203, unconfirmed), signed by the now-PAID team: profile
-  expires **2027-10-11**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
+- Phone has the S166 Release build `98af933` (paid team): profile expires **2027-10-15**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
