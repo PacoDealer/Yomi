@@ -21,7 +21,7 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## S166 — E14 smart updates + per-source update streams (2026-10-15, simulator + Mac-server data)
+## S166 — E14 smart updates + per-source update streams (2026-10-15, simulator + Mac-server data + DEVICE)
 
 `Core/FetchInterval.swift` = port of Mihon v0.21 (@446f6df, Apache-2.0) `FetchInterval` + `ReleaseSchedule` +
 `ReleasePattern` (the S165 handoff said "ReleasePattern"; it exists only in v0.21 — the local mihon-clone was at
@@ -51,12 +51,21 @@ hiatus, a late/early/extra release keeps the schedule. `Day` = timezone-free cal
 - **Real data (Mac Keiyoushi server, Asura v1.6.69, all 87 Asura titles in the sim library):** every list has upload
   dates; intervals 7d×77, 8d×4, 6d×2, others ×4; 1 weekday pattern; 66/87 "not due" today. **Replay of each title's last
   5 releases (420) with daily refreshes + the rule on: 86% found the same day, 88% ≤ 1 day, p90 2 days, max 20, none
-  missed; 69% fewer checks than daily.** MangaFire's 38 titles 404'd from the Mac harness (not looked into).
+  missed; 69% fewer checks than daily.** (The other 38 sim titles, source `626267698662819838`, are Aqua Manga — #208,
+  site down — not MangaFire; the harness ran the MangaFire APK on them, hence 404s. Not a MangaFire problem.)
 - Build 0 warnings (Yomi + YomiWidget). NOT checked: anything on the phone — Keiyoushi refresh speed with streams
   (87 Asura titles now one at a time, was 3 at once — the extension's own rate limit already throttles, but measure
   it), background refresh, the Detail upload-date write on a real Keiyoushi title.
 
-NEXT (S167): device check of refresh time with streams and of the skip rule on Martin's library; then E15 (saved scanlator exclusion · duplicate warning · chapter bookmarks, `v28_`)
+- **DEVICE (Release `98af933`, Martin's iPhone, 2026-10-15; DB backed up first → `phone-backups/S166-before-…1158`):**
+  v27 ran on his 148 manga + 3 novels. Refresh 1 (no schedules yet → every eligible title): **~1–2 min**, 104 manga
+  got a schedule (7d ×88, 2–28d the rest), 11,579 chapters got `uploadedAt`, 51 new chapters (≤ 4 per title — no
+  baseline flood). Refresh 2: **~40 s, checked 43, 21 failed**. Reconciled from the pulled DB + prefs (his rules: not
+  started + completed + not due): predicted exactly 43, of which 21 = Aqua (#208, site down) → **every failure is
+  Aqua**. Without the new rule: 125 → **66% fewer checks**. No pre-S166 refresh timing exists to compare streams
+  against. The 11 non-Aqua titles without a schedule were never checked (not started / completed).
+
+NEXT (S167): then E15 (saved scanlator exclusion · duplicate warning · chapter bookmarks, `v28_`)
 → F → G → H → K → J.
 
 ## S165 — E13 ChapterRecognition v2 (2026-10-15, compile + Mac-server data, no sim screen)
