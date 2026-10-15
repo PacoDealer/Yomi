@@ -72,6 +72,8 @@
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Yomi uses Face ID to unlock when App Lock is on.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Saves a reader page you choose to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to set custom cover images for manga and novels.</string>
 	<key>UIAppFonts</key>
