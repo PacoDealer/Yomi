@@ -2274,3 +2274,14 @@ previously here was removed during the 2026-08-04 doc restructure.
 - Field numbers for a foreign backup format come from the source (`BackupChapter.kt` bookmark = 5,
   `BackupManga.kt` excludedScanlators = 108), not from memory.
 
+## S168 lessons
+- **A number that doesn't move is a finding, not a tooling quirk.** The counter stuck at 22/50 looked like a tall page
+  or a stale accessibility tree; building the previous commit (`git stash -u`, same 3 swipes) proved it was a real bug
+  two sessions old — and on Martin's phone. Baseline first, then fix.
+- **Two `.id`s on one view: the inner one wins for `scrollPosition`.** Never put `.id(x)` inside a view that a
+  `scrollTargetLayout` identifies by another id; restart on change with `.task(id:)` + `onChange` instead.
+- **`scrollPosition(id:)` only follows the finger.** Setting the UIScrollView's offset in code (tap zones, hold
+  scroll) doesn't update it; `onScrollTargetVisibilityChange` does, but at rest it counts slivers under the status
+  bar. Use each where it is right (`StripScroller.isDriving`).
+- XcodeBuildMCP `screenshot` returned the SAME stale image three times in a row (menu "still open" after it closed);
+  the accessibility snapshot and mobile-mcp's screenshot were current. Cross-check before believing a screenshot.

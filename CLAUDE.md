@@ -18,18 +18,21 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#210), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#211), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S167 — 2026-10-15)
-- **S167 (sim):** E15 — hidden scanlation groups per manga (`excluded_scanlator`, applied via
-  `MangaDetailView.readingList` + SQL `ChapterQueries.notExcluded`), duplicate warning on add (manga + novels, title
-  contains), chapter bookmarks (manga + novels; `isBookmarked` decoded, never encoded — `setBookmarked` only). v28,
-  synced, in JSON + .tachibk backups. **New CloudKit fields need the Production schema before the next TestFlight
-  build** (ROADMAP S167). NEXT: F (ROADMAP S167).
+## Current state (S168 — 2026-10-15)
+- **S168 (sim):** F16 reader gestures (`Features/Reader/ReaderPageActions.swift`): tap zones per mode (paged
+  `tapZoneLayout`, strip `stripTapZoneLayout` default Off), long strip long press `stripLongPress` (Auto-scroll default
+  · Scroll while held · Share or save), page menu Share/Save to Photos/Copy (paged + continuous always). **#211 fixed:**
+  long-strip page counter/saved position stuck since S164 — **Martin's phone (`98af933`) still has it.** NEXT: F17
+  (ROADMAP S168). `scrollPosition(id:)` ignores code-driven scrolling — see `StripScroller.isDriving`.
+- **S167 (sim):** E15 hidden scanlation groups (`excluded_scanlator`, `MangaDetailView.readingList` + SQL
+  `ChapterQueries.notExcluded`), duplicate warning on add, chapter bookmarks (`setBookmarked` only). v28. **New
+  CloudKit fields need the Production schema before the next TestFlight build** (ROADMAP S167).
 - **S166:** smart updates = Mihon v0.21 FetchInterval port (`Core/FetchInterval.swift`, tests 54/54); v27 schedule
   columns (`UpdateScheduleQueries`); "Titles not due yet" ON by default. Refresh = one stream per source. DEVICE-verified.
 - **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
