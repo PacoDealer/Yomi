@@ -38,7 +38,7 @@ enum ChapterQueries {
         try appDatabase.read { db in
             let rows = try Row.fetchAll(
                 db,
-                sql: "SELECT mangaId, COUNT(*) as cnt FROM chapter WHERE isRead = 0 GROUP BY mangaId"
+                sql: "SELECT mangaId, COUNT(*) as cnt FROM chapter WHERE isRead = 0 AND \(notExcluded) GROUP BY mangaId"
             )
             return Dictionary(uniqueKeysWithValues: rows.map { (($0["mangaId"] as String), ($0["cnt"] as Int)) })
         }
@@ -86,8 +86,41 @@ enum ChapterQueries {
             try Chapter
                 .filter(Column("mangaId") == mangaId)
                 .filter(Column("isRead") == false)
+                .filter(sql: notExcluded)
                 .order(Column("chapterNumber").ascNullsLast)
                 .fetchAll(db)
+        }
+    }
+
+    // MARK: - Excluded scanlators (v28)
+
+    /// SQL condition on a `chapter` row: its group isn't hidden for its manga. A chapter without a group never is.
+    nonisolated static let notExcluded = """
+        NOT EXISTS (SELECT 1 FROM excluded_scanlator e WHERE e.mangaId = chapter.mangaId AND e.scanlator = chapter.scanlator)
+        """
+
+    /// Groups the user hid for this manga (Mihon's excluded scanlators).
+    nonisolated static func excludedScanlators(mangaId: String) throws -> Set<String> {
+        try appDatabase.read { db in
+            Set(try String.fetchAll(db, sql: "SELECT scanlator FROM excluded_scanlator WHERE mangaId = ?",
+                                    arguments: [mangaId]))
+        }
+    }
+
+    /// Replaces the hidden groups for a manga and marks the manga for sync (`Manga.excludedScanlators`).
+    nonisolated static func setExcludedScanlators(_ groups: Set<String>, mangaId: String) throws {
+        _ = try appDatabase.write { db in
+            try replaceExcludedScanlators(groups, mangaId: mangaId, db: db)
+        }
+        markCloudDirty(.manga, key: mangaId)
+    }
+
+    /// The write itself, for callers already in a transaction (sync apply, backup restore). No dirty mark.
+    nonisolated static func replaceExcludedScanlators(_ groups: Set<String>, mangaId: String, db: Database) throws {
+        try db.execute(sql: "DELETE FROM excluded_scanlator WHERE mangaId = ?", arguments: [mangaId])
+        for group in groups where !group.isEmpty {
+            try db.execute(sql: "INSERT OR IGNORE INTO excluded_scanlator (mangaId, scanlator) VALUES (?, ?)",
+                           arguments: [mangaId, group])
         }
     }
 
@@ -184,7 +217,7 @@ enum ChapterQueries {
         try appDatabase.read { db in
             try Row.fetchAll(db, sql: """
                 SELECT chapter.* FROM chapter JOIN manga ON manga.id = chapter.mangaId
-                WHERE chapter.fetchedAt >= ? AND manga.inLibrary = 1
+                WHERE chapter.fetchedAt >= ? AND manga.inLibrary = 1 AND \(notExcluded)
                 ORDER BY chapter.fetchedAt DESC, chapter.chapterNumber DESC LIMIT ?
                 """, arguments: [since, limit])
             .map { (try Chapter(row: $0), $0["fetchedAt"] as Date) }
@@ -243,6 +276,17 @@ enum ChapterQueries {
         }
         markCloudDirtyBatch(.mangaChapterState, keys: chapterIds.map { "\(mangaId)|\($0)" })
         if isRead { try? MangaQueries.touchLastRead(mangaId: mangaId) }
+    }
+
+    /// Bookmarks or un-bookmarks chapters in ONE transaction (v28; the only writer of `isBookmarked`).
+    nonisolated static func setBookmarked(chapterIds: [String], mangaId: String, bookmarked: Bool) throws {
+        guard !chapterIds.isEmpty else { return }
+        let placeholders = Array(repeating: "?", count: chapterIds.count).joined(separator: ",")
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE chapter SET isBookmarked = ? WHERE id IN (\(placeholders))",
+                           arguments: StatementArguments([bookmarked]) + StatementArguments(chapterIds))
+        }
+        markCloudDirtyBatch(.mangaChapterState, keys: chapterIds.map { "\(mangaId)|\($0)" })
     }
 
     /// One chapter's resume/progress state, for `updateProgressBatch`.

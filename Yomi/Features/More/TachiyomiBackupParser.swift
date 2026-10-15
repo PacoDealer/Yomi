@@ -43,6 +43,8 @@ nonisolated enum TachiyomiBackupParser {
         var sourceNames: [String: String] = [:]
         /// Extension repository index links the backup carried (Mihon 0.17+).
         var repoURLs: [String] = []
+        /// manga id → groups hidden for it (Mihon BackupManga 108).
+        var excludedScanlators: [String: Set<String>] = [:]
 
         /// The Mihon source ids the imported titles need.
         var sourceIds: Set<String> {
@@ -116,6 +118,9 @@ nonisolated enum TachiyomiBackupParser {
                     if !parsed.categoryOrders.isEmpty {
                         result.mangaCategoryOrders[parsed.manga.id] = parsed.categoryOrders
                     }
+                    if !parsed.excludedScanlators.isEmpty {
+                        result.excludedScanlators[parsed.manga.id] = parsed.excludedScanlators
+                    }
                 }
             case (2, 2):
                 if let d = try? reader.readLengthDelimited(), let category = parseCategory(d) {
@@ -141,7 +146,7 @@ nonisolated enum TachiyomiBackupParser {
 
     // MARK: - BackupManga decoder
 
-    private typealias BackupChapter = (url: String, name: String, read: Bool, lastPage: Int,
+    private typealias BackupChapter = (url: String, name: String, read: Bool, bookmark: Bool, lastPage: Int,
                                        chapterNumber: Double, scanlator: String?, memo: Data?)
 
     /// The bridge's form of a URL with a memo (M-Extension-Server `BridgeMemo.encode`); an empty memo leaves it as is.
@@ -154,7 +159,8 @@ nonisolated enum TachiyomiBackupParser {
         return url + "|mangayomi-memo|" + payload
     }
 
-    private static func parseManga(_ data: Data) -> (manga: Manga, chapters: [Chapter], categoryOrders: [Int64])? {
+    private static func parseManga(_ data: Data)
+        -> (manga: Manga, chapters: [Chapter], categoryOrders: [Int64], excludedScanlators: Set<String>)? {
         var mihonSourceId: UInt64 = 0
         var url = ""
         var title = ""
@@ -171,6 +177,7 @@ nonisolated enum TachiyomiBackupParser {
         var categoryOrders: [Int64] = []
         var backupChapters: [BackupChapter] = []
         var lastReadByChapterURL: [String: Date] = [:]
+        var excludedScanlators = Set<String>()
 
         let reader = ProtoReader(data)
         while reader.hasNext {
@@ -201,6 +208,7 @@ nonisolated enum TachiyomiBackupParser {
                     categoryOrders.append(Int64(bitPattern: v))
                 }
             case 100: favorite = ((try? reader.readVarint64()) ?? 0) != 0
+            case 108: if let g = try? reader.readString(), !g.isEmpty { excludedScanlators.insert(g) }
             case 112: memo = try? reader.readLengthDelimited()
             case 104:
                 if wire == 2, let hData = try? reader.readLengthDelimited(), let h = parseHistory(hData) {
@@ -219,7 +227,7 @@ nonisolated enum TachiyomiBackupParser {
                                                 status: Int(statusCode), thumbnail_url: thumbnailUrl, thumbnail_proxy_url: nil),
                           favorite: favorite, lastReadAt: lastReadByChapterURL.values.max(),
                           chapters: backupChapters, readAtByChapterURL: lastReadByChapterURL)
-        return (built.manga, built.chapters, categoryOrders)
+        return (built.manga, built.chapters, categoryOrders, excludedScanlators)
     }
 
     /// One backup title as Yomi rows — shared by the .tachibk and the Tachimanga .tmb reader, so both produce the
@@ -240,6 +248,7 @@ nonisolated enum TachiyomiBackupParser {
                 mangaId: manga.id, sourceId: sourceId, mangaTitle: source.title)
             guard seen.insert(chapter.id).inserted else { return nil }
             chapter.isRead = ch.read
+            chapter.isBookmarked = ch.bookmark
             chapter.lastPageRead = ch.lastPage
             chapter.progress = ch.read ? 1.0 : 0
             // Only a real history date: a read chapter without one stays out of History rather than
@@ -258,6 +267,7 @@ nonisolated enum TachiyomiBackupParser {
         var name           = ""
         var scanlator: String?
         var read           = false
+        var bookmark       = false
         var lastPage       = 0
         var chapterNumber: Double = 0   // Mihon's default (absent = 0); unknown is written explicitly as -1
         var memo: Data?
@@ -270,6 +280,7 @@ nonisolated enum TachiyomiBackupParser {
             case 2:  name          = (try? reader.readString()) ?? ""
             case 3:  scanlator     = try? reader.readString()
             case 4:  read          = ((try? reader.readVarint64()) ?? 0) != 0
+            case 5:  bookmark      = ((try? reader.readVarint64()) ?? 0) != 0
             case 6:  lastPage      = Int((try? reader.readVarint64()) ?? 0)
             case 9 where wire == 5:
                 if let bits = try? reader.readFixed32() {
@@ -281,7 +292,7 @@ nonisolated enum TachiyomiBackupParser {
         }
 
         guard !name.isEmpty else { return nil }
-        return (url: url, name: name, read: read, lastPage: lastPage,
+        return (url: url, name: name, read: read, bookmark: bookmark, lastPage: lastPage,
                 chapterNumber: chapterNumber, scanlator: scanlator, memo: memo)
     }
 
@@ -416,7 +427,7 @@ nonisolated extension TachiyomiBackupParser {
             var chaptersByManga: [Int64: [BackupChapter]] = [:]
             var readAtByManga: [Int64: [String: Date]] = [:]
             let chapterRows = try Row.fetchCursor(db, sql: """
-                SELECT manga, url, name, chapter_number, scanlator, read, last_page_read, last_read_at, \(chapterMemo) AS memo
+                SELECT manga, url, name, chapter_number, scanlator, read, bookmark, last_page_read, last_read_at, \(chapterMemo) AS memo
                 FROM Chapter
                 WHERE manga IN (SELECT id FROM Manga WHERE in_library = 1) AND (read = 1 OR last_page_read > 0 OR bookmark = 1 \(lastOpened))
                 ORDER BY manga, source_order
@@ -427,7 +438,7 @@ nonisolated extension TachiyomiBackupParser {
                 let name: String = row["name"]
                 guard !name.isEmpty else { continue }
                 chaptersByManga[mangaRow, default: []].append(
-                    (url: chapterURL, name: name, read: row["read"], lastPage: row["last_page_read"],
+                    (url: chapterURL, name: name, read: row["read"], bookmark: row["bookmark"], lastPage: row["last_page_read"],
                      chapterNumber: row["chapter_number"], scanlator: row["scanlator"],
                      memo: (row["memo"] as String?).map { Data($0.utf8) }))
                 // A title removed from Tachimanga's history keeps its read marks but brings no dates.

@@ -132,16 +132,14 @@ enum ResumeReading {
 
     static func manga(_ manga: Manga) async -> MangaTarget? {
         let mangaId = manga.id
-        var chapters = await Task.detached(priority: .userInitiated) {
-            ((try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? [])
-                .sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) }
+        // Same list the detail page reads from, so Next/Prev don't step through other groups' copies or hidden groups.
+        let chapters = await Task.detached(priority: .userInitiated) {
+            MangaDetailView.readingList(
+                ((try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? [])
+                    .sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) },
+                mangaId: mangaId)
         }.value
         guard !chapters.isEmpty else { return nil }
-        // Same list the detail page reads from, so Next/Prev don't step through other groups' copies.
-        if UserDefaults.standard.object(forKey: "oneTranslationPerChapter") as? Bool ?? true {
-            chapters = MangaDetailView.oneTranslationPerChapter(
-                chapters, preferred: UserDefaults.standard.string(forKey: "preferredScanlator.\(mangaId)"))
-        }
         let resume = mangaChapter(in: chapters)
         let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? chapters.count - 1
 
@@ -274,13 +272,16 @@ private struct ContinueReadingCell: View {
         }
         .buttonStyle(.plain)
         .task(id: manga.id) {
+            // The list and rule the tap uses (ResumeReading.manga): hidden groups and other groups' copies left out,
+            // so the card names the chapter that opens. "Newest readAt" picked at random among a bulk mark-read.
+            let mangaId = manga.id
             let chapters = await Task.detached {
-                (try? ChapterQueries.fetchAll(mangaId: manga.id)) ?? []
+                MangaDetailView.readingList(
+                    ((try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? [])
+                        .sorted { ($0.chapterNumber ?? .greatestFiniteMagnitude) < ($1.chapterNumber ?? .greatestFiniteMagnitude) },
+                    mangaId: mangaId)
             }.value
-            let touched = chapters
-                .filter { $0.isRead || $0.progress > 0 }
-                .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
-            lastChapterName = touched.first?.name
+            lastChapterName = ResumeReading.mangaChapter(in: chapters)?.name
             if !chapters.isEmpty {
                 let readCount = chapters.filter { $0.isRead }.count
                 readProgress = Double(readCount) / Double(chapters.count)

@@ -388,6 +388,21 @@ final class DatabaseManager {
             }
         }
 
+        // E15 (S167, Mihon's excluded_scanlator + chapter bookmarks). Groups hidden per manga, applied to the chapter
+        // list, unread counts, Updates and Continue. `isBookmarked` is read into the chapter structs but never written
+        // by a whole-row save — only `setBookmarked`, so a stale copy can't clear it. Both sync (MangaChapterState /
+        // NovelChapterState `isBookmarked`, Manga `excludedScanlators`); the pending tables carry the bookmark too.
+        migrator.registerMigration("v28_scanlator_exclusion_bookmarks") { db in
+            try db.create(table: "excluded_scanlator") { t in
+                t.column("mangaId", .text).notNull().references("manga", onDelete: .cascade)
+                t.column("scanlator", .text).notNull()
+                t.primaryKey(["mangaId", "scanlator"])
+            }
+            for table in ["chapter", "novel_chapter", "pending_chapter_state", "pending_novel_chapter_state"] {
+                try db.alter(table: table) { t in t.add(column: "isBookmarked", .boolean).notNull().defaults(to: false) }
+            }
+        }
+
         try migrator.migrate(db)
     }
 
@@ -482,6 +497,7 @@ extension Chapter: FetchableRecord, PersistableRecord {
         readingSeconds  = row["readingSeconds"] ?? 0
         lastPageRead    = row["lastPageRead"] ?? 0
         scanlator       = row["scanlator"]
+        isBookmarked    = row["isBookmarked"] ?? false
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -616,6 +632,7 @@ extension NovelChapter: FetchableRecord, PersistableRecord {
         releaseTime       = row["releaseTime"]
         readingSeconds    = row["readingSeconds"] ?? 0
         lastScrollPercent = row["lastScrollPercent"]
+        isBookmarked      = row["isBookmarked"] ?? false
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {

@@ -61,6 +61,24 @@ enum MangaQueries {
         }
     }
 
+    /// Library titles that may be the same work as `manga` (E15, Mihon's `getDuplicateLibraryManga`): the saved title
+    /// contains the new one, ignoring case. Mihon also matches a shared tracker entry; Yomi keeps no tracker ids.
+    /// Each with its chapter count, hidden groups left out.
+    nonisolated static func possibleDuplicates(of manga: Manga) throws -> [(manga: Manga, chapterCount: Int)] {
+        let title = manga.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return [] }
+        return try appDatabase.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT manga.*, (SELECT COUNT(*) FROM chapter WHERE chapter.mangaId = manga.id
+                                 AND \(ChapterQueries.notExcluded)) AS chapterCount
+                FROM manga
+                WHERE inLibrary = 1 AND id != ? AND instr(lower(title), lower(?)) > 0
+                ORDER BY title
+                """, arguments: [manga.id, title])
+            .map { (try Manga(row: $0), $0["chapterCount"] as Int) }
+        }
+    }
+
     // MARK: - Write
 
     /// Toggles inLibrary, sets lastUpdatedAt to now, saves, and returns the updated manga

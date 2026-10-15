@@ -19,7 +19,8 @@ struct NovelDetailView: View {
     @State private var novelReadingStatus: ReadingStatus
     @State private var aniListScore: Int? = nil
     @State private var chaptersDescending: Bool = false
-    @State private var chapterFilterUnread: Bool = false
+    /// "All", "Unread" or "Bookmarked" (v28) — the same strings ChapterListPrefs saves for manga.
+    @State private var chapterFilter: String = "All"
     @State private var showNotesSheet = false
     @State private var notesText: String = ""
     @State private var showCFBypass = false
@@ -34,6 +35,11 @@ struct NovelDetailView: View {
     @State private var chaptersShownBefore = 0   // "Show more" taps above / below the chapter window
     @State private var chaptersShownAfter = 0
     @State private var downloadedIds: Set<String> = []
+    /// E15: library novels that look like the one being added (Mihon's duplicate dialog).
+    @State private var duplicates: [(novel: Novel, chapterCount: Int)] = []
+    @State private var showDuplicateDialog = false
+    @State private var duplicateToOpen: Novel? = nil
+    @State private var showDuplicate = false
     /// True once the header's buttons have scrolled away — the floating bar then gets a material
     /// background and the title, like Apple Music's album pages.
     @State private var scrolledPastHeader = false
@@ -49,11 +55,11 @@ struct NovelDetailView: View {
         _novelReadingStatus = State(initialValue: novel.readingStatus)
         let prefs = ChapterListPrefs.load(titleId: novel.id, defaultDescending: false)
         _chaptersDescending = State(initialValue: prefs.descending)
-        _chapterFilterUnread = State(initialValue: prefs.filter == "Unread")
+        _chapterFilter = State(initialValue: ["Unread", "Bookmarked"].contains(prefs.filter) ? prefs.filter : "All")
     }
 
     private var chapterListPrefs: ChapterListPrefs {
-        ChapterListPrefs(descending: chaptersDescending, filter: chapterFilterUnread ? "Unread" : "All",
+        ChapterListPrefs(descending: chaptersDescending, filter: chapterFilter,
                          sort: "Chapter Number")
     }
 
@@ -66,7 +72,12 @@ struct NovelDetailView: View {
     }
 
     private var displayedChapters: [NovelChapter] {
-        var base = chapterFilterUnread ? chapters.filter { !$0.isRead } : chapters
+        var base: [NovelChapter]
+        switch chapterFilter {
+        case "Unread":     base = chapters.filter { !$0.isRead }
+        case "Bookmarked": base = chapters.filter(\.isBookmarked)
+        default:           base = chapters
+        }
         if !chapterSearchText.isEmpty {
             base = base.filter { $0.name.localizedStandardContains(chapterSearchText) }
         }
@@ -187,6 +198,27 @@ struct NovelDetailView: View {
             prefs.save(titleId: novel.id)
             chaptersShownBefore = 0
             chaptersShownAfter = 0
+        }
+        .navigationDestination(isPresented: $showDuplicate) {
+            if let duplicateToOpen { NovelDetailView(novel: duplicateToOpen) }
+        }
+        .confirmationDialog("Already in your library?", isPresented: $showDuplicateDialog, titleVisibility: .visible) {
+            ForEach(duplicates, id: \.novel.id) { entry in
+                Button("Open \(entry.novel.title)") {
+                    duplicateToOpen = entry.novel
+                    showDuplicate = true
+                }
+            }
+            Button("Add Anyway") { Task { await setInLibrary(true) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            // No count when none are saved yet (never opened here) — "0 chapters" read like a broken entry.
+            Text(duplicates.map { entry in
+                let source = SourceStatus.sourceName(entry.novel.sourceId)
+                let count = entry.chapterCount
+                return count == 0 ? "\(entry.novel.title) — \(source)"
+                                  : "\(entry.novel.title) — \(source) · \(count) chapter\(count == 1 ? "" : "s")"
+            }.joined(separator: "\n"))
         }
         .navigationDestination(item: $chapterForNav) { ch in
             if bridge != nil || LocalLibrary.isLocalSourceId(novel.sourceId),
@@ -391,9 +423,7 @@ struct NovelDetailView: View {
             Spacer()
 
             Button {
-                isInLibrary.toggle()
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                Task { await toggleLibrary() }
+                Task { await heartTapped() }
             } label: {
                 Image(systemName: isInLibrary ? "heart.fill" : "heart")
                     .foregroundStyle(isInLibrary ? Color.accentColor : .primary)
@@ -731,19 +761,21 @@ struct NovelDetailView: View {
             Spacer()
             if !chapters.isEmpty {
                 Menu {
-                    Toggle(isOn: $chapterFilterUnread) {
-                        Label("Unread only", systemImage: "line.3.horizontal.decrease")
+                    Picker("Show", selection: $chapterFilter) {
+                        Label("All chapters", systemImage: "list.bullet").tag("All")
+                        Label("Unread only", systemImage: "circle").tag("Unread")
+                        Label("Bookmarked", systemImage: "bookmark").tag("Bookmarked")
                     }
                     Picker("Order", selection: $chaptersDescending) {
                         Label("Oldest first", systemImage: "arrow.up").tag(false)
                         Label("Newest first", systemImage: "arrow.down").tag(true)
                     }
                 } label: {
-                    Image(systemName: chapterFilterUnread
+                    Image(systemName: chapterFilter != "All"
                           ? "line.3.horizontal.decrease.circle.fill"
                           : "line.3.horizontal.decrease.circle")
                         .font(.title3)
-                        .foregroundStyle(chapterFilterUnread ? Color.accentColor : canvas.textSecondary)
+                        .foregroundStyle(chapterFilter != "All" ? Color.accentColor : canvas.textSecondary)
                 }
                 .accessibilityLabel("Filter and sort")
             }
@@ -778,6 +810,8 @@ struct NovelDetailView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 toggleRead(chapter)
             },
+            // Only saved chapters can carry a bookmark — a novel outside the library has no rows.
+            toggleBookmark: isInLibrary ? { chapter in setBookmarked([chapter.id], !chapter.isBookmarked) } : nil,
             markPrevious: { chapter in
                 guard let pos = chapters.firstIndex(where: { $0.id == chapter.id }),
                       pos > 0 else { return }
@@ -805,6 +839,28 @@ struct NovelDetailView: View {
     // MARK: - Formatting
 
     // MARK: - Toggle Library
+
+    /// Adding checks the library for the same work first (E15); removing goes straight through.
+    private func heartTapped() async {
+        if !isInLibrary {
+            let snapshot = novel
+            let found = await Task.detached(priority: .userInitiated) {
+                (try? NovelQueries.possibleDuplicates(of: snapshot)) ?? []
+            }.value
+            if !found.isEmpty {
+                duplicates = found
+                showDuplicateDialog = true
+                return
+            }
+        }
+        await setInLibrary(!isInLibrary)
+    }
+
+    private func setInLibrary(_ inLibrary: Bool) async {
+        isInLibrary = inLibrary
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        await toggleLibrary()
+    }
 
     private func toggleLibrary() async {
         // Update the view's own copy: every later upsert of `novel` (touchLastReadAt on opening a
@@ -1111,6 +1167,21 @@ extension NovelDetailView {
             }
             .disabled(selectedChapterIds.isEmpty)
 
+            // Bookmarks all selected, or clears them when every one is already bookmarked.
+            let selected = chapters.filter { selectedChapterIds.contains($0.id) }
+            let allBookmarked = !selected.isEmpty && selected.allSatisfy(\.isBookmarked)
+            Button {
+                setBookmarked(selected.map(\.id), !allBookmarked)
+                endSelection()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: allBookmarked ? "bookmark.slash" : "bookmark")
+                    Text(allBookmarked ? "Unmark" : "Bookmark").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(selectedChapterIds.isEmpty || !isInLibrary)
+
             Button {
                 download(chapters.filter { selectedChapterIds.contains($0.id) })
                 endSelection()
@@ -1141,6 +1212,16 @@ extension NovelDetailView {
         .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    /// Bookmarks (or clears) chapters on screen and in the DB.
+    private func setBookmarked(_ ids: [String], _ bookmarked: Bool) {
+        let idSet = Set(ids)
+        chapters = chapters.map { ch in
+            idSet.contains(ch.id) ? { var c = ch; c.isBookmarked = bookmarked; return c }() : ch
+        }
+        let novelId = novel.id
+        Task.detached { try? NovelQueries.setBookmarked(chapterIds: ids, novelId: novelId, bookmarked: bookmarked) }
     }
 
     private func endSelection() {
@@ -1212,6 +1293,7 @@ private struct NovelChapterList: View, Equatable {
     struct Actions {
         let tap: (NovelChapter) -> Void
         let toggleRead: (NovelChapter) -> Void
+        let toggleBookmark: ((NovelChapter) -> Void)?
         let markPrevious: (NovelChapter) -> Void
         let startSelecting: (NovelChapter) -> Void
     }
@@ -1249,6 +1331,12 @@ private struct NovelChapterList: View, Equatable {
             }
             NovelChapterRow(chapter: chapter)
             Spacer(minLength: 0)
+            if chapter.isBookmarked {
+                Image(systemName: "bookmark.fill")
+                    .font(.footnote)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Bookmarked")
+            }
             NovelChapterDownloadBadge(chapterId: chapter.id,
                                       isDownloaded: downloadedIds.contains(chapter.id))
             if !chapter.isRead && !isSelecting {
@@ -1277,6 +1365,15 @@ private struct NovelChapterList: View, Equatable {
                           systemImage: chapter.isRead ? "circle" : "checkmark.circle.fill")
                 }
                 .tint(chapter.isRead ? .orange : .green)
+                if let toggleBookmark = actions.toggleBookmark {
+                    Button {
+                        toggleBookmark(chapter)
+                    } label: {
+                        Label(chapter.isBookmarked ? "Unbookmark" : "Bookmark",
+                              systemImage: chapter.isBookmarked ? "bookmark.slash" : "bookmark")
+                    }
+                    .tint(.indigo)
+                }
                 Button {
                     actions.markPrevious(chapter)
                 } label: {
