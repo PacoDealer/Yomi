@@ -442,6 +442,22 @@ enum KeiyoushiMapping {
         )
     }
 
+    /// A whole chapter list as the source returned it, repeated URLs dropped. Numbers come from the list, not each
+    /// name alone (Mihon v0.21, S165): a number every similar name shares isn't the chapter number, and chapters
+    /// without one are numbered after their neighbours (2, "The Return", 4 → 3).
+    nonisolated static func chapters(from items: [KeiyoushiChapter], mangaId: String, sourceId: String,
+                                     mangaTitle: String) -> [Chapter] {
+        let numbers = ChapterRecognition.numbers(mangaTitle: mangaTitle, names: items.map(\.name),
+                                                 sourceNumbers: items.map(\.chapter_number))
+        var seen = Set<String>()   // ids hash the chapter URL; never let a repeated URL become a duplicate row
+        return zip(items, numbers).compactMap { item, number in
+            var chapter = chapter(from: item, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
+            guard seen.insert(chapter.id).inserted else { return nil }
+            chapter.chapterNumber = number
+            return chapter
+        }
+    }
+
     nonisolated static func chapterPath(sourceId: String, url: String, name: String) -> String {
         let payload = (try? JSONSerialization.data(withJSONObject: ["s": sourceId, "u": url, "n": name])) ?? Data()
         let b64 = payload.base64EncodedString()

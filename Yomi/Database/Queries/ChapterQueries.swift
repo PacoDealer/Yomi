@@ -117,13 +117,18 @@ enum ChapterQueries {
 
     /// Points existing chapters at the path the source just returned (S147). Chapter ids hash only the URL, while a
     /// Keiyoushi path also carries the extension's memo (Asura's slug, whose suffix rotates) — and a chapter saved by
-    /// an import or an older refresh keeps its old path under INSERT OR IGNORE. Only `path` changes; read state stays.
+    /// an import or an older refresh keeps its old path under INSERT OR IGNORE. Only `path` and a newly recognized
+    /// `chapterNumber` change (S165: numbers read from the whole list correct ones saved by the single-name rules,
+    /// e.g. "Group 2 Chapter 387" saved as 2); a number is never cleared. Read state stays.
     nonisolated static func refreshPaths(_ chapters: [Chapter]) throws {
         guard !chapters.isEmpty else { return }
         _ = try appDatabase.write { db in
             for chapter in chapters {
                 try db.execute(sql: "UPDATE chapter SET path = ? WHERE id = ? AND path != ?",
                                arguments: [chapter.path, chapter.id, chapter.path])
+                guard let number = chapter.chapterNumber else { continue }
+                try db.execute(sql: "UPDATE chapter SET chapterNumber = ? WHERE id = ? AND chapterNumber IS NOT ?",
+                               arguments: [number, chapter.id, number])
             }
         }
     }

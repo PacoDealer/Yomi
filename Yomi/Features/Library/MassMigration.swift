@@ -61,10 +61,8 @@ struct MigrationTarget: Identifiable, Hashable, Sendable {
                 manager.bridge(for: ext)?.getChapterList(mangaPath: manga.path, mangaId: manga.id) ?? []
             }.value
         case .keiyoushi(let mihonId):
-            var seen = Set<String>()
-            return try await KeiyoushiBridge.shared.chapters(sourceId: mihonId, mangaURL: manga.path)
-                .map { KeiyoushiMapping.chapter(from: $0, mangaId: manga.id, sourceId: mihonId, mangaTitle: manga.title) }
-                .filter { seen.insert($0.id).inserted }
+            let items = try await KeiyoushiBridge.shared.chapters(sourceId: mihonId, mangaURL: manga.path)
+            return KeiyoushiMapping.chapters(from: items, mangaId: manga.id, sourceId: mihonId, mangaTitle: manga.title)
         }
     }
 }

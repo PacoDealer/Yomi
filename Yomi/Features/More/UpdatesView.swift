@@ -299,9 +299,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
         let mangaId = manga.id
         let mangaTitle = manga.title
-        var seen = Set<String>()
-        let remote = items.map { KeiyoushiMapping.chapter(from: $0, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle) }
-            .filter { seen.insert($0.id).inserted }
+        let remote = KeiyoushiMapping.chapters(from: items, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
         guard !remote.isEmpty else { return .failed("The source returned no chapters") }
 
         let newChapters = await Task.detached(priority: .utility) {
