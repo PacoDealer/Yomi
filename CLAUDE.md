@@ -24,7 +24,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S164 — 2026-10-14)
+## Current state (S165 — 2026-10-15)
+- **S165:** ChapterRecognition v2 = Mihon v0.21 port (volumes, parts → letters, shared numbers, neighbour fill),
+  Mihon's tests ported: `scripts/chapter-recognition-tests/run.sh` (103/103). Keiyoushi lists parsed as a whole
+  (`KeiyoushiMapping.chapters`); refresh rewrites changed numbers. NEXT: E14 smart updates (ROADMAP S165).
 - **S164:** page-list cache (sim only): reopening a chapter that isn't downloaded skips `fetchPages`
   (`Features/Reader/PageListCache.swift`, Caches JSON, 7 days; reader calls `readerPages`). A cached page's first failure
   refetches the list once (`PageRetry.pageFailed`). Bridge-proxied `127.0.0.1/image/<id>` lists never cached. DEBUG
@@ -56,7 +59,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **Reading state:** only reading counts toward History/Continue. ONE Continue rule for every screen:
   `ResumeReading.chapter(in:)` (ContinueReadingRow.swift) = after the end of the RUN of read chapters (S144).
 - **Chapter numbers:** sources without one (Keiyoushi -1, e.g. Asura) are parsed from the name —
-  `Core/ChapterRecognition.swift` (Mihon port); v24 filled old rows. Yomi assumes ascending order everywhere.
+  `Core/ChapterRecognition.swift` (Mihon v0.21 port, list-aware since S165); v24 filled old rows. Yomi assumes ascending order everywhere.
 - **Keiyoushi pages:** bridge returns on a NEW port after background; `KeiyoushiBridge.pointAtLivePort` rewrites
   page requests, `resumeIfPaused` on foreground, reader pages retry (`PageRetry`). Pages > 4096 px tall
   (Asura = 900×16000) are drawn as strips or they render BLACK (S145, #190). DEBUG probe:
@@ -122,7 +125,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v26_`**. UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v27_`** (v26 = manga.trackingTitle, S149). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in

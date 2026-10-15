@@ -21,6 +21,28 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S165 — E13 ChapterRecognition v2 (2026-10-15, compile + Mac-server data, no sim screen)
+
+`Core/ChapterRecognition.swift` rewritten as a port of Mihon v0.21 (`ChapterRecognition.kt` @446f6df, Apache-2.0):
+volumes/seasons taken out instead of treated as noise, "Part N"/roman numerals → sub-chapter letter (27b = 27.2),
+numbers every similar name shares ignored ("Group 2 Chapter 387" → 387, v1 said 2), unnumbered chapters filled from
+their neighbours (2, "The Return", 4 → 3; Afterword after 100 → 100.5; Prologue → 0), "Vol.3" alone → no number (v1: 3).
+- **Tests first:** Mihon's `ChapterRecognitionTest.kt` ported case by case + 6 Yomi cases →
+  `scripts/chapter-recognition-tests/run.sh` (swiftc harness, no test target). **103/103 pass**; a mutated copy
+  (2 expectations changed) reports exactly 2 FAILs, so the harness can fail.
+- **Wired in:** `KeiyoushiMapping.chapters(from:…)` reads the WHOLE list (Detail, Updates refresh, Mass migration);
+  `ChapterRecognition.numbers` accepts either order (reads reversed when the numbers go up). `refreshPaths` now also
+  writes a newly recognized number onto chapters already saved (never clears one) — before, INSERT OR IGNORE froze
+  the first number forever. Local files + v24 keep the single-name API (same v2 rules). No DB migration.
+- **Real data (Mac Keiyoushi server, 16 popular titles, Asura v1.6.69 + MangaFire v1.6.34, 9,051 chapters):** with the
+  sources' own numbers, v1 vs v2 **0 changed**. Names only vs MangaFire's 7,489 numbers: v1 7,489 right, v2 7,487 — the
+  2 are Blue Lock "Chapter 314 Core (Part 1/2)" → 314.1/314.2 (Mihon's intended part letters; the source says 314 twice).
+- Build 0 warnings. NOT checked: JS-plugin chapter lists (still take the plugin's number as given, no recognition),
+  `.tachibk` import (keeps single-name; backups carry Mihon's numbers), any screen (Keiyoushi has no JVM in the sim).
+
+NEXT (S166, new chat): E14 smart updates + per-source update streams (Mihon FetchInterval/ReleasePattern, tests in
+`FetchIntervalTest.kt`) → E15 → F → G → H → K, then device check J.
+
 ## S164 — D12b page-list cache (2026-10-14, simulator only)
 
 `Features/Reader/PageListCache.swift` (new), `ChapterReaderView.swift`, `SuwayomiService.swift` (`chapterRef` nonisolated).
@@ -133,7 +155,7 @@ Execute top to bottom; one item = build 0 warnings + sim check + commit/push.
 
 **E. Chapter lists / updates (top-10 #8–#9)**
 13. ChapterRecognition v2 with Mihon's tests ported first. 14. Smart updates + per-source update streams.
-15. Saved scanlator exclusion · duplicate warning on add · chapter bookmarks (needs `v26_`).
+15. Saved scanlator exclusion · duplicate warning on add · chapter bookmarks (needs `v27_`).
 
 **F. Manga reader parity (Tachimanga)**
 16. Separate tap zones per mode (S142) · save/share a page (long press) · press-and-hold scroll.
