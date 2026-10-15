@@ -23,9 +23,9 @@ full). Each feature was checked by grepping Yomi's source (not this file's older
 keyword is strong evidence, not proof. Supersedes older rows below where they disagree.
 
 **Missing in Yomi (code search found nothing):**
-- Reader: chapter bookmarks (v2.1 import); press-and-hold scroll (v4.6); crop white/black borders (v4.18); copy
-  text from a page / OCR (v4.17); manga reader background colour (v5.0 — novels have it); double page "separate first
-  page" / "invert" / wide-page detection (v3.2, v4.14); pinch-zoom off, strict scale, scroll indicator (v3.1, v4.12);
+- Reader: ~~chapter bookmarks~~ (S167); ~~press-and-hold scroll~~ (S168); ~~crop white/black borders~~ (S169); copy
+  text from a page / OCR (v4.17); ~~manga reader background colour~~ (S169); ~~double page "separate first
+  page" + wide-page detection~~ (S169; "invert" still missing); pinch-zoom off, strict scale, scroll indicator (v3.1, v4.12);
   custom reader toolbar (v5.1).
 - Library: pinned sources + reorder (v2.2, v4.1); source filter include/exclude (v4.15, v5.0); tracker filters
   (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
@@ -65,7 +65,7 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Feature | Tachimanga | Yomi | Status |
 |---|---|---|---|
 | Reading modes | 7: Paged LTR/RTL/vertical, Continuous LTR/RTL/vertical, Webtoon | ✅ Fixed S97 — `ReaderMode` now has 6 cases (Paged RTL/LTR, Paged Vertical, Continuous RTL/LTR, Webtoon = continuous vertical). Paged-vertical uses the standard rotate-90°/counter-rotate-content TabView technique; Continuous horizontal is a new `ContinuousHorizontalReaderView` mirroring `WebtoonReaderView`'s structure. Both wired into the in-reader mode picker and Settings' default-mode picker. Live-verified: renders without crashing in the simulator; swipe-to-page interaction not independently confirmed due to the pre-existing documented mobile-mcp swipe-simulation unreliability in this environment (see `ROADMAP.md` S87) — the technique itself is SwiftUI-standard and low-risk. | ✅ Parity (6 of 7 — "Continuous vertical" intentionally treated as identical to existing Webtoon mode, not duplicated) |
-| Page Layout (double-page spreads) | Single / Double / Automatic, "Separate first page", "Invert double pages" [premium] | ✅ Fixed S98 — `pageLayout` = "single"/"double"/"automatic" (spreads in landscape, via a live `GeometryReader` width/height comparison). `MangaReaderView`'s `TabView` selection goes through a proxy `Binding` snapping any page index to its spread's start, so `currentPage` keeps its normal meaning everywhere else (progress/resume/scrubber). Tap zones move by whole spreads. "Separate first page"/"Invert double pages" not implemented (smaller Tachimanga-premium niceties, out of scope). Live-verified: single mode unregressed, double mode renders 2 pages side by side and advances 1→3→5. | ✅ Parity (core Single/Double/Automatic) |
+| Page Layout (double-page spreads) | Single / Double / Automatic, "Separate first page", "Invert double pages" [premium] | ✅ Fixed S98 — `pageLayout` = "single"/"double"/"automatic" (spreads in landscape, via a live `GeometryReader` width/height comparison). `MangaReaderView`'s `TabView` selection goes through a proxy `Binding` snapping any page index to its spread's start, so `currentPage` keeps its normal meaning everywhere else (progress/resume/scrubber). Tap zones move by whole spreads. S169: "Cover on its own" (= separate first page), wide pages (> 1.2) always alone, pages of different shapes don't pair (`PageSpreads`); "Invert double pages" still not implemented. Live-verified: single mode unregressed, double mode renders 2 pages side by side and advances 1→3→5. | ✅ Parity (core Single/Double/Automatic) |
 | Tap zones | 5 presets: L-Shaped, Right-And-Left, Edge, Kindle-ish, Disabled | ✅ Fixed S98 — `tapZoneLayout` now has 6 presets: `default` (thirds, unchanged), `sides` (Edge, unchanged), plus new `lShaped`/`kindle`/`rightLeft`/`disabled`. New layouts are Yomi's own reasonable interpretation of the named behaviors (not pixel-verified against Tachimanga's exact zone geometry) — all share a fixed top-center menu strip for reachability. Still a plain Picker, no visual zone-diagram. | ✅ Parity (6 presets, superset of Tachimanga's 5) |
 | Auto Webtoon detection | Not observed in Tachimanga's Reader settings | `autoWebtoonFromTags` — auto-switches by genre tags — `AppSettings.swift:203` | 🔷 Yomi ahead |
 | Autoscroll | Toggle in in-reader settings sheet | `autoScrollSpeed` (1-10s) exists in `AppSettings.swift:242`, used in `ChapterReaderView.swift` | ✅ Parity |
@@ -82,7 +82,7 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Skip duplicate chapters (scanlator dedup) | Toggle: "show only highest-priority scanlator per chapter" [premium] | No dedup logic found anywhere in chapter list loading | ❌ Missing |
 | Image saved and shared with watermark | Toggle [premium] | Not applicable / not found | ❌ Missing, low priority (arguably skip — watermarking shared piracy-source images is a Tachimanga-specific choice, not obviously desirable for Yomi) |
 | Side padding | Slider | `webtoonHorizontalPadding` (Webtoon only) `AppSettings.swift:247`; no equivalent for paged mode | 🟡 Partial |
-| Crop borders | Toggle (in-reader settings) | Not found | ❌ Missing |
+| Crop borders | Toggle (in-reader settings) | ✅ S169 — `PageBorders.swift` (port of image-decoder borders.cpp, MPL-2.0) + `PageLook`; separate toggles for paged and long strip/continuous, in Settings and the reader sheet | ✅ Parity |
 | Rotation | "Follow Device" setting | Not found (check if reader currently locks orientation) | ❌ Missing as explicit setting |
 
 ## 2. Browse / Sources

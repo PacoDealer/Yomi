@@ -24,12 +24,15 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S168 — 2026-10-15)
-- **S168 (sim):** F16 reader gestures (`Features/Reader/ReaderPageActions.swift`): tap zones per mode (paged
-  `tapZoneLayout`, strip `stripTapZoneLayout` default Off), long strip long press `stripLongPress` (Auto-scroll default
-  · Scroll while held · Share or save), page menu Share/Save to Photos/Copy (paged + continuous always). **#211 fixed:**
-  long-strip page counter/saved position stuck since S164 — **Martin's phone (`98af933`) still has it.** NEXT: F17
-  (ROADMAP S168). `scrollPosition(id:)` ignores code-driven scrolling — see `StripScroller.isDriving`.
+## Current state (S169 — 2026-10-15)
+- **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
+  **MPL-2.0 port**, licence decision pending — ROADMAP S169), two-page spreads via `PageSpreads` (cover alone option,
+  wide pages alone, shapes must match; `PageShapes` observable + `PageShapes.learn`), reader background
+  `readerBackground` Black/Dark grey/White/Automatic (`ReaderPageLook.swift`; Automatic reads the SCREEN's light/dark,
+  the reader forces dark). Tests `scripts/reader-page-tests/run.sh` 26/26. NEXT: G (ROADMAP S169).
+- **S168 (sim):** F16 reader gestures (`ReaderPageActions.swift`): tap zones per mode, strip long press, page menu.
+  **#211 fixed** (long-strip counter stuck since S164) — **Martin's phone (`98af933`) still has it.**
+  `scrollPosition(id:)` ignores code-driven scrolling — see `StripScroller.isDriving`.
 - **S167 (sim):** E15 hidden scanlation groups (`excluded_scanlator`, `MangaDetailView.readingList` + SQL
   `ChapterQueries.notExcluded`), duplicate warning on add, chapter bookmarks (`setBookmarked` only). v28. **New
   CloudKit fields need the Production schema before the next TestFlight build** (ROADMAP S167).

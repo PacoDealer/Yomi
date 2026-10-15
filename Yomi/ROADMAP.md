@@ -21,6 +21,51 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S169 — F17 crop borders · smarter two-page spreads · automatic background (2026-10-15, simulator)
+
+Tachimanga parity (v4.18 crop borders, v5.0 manga background colour, v3.2/v4.14 separate first page + wide pages) and
+S158 top-10 #10. Every algorithm was read from its live source first (not from the S158 notes): tachiyomiorg/image-decoder
+`borders.cpp`/`borders.h` @f11fbd3, Mihon `ImageUtil.chooseBackground` + `readerBackgroundColor` @446f6df.
+- **New files:** `Features/Reader/PageBorders.swift` (Swift port of borders.cpp — **MPL-2.0, its own header; see the
+  licence note below**), `PageAnalysis.swift` (`PageSpreads` pairing rules; `PageBackground` = port of Mihon's
+  chooseBackground, Apache-2.0, attribution in the file), `ReaderPageLook.swift` (`PageLook.measure` on a ≤384-px copy
+  off the main thread, `PageLooks` cache in Caches/page-looks.json saved with `PageShapes`, `ReaderBackdrop`,
+  `PageCrop` modifier, `ReaderBackgroundPicker`). Tests: `scripts/reader-page-tests/run.sh` (26/26).
+- **Crop borders** — two toggles like Mihon: paged modes (`cropBorders`, incl. Vertical pages) and long strip +
+  continuous (`cropBordersStrip`). Defaults OFF (= before). Paged: the page is laid out cropped (`PageCrop`), hidden
+  for the few ms between load and measure so the margins never flash; a page measured before is cropped from its first
+  frame. Strip: the decoded page is cropped before it is cut into strips; placeholders use the cropped shape so nothing
+  jumps. Yomi's own guard (not in Mihon): a crop that would leave < 25 % of a side is ignored.
+- **Two-page spreads** — `PageSpreads.groups`: "Cover on its own" (`doublePageCoverAlone`, default off = before), a
+  page wider than 1.2 always alone, two pages pair only if their shapes differ by ≤ 0.1, and pairing restarts after a
+  lone page (Mihon's experimental WebGpuViewer rules). Shapes come from `PageShapes` (now `@Observable` via
+  `PageShapes.changes`, re-pairs as shapes arrive) and `PageShapes.learn` reads downloaded/local/cached pages' file
+  headers when two-page mode opens (the prefetcher uses the same function now).
+- **Background** — `readerBackground`: Black (default = before) · Dark grey · White · Automatic. Automatic = white or
+  dark grey with the iPhone's appearance (Mihon's rule) — read from the SCREEN's traits, because the reader forces
+  `.preferredColorScheme(.dark)` on itself — and in the paged modes each page sits on its own margin colour (solid, or
+  Mihon's top/bottom split). Spinner and error text turn dark on a light backdrop.
+- **Settings:** More → Settings → Manga & Webtoon (Pages: Cover on its own + Crop borders; Long Strip: Crop borders;
+  new Background section) and a "Pages" section in the reader's own sheet for the mode being read.
+- **Verified (sim):** a Local "Spread Test" chapter (8 generated pages: framed cover, white-margin pages, one wide, one
+  black-top-band, one odd shape) in RTL, Always, cover alone, crop + automatic: screens were exactly [1] [2 3] [4 wide]
+  [5 6] [7 odd] [8]; the cover's black frame and the white margins were cut; cover on black, others on white, page 5 on
+  the black→white split; crop off in the sheet brought the margins back at once; Continuous RTL with strip crop on cut
+  page 7. A real 1870 newspaper scan (Local CBR): the thick black scanner border is cut except a ~1 % strip on the
+  left/top where the border isn't clean black (same edge rule as upstream — not tuned). Build 0 warnings (app + widget).
+  UI tests 13/13 (all novel-reader fixture tests — they guard against regressions, none drives a manga page).
+- **NOT checked:** long strip with crop on real Asura pages, landscape "In landscape" spreads, the device, memory with
+  crop on (the crop shares the decoded page; strips are drawn copies as before).
+- **Licence note for Martin:** `PageBorders.swift` is an MPL-2.0 port (file-level copyleft). Shipping it is allowed
+  in a closed app, but that one file's source must be available to people who get the app (e.g. a public gist/repo
+  linked from the licences screen). Alternatives: ship it that way, or have a fresh implementation written by someone
+  who hasn't read borders.cpp. Separately, the Mihon (Apache-2.0) ports — ChapterRecognition, FetchInterval, and now
+  PageBackground — have attribution comments but no entry on the licences screen yet; Apache asks for the licence text
+  with redistributed derivative code. Neither is fixed here: it's Martin's call before the next TestFlight build.
+
+NEXT (S170): G (library/browse parity) → H → K → J. **Before J: a personal build for Martin's phone** (it still has
+#211 from `98af933`) — ask him. Licence note above before the next TestFlight upload.
+
 ## S168 — F16 reader gestures: tap zones per mode · page menu · scroll while held (2026-10-15, simulator)
 
 Tachimanga parity (TACHIMANGA_PARITY "Press and hold to scroll" + "save/share a page"; S142 backlog "separate tap zones").

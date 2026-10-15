@@ -2285,3 +2285,14 @@ previously here was removed during the 2026-08-04 doc restructure.
   bar. Use each where it is right (`StripScroller.isDriving`).
 - XcodeBuildMCP `screenshot` returned the SAME stale image three times in a row (menu "still open" after it closed);
   the accessibility snapshot and mobile-mcp's screenshot were current. Cross-check before believing a screenshot.
+
+## S169 lessons
+- **Read the upstream file, not the research note, before porting.** The S158 note had the thresholds right but not
+  the detail that the edge "fill limit" is halved because only every second pixel is sampled — only the live
+  borders.cpp showed it. Reading it also made the Swift file a port, so it carries the MPL header (licence follows
+  from what you read, decide that before writing).
+- **A view's colour scheme can lie inside a screen that forces one.** The reader sets `.preferredColorScheme(.dark)`,
+  so "follow the iPhone" must read `windowScene.screen.traitCollection`, not `@Environment(\.colorScheme)`.
+- **Generated test pages beat hunting for the right real page.** A Local folder of 8 drawn pages (frame, margins,
+  wide, odd shape) checked every pairing rule in one pass; one real scan then checked the crop on messy input.
+
