@@ -24,13 +24,14 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S170 — 2026-10-15)
-- **S170 (docs only):** catch-up audit — all of A–F is in code, tests pass; dropped promises → new group L. Decided:
-  keep the MPL port + add licences rows (repo is public — keep it so, or host MPL files elsewhere first); CloudKit
-  schema deploy right before the next upload; hide trackers with empty client ids. Then K + H + G built (sim):
-  licences rows, plugin trust chain (`PluginScript.swift`, previous version kept, catalog `sha256` via the Firebase
-  predeploy hook `scripts/catalog-hashes.py`), Library Sources filter + per-category sort, pinned sources, LNReader
-  plugin filters (`PluginFilter.swift`; shim `FilterTypes` was `{}`). NEXT: L (ROADMAP S170).
+## Current state (S171 — 2026-10-16)
+- **S171 (sim):** L1 library load measured on the phone's DB (149–212 ms, no hangs, no fix) · L2 novel reader already
+  matches LNReader's checklist · Martin wants ALL of L3 + L4 (order in ROADMAP S171). **L3a:** refresh takes covers +
+  details (novels, Keiyoushi, Mangayomi — Yomi's own manga plugins have NO details call); opening a library title asks
+  the source at most once an hour (v29 `lastCheckedAt`, pull to refresh forces); Update rules → Refreshing.
+  **L3b:** tap an Extensions row → `ExtensionDetailView` (Website in `CFBypassView(isWebsite:)` without installing,
+  `PluginCatalogEntry.site`; Keiyoushi sources → their settings). Firebase `index.json` has `site` — **not deployed**.
+  NEXT: L3c reader extras → L3d OCR → L4 → I (ROADMAP S171).
 - **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
   **MPL-2.0 port**, kept — ROADMAP S170), two-page spreads via `PageSpreads` (cover alone option,
   wide pages alone, shapes must match; `PageShapes` observable + `PageShapes.learn`), reader background
@@ -141,7 +142,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v29_`** (v28 = hidden groups + bookmarks, S167). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v30_`** (v29 = `lastCheckedAt`, S171). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -199,7 +200,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (free team; read the pri
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v29_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v30_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
