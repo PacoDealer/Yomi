@@ -40,8 +40,14 @@ The research audit revealed that 800+ sources are already available across four 
   3. Pages mode uses CSS columns (`column-width: 100vw − 2m`, S136), like `pageReader.css`.
   → No port. L2 closed.
 
-NEXT: L3 (parity leftovers — Martin ranks them) · L4 (CB7, neural voices, streak repair — Martin says which) → I →
-CloudKit schema deploy + personal build + J.
+**Martin's answers (S171): he wants ALL of L3 and L4.** L3: refresh covers/metadata during updates (+ hourly detail
+auto-refresh) · extension details page (website without installing, per-extension settings from the Extensions list) ·
+reader extras (double-page invert, strict scale / scroll indicator, custom reader toolbar) · copy text / OCR (Vision,
+on-device). L4: **"better voices"** (his words — the goal is voices that sound better, sherpa-onnx is one way, compare
+with iOS Premium/Enhanced voices first) · streak repair · CB7/7z.
+Order (small + daily-use first): L3a refresh metadata → L3b extension details → L3c reader extras → L3d OCR → L4 streak
+repair → CB7 → better voices (research first: size, licence, quality vs iOS Premium voices) → I → CloudKit schema
+deploy + personal build + J.
 
 ---
 
