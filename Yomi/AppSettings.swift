@@ -441,6 +441,11 @@ import Observation
         didSet { defaults.set(readerToolbarItems, forKey: "readerToolbarItems") }
     }
 
+    /// Language for "Text on Page" (L3d, Vision OCR): "auto" or a BCP-47 code ("ja-JP", "ko-KR", "zh-Hans"…).
+    var pageTextLanguage: String {
+        didSet { defaults.set(pageTextLanguage, forKey: "pageTextLanguage") }
+    }
+
     /// Cut the plain white/black margins off each page (F17): paged modes, and long strip + continuous.
     var cropBorders: Bool {
         didSet { defaults.set(cropBorders, forKey: "cropBorders") }
@@ -711,6 +716,7 @@ import Observation
         readerPinchZoom          = d.object(forKey: "readerPinchZoom")           as? Bool ?? true
         readerScrollIndicator    = d.object(forKey: "readerScrollIndicator")     as? Bool ?? false
         readerToolbarItems       = d.stringArray(forKey: "readerToolbarItems")   ?? ReaderToolbarItem.defaults
+        pageTextLanguage         = d.string(forKey: "pageTextLanguage")          ?? "auto"
         cropBorders              = d.object(forKey: "cropBorders")               as? Bool ?? false
         cropBordersStrip         = d.object(forKey: "cropBordersStrip")          as? Bool ?? false
         readerBackground         = d.string(forKey: "readerBackground")          ?? "black"
