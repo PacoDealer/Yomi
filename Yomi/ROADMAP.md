@@ -21,6 +21,30 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S171 — L1 library load time · L2 novel reader vs LNReader (2026-10-16, simulator, no app code changed)
+
+- **L1 library load time — measured, no fix needed.** Method: the phone's own DB (`phone-backups/S166-after-…`, 171
+  manga / 24,043 chapters / 4 novels / 2,806 novel chapters, migrated v27→v28 by a warm-up launch) swapped into the sim,
+  **Release** build, `xctrace record --template 'Time Profiler' --instrument 'Points of Interest' --launch`, three cold
+  launches. `LoadLibrary` signpost: **199 / 212 / 149 ms**. The SQL itself is a small part: cold `sqlite3` timing on the
+  same file — library 3 ms, manga unread counts 50 ms (uses `idx_chapter_unread` + the covering excluded-scanlator
+  index), novel unread counts 3 ms; the rest is record decoding, the widget write and launch-time waiting (the work runs
+  in `Task.detached`, not on the main thread). `potential-hangs`: none in any run. The sim's own DB was restored after
+  (`phone-backups/S171-sim-before-L1`). NOT measured: the phone itself (an M-series Mac sim is faster — re-record during
+  J if the library ever feels slow to appear).
+- **L2 novel reader vs the LNReader checklist (report §"Novel reader") — all three already match:**
+  1. Style set once per settings change: `NovelReaderController.setStyle` skips an unchanged stylesheet, the page swaps
+     one `<style>` inside `relayout` (keeps the reading position). LNReader sets CSS variables instead — same one
+     restyle per change, nothing to gain.
+  2. Progress saved only when scrolling stops: `progress` is posted 400 ms after the last scroll event.
+  3. Pages mode uses CSS columns (`column-width: 100vw − 2m`, S136), like `pageReader.css`.
+  → No port. L2 closed.
+
+NEXT: L3 (parity leftovers — Martin ranks them) · L4 (CB7, neural voices, streak repair — Martin says which) → I →
+CloudKit schema deploy + personal build + J.
+
+---
+
 ## S170 — catch-up audit + three decisions (2026-10-15, no app code changed)
 
 Martin asked: check that everything we said we'd do was done, and research + decide the open questions.
