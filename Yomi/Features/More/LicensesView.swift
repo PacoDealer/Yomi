@@ -18,6 +18,11 @@ struct LicensesView: View {
                 LicenseRow(name: "Pulse", license: "MIT", file: "licence-pulse")
                 #endif
             }
+            Section(calm: "Ported code") {
+                LicenseRow(name: "Mihon", license: "Apache-2.0, parts ported to Swift", file: "licence-mihon")
+                LicenseRow(name: "image-decoder (crop borders)", license: "Mozilla Public License 2.0, ported to Swift",
+                           file: "licence-image-decoder")
+            }
             Section(calm: "Plugin runtime") {
                 LicenseRow(name: "cheerio", license: "MIT, with BSD-2-Clause and ISC parts", file: "licence-cheerio")
                 LicenseRow(name: "Day.js", license: "MIT", file: "licence-dayjs")
