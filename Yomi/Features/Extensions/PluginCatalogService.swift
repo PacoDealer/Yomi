@@ -4,7 +4,7 @@ import Observation
 
 // MARK: - PluginCatalogEntry
 
-struct PluginCatalogEntry: Codable, Identifiable {
+struct PluginCatalogEntry: nonisolated Codable, Identifiable {
     let id: String
     let name: String
     let version: String
@@ -16,13 +16,17 @@ struct PluginCatalogEntry: Codable, Identifiable {
     var repoURL: String = ""
     /// "novel" or "manga". Optional in Yomi catalogs; LNReader catalogs are always novels.
     var kind: String? = nil
+    /// Hex SHA-256 of the plugin file, optional. When a catalog gives it, an install whose bytes differ is refused
+    /// (#151: a truncated or swapped file never replaces a working plugin).
+    var sha256: String? = nil
 
     var isNovel: Bool { kind == "novel" }
     /// Novel or manga when the catalog says so, nil when it doesn't.
     var knownIsNovel: Bool? { kind.map { $0 == "novel" } }
 
-    /// Ids this entry's plugin may be installed under: the catalog id, "Install from URL"'s sha256(file URL),
-    /// the old DEBUG seed's sha256(file name), and "com.yomi.<file name>". A plugin added by link also keeps the
+    /// Ids this entry's plugin may be installed under: the catalog id, "Install from URL"'s sha256(file URL), and —
+    /// for Yomi's own catalog only — the old DEBUG seed's sha256(file name) and "com.yomi.<file name>" (both legacy
+    /// schemes only ever named Yomi's plugins; for another repository's royalroad.js they claimed Yomi's install, #171). A plugin added by link also keeps the
     /// name inside its script ("WeTried TLs" vs the catalog's "WeTried Translations"), so names alone miss it (S141).
     /// Filled once by `fetchCatalog` (`withInstallIds()`): computing the hashes on every lookup froze the
     /// Extensions list, which matches each catalog entry against each installed plugin per render (S141).
@@ -31,13 +35,18 @@ struct PluginCatalogEntry: Codable, Identifiable {
     nonisolated func withInstallIds() -> PluginCatalogEntry {
         var entry = self
         let fileName = URL(string: fileURL)?.deletingPathExtension().lastPathComponent ?? ""
-        entry.installIds = [id, Self.sha256id(fileURL), Self.sha256id(fileName), "com.yomi.\(fileName)"]
+        entry.installIds = [id, Self.sha256id(fileURL)]
+        if repoURL.contains("yomi-plugins") {
+            entry.installIds.formUnion([Self.sha256id(fileName), "com.yomi.\(fileName)"])
+        }
         return entry
     }
 
-    /// The installed plugin is this entry: same id (any of `installIds`) or same name.
+    /// The installed plugin is this entry: same id (any of `installIds`), or same name when no catalog entry claims
+    /// the installed id (a plugin added by link). By name alone, Yomi's Royal Road also counted as LNReader's (#171).
     func matches(_ ext: Extension) -> Bool {
-        id == ext.id || installIds.contains(ext.id) || name.lowercased() == ext.name.lowercased()
+        id == ext.id || installIds.contains(ext.id)
+            || (!PluginCatalogService.shared.claimedIds.contains(ext.id) && name.lowercased() == ext.name.lowercased())
     }
 
     nonisolated static func sha256id(_ string: String) -> String {
@@ -46,7 +55,7 @@ struct PluginCatalogEntry: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, version, language, description, iconURL, fileURL, isNSFW, kind
+        case id, name, version, language, description, iconURL, fileURL, isNSFW, kind, sha256
     }
 }
 
@@ -62,7 +71,7 @@ struct PluginCatalogGroup: Identifiable {
 
 // MARK: - LNReader catalog format
 
-private struct LNReaderEntry: Decodable {
+private nonisolated struct LNReaderEntry: Decodable {
     let id: String
     let name: String
     let version: String
@@ -89,7 +98,7 @@ private struct LNReaderEntry: Decodable {
 
 // MARK: - Mangayomi catalog format
 
-private struct MangayomiEntry: Decodable {
+private nonisolated struct MangayomiEntry: Decodable {
     let id: Int
     let name: String
     let version: String
@@ -113,6 +122,14 @@ private struct MangayomiEntry: Decodable {
     }
 }
 
+// MARK: - Lenient
+
+/// One array element that may fail to decode without failing the array.
+private nonisolated struct Lenient<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) throws { value = try? T(from: decoder) }
+}
+
 // MARK: - PluginCatalogService
 
 @Observable final class PluginCatalogService {
@@ -124,7 +141,11 @@ private struct MangayomiEntry: Decodable {
 
     // MARK: - State
 
-    var entries: [PluginCatalogEntry] = []
+    var entries: [PluginCatalogEntry] = [] {
+        didSet { claimedIds = entries.reduce(into: Set<String>()) { $0.formUnion($1.installIds) } }
+    }
+    /// Every installed id some catalog entry owns — see `PluginCatalogEntry.matches`.
+    private(set) var claimedIds: Set<String> = []
     var isLoading: Bool = false
     var errorMessage: String? = nil
     private var lastFetchedAt: Date? = nil
@@ -132,7 +153,8 @@ private struct MangayomiEntry: Decodable {
 
     // MARK: - Fetch
 
-    /// Fetches catalogs from all configured URLs in parallel, merges by id (first-wins), sorts by name.
+    /// Fetches catalogs from all configured URLs in parallel, merges by id — the repository listed first wins, whatever
+    /// order the responses arrive in (#155) — and sorts by name.
     /// Per-URL failures are skipped gracefully — only sets errorMessage if ALL catalogs fail.
     func fetchCatalog(force: Bool = false) async {
         guard !isLoading else { return }
@@ -157,8 +179,8 @@ private struct MangayomiEntry: Decodable {
         }
 
         // Fetch all catalogs concurrently; per-URL failures return empty (don't break the group)
-        let results: [[PluginCatalogEntry]] = await withTaskGroup(of: [PluginCatalogEntry].self) { group in
-            for url in urls {
+        let results: [[PluginCatalogEntry]] = await withTaskGroup(of: (Int, [PluginCatalogEntry]).self) { group in
+            for (index, url) in urls.enumerated() {
                 group.addTask {
                     let repoURL = url.absoluteString
                     do {
@@ -169,17 +191,17 @@ private struct MangayomiEntry: Decodable {
                         let (data, response) = try await URLSession.shared.data(for: request)
                         yomiLogNetwork(request, response: response, data: data)
                         let parsed = Self.parseEntries(from: data)
-                        return parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e.withInstallIds() }
+                        return (index, parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e.withInstallIds() })
                     } catch {
-                        return []
+                        return (index, [])
                     }
                 }
             }
-            var all: [[PluginCatalogEntry]] = []
+            var all: [(Int, [PluginCatalogEntry])] = []
             for await result in group {
                 all.append(result)
             }
-            return all
+            return all.sorted { $0.0 < $1.0 }.map(\.1)
         }
 
         // Merge: first-wins dedup by id, sorted by name
@@ -207,20 +229,21 @@ private struct MangayomiEntry: Decodable {
 
     // MARK: - Multi-format parser
 
-    /// Tries Yomi native → LNReader → Mangayomi formats in order.
-    private nonisolated static func parseEntries(from data: Data) -> [PluginCatalogEntry] {
-        if let entries = try? JSONDecoder().decode([PluginCatalogEntry].self, from: data) {
-            return entries
-        }
-        if let lnEntries = try? JSONDecoder().decode([LNReaderEntry].self, from: data) {
-            return lnEntries.map { $0.toEntry() }
-        }
-        if let mgEntries = try? JSONDecoder().decode([MangayomiEntry].self, from: data) {
-            return mgEntries
-                .filter { $0.sourceCodeUrl.lowercased().hasSuffix(".js") }
-                .map { $0.toEntry() }
-        }
-        return []
+    /// Tries Yomi native → LNReader → Mangayomi formats in order. Entries are decoded one by one: a single malformed
+    /// entry used to fail the whole array, so one typo emptied the repository (#154). The first format that reads
+    /// at least one entry wins; entries it can't read are skipped.
+    nonisolated static func parseEntries(from data: Data) -> [PluginCatalogEntry] {
+        let entries = decodeEach(PluginCatalogEntry.self, from: data)
+        if !entries.isEmpty { return entries }
+        let lnEntries = decodeEach(LNReaderEntry.self, from: data)
+        if !lnEntries.isEmpty { return lnEntries.map { $0.toEntry() } }
+        return decodeEach(MangayomiEntry.self, from: data)
+            .filter { $0.sourceCodeUrl.lowercased().hasSuffix(".js") }
+            .map { $0.toEntry() }
+    }
+
+    private nonisolated static func decodeEach<T: Decodable>(_ type: T.Type, from data: Data) -> [T] {
+        (try? JSONDecoder().decode([Lenient<T>].self, from: data))?.compactMap { $0.value } ?? []
     }
 
     // MARK: - Helpers
