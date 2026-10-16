@@ -2307,3 +2307,16 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **XcodeBuildMCP in sheets/menus:** `type_text` into a trailing TextField of a `LabeledContent` row misses (the tap
   lands on the label); long menus put items off screen, so a tap by ref there dismisses the menu instead. Put
   "reset" actions at the top of a menu; test text fields some other way (or tap the field's own frame).
+
+
+## S171 lessons
+
+- **Measure the library on the phone's data, not the sim's.** The sim had 169 manga but 226 chapters; the phone has
+  24,043. Swap a `phone-backups/` DB into the sim (back the sim DB up first, delete `-wal`/`-shm`), launch once to
+  migrate, record, restore.
+- **XcodeBuildMCP re-resolves `simulatorName` to a UDID** — with two sims called "iPhone 17 Pro" it picked the empty
+  iOS 26.5 one even after `simulatorId` was set. Build with `xcodebuild -destination 'id=<udid>'` instead.
+- **Release builds need `-derivedDataPath` outside ~/Desktop** (scratchpad): under Desktop the .app picks up Finder
+  xattrs and codesign fails ("detritus not allowed").
+- `xctrace record … --launch -- pacodealer.Yomi` works on the sim and catches launch-time signposts that `--attach`
+  misses; export `OSSignpostIntervals` with `xctrace export --xpath`.
