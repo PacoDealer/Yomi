@@ -218,7 +218,7 @@ private struct ReaderPageMenu: ViewModifier {
     private func failed() { ReaderPageActions.say("The page isn't loaded yet") }
 }
 
-private struct ActivityView: UIViewControllerRepresentable {
+struct ActivityView: UIViewControllerRepresentable {
     let items: [Any]
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(activityItems: items, applicationActivities: nil)
