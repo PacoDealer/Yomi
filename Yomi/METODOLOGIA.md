@@ -2325,3 +2325,21 @@ previously here was removed during the 2026-08-04 doc restructure.
   Change app settings through the app's UI, or edit the container plist with the app terminated.
 - A list row that should open a page but holds a pill button: `.contentShape(Rectangle()).onTapGesture` on the row —
   the Button still wins taps on itself (PluginsView rows, S171).
+
+
+## S172 lessons
+
+- **Read the competitor's own words before building "parity".** "Strict scale" sounded like a new zoom mode; Tachimanga's
+  changelog says "restricts zoom to a fixed range with no bounce" — Yomi already did that, so no setting was needed.
+- **A batch "mark read" must skip what's already read.** `setReadBatch` stamps `readAt = now` and `touchLastRead`; the
+  first toolbar version overwrote 17 real read dates and bumped the title to the top of Continue reading. Filter to the
+  unread ones, and test bulk writes against a backup you can restore from (`phone-backups/…`, `ATTACH` + `UPDATE`).
+- **`(select id from manga where title = …)` picks ONE row** — titles repeat (a Keiyoushi copy + the old entry). Use
+  `IN (select …)` or the id.
+- **SwiftUI edit mode: a row added while editing gets no delete/drag handles** (moved between sections in a List with
+  `.environment(\.editMode, …)`). `.id(count)` on the list rebuilds it on add/remove.
+- **App prefs live in the app container plist** (`Containers/Data/Application/<id>/Library/Preferences/`). To change them
+  from outside, `simctl spawn <sim> defaults write <full path without .plist>` (goes through cfprefsd); the bundle id alone
+  hits another domain (S171 lesson, confirmed).
+- **Screenshots of a scroll indicator need a recording** — XcodeBuildMCP's swipe waits ~2.5 s, the bar has faded by
+  then; `simctl io recordVideo` + ffmpeg frames work, but a thin bar over artwork is still hard to see.

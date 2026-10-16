@@ -263,6 +263,10 @@ private struct MangaReaderSettingsView: View {
                         Text("Cover on its own")
                         Text("Keeps printed spreads together. Wide pages always get a screen of their own.")
                     }
+                    Toggle(isOn: $settings.doublePageInvert) {
+                        Text("Swap the two pages")
+                        Text("For spreads that come out in the wrong order.")
+                    }
                 }
                 Toggle("Crop borders", isOn: $settings.cropBorders)
                 Picker("Tap zones", selection: $settings.tapZoneLayout) {
@@ -292,6 +296,7 @@ private struct MangaReaderSettingsView: View {
                     LabeledContent("Auto-scroll", value: "1 page / \(settings.autoScrollSpeed.formatted()) s")
                 }
                 Toggle("Crop borders", isOn: $settings.cropBordersStrip)
+                Toggle("Scroll bar", isOn: $settings.readerScrollIndicator)
                 Picker("Side margins", selection: $settings.webtoonHorizontalPadding) {
                     Text("None").tag(0)
                     Text("Small").tag(8)
@@ -301,6 +306,14 @@ private struct MangaReaderSettingsView: View {
             } header: { CalmSectionHeader("Long Strip") } footer: {
                 Text("Tap zones scroll most of a screen in long strip and turn the page in continuous; the middle shows the menu. Long press applies to long strip; in continuous, holding a page shares or saves it.")
             }
+
+            Section {
+                Toggle(isOn: $settings.readerPinchZoom) {
+                    Text("Pinch to zoom")
+                    Text("Zoom goes from 1× to 4×. Tap to zoom back out.")
+                }
+                NavigationLink("Toolbar") { ReaderToolbarEditor() }
+            } header: { CalmSectionHeader("Reader") }
 
             Section {
                 ReaderBackgroundPicker(selection: $settings.readerBackground)
