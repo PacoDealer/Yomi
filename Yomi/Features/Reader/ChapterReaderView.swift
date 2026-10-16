@@ -1384,6 +1384,7 @@ struct ReaderOverlayView: View {
     @State private var showSettingsSheet = false
     @State private var showMarkPreviousConfirm = false
     @State private var shareImage: UIImage? = nil
+    @State private var pageTextImage: UIImage? = nil
     @State private var settings = AppSettings.shared
 
     private var isStripMode: Bool {
@@ -1422,7 +1423,7 @@ struct ReaderOverlayView: View {
             switch item {
             case .spreads:   readerMode == .horizontalRTL || readerMode == .horizontalLTR
             case .comments:  discussURL != nil
-            case .sharePage: currentPageURL != nil
+            case .sharePage, .pageText: currentPageURL != nil
             default:         true
             }
         }
@@ -1472,6 +1473,15 @@ struct ReaderOverlayView: View {
                 guard let url = currentPageURL else { return }
                 Task {
                     if let image = await ReaderPageActions.image(for: url) { shareImage = image }
+                    else { ReaderPageActions.say("The page isn't loaded yet") }
+                }
+            } label: { toolbarIcon(item.systemImage) }
+            .accessibilityLabel(item.title)
+        case .pageText:
+            Button {
+                guard let url = currentPageURL else { return }
+                Task {
+                    if let image = await ReaderPageActions.image(for: url) { pageTextImage = image }
                     else { ReaderPageActions.say("The page isn't loaded yet") }
                 }
             } label: { toolbarIcon(item.systemImage) }
@@ -1746,6 +1756,7 @@ struct ReaderOverlayView: View {
             Text(unreadBefore == 1 ? "1 unread chapter before this one will be marked as read."
                                    : "\(unreadBefore) unread chapters before this one will be marked as read.")
         }
+        .pageTextSheet($pageTextImage)
         .sheet(isPresented: Binding(get: { shareImage != nil }, set: { if !$0 { shareImage = nil } })) {
             if let shareImage {
                 ActivityView(items: [shareImage])

@@ -7,7 +7,7 @@ import SwiftUI
 // in long strip, comments on a source without them) is left out at that moment, not removed from the list.
 
 enum ReaderToolbarItem: String, CaseIterable, Identifiable {
-    case previousChapter, nextChapter, bookmark, markPreviousRead, readingMode, spreads, cropBorders, sharePage, comments
+    case previousChapter, nextChapter, bookmark, markPreviousRead, readingMode, spreads, cropBorders, sharePage, pageText, comments
 
     static let defaults = [ReaderToolbarItem.previousChapter, .nextChapter].map(\.rawValue)
 
@@ -23,6 +23,7 @@ enum ReaderToolbarItem: String, CaseIterable, Identifiable {
         case .spreads:          "Two-page spreads"
         case .cropBorders:      "Crop borders"
         case .sharePage:        "Share page"
+        case .pageText:         "Text on page"
         case .comments:         "Comments"
         }
     }
@@ -37,6 +38,7 @@ enum ReaderToolbarItem: String, CaseIterable, Identifiable {
         case .spreads:          "book"
         case .cropBorders:      "crop"
         case .sharePage:        "square.and.arrow.up"
+        case .pageText:         "text.viewfinder"
         case .comments:         "bubble.left.and.bubble.right"
         }
     }

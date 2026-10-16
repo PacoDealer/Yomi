@@ -21,6 +21,36 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S173 — L3d text on page / OCR (2026-10-16, simulator)
+
+- **Text on Page** (new `Features/Reader/PageText.swift`): long press a manga page → *Text on Page*, or the new reader
+  toolbar button *Text on page* (`ReaderToolbarItem.pageText`, off by default — add it in the toolbar editor). Vision
+  `RecognizeTextRequest` (accurate) on the device; lines whose boxes touch are joined into blocks (≈ one bubble), blocks
+  in reading order (rows top→bottom; right→left when the language is Japanese/Chinese or Automatic finds mostly
+  kana/hanzi; vertical columns inside a block read right→left). Sheet: **Text** tab (selectable blocks, Copy per block)
+  · **Page** tab (the page with each block outlined, tap one = copy) · Copy All (closes, toast "Text copied") ·
+  Translate (Apple's `translationPresentation` sheet) · globe menu = language (`pageTextLanguage`, default Automatic;
+  15 languages).
+- **Tall pages are read in slices** (`PageTextRecognizer.tiles`: 1.5× the width tall, a fifth overlapping, a line in an
+  overlap kept once). Without it the 900 × 16,000 px Asura page gave **"No Text Found"** — Vision scales the whole image
+  down. The Page tab draws the page in ≤ 4,000 px slices (#190: one image > 4,096 px renders black on the phone).
+- **VisionKit Live Text was tried first and dropped**: on the same page it highlighted nothing in the sim (same
+  scaling problem, or unsupported in the sim — not separated). Our own outlines work on any page and look the same.
+- **Translate is NOT on-device by default**: Apple's sheet says on first use the text goes to Apple unless the user
+  chose to always translate offline in Settings. Reading the page (OCR) never leaves the phone.
+- **Verified (sim):** Absolute Sword Sense ch. 203 page 2 (Asura, 900 × 16,000): 14 blocks, every bubble whole and in
+  order (Copy All → `simctl pbpaste` matched the page); single-block Copy → only that bubble; Page tab outlines sit on
+  the bubbles at the top and after scrolling past slice joins; tap outline → clipboard = that bubble; Translate opens
+  Apple's sheet (Continue not pressed). Build 0 warnings (Yomi + YomiWidget), UI tests 13/13.
+- NOT checked: Japanese/Chinese/Korean pages (right-to-left order and vertical columns are untested — no raw manga in
+  the sim library), the toolbar button on screen (compile only), the language menu re-run, the device.
+- Xcode updated itself to 27.1 mid-session: stale explicit modules ("malformed or corrupted precompiled file") and
+  "CoreSimulator is out of date" → delete `DerivedData/SDKExplicitPrecompiledModules` + `ModuleCache.noindex`, run
+  `xcodebuild -runFirstLaunch` (worked without sudo).
+- NEXT: L4 streak repair → CB7 → better voices (research first) → I (ROADMAP S171).
+
+---
+
 ## S172 — L3c reader extras (2026-10-16, simulator)
 
 What the four items mean was checked on Tachimanga's changelog (tachimanga.app/docs/changelogs.html), not guessed:
