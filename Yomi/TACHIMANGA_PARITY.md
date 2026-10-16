@@ -30,7 +30,7 @@ keyword is strong evidence, not proof. Supersedes older rows below where they di
 - Library: pinned sources + reorder (v2.2, v4.1); source filter include/exclude (v4.15, v5.0); tracker filters
   (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
 - Updates/downloads: refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
-  an hour (v3.4); Retry All failed downloads (v4.8); low-storage warning (v4.14).
+  an hour (v3.4); ~~Retry All failed downloads (v4.8); low-storage warning (v4.14)~~ (S162).
 - Extensions: extension details page with changelog/readme (v2.1); open a source's website without installing it
   (v4.14).
 - Trackers: MangaUpdates, MangaBaka, enhanced Komga/Kavita/Suwayomi, tracker → local progress sync, refresh, bulk
@@ -67,12 +67,12 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Reading modes | 7: Paged LTR/RTL/vertical, Continuous LTR/RTL/vertical, Webtoon | ✅ Fixed S97 — `ReaderMode` now has 6 cases (Paged RTL/LTR, Paged Vertical, Continuous RTL/LTR, Webtoon = continuous vertical). Paged-vertical uses the standard rotate-90°/counter-rotate-content TabView technique; Continuous horizontal is a new `ContinuousHorizontalReaderView` mirroring `WebtoonReaderView`'s structure. Both wired into the in-reader mode picker and Settings' default-mode picker. Live-verified: renders without crashing in the simulator; swipe-to-page interaction not independently confirmed due to the pre-existing documented mobile-mcp swipe-simulation unreliability in this environment (see `ROADMAP.md` S87) — the technique itself is SwiftUI-standard and low-risk. | ✅ Parity (6 of 7 — "Continuous vertical" intentionally treated as identical to existing Webtoon mode, not duplicated) |
 | Page Layout (double-page spreads) | Single / Double / Automatic, "Separate first page", "Invert double pages" [premium] | ✅ Fixed S98 — `pageLayout` = "single"/"double"/"automatic" (spreads in landscape, via a live `GeometryReader` width/height comparison). `MangaReaderView`'s `TabView` selection goes through a proxy `Binding` snapping any page index to its spread's start, so `currentPage` keeps its normal meaning everywhere else (progress/resume/scrubber). Tap zones move by whole spreads. S169: "Cover on its own" (= separate first page), wide pages (> 1.2) always alone, pages of different shapes don't pair (`PageSpreads`); "Invert double pages" still not implemented. Live-verified: single mode unregressed, double mode renders 2 pages side by side and advances 1→3→5. | ✅ Parity (core Single/Double/Automatic) |
 | Tap zones | 5 presets: L-Shaped, Right-And-Left, Edge, Kindle-ish, Disabled | ✅ Fixed S98 — `tapZoneLayout` now has 6 presets: `default` (thirds, unchanged), `sides` (Edge, unchanged), plus new `lShaped`/`kindle`/`rightLeft`/`disabled`. New layouts are Yomi's own reasonable interpretation of the named behaviors (not pixel-verified against Tachimanga's exact zone geometry) — all share a fixed top-center menu strip for reachability. Still a plain Picker, no visual zone-diagram. | ✅ Parity (6 presets, superset of Tachimanga's 5) |
-| Auto Webtoon detection | Not observed in Tachimanga's Reader settings | `autoWebtoonFromTags` — auto-switches by genre tags — `AppSettings.swift:203` | 🔷 Yomi ahead |
-| Autoscroll | Toggle in in-reader settings sheet | `autoScrollSpeed` (1-10s) exists in `AppSettings.swift:242`, used in `ChapterReaderView.swift` | ✅ Parity |
-| Keep screen on while reading | Listed toggle | `keepScreenOn` → `UIApplication.shared.isIdleTimerDisabled` — `ChapterReaderView.swift:192,199` | ✅ Parity |
+| Auto Webtoon detection | Not observed in Tachimanga's Reader settings | `autoWebtoonFromTags` — auto-switches by genre tags — `AppSettings.swift` | 🔷 Yomi ahead |
+| Autoscroll | Toggle in in-reader settings sheet | `autoScrollSpeed` (1-10s) exists in `AppSettings.swift`, used in `ChapterReaderView.swift` | ✅ Parity |
+| Keep screen on while reading | Listed toggle | `keepScreenOn` → `UIApplication.shared.isIdleTimerDisabled` — `ChapterReaderView.swift` | ✅ Parity |
 | Double tap to zoom | Toggle | ✅ Fixed S98 — `MangaPageView`'s double-tap previously always reset to 1x (not a real zoom toggle); now toggles between 1x and 2x. | ✅ Parity |
-| Press and hold to scroll | Toggle (Webtoon/Continuous only) | Not found | ❌ Missing |
-| Long press action menu | Toggle | Not found | ❌ Missing |
+| Press and hold to scroll | Toggle (Webtoon/Continuous only) | `ReaderPageActions.swift` (S168) | ✅ Parity |
+| Long press action menu | Toggle | Page menu share/save/copy, `ReaderPageActions.swift` (S168) | ✅ Parity |
 | Show status bar when reading | Toggle | Not found (reader likely always hides status bar) | ❌ Missing (probably fine as-is, low priority) |
 | Classic start reading button | Toggle | N/A — Yomi has no per-chapter splash screen at all (see §7) | N/A |
 | Mouse wheel speed | Slider (Mac Catalyst/iPad trackpad support) | Not found | ❌ Missing — only matters if Yomi ever targets Catalyst/iPad; low priority |
@@ -81,7 +81,7 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Swipe right to go back | Always / Disable / Disable-in-horizontal | Not found as a setting (need to check default reader nav gestures) | ❌ Missing as a *setting* (may already work as default behavior — verify) |
 | Skip duplicate chapters (scanlator dedup) | Toggle: "show only highest-priority scanlator per chapter" [premium] | No dedup logic found anywhere in chapter list loading | ❌ Missing |
 | Image saved and shared with watermark | Toggle [premium] | Not applicable / not found | ❌ Missing, low priority (arguably skip — watermarking shared piracy-source images is a Tachimanga-specific choice, not obviously desirable for Yomi) |
-| Side padding | Slider | `webtoonHorizontalPadding` (Webtoon only) `AppSettings.swift:247`; no equivalent for paged mode | 🟡 Partial |
+| Side padding | Slider | `webtoonHorizontalPadding` (Webtoon only) `AppSettings.swift`; no equivalent for paged mode | 🟡 Partial |
 | Crop borders | Toggle (in-reader settings) | ✅ S169 — `PageBorders.swift` (port of image-decoder borders.cpp, MPL-2.0) + `PageLook`; separate toggles for paged and long strip/continuous, in Settings and the reader sheet | ✅ Parity |
 | Rotation | "Follow Device" setting | Not found (check if reader currently locks orientation) | ❌ Missing as explicit setting |
 
@@ -92,8 +92,8 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Source list (Last used / Pinned / by language) | Yes | Have Browse with installed sources — pinning/grouping not confirmed, needs check | 🟡 Needs live check |
 | **Migrate tab** — move a library title from one source to another, preserving progress, with per-source match-count badges | Full dedicated tab under Browse | ✅ Fixed S98 — `MigrateView.swift`/`MigrationService.swift`, reachable from Browse's segmented control (Sources / Global search / **Migrate**). Picks a library manga, searches every other installed manga source in parallel with match-count badges, transfers reading status/notes/categories/per-chapter read-state (matched by chapterNumber) on migrate, with a replace-vs-keep-old-entry choice. Manga only (novels not covered). Live-verified end-to-end with real installed sources + direct DB inspection. | ✅ Parity |
 | Cloudflare bypass | Automatic, global toggle, configurable timeout, request-dump debug log, applies to all source types uniformly | ✅ Fixed S97 — `NovelDetailView.swift` now has the same `cfBlockedURL`/`CFBypassView` wiring as `MangaDetailView.swift`. Also fixed a deeper bug found while verifying: the CF-detection heuristic in `JSBridge.swift` only matched 403 + "Just a moment"/"cf-mitigated", missing real-world variants like Cloudflare's 1015 rate-limit page — broadened to any error status + a wider marker list. Live-verified against FreeWebNovel's real Cloudflare block. Tachimanga's configurable-timeout + request-dump-log affordances are still not matched — tracked in §9. | ✅ Parity (core bypass), 🟡 partial on debug tooling |
-| Extension repositories UI | Repo shown with URL, Copy/Discord buttons, "Add repository" (by URL or by name) | `SettingsView.swift:302-338` — text field for URL + link out to GitHub docs. No "by name" directory lookup, no per-repo Copy/Discord affordance shown for *installed* repos (only for adding new ones) | 🟡 Partial — functionally fine, less polished |
-| Show NSFW extensions/sources toggle + disclaimer copy | Yes, with disclaimer that toggle doesn't fully prevent NSFW surfacing | `showNSFW` exists (`AppSettings.swift:80`), check if SettingsView copy includes the same disclaimer | 🟡 Needs copy check |
+| Extension repositories UI | Repo shown with URL, Copy/Discord buttons, "Add repository" (by URL or by name) | `SettingsView.swift` — text field for URL + link out to GitHub docs. No "by name" directory lookup, no per-repo Copy/Discord affordance shown for *installed* repos (only for adding new ones) | 🟡 Partial — functionally fine, less polished |
+| Show NSFW extensions/sources toggle + disclaimer copy | Yes, with disclaimer that toggle doesn't fully prevent NSFW surfacing | `showNSFW` exists (`AppSettings.swift`), check if SettingsView copy includes the same disclaimer | 🟡 Needs copy check |
 
 ## 3. Library
 
@@ -103,15 +103,15 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | Default category (Always ask / specific) | Yes | ✅ Fixed S98 — `defaultCategoryId` setting auto-assigns new library adds (manga + novel) to a chosen category. "Always ask" (an interactive picker sheet on every add) not implemented — judgment call to keep scope contained; "specific category" mode covers the common case. | 🟡 Partial (specific-category mode only, no "Always ask") |
 | Show number of items (on category tabs) | Toggle | ✅ Fixed S98 — the backing query (`CategoryQueries.fetchItemCounts()`) already existed for More → Categories but was never wired into `LibraryView`'s tab bar; now toggleable via `showCategoryItemCounts`. | ✅ Parity |
 | Display Mode (grid/list) | Yes | `libraryDisplayMode` — ✅ | ✅ Parity |
-| Grid columns / items per row | Yes (stepper) | `libraryColumns` stepper in `AppearanceStudioView.swift:355` | ✅ Parity |
-| Skip updating titles (completed / not-started / excluded categories) | Yes | `skipUpdateWithUnread/NotStarted/Completed`, `excludedCategoryIds` — full parity, `SettingsView.swift:221` → `UpdatesSettingsView` | ✅ Parity |
+| Grid columns / items per row | Yes (stepper) | `libraryColumns` stepper in `AppearanceStudioView.swift` | ✅ Parity |
+| Skip updating titles (completed / not-started / excluded categories) | Yes | `skipUpdateWithUnread/NotStarted/Completed`, `excludedCategoryIds` — full parity, `SettingsView.swift` → `UpdatesSettingsView` | ✅ Parity |
 | Updates continue in background / Automatic refresh | Toggles | ✅ Fixed S101 — real `BGTaskScheduler` wiring (`com.yomi.refresh`), not just a UI toggle. See `CLAUDE.md` Known Issue #31. | ✅ Parity |
-| **Global Update** (force-refresh all sources) | Yes, top-level Library long-press action | ✅ Already existed — `UpdatesViewModel.refresh()` (`UpdatesView.swift:117`) checks every manga+novel in the library in parallel via `TaskGroup`, triggered by the refresh icon in Updates' toolbar or pull-to-refresh. Different entry point (Updates tab vs. Library context menu) but functionally equivalent. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity |
+| **Global Update** (force-refresh all sources) | Yes, top-level Library long-press action | ✅ Already existed — `UpdatesViewModel.refresh()` (`UpdatesView.swift`) checks every manga+novel in the library in parallel via `TaskGroup`, triggered by the refresh icon in Updates' toolbar or pull-to-refresh. Different entry point (Updates tab vs. Library context menu) but functionally equivalent. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity |
 | **Updates Summary** (info sheet on last global update) | Yes | ✅ Fixed S97 — `refresh()` now returns the count of newly-discovered chapters (diffing chapter-id sets before/after); `UpdatesView` shows a "N new chapters found" / "No new chapters" toast for 2s after any manual or pull-to-refresh. Live-verified rendering (temporarily extended the dismiss timer to confirm the toast text/style, then restored it). | ✅ Parity |
-| **Open random entry** | Yes | ✅ Already existed — the Shuffle toolbar icon in `LibraryView.swift:310-320` jumps to a random manga. Scoped to manga only (not novels) and unconditional (not filtered to unread) — minor gap vs. Tachimanga's version, not worth a separate fix. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity (manga only) |
+| **Open random entry** | Yes | ✅ Already existed — the Shuffle toolbar icon in `LibraryView.swift` jumps to a random manga. Scoped to manga only (not novels) and unconditional (not filtered to unread) — minor gap vs. Tachimanga's version, not worth a separate fix. Corrected from an earlier draft of this audit that wrongly called it missing. | ✅ Parity (manga only) |
 | Multi-select / bulk actions | Long-press → Select | ✅ Fixed S96, works via context menu | ✅ Parity |
 | List-mode multi-select | — | Known gap noted in Known Issue #19 — list mode has no selection entry point yet | ❌ Still open (pre-existing Yomi gap, not Tachimanga-specific) |
-| Per-card reading-status quick-set | Not observed in Tachimanga screenshots | `LibraryView.swift:127,245,861` context menu → Reading Status submenu | 🔷 Yomi ahead (unconfirmed Tachimanga doesn't have this — verify before crowing) |
+| Per-card reading-status quick-set | Not observed in Tachimanga screenshots | `LibraryView.swift` context menu → Reading Status submenu | 🔷 Yomi ahead (unconfirmed Tachimanga doesn't have this — verify before crowing) |
 
 ## 4. History / Updates / Downloads
 
@@ -120,9 +120,9 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 | History row shape (cover, chapter, time-spent, relative date, delete) | Yes | Near-identical, `HistoryView.swift` (S91) | ✅ Parity |
 | Downloads: per-manga row, byte size, delete-all | Yes | ✅ (S93) | ✅ Parity |
 | Downloads: active queue with speed + progress + Pause | "Pause" button shown live | Yomi's `DownloadManager.swift` only has `cancel(chapterId:)` — **no true pause/resume**, deliberate judgment call from S93 (rendered as ✕ instead of implying a capability that doesn't exist) | 🟡 Partial — real pause/resume would need actual implementation, not just a relabeled button |
-| Concurrent downloads setting | Yes [premium] | `concurrentDownloads` (1-5), exposed via `stepperPill` in `SettingsView.swift:216` | ✅ Parity (and free, where Tachimanga gates it) |
+| Concurrent downloads setting | Yes [premium] | `concurrentDownloads` (1-5), exposed via `stepperPill` in `SettingsView.swift` | ✅ Parity (and free, where Tachimanga gates it) |
 | Background Download toggle | Yes [premium] | ✅ Fixed S101 (and free, where Tachimanga gates it) — gated on the auto-refresh toggle above; auto-enqueues newly-discovered manga chapters. See `CLAUDE.md` Known Issue #32. | ✅ Parity (free) |
-| Delete download after reading | Yes [premium] | `deleteDownloadAfterReading` — `SettingsView.swift:209` | ✅ Parity (free) |
+| Delete download after reading | Yes [premium] | `deleteDownloadAfterReading` — `SettingsView.swift` | ✅ Parity (free) |
 | Reading Insights | Flat per-title bar-chart ranking, total hours, quote | GitHub-style contribution heatmap + streak + Most-Read list (S94) | 🔷 Yomi ahead — different approach, arguably more distinctive; not a gap |
 
 ## 5. Backup / Sync
@@ -159,7 +159,7 @@ in the manga reader); "Keep tab state" (v5.0) not looked at.
 |---|---|---|---|
 | Theme presets (Default/Green Apple/Lavender/…) | Fixed preset list [some premium] | Canvas (Ink/Midnight/Paper/Sepia) × free-form accent `ColorPicker` — `AppearanceStudioView.swift` | 🔷 Yomi ahead — more flexible (any accent color vs fixed preset palettes) |
 | Liquid glass toggle | Optional toggle | Yomi's Liquid Glass is baked into the design system everywhere, not optional | 🔷 Different by design, not a gap — flag if Martin wants an "off" switch for accessibility/performance |
-| Pure black (OLED) dark mode | Yes [premium] | ✅ `pureBlack` — `SettingsView.swift:231` | ✅ Parity (free) |
+| Pure black (OLED) dark mode | Yes [premium] | ✅ `pureBlack` — `SettingsView.swift` | ✅ Parity (free) |
 | Color blend level (slider blending accent into surfaces) | Yes | ✅ Fixed S108 — new `AppSettings.colorBlendLevel` + `Color.mix(with:amount:)`, blends `bg`/`surface1`/`surface2` toward the accent (text/hairline untouched). Wired app-wide via `\.yomiCanvas` (`ContentView.swift`'s `blendedCanvasColors`, not the raw preset) and into Appearance Studio's live preview. Live-verified at 60% on Paper: visibly tints the whole app, and the existing AA contrast badge correctly drops to "Fail" — the slider surfaces the tradeoff instead of hiding it, consistent with S101's precedent. | ✅ Parity |
 | App icon picker | Yes [premium] | ✅ `alternateIconName`, Ink/Paper icons | ✅ Parity (free) |
 | Items per row | Stepper | ✅ `libraryColumns` | ✅ Parity |

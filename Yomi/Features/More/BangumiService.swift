@@ -19,6 +19,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
     static let shared = BangumiService()
     static let displayName = "Bangumi"
     static let callbackHost = "bangumi"
+    static var isConfigured: Bool { !clientId.isEmpty && !clientSecret.isEmpty }
     private init() { loadToken() }
 
     // MARK: - State

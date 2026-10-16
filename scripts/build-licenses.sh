@@ -10,7 +10,7 @@ JAR="$ROOT/Vendor/Keiyoushi/MExtensionServer.jar"
 OUT="$ROOT/Yomi/Resources/Licenses"
 TP="$ROOT/scripts/third-party-licences"   # committed copies, so the build needs no network
 for need in "$PKGS/GRDB.swift/LICENSE" "$PKGS/Unrar.swift/Sources/Cunrar/license.txt" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
-            "$WORK/M-Extension-Server/LICENSE" "$WORK/openjdk-ios/SOURCE_MANIFEST.txt"; do
+            "$WORK/M-Extension-Server/LICENSE" "$WORK/openjdk-ios/SOURCE_MANIFEST.txt" "$TP/ported/mihon-LICENSE.txt"; do
   [ -e "$need" ] || { echo "Missing $need" >&2; exit 1; }
 done
 rm -rf "$OUT" && mkdir -p "$OUT"
@@ -72,6 +72,26 @@ for (const root of ["cheerio", "dayjs", "core-js"]) {
   echo "https://github.com/PacoDealer/Yomi/blob/main/scripts/keiyoushi-poc/patches/m-extension-server-yomi.patch"
   rule "Mozilla Public License 2.0"; cat "$WORK/M-Extension-Server/LICENSE"
 } > "$OUT/licence-m-extension-server.txt"
+
+# Code ported into Yomi's own sources (S170). MPL: the one ported file stays under the MPL and its source is linked;
+# Apache: the licence text goes with derivative code. The repo must stay public for the MPL link to work.
+{
+  echo "Yomi/Features/Reader/PageBorders.swift (crop borders) is a Swift port of borders.cpp and borders.h from"
+  echo "tachiyomiorg/image-decoder (https://github.com/tachiyomiorg/image-decoder), licensed under the Mozilla Public"
+  echo "License 2.0. That file alone is under the MPL; its source code:"
+  echo "https://github.com/PacoDealer/Yomi/blob/main/Yomi/Features/Reader/PageBorders.swift"
+  rule "Mozilla Public License 2.0"; cat "$WORK/M-Extension-Server/LICENSE"
+} > "$OUT/licence-image-decoder.txt"
+{
+  echo "Parts of Yomi are ported from or based on Mihon (https://github.com/mihonapp/mihon), Apache License 2.0,"
+  echo "changed for Yomi (Swift, Yomi's own types):"
+  echo "  Core/ChapterRecognition.swift — ChapterRecognition"
+  echo "  Core/FetchInterval.swift — FetchInterval, ReleaseSchedule, ReleasePattern"
+  echo "  Features/Reader/PageAnalysis.swift — ImageUtil.chooseBackground; two-page rules from WebGpuViewer"
+  echo "  Features/More/TallPageSplitter.swift — TallImageSplitCalculator"
+  echo "  Features/Reader/ReaderPagePrefetcher.swift — page order idea from HttpPageLoader"
+  rule "Apache License 2.0"; cat "$TP/ported/mihon-LICENSE.txt"
+} > "$OUT/licence-mihon.txt"
 
 # Libraries packed inside the extension-server jar: the list, then every licence/notice file the jar itself carries.
 {

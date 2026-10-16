@@ -19,6 +19,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
     static let shared = ShikimoriService()
     static let displayName = "Shikimori"
     static let callbackHost = "shikimori"
+    static var isConfigured: Bool { !clientId.isEmpty && !clientSecret.isEmpty }
     private init() { loadToken() }
 
     // MARK: - State

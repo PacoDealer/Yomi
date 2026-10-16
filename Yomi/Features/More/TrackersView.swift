@@ -16,9 +16,15 @@ struct TrackersView: View {
         CalmList {
             Section(calm: "Services") {
                 row("TrackerLogoMAL", MALService.displayName, isLoggedIn: mal.isLoggedIn, username: mal.username, error: mal.errorMessage) { MALView() }
-                row("TrackerLogoAniList", AniListTrackerService.displayName, isLoggedIn: aniList.isLoggedIn, username: aniList.username, error: aniList.errorMessage) { AniListView() }
-                row("TrackerLogoShikimori", ShikimoriService.displayName, isLoggedIn: shikimori.isLoggedIn, username: shikimori.username, error: shikimori.errorMessage) { ShikimoriView() }
-                row("TrackerLogoBangumi", BangumiService.displayName, wordmark: true, isLoggedIn: bangumi.isLoggedIn, username: bangumi.username, error: bangumi.errorMessage) { BangumiView() }
+                if AniListTrackerService.isConfigured {
+                    row("TrackerLogoAniList", AniListTrackerService.displayName, isLoggedIn: aniList.isLoggedIn, username: aniList.username, error: aniList.errorMessage) { AniListView() }
+                }
+                if ShikimoriService.isConfigured {
+                    row("TrackerLogoShikimori", ShikimoriService.displayName, isLoggedIn: shikimori.isLoggedIn, username: shikimori.username, error: shikimori.errorMessage) { ShikimoriView() }
+                }
+                if BangumiService.isConfigured {
+                    row("TrackerLogoBangumi", BangumiService.displayName, wordmark: true, isLoggedIn: bangumi.isLoggedIn, username: bangumi.username, error: bangumi.errorMessage) { BangumiView() }
+                }
             }
 
             Section(calm: "Progress") {

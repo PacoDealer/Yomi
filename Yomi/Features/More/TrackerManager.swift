@@ -12,6 +12,7 @@ import Foundation
 enum TrackerManager {
     static var all: [any MangaTracker] {
         [MALService.shared, AniListTrackerService.shared, ShikimoriService.shared, BangumiService.shared]
+            .filter { type(of: $0).isConfigured }
     }
 
     static var loggedInTrackers: [any MangaTracker] {
