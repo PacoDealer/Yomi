@@ -184,7 +184,7 @@ struct NovelDetailView: View {
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
         .background(canvas.bg.ignoresSafeArea())
-        .refreshable { await loadChapters() }
+        .refreshable { await loadChapters(force: true) }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : "")
@@ -349,7 +349,7 @@ struct NovelDetailView: View {
         .sheet(isPresented: $showCFBypass) {
             CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
                 bridge?.clearCFBlock()
-                Task { await loadChapters() }
+                Task { await loadChapters(force: true) }
             }
         }
         .photosPicker(isPresented: $showCoverPicker, selection: $selectedCoverItem, matching: .images)
@@ -1006,13 +1006,15 @@ struct NovelDetailView: View {
         bridge?.clearCFBlock()
         isBypassing = false
         if success {
-            await loadChapters()
+            await loadChapters(force: true)
         } else {
             autoBypassFailed = true
         }
     }
 
-    private func loadChapters() async {
+    /// `force` = pull to refresh (or a retry): always asks the source. Otherwise a library novel checked within the
+    /// hour (L3a, S171, Tachimanga v3.4) keeps the saved chapters it shows first.
+    private func loadChapters(force: Bool = false) async {
         isLoadingChapters = true
         let novelId = novel.id
         let path = novel.path
@@ -1051,6 +1053,12 @@ struct NovelDetailView: View {
                 (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
             }.value
             chapters = saved
+            isLoadingChapters = false
+            return
+        }
+
+        if !force, novel.inLibrary, !chapters.isEmpty, AppSettings.shared.detailRefreshHourly,
+           await Task.detached(operation: { (try? UpdateScheduleQueries.checkedRecently(.novel, id: novelId)) ?? false }).value {
             isLoadingChapters = false
             return
         }
@@ -1100,8 +1108,10 @@ struct NovelDetailView: View {
 
         if novel.inLibrary {
             // Persist to DB (INSERT OR IGNORE — preserves existing isRead/readingSeconds)
+            let checked = !fetched.isEmpty
             await Task.detached {
                 try? NovelQueries.insertAllIgnoringConflicts(fetched)
+                if checked { try? UpdateScheduleQueries.markChecked(.novel, id: novelId) }
             }.value
 
             // Re-fetch from DB to merge persisted read state

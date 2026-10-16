@@ -24,11 +24,12 @@ nonisolated enum UpdateScheduleQueries {
     /// Mihon's `awaitUpdateFetchInterval` after a successful check. Recomputed when the check found chapters, when
     /// it was never worked out, or when the stored next update is already behind the window — otherwise kept, so a
     /// title waiting on its expected day keeps that day. `lastUpdate` is the title's `lastUpdatedAt` from BEFORE this
-    /// check touched it.
+    /// check touched it. Also stamps `lastCheckedAt` (v29), so opening the title within the hour skips the source.
     nonisolated static func recordCheck(_ kind: Kind, id: String, foundRelease: Bool, lastUpdate: Date?,
                                         now: Date = Date(), calendar: Calendar = .current) throws {
         let window = FetchInterval.window(now: now, calendar: calendar)
         _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE \(kind.table) SET lastCheckedAt = ? WHERE id = ?", arguments: [now, id])
             guard let row = try Row.fetchOne(db, sql: "SELECT fetchInterval, nextUpdate FROM \(kind.table) WHERE id = ?",
                                              arguments: [id]) else { return }
             let fetchInterval: Int = row["fetchInterval"]
@@ -49,6 +50,23 @@ nonisolated enum UpdateScheduleQueries {
                                               foundRelease: foundRelease)
             try db.execute(sql: "UPDATE \(kind.table) SET fetchInterval = ?, nextUpdate = ? WHERE id = ?",
                            arguments: [update.fetchInterval, update.nextUpdate, id])
+        }
+    }
+
+    /// The title was just checked against its source (v29) — by a library refresh or by opening it.
+    nonisolated static func markChecked(_ kind: Kind, id: String, at date: Date = Date()) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE \(kind.table) SET lastCheckedAt = ? WHERE id = ?", arguments: [date, id])
+        }
+    }
+
+    /// Whether opening the title should skip the source: checked less than `maxAge` ago (Tachimanga v3.4, once an hour).
+    nonisolated static func checkedRecently(_ kind: Kind, id: String, maxAge: TimeInterval = 3600,
+                                            now: Date = Date()) throws -> Bool {
+        try appDatabase.read { db in
+            guard let last = try Date.fetchOne(db, sql: "SELECT lastCheckedAt FROM \(kind.table) WHERE id = ?",
+                                               arguments: [id]) else { return false }
+            return now.timeIntervalSince(last) < maxAge && last <= now
         }
     }
 
