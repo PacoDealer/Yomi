@@ -67,8 +67,31 @@ recognition 103, fetch interval 54, reader pages 26/26); `main` clean and = `ori
 LNReader checklist · L3 parity leftovers above, ranked by Martin's daily use · L4 CB7, neural voices, streak repair
 (ask Martin if wanted).
 
-NEXT (S171): K first (docs + licences rows + hide empty trackers — small, no decisions) → H → G → L → I (ask which) →
-CloudKit deploy + personal build + J device check.
+**Same session — K, H, G done (simulator; build 0 warnings app + widget; UI tests 13/13):**
+- **K** (`7f62239`): licences rows "Ported code" (Mihon Apache-2.0, image-decoder MPL-2.0 + link to PageBorders.swift);
+  trackers without a client id hidden (`MangaTracker.isConfigured`; sim: only MyAnimeList listed); #156–#162 doc drift
+  fixed (stale `Firebase/yomi-firebase/` → Trash); stale KNOWN_ISSUES rows closed, header list rewritten; ArcReader ticks.
+- **H** (`13a8e7c`): `PluginScript.validate` (HTTP 2xx, not HTML, JSC syntax check, optional catalog `sha256`), atomic
+  write, previous script kept → long-press "Go Back to Version x"; catalog entries decoded one by one; repositories
+  merged in configured order; repository-aware matching (#171). `scripts/plugin-trust-tests` 14/14 + 301 LNReader + 22
+  Yomi plugins pass. Sim end-to-end against a local test repository (broken entry skipped, wrong hash and web page
+  refused with their messages, update + restore byte-identical). `scripts/catalog-hashes.py` = Firebase predeploy hook:
+  **hashes go live with Martin's next `firebase deploy --only hosting:plugins`** (local files == live files, checked).
+  #153 closed as not a bug (Firebase clears the CDN on deploy).
+- **G** (this commit): Library filter menu → **Sources** submenu (tap cycles show only → hide → all; "Show All
+  Sources" on top; duplicate names say Plugin/Keiyoushi) — sim: only Local = 9 manga, hide Local = 148 of 157, survives
+  relaunch. **Per-category sort** (`librarySortByCategory`; "Sort · Action" header; All keeps the old global key) — sim:
+  Action alphabetical while All stays Last Read. **Pinned sources** (context menu Pin/Unpin on Browse rows and Keiyoushi
+  language rows → "Pinned" section above Last Used, `pinnedSourceKeys`) — sim, survives relaunch. **LNReader plugin
+  filters**: the shim's `FilterTypes` was `{}` (every filter type undefined) → LNReader's real enum; `PluginFilter` +
+  `PluginFilterSheet` (Text, Picker, Checkbox, Switch, include/exclude groups); `popularNovels(page:filters:)` sends the
+  chosen values. Sim with LNReader's own Royal Road (link install): sheet listed its 11 filters, Genres → Historical
+  included → Apply → a different list, filled filter icon. Yomi's own plugins declare no filters (none to show).
+- NOT checked: the Continue row ignores the source filter (by design for now — it is reading history); the text
+  fields in the filter sheet (automation can't type there); Keiyoushi language-row pin; anything on the phone.
+
+NEXT (S171): L (L1 library query time, L2 novel reader vs LNReader checklist, L3 parity leftovers, L4 ask) → I (ask
+Martin which) → CloudKit schema deploy + Firebase deploy (hashes) + personal build + J device check.
 
 ---
 

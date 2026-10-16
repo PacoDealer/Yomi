@@ -121,6 +121,7 @@ struct BrowseView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     searchPill
+                    if !pinnedItems.isEmpty { sourceSection("Pinned", pinnedItems) }
                     if !recentItems.isEmpty { sourceSection("Last Used", recentItems) }
                     if !mangaItems.isEmpty { sourceSection("Manga", mangaItems, count: mangaItems.count) }
                     if !novelItems.isEmpty { sourceSection("Novels", novelItems, count: novelItems.count) }
@@ -154,10 +155,18 @@ struct BrowseView: View {
     private var mangaItems: [BrowseSourceItem] { sorted(allItems.filter { !$0.isNovel }) }
     private var novelItems: [BrowseSourceItem] { sorted(allItems.filter(\.isNovel)) }
 
-    /// The last 3 sources opened, most recent first. A Keiyoushi entry is one language of an extension, so it opens
-    /// that language directly.
+    /// The last 3 sources opened, most recent first, leaving out pinned ones (they're listed above). A Keiyoushi
+    /// entry is one language of an extension, so it opens that language directly.
     private var recentItems: [BrowseSourceItem] {
-        let items: [BrowseSourceItem] = settings.recentSourceKeys.compactMap { key in
+        let pinned = Set(settings.pinnedSourceKeys)
+        return Array(items(for: settings.recentSourceKeys.filter { !pinned.contains($0) }).prefix(3))
+    }
+
+    /// Pinned sources in pin order (context menu → Pin, S170). Uninstalled ones drop out until reinstalled.
+    private var pinnedItems: [BrowseSourceItem] { items(for: settings.pinnedSourceKeys) }
+
+    private func items(for keys: [String]) -> [BrowseSourceItem] {
+        keys.compactMap { key in
             if let id = BrowseSourceKey.pluginId(key),
                let ext = extensionManager.installed.first(where: { $0.id == id }) {
                 return .plugin(ext, isNovel: pluginIsNovel[id] ?? false)
@@ -169,7 +178,14 @@ struct BrowseView: View {
             }
             return nil
         }
-        return Array(items.prefix(3))
+    }
+
+    @ViewBuilder
+    private func pinButton(_ key: String) -> some View {
+        let pinned = settings.pinnedSourceKeys.contains(key)
+        Button { settings.togglePinned(key) } label: {
+            Label(pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin")
+        }
     }
 
     /// "Manga      5" — the Library's Apple Music-style section title (S138/S140).
@@ -225,6 +241,7 @@ struct BrowseView: View {
             }
             .buttonStyle(.plain)
             .contextMenu {
+                pinButton(BrowseSourceKey.plugin(ext.id))
                 Button(role: .destructive) {
                     extensionManager.remove(ext)
                 } label: {
@@ -247,6 +264,10 @@ struct BrowseView: View {
                           isNSFW: ext.info.isNSFW, isMihonIcon: true)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                // One language pins that language; an extension with several is pinned from its language list.
+                if sources.count == 1, let only = sources.first { pinButton(BrowseSourceKey.keiyoushi(only.id)) }
+            }
         case .keiyoushiSource(let ext, let source):
             NavigationLink {
                 KeiyoushiBrowseView(source: source)
@@ -255,6 +276,7 @@ struct BrowseView: View {
                           subtitle: "\(SourceLanguage.displayName(for: source.lang)) · Manga\(origin)", isNSFW: ext.info.isNSFW, isMihonIcon: true)
             }
             .buttonStyle(.plain)
+            .contextMenu { pinButton(BrowseSourceKey.keiyoushi(source.id)) }
         }
     }
 
@@ -922,6 +944,10 @@ struct SourceBrowseView: View {
     /// Known Issue #9) — paired with the dedup check below, which is the primary termination signal.
     private let maxPage = 300
     @State private var showCFBypass = false
+    /// The plugin's own filters (LNReader `plugin.filters`, S170): its defaults, and what's applied (nil = defaults).
+    @State private var filterDefaults: [PluginFilter] = []
+    @State private var appliedFilters: [PluginFilter]? = nil
+    @State private var showFilters = false
     @State private var bypassAttempted = false
     @State private var isBypassing = false
     @State private var autoBypassFailed = false
@@ -1063,6 +1089,17 @@ struct SourceBrowseView: View {
             }
         }
         .toolbar {
+            if !filterDefaults.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showFilters = true
+                    } label: {
+                        Image(systemName: appliedFilters == nil ? "line.3.horizontal.decrease.circle"
+                                                                : "line.3.horizontal.decrease.circle.fill")
+                    }
+                    .accessibilityLabel("Filters")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showCFBypass = true
@@ -1070,6 +1107,13 @@ struct SourceBrowseView: View {
                     Image(systemName: "shield.slash")
                 }
                 .help("Bypass Cloudflare")
+            }
+        }
+        .sheet(isPresented: $showFilters) {
+            PluginFilterSheet(defaults: filterDefaults, draft: appliedFilters ?? filterDefaults) { chosen in
+                appliedFilters = chosen == filterDefaults ? nil : chosen
+                // LNReader's filters apply to the browse list, not to Latest.
+                if selectedFeed == .latest { selectedFeed = .popular } else { Task { await loadContent() } }
             }
         }
         .sheet(isPresented: $showCFBypass) {
@@ -1135,13 +1179,16 @@ struct SourceBrowseView: View {
         // isLNReaderPlugin must be read inside the same Task.detached as the JSContext work it
         // gates — JSContext is only ever safe to touch off the main actor (see JSBridge's own rule).
         let currentFeed = selectedFeed
+        let filters = appliedFilters
+        let needsFilterList = filterDefaults.isEmpty
         enum ContentResult {
-            case novels([NovelItem])
+            case novels([NovelItem], filtersJSON: String?)
             case mangas([Manga], hasLatest: Bool)
         }
         let result = await Task.detached(priority: .userInitiated) { () -> ContentResult in
             if b.isLNReaderPlugin {
-                return .novels(currentFeed == .latest ? b.latestNovels(page: 1) : b.popularNovels(page: 1))
+                let items = currentFeed == .latest ? b.latestNovels(page: 1) : b.popularNovels(page: 1, filters: filters)
+                return .novels(items, filtersJSON: needsFilterList ? b.lnreaderFiltersJSON : nil)
             } else {
                 let hasLatest = b.supportsLatest
                 let list: [Manga]
@@ -1155,9 +1202,10 @@ struct SourceBrowseView: View {
         }.value
 
         switch result {
-        case .novels(let items):
+        case .novels(let items, let filtersJSON):
             isNovelSource = true
             supportsLatest = true
+            if let filtersJSON { filterDefaults = PluginFilter.parse(filtersJSON) }
             novels = items.map { item in
                 Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
                       title: item.name, coverURL: URL(string: item.cover ?? ""),
@@ -1189,10 +1237,11 @@ struct SourceBrowseView: View {
         let nextPage = currentPage + 1
         let sourceId = ext.id
         let feed = selectedFeed
+        let filters = appliedFilters
 
         if isNovelSource {
             let items = await Task.detached(priority: .userInitiated) {
-                feed == .latest ? b.latestNovels(page: nextPage) : b.popularNovels(page: nextPage)
+                feed == .latest ? b.latestNovels(page: nextPage) : b.popularNovels(page: nextPage, filters: filters)
             }.value
             let existingIds = Set(novels.map { $0.id })
             let newNovels = items
