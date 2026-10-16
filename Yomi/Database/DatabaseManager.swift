@@ -403,6 +403,14 @@ final class DatabaseManager {
             }
         }
 
+        // L3a (S171): when a library title was last checked against its source — by a refresh or by opening it. Opening
+        // asks the source again only after an hour (Tachimanga v3.4). Device-local like v27, not in the model or sync.
+        migrator.registerMigration("v29_last_checked") { db in
+            for table in ["manga", "novel"] {
+                try db.alter(table: table) { t in t.add(column: "lastCheckedAt", .datetime) }
+            }
+        }
+
         try migrator.migrate(db)
     }
 

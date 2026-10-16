@@ -29,8 +29,8 @@ keyword is strong evidence, not proof. Supersedes older rows below where they di
   custom reader toolbar (v5.1).
 - Library: pinned sources + reorder (v2.2, v4.1); source filter include/exclude (v4.15, v5.0); tracker filters
   (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
-- Updates/downloads: refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
-  an hour (v3.4); ~~Retry All failed downloads (v4.8); low-storage warning (v4.14)~~ (S162).
+- Updates/downloads: ~~refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
+  an hour (v3.4)~~ (S171 L3a; Yomi's own manga plugins have no details call); ~~Retry All failed downloads (v4.8); low-storage warning (v4.14)~~ (S162).
 - Extensions: extension details page with changelog/readme (v2.1); open a source's website without installing it
   (v4.14).
 - Trackers: MangaUpdates, MangaBaka, enhanced Komga/Kavita/Suwayomi, tracker → local progress sync, refresh, bulk

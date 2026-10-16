@@ -143,7 +143,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             skipNotExpected: AppSettings.shared.skipUpdateNotExpected,
             excludedIds: Set(AppSettings.shared.excludedCategoryIds),
             notify: AppSettings.shared.sendUpdateNotifications,
-            autoDownload: AppSettings.shared.backgroundDownloadEnabled)
+            autoDownload: AppSettings.shared.backgroundDownloadEnabled,
+            refreshMetadata: AppSettings.shared.updateRefreshMetadata)
 
         // The skip rules read the DB per title — do that off the main thread, once, before counting.
         let targets: [UpdateTarget]
@@ -298,6 +299,44 @@ private struct NovelReaderDest: Identifiable, Hashable {
         return true
     }
 
+    // MARK: Covers and details (L3a, S171)
+    //
+    // Unlike the detail screens (which only fill what's missing), a refresh takes the source's value wherever it gives
+    // one: that is the point — a new cover, a status that turned Completed. Empty values keep the saved ones. A custom
+    // cover is a separate column and still wins on screen.
+
+    nonisolated private static func applying(_ detail: KeiyoushiManga, to manga: Manga) -> Manga {
+        var m = manga
+        if let v = detail.description, !v.isEmpty { m.summary = v }
+        if let v = detail.author, !v.isEmpty { m.author = v }
+        if let v = detail.artist, !v.isEmpty { m.artist = v }
+        let genres = KeiyoushiMapping.genres(detail.genre)
+        if !genres.isEmpty { m.genres = genres }
+        let status = KeiyoushiMapping.status(detail.status)
+        if status != .unknown { m.status = status }
+        if let cover = detail.thumbnail_url.flatMap({ URL(string: $0) }) { m.coverURL = cover }
+        return m
+    }
+
+    nonisolated private static func applying(_ meta: (summary: String?, status: String?, coverURL: URL?),
+                                             to manga: Manga) -> Manga {
+        var m = manga
+        if let v = meta.summary, !v.isEmpty { m.summary = v }
+        if let v = meta.status, let status = MangaStatus(rawValue: v.lowercased()), status != .unknown { m.status = status }
+        if let cover = meta.coverURL { m.coverURL = cover }
+        return m
+    }
+
+    nonisolated private static func applying(_ source: SourceNovel, to novel: Novel) -> Novel {
+        var n = novel
+        if let v = source.summary, !v.isEmpty { n.summary = v }
+        if let v = source.author, !v.isEmpty { n.author = v }
+        if let v = source.status, !v.isEmpty { n.status = v }
+        if !source.genres.isEmpty { n.genres = source.genres }
+        if let v = source.cover, !v.isEmpty, let cover = URL(string: v) { n.coverURL = cover }
+        return n
+    }
+
     private func notify(title: String, count: Int, id: String, type: String, settings: RefreshSettings) {
         guard settings.notify, count > 0 else { return }
         NotificationManager.shared.scheduleChapterNotification(mangaTitle: title, newCount: count,
@@ -311,6 +350,14 @@ private struct NovelReaderDest: Identifiable, Hashable {
             return .failed("Extension not installed")
         }
         guard KeiyoushiJVMHost.isAvailable else { return .failed("Keiyoushi needs the iPhone build") }
+
+        // L3a (S171): covers and details. A failure here is not the check failing — the chapters still decide that.
+        var refreshed = manga
+        if settings.refreshMetadata,
+           let detail = try? await KeiyoushiBridge.shared.details(sourceId: sourceId, mangaURL: manga.path) {
+            refreshed = Self.applying(detail, to: manga)
+        }
+        let manga = refreshed
 
         let items: [KeiyoushiChapter]
         do {
@@ -330,6 +377,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             let localIds = Set(local.map(\.id))
             let new = remote.filter { !localIds.contains($0.id) }
             try? ChapterQueries.refreshPaths(remote.filter { localIds.contains($0.id) })
+            if settings.refreshMetadata { try? MangaQueries.updateSourceMetadata(manga) }
             let found = !new.isEmpty && Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga)
             try? UpdateScheduleQueries.setUploadDates(uploadDates)
             try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
@@ -349,8 +397,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
 
         let bridge = await ExtensionManager.shared.loadBridge(for: ext)
-        let remoteChapters = await Task.detached(priority: .background) {
-            return bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
+        let (remoteChapters, meta) = await Task.detached(priority: .background) {
+            let chapters = bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
+            return (chapters, bridge?.lastMangayomiMeta)
         }.value
 
         // A plugin swallows its own JS exceptions and returns an empty list on failure; a library title always
@@ -363,6 +412,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             let new = remoteChapters.filter { !localIds.contains($0.id) }
             let found = !new.isEmpty
                 && Self.saveNew(new, remoteCount: remoteChapters.count, localCount: local.count, manga: manga)
+            // L3a (S171): only Mangayomi plugins return details here — Yomi's own manga plugins have no details call.
+            if settings.refreshMetadata, let meta { try? MangaQueries.updateSourceMetadata(Self.applying(meta, to: manga)) }
             try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
             return new
         }.value
@@ -393,8 +444,10 @@ private struct NovelReaderDest: Identifiable, Hashable {
         // Same reasoning as the manga path: no chapters back for a library title means the fetch failed.
         guard let source, !source.chapters.isEmpty else { return .failed("The source returned no chapters") }
 
+        let refreshed = settings.refreshMetadata ? Self.applying(source, to: novel) : nil
         let localChapters = await Task.detached(priority: .utility) {
-            (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
+            if let refreshed { try? NovelQueries.updateSourceMetadata(refreshed) }
+            return (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
         }.value
         let localPaths = Set(localChapters.map { $0.path })
 
@@ -514,6 +567,7 @@ private struct RefreshSettings: Sendable {
     let excludedIds: Set<String>
     let notify: Bool
     let autoDownload: Bool
+    let refreshMetadata: Bool
 }
 
 private struct UpdateFeedGroup: Identifiable {

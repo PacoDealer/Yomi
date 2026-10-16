@@ -434,6 +434,16 @@ struct UpdatesSettingsView: View {
             } header: { CalmSectionHeader("Don't Check") } footer: {
                 Text("Skipped titles don't appear in the Updates Summary.")
             }
+            Section {
+                Toggle(isOn: $settings.updateRefreshMetadata) {
+                    Text("Covers and details")
+                    Text("Also updates each title's cover, summary, status and genres. Keiyoushi titles need one more request each.")
+                }
+                Toggle(isOn: $settings.detailRefreshHourly) {
+                    Text("Refresh a title at most once an hour")
+                    Text("Opening a title shows its saved chapters and asks the source again after an hour. Pull down to refresh any time.")
+                }
+            } header: { CalmSectionHeader("Refreshing") }
         }
         .navigationTitle("Update Rules")
         .navigationBarTitleDisplayMode(.inline)

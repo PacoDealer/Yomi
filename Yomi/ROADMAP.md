@@ -49,6 +49,28 @@ Order (small + daily-use first): L3a refresh metadata → L3b extension details 
 repair → CB7 → better voices (research first: size, licence, quality vs iOS Premium voices) → I → CloudKit schema
 deploy + personal build + J.
 
+
+**L3a done (same session, simulator) — covers + details during updates, and opening a title at most once an hour:**
+- **Update rules → "Refreshing"** (new section): *Covers and details* (`updateRefreshMetadata`, default ON — Mihon's is
+  off; novels/Mangayomi cost nothing extra) and *Refresh a title at most once an hour* (`detailRefreshHourly`, default
+  ON; before, every open hit the source).
+- **Refresh:** novels (Yomi + LNReader plugins) take cover/summary/author/status/genres from the `parseNovel` they
+  already did; Keiyoushi asks `details` first (one more JVM request, failure not fatal); Mangayomi plugins use
+  `lastMangayomiMeta`. The source's value replaces the saved one wherever it gives one (the detail screens still only
+  fill gaps); custom covers still win on screen. **Not covered: Yomi's own manga plugins (Asura, Comick, …) — they have
+  no details function**, their covers/summaries come from browse results only. Adding a `getMangaDetails` to them =
+  plugin change + Firebase deploy (later, if Martin wants it).
+- **v29 `lastCheckedAt`** on manga/novel (device-local, raw SQL like v27, not in the model or sync), stamped by every
+  successful refresh check (`recordCheck`) and every successful source fetch on a detail screen. Detail screens skip
+  the source when the title is in the library, has saved chapters on screen and was checked < 1 h ago; pull to refresh,
+  the Cloudflare retry and a Keiyoushi install always force. The skip still loads the bridge (reader needs it) and
+  re-reads the saved chapters (download deletes show).
+- **Verified (sim):** Absolute Regression (Asura) — first open = 1 request + stamp, second open = 0 requests (Pulse
+  log), pull to refresh = 1 request + new stamp. Two novels planted with summary "STALE S171" + a fake cover → Updates
+  refresh restored both from the source (A Regressor's Tale even got the source's NEW cover, .webp → .png); the not-due
+  novel was skipped as before. Settings screen shows the section. Build 0 warnings; UI tests 13/13.
+- NOT checked: Keiyoushi (needs the iPhone build), Mangayomi plugins, the device.
+
 ---
 
 ## S170 — catch-up audit + three decisions (2026-10-15, no app code changed)
