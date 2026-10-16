@@ -76,7 +76,7 @@ LNReader checklist · L3 parity leftovers above, ranked by Martin's daily use ·
   merged in configured order; repository-aware matching (#171). `scripts/plugin-trust-tests` 14/14 + 301 LNReader + 22
   Yomi plugins pass. Sim end-to-end against a local test repository (broken entry skipped, wrong hash and web page
   refused with their messages, update + restore byte-identical). `scripts/catalog-hashes.py` = Firebase predeploy hook:
-  **hashes go live with Martin's next `firebase deploy --only hosting:plugins`** (local files == live files, checked).
+  **DEPLOYED 2026-10-16 by Martin** (after `firebase login --reauth`): live check 16/16 catalog hashes match the live files.
   #153 closed as not a bug (Firebase clears the CDN on deploy).
 - **G** (this commit): Library filter menu → **Sources** submenu (tap cycles show only → hide → all; "Show All
   Sources" on top; duplicate names say Plugin/Keiyoushi) — sim: only Local = 9 manga, hide Local = 148 of 157, survives
@@ -91,7 +91,7 @@ LNReader checklist · L3 parity leftovers above, ranked by Martin's daily use ·
   fields in the filter sheet (automation can't type there); Keiyoushi language-row pin; anything on the phone.
 
 NEXT (S171): L (L1 library query time, L2 novel reader vs LNReader checklist, L3 parity leftovers, L4 ask) → I (ask
-Martin which) → CloudKit schema deploy + Firebase deploy (hashes) + personal build + J device check.
+Martin which) → CloudKit schema deploy + personal build + J device check.
 
 ---
 
