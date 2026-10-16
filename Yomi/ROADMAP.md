@@ -82,8 +82,8 @@ one per source). **Keiyoushi sources** listed (turned-on languages first, others
 `KeiyoushiSourceSettingsView` = per-extension settings from the Extensions list. Yomi/LNReader plugins have no settings
 mechanism — nothing to show. Mihon's changelog/readme: no repository format carries one, skipped.
 - **Firebase `public/index.json` now has `site` for all 16 Yomi plugins** (hashes unchanged; backup
-  `Firebase/index.json.before-S171`) — **NOT deployed**: until Martin runs the deploy, Yomi's own plugins show no
-  Website button (LNReader + Keiyoushi already do).
+  `Firebase/index.json.before-S171`) — **DEPLOYED 2026-10-16 by Martin**; live check: 16/16 entries have `site` and
+  `sha256`.
 - **Verified (sim):** Asura (installed Yomi plugin) page; Keiyoushi WuxiaWorld (not installed) → Website opened
   wuxiaworld.site, Cloudflare passed in the same view; LNReader Arcane Translations → Website button + row, Add → "Added"
   + Remove appear live, Remove → confirm → back to the list with Add again. Build 0 warnings, UI tests 13/13.

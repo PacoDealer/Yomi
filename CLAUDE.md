@@ -30,7 +30,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   details (novels, Keiyoushi, Mangayomi — Yomi's own manga plugins have NO details call); opening a library title asks
   the source at most once an hour (v29 `lastCheckedAt`, pull to refresh forces); Update rules → Refreshing.
   **L3b:** tap an Extensions row → `ExtensionDetailView` (Website in `CFBypassView(isWebsite:)` without installing,
-  `PluginCatalogEntry.site`; Keiyoushi sources → their settings). Firebase `index.json` has `site` — **not deployed**.
+  `PluginCatalogEntry.site`; Keiyoushi sources → their settings). Firebase `index.json` `site` deployed (16/16 live).
   NEXT: L3c reader extras → L3d OCR → L4 → I (ROADMAP S171).
 - **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
   **MPL-2.0 port**, kept — ROADMAP S170), two-page spreads via `PageSpreads` (cover alone option,
