@@ -142,7 +142,7 @@ struct EnclosingScrollViewFinder: UIViewRepresentable {
     }
 }
 
-// MARK: - Page menu (long press: Share · Save to Photos · Copy)
+// MARK: - Page menu (long press: Share · Save to Photos · Copy · Text on Page)
 
 enum ReaderPageActions {
     /// Posted with a message for the reader's toast (`object` = String).
@@ -181,6 +181,7 @@ private struct ReaderPageMenu: ViewModifier {
 
     @State private var showMenu = false
     @State private var shareImage: UIImage? = nil
+    @State private var textImage: UIImage? = nil
 
     func body(content: Content) -> some View {
         content
@@ -205,6 +206,9 @@ private struct ReaderPageMenu: ViewModifier {
                         ReaderPageActions.say("Page copied")
                     }
                 }
+                Button("Text on Page") {
+                    Task { if let image = await ReaderPageActions.image(for: url) { textImage = image } else { failed() } }
+                }
             }
             .sheet(isPresented: Binding(get: { shareImage != nil }, set: { if !$0 { shareImage = nil } })) {
                 if let shareImage {
@@ -213,6 +217,7 @@ private struct ReaderPageMenu: ViewModifier {
                         .ignoresSafeArea()
                 }
             }
+            .pageTextSheet($textImage)
     }
 
     private func failed() { ReaderPageActions.say("The page isn't loaded yet") }
@@ -227,6 +232,15 @@ struct ActivityView: UIViewControllerRepresentable {
 }
 
 extension View {
+    /// "Text on Page" (L3d) for the image in `image`; setting it to nil closes the sheet.
+    func pageTextSheet(_ image: Binding<UIImage?>) -> some View {
+        sheet(isPresented: Binding(get: { image.wrappedValue != nil }, set: { if !$0 { image.wrappedValue = nil } })) {
+            if let page = image.wrappedValue {
+                PageTextSheet(image: page).presentationDetents([.medium, .large])
+            }
+        }
+    }
+
     /// Long press on a reader page opens Share / Save to Photos / Copy for that page. Off while `enabled` is false
     /// (long strip with long press set to auto-scroll or scroll-while-held).
     func readerPageMenu(url: String, enabled: Bool = true) -> some View {

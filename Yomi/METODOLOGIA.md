@@ -2343,3 +2343,19 @@ previously here was removed during the 2026-08-04 doc restructure.
   hits another domain (S171 lesson, confirmed).
 - **Screenshots of a scroll indicator need a recording** — XcodeBuildMCP's swipe waits ~2.5 s, the bar has faded by
   then; `simctl io recordVideo` + ffmpeg frames work, but a thin bar over artwork is still hard to see.
+
+
+## S173 lessons
+
+- **Vision / VisionKit scale the whole image down.** A 900 × 16,000 px webtoon page gave zero text; slicing it into
+  pieces about 1.5× as tall as wide (with overlap, dedupe by the slice's core band) found every bubble. Test OCR on the
+  tallest real page, not a short one.
+- **Read the system sheet before claiming privacy.** Apple's Translation sheet sends text to Apple by default — the
+  first draft's comment said "nothing is sent anywhere".
+- **mobile-mcp's long press brings its own runner app to the front** (Yomi looked crashed — same pid, just
+  backgrounded). Stay on XcodeBuildMCP `long_press` with an element ref; `simctl launch` brings the app back.
+- **XcodeBuildMCP `screenshot` can return a stale frame** right after a sheet opens; `simctl io … screenshot` is fresh.
+  `simctl pbpaste <sim>` reads what the app copied — proof for copy features.
+- **An Xcode auto-update mid-session** breaks builds two ways: stale explicit modules and an old CoreSimulator. Fix:
+  delete `DerivedData/SDKExplicitPrecompiledModules` + `ModuleCache.noindex`, then `xcodebuild -runFirstLaunch`.
+

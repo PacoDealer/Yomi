@@ -24,11 +24,15 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S172 — 2026-10-16)
+## Current state (S173 — 2026-10-16)
+- **S173 (sim):** L3d **Text on Page** (`Features/Reader/PageText.swift`): long press a page or toolbar button
+  `pageText` → Vision OCR on the device, blocks in reading order, Copy / Copy All / tap an outline on the page /
+  Translate (Apple's sheet — sends to Apple unless offline translation is set). Tall pages read in slices
+  (`PageTextRecognizer.tiles`). CJK pages untested. NEXT: L4 streak repair → CB7 → better voices → I (ROADMAP S171/S173).
 - **S172 (sim):** L3c reader extras — Swap the two pages (`doublePageInvert`), Pinch to zoom off (`readerPinchZoom`;
   zoom was already "strict" 1×–4×), Scroll bar (`readerScrollIndicator`), **custom reader toolbar**
   (`readerToolbarItems`, `Features/Reader/ReaderToolbar.swift`: bookmark, mark previous read — unread only, reading
-  mode, spreads, crop, share page, comments). NEXT: L3d OCR → L4 → I (ROADMAP S171/S172).
+  mode, spreads, crop, share page, text on page, comments).
 - **S171 (sim):** L1 library load measured on the phone's DB (149–212 ms, no hangs, no fix) · L2 novel reader already
   matches LNReader's checklist · Martin wants ALL of L3 + L4 (order in ROADMAP S171). **L3a:** refresh takes covers +
   details (novels, Keiyoushi, Mangayomi — Yomi's own manga plugins have NO details call); opening a library title asks
