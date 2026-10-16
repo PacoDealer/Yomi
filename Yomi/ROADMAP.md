@@ -21,6 +21,57 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S170 — catch-up audit + three decisions (2026-10-15, no app code changed)
+
+Martin asked: check that everything we said we'd do was done, and research + decide the open questions.
+**Audit:** every ✅ in THE PLAN A–F (S161–S169) exists in code (`ReaderPagePrefetcher`, `TallPageSplitter`,
+`PageListCache`, `FetchInterval`, v28 migration, `ReaderPageActions`, `PageBorders`/`PageAnalysis`/`ReaderPageLook`,
+`KeiyoushiFilter`, `KeiyoushiSourceSettingsView`, `ComicArchive`); the three ported suites pass today (chapter
+recognition 103, fetch interval 54, reader pages 26/26); `main` clean and = `origin/main`.
+**Promised but dropped (not in THE PLAN, now added as group L below):**
+- S159 leftovers: library query time with Martin's 148-title library (signpost `LoadLibrary` exists, never recorded);
+  novel reader vs the LNReader checklist (report §"Novel reader") — never read through.
+- TACHIMANGA_PARITY "Missing" lines THE PLAN skipped: refresh metadata + covers during updates (v4.18); auto-refresh a
+  detail screen once an hour (v3.4); extension details page + open a source's website without installing (v2.1, v4.14);
+  per-extension settings reachable from the Extensions list (S157: only from the source's Browse screen); double-page
+  "invert"; strict scale / scroll indicator; copy text / OCR; custom reader toolbar; tracker items (v5.0).
+- CB7/7z archives (S156 "not done"); neural voices (sherpa-onnx, S145 backlog); streak repair (§25.10 #9).
+- Doc drift for K: the ArcReader backlog (S126) still shows [ ] for things shipped since (bookmarks, Pages mode,
+  infinite scroll, swipe, voice picker, sentence highlight, auto-advance, mix with other audio); CLAUDE.md says
+  "CloudKit Production `Novel.genres` exists" while ROADMAP S156 says it was NOT checked.
+- **Found:** TestFlight friends see AniList, Shikimori and Bangumi in More → Trackers but none can log in — their
+  client ids in `AppSecrets.swift` are empty (only MAL is set). See decision 3.
+
+**Decisions (Martin delegated them):**
+1. **MPL (`PageBorders.swift`) — KEEP it, comply.** The Yomi repo is PUBLIC (checked: `gh repo view`), so the file's
+   source is already reachable; MPL §3.2 only asks that recipients of the app are told where. That is exactly what we
+   already do for the patched M-Extension-Server (MPL too, licences row links its patch in this repo) — a clean-room
+   rewrite would not remove the MPL from the app. To do (K): licences row "image-decoder (borders) — MPL-2.0, ported
+   to Swift by Yomi" with the MPL text + a link to `Yomi/Features/Reader/PageBorders.swift` on GitHub; a row "Mihon —
+   Apache-2.0" (ChapterRecognition, FetchInterval, PageBackground) with the Apache text (Mihon has no NOTICE file —
+   checked). **Constraint: if the repo ever goes private, those MPL files must be hosted somewhere public first.**
+2. **CloudKit / TestFlight — one step at the end of the backlog, right before the next upload:** in the simulator,
+   sync once with a hidden scanlation group, a bookmarked manga AND novel chapter and a novel with genres (fields only
+   reach the Development schema after a non-nil value is sent, S152) → Martin opens CloudKit Console → Deploy Schema
+   Changes, the diff must show `Manga.excludedScanlators`, `MangaChapterState.isBookmarked`,
+   `NovelChapterState.isBookmarked` (+ `Novel.genres` if missing — settles the S156 contradiction) → upload. Builds 504
+   and 508 need nothing: 515 replaced them in Friends.
+3. **Trackers — hide what can't work, register only AniList.** Code (H/K): a tracker whose client id is empty is not
+   listed (Trackers screen, tracking sheet, onboarding if any). Martin, whenever convenient (2 min, his AniList
+   account): anilist.co/settings/developer → new client, redirect `yomi://anilist/callback` → paste the id into
+   `AppSecrets.swift`. AniList is the second tracker after MAL in the Mihon world and needs no secret; Shikimori
+   (Russian) and Bangumi (Chinese) stay hidden until someone asks.
+4. App Store listing: parked until we actually list (Martin). Phone build: after the backlog (Martin).
+
+**Group L (added S170, after K):** L1 library query time (sim with Martin's data, METODOLOGIA S141) · L2 novel reader vs
+LNReader checklist · L3 parity leftovers above, ranked by Martin's daily use · L4 CB7, neural voices, streak repair
+(ask Martin if wanted).
+
+NEXT (S171): K first (docs + licences rows + hide empty trackers — small, no decisions) → H → G → L → I (ask which) →
+CloudKit deploy + personal build + J device check.
+
+---
+
 ## S169 — F17 crop borders · smarter two-page spreads · automatic background (2026-10-15, simulator)
 
 Tachimanga parity (v4.18 crop borders, v5.0 manga background colour, v3.2/v4.14 separate first page + wide pages) and

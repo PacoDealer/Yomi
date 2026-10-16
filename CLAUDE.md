@@ -24,9 +24,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S169 — 2026-10-15)
+## Current state (S170 — 2026-10-15)
+- **S170 (docs only):** catch-up audit — all of A–F is in code, tests pass; dropped promises → new group L. Decided:
+  keep the MPL port + add licences rows (repo is public — keep it so, or host MPL files elsewhere first); CloudKit
+  schema deploy right before the next upload; hide trackers with empty client ids. NEXT: K → H → G → L (ROADMAP S170).
 - **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
-  **MPL-2.0 port**, licence decision pending — ROADMAP S169), two-page spreads via `PageSpreads` (cover alone option,
+  **MPL-2.0 port**, kept — ROADMAP S170), two-page spreads via `PageSpreads` (cover alone option,
   wide pages alone, shapes must match; `PageShapes` observable + `PageShapes.learn`), reader background
   `readerBackground` Black/Dark grey/White/Automatic (`ReaderPageLook.swift`; Automatic reads the SCREEN's light/dark,
   the reader forces dark). Tests `scripts/reader-page-tests/run.sh` 26/26. NEXT: G (ROADMAP S169).
