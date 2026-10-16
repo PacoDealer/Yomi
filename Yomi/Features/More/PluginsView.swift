@@ -420,6 +420,13 @@ struct PluginsView: View {
                 }
             }
             .modifier(DeleteSwipe { extensionManager.remove(ext) })
+            .contextMenu {
+                if let previous = extensionManager.previousVersion(of: ext) {
+                    Button("Go Back to Version \(previous)", systemImage: "arrow.uturn.backward") {
+                        extensionManager.restorePrevious(of: ext)
+                    }
+                }
+            }
         case .installedKeiyoushi(let installed):
             let update = keiyoushi.availableUpdate(for: installed)
             let langs = Set(installed.info.sources.map(\.lang))
@@ -531,7 +538,7 @@ struct PluginsView: View {
             isInstalled:   true,
             isNSFW:        entry.isNSFW,
             sourceIds:     []
-        ))
+        ), sha256: entry.sha256)
         if let error = extensionManager.errorMessage { errorToast = error }
     }
 

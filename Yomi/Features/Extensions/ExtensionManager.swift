@@ -121,8 +121,9 @@ final class ExtensionManager {
 
     // MARK: - Install
 
-    /// Downloads the JS file from sourceListURL and registers the extension
-    func install(_ ext: Extension) async {
+    /// Downloads the JS file from sourceListURL and registers the extension. The download is checked before it
+    /// replaces anything (`PluginScript.validate`, #151/#152); the replaced script is kept as the previous version.
+    func install(_ ext: Extension, sha256: String? = nil) async {
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -137,6 +138,7 @@ final class ExtensionManager {
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
             yomiLogNetwork(request, response: response, data: data)
+            try await Task.detached { try PluginScript.validate(data, response: response, sha256: sha256) }.value
 
             // An existing install under a different id (e.g. from an old sha256-hash ID
             // scheme, now superseded by a stable catalog id like "com.yomi.novelfire") would
@@ -155,7 +157,11 @@ final class ExtensionManager {
             }
 
             let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
-            try data.write(to: localURL)
+            if FileManager.default.fileExists(atPath: localURL.path),
+               let old = installed.first(where: { $0.id == ext.id }), old.version != ext.version {
+                keepPrevious(of: old, file: localURL)
+            }
+            try data.write(to: localURL, options: .atomic)
 
             let updated = Extension(
                 id:            ext.id,
@@ -194,10 +200,14 @@ final class ExtensionManager {
             isInstalled:   true,
             isNSFW:        entry.isNSFW,
             sourceIds:     ext.sourceIds
-        ))
+        ), sha256: entry.sha256)
         guard errorMessage == nil else { return }
+        // Same name only counts when no catalog entry owns the copy — another repository's plugin of the same
+        // name is not a copy (#171).
+        let claimed = PluginCatalogService.shared.claimedIds
         let copies = installed.filter {
-            $0.id != ext.id && ($0.name.lowercased() == ext.name.lowercased() || entry.matches($0))
+            $0.id != ext.id && (entry.matches($0)
+                || (!claimed.contains($0.id) && $0.name.lowercased() == ext.name.lowercased()))
         }
         for copy in copies where !((try? ExtensionQueries.hasTitles(sourceId: copy.id)) ?? true) {
             remove(copy)
@@ -230,8 +240,54 @@ final class ExtensionManager {
     func remove(_ ext: Extension) {
         let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
         try? FileManager.default.removeItem(at: localURL)
+        if let previous = previousFile(for: ext.id) { try? FileManager.default.removeItem(at: previous) }
         try? ExtensionQueries.delete(id: ext.id)
         loadInstalled()
+    }
+
+    // MARK: - Validation + previous version (#151, #152)
+
+    private var previousDirectory: URL {
+        let dir = extensionsDirectory.appendingPathComponent("Previous", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// The one kept older script for a plugin: `Previous/<id>@<version>.js`.
+    private func previousFile(for id: String) -> URL? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: previousDirectory, includingPropertiesForKeys: nil)) ?? []
+        return files.first { $0.lastPathComponent.hasPrefix("\(id)@") && $0.pathExtension == "js" }
+    }
+
+    private func keepPrevious(of ext: Extension, file: URL) {
+        if let old = previousFile(for: ext.id) { try? FileManager.default.removeItem(at: old) }
+        let safeVersion = ext.version.replacingOccurrences(of: "/", with: "-")
+        try? FileManager.default.copyItem(at: file, to: previousDirectory.appendingPathComponent("\(ext.id)@\(safeVersion).js"))
+    }
+
+    /// The version an update replaced, when its script was kept.
+    func previousVersion(of ext: Extension) -> String? {
+        guard let file = previousFile(for: ext.id) else { return nil }
+        let name = file.deletingPathExtension().lastPathComponent
+        return String(name.dropFirst(ext.id.count + 1))
+    }
+
+    /// Puts the kept older script back (an update that broke a source). The newer one is not kept; the catalog
+    /// offers it again as an update.
+    func restorePrevious(of ext: Extension) {
+        guard let file = previousFile(for: ext.id), let version = previousVersion(of: ext) else { return }
+        let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
+        do {
+            let data = try Data(contentsOf: file)
+            try data.write(to: localURL, options: .atomic)
+            try FileManager.default.removeItem(at: file)
+            var restored = ext
+            restored.version = version
+            try ExtensionQueries.upsert(restored)
+            loadInstalled()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     // MARK: - Bridge
