@@ -27,7 +27,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 ## Current state (S170 — 2026-10-15)
 - **S170 (docs only):** catch-up audit — all of A–F is in code, tests pass; dropped promises → new group L. Decided:
   keep the MPL port + add licences rows (repo is public — keep it so, or host MPL files elsewhere first); CloudKit
-  schema deploy right before the next upload; hide trackers with empty client ids. NEXT: K → H → G → L (ROADMAP S170).
+  schema deploy right before the next upload; hide trackers with empty client ids. Then K + H + G built (sim):
+  licences rows, plugin trust chain (`PluginScript.swift`, previous version kept, catalog `sha256` via the Firebase
+  predeploy hook `scripts/catalog-hashes.py`), Library Sources filter + per-category sort, pinned sources, LNReader
+  plugin filters (`PluginFilter.swift`; shim `FilterTypes` was `{}`). NEXT: L (ROADMAP S170).
 - **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
   **MPL-2.0 port**, kept — ROADMAP S170), two-page spreads via `PageSpreads` (cover alone option,
   wide pages alone, shapes must match; `PageShapes` observable + `PageShapes.learn`), reader background

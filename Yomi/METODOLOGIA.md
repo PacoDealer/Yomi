@@ -2296,3 +2296,14 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Generated test pages beat hunting for the right real page.** A Local folder of 8 drawn pages (frame, margins,
   wide, odd shape) checked every pairing rule in one pass; one real scan then checked the crop on messy input.
 
+
+## S170 lessons
+- **Check the vendor's docs before acting on an audit row.** #153 (S118) asked for Firebase cache headers to close a
+  "1-hour CDN window"; Firebase's own docs say every deploy clears the CDN cache. Read the source first, then fix.
+- **A validator needs a false-positive run on real inputs, not just the bad cases.** The plugin check was run on
+  301 LNReader plugins + 22 Yomi ones before shipping — a refusal of a good plugin would break installs silently.
+- **A shim stub can hide a whole feature.** `@libs/filterInputs` exported `FilterTypes: {}`, so every LNReader
+  filter's `type` was undefined; no UI could have worked on top of it. Grep the shim for `{}` exports first.
+- **XcodeBuildMCP in sheets/menus:** `type_text` into a trailing TextField of a `LabeledContent` row misses (the tap
+  lands on the label); long menus put items off screen, so a tap by ref there dismisses the menu instead. Put
+  "reset" actions at the top of a menu; test text fields some other way (or tap the field's own frame).

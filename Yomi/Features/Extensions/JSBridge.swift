@@ -1220,7 +1220,13 @@ final class JSBridge {
                     };
 
                 } else if (name === '@libs/filterInputs') {
-                    mod.exports = { FilterTypes: {}, Filters: {} };
+                    // LNReader's enum (lnreader-plugins src/types/filters.ts). It was `{}`, so every filter's
+                    // `type` came out undefined and no filter UI could tell them apart (S170).
+                    mod.exports = {
+                        FilterTypes: { TextInput: 'Text', Picker: 'Picker', CheckboxGroup: 'Checkbox',
+                                       Switch: 'Switch', ExcludableCheckboxGroup: 'XCheckbox' },
+                        Filters: {}
+                    };
 
                 } else if (name === '@libs/defaultCover') {
                     mod.exports = { defaultCover: '' };
@@ -1619,16 +1625,42 @@ final class JSBridge {
         return value.toString()
     }
 
-    nonisolated func popularNovels(page: Int) -> [NovelItem] {
+    /// The plugin's own filters (`plugin.filters`) in declaration order, as JSON for `PluginFilter.parse`; nil when
+    /// it has none.
+    nonisolated var lnreaderFiltersJSON: String? {
+        callLock.lock(); defer { callLock.unlock() }
+        let json = context.evaluateScript("""
+        (function() {
+            var f = (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : null;
+            if (!f) return null;
+            return JSON.stringify(Object.keys(f).map(function(k) {
+                var x = f[k] || {};
+                return { key: k, label: x.label, type: x.type, value: x.value, options: x.options || [] };
+            }));
+        })()
+        """)
+        guard let json, json.isString else { return nil }
+        return json.toString()
+    }
+
+    /// `filters`: values chosen in `PluginFilterSheet`; nil = the plugin's own defaults.
+    nonisolated func popularNovels(page: Int, filters: [PluginFilter]? = nil) -> [NovelItem] {
         callLock.lock(); defer { callLock.unlock() }
         context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
-        // LNReader popularNovels(page, options) — pass plugin's own filter defaults so
-        // t.filters.genres.value / t.filters.type.value don't throw on null.
+        context.setObject((filters.map(PluginFilter.valuesJSON) ?? "") as NSString, forKeyedSubscript: "__lnr_fv" as NSString)
+        // LNReader popularNovels(page, options) — pass the plugin's own filter objects (so t.filters.genres.value
+        // doesn't throw on null) with each `value` replaced by the chosen one.
         context.evaluateScript("""
-        __lnr_opts = {
-            filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
-            showLatestNovels: false
-        };
+        __lnr_opts = (function() {
+            var f = (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {};
+            var chosen = __lnr_fv ? JSON.parse(__lnr_fv) : {};
+            var out = {};
+            Object.keys(f).forEach(function(k) {
+                out[k] = Object.assign({}, f[k]);
+                if (Object.prototype.hasOwnProperty.call(chosen, k)) out[k].value = chosen[k];
+            });
+            return { filters: out, showLatestNovels: false };
+        })();
         """)
         callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
         let raw = context.objectForKeyedSubscript("__lnr_result")
