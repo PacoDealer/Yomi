@@ -71,6 +71,25 @@ deploy + personal build + J.
   novel was skipped as before. Settings screen shows the section. Build 0 warnings; UI tests 13/13.
 - NOT checked: Keiyoushi (needs the iPhone build), Mangayomi plugins, the device.
 
+**L3b done (same session, simulator) — extension details page:** tap any row in Browse → Extensions (installed or not)
+→ `ExtensionDetailView` (new file, `Features/More/`): icon, version, kind, 18+, About (catalog description), Language,
+Repository, Website; Add (language picker for multi-language groups / Keiyoushi language sheet) · Update to x ·
+Languages · Go Back to Version · Remove (confirm, then back). The page re-reads the managers each render, so Add/Remove
+show at once. **Website** opens in `CFBypassView(isWebsite: true)` — Yomi's web view, same cookies as the plugins
+(like Mihon's WebView), title = host, Done always on. URL from the new `PluginCatalogEntry.site` (Yomi catalog `site`,
+LNReader `site`, Mangayomi `baseUrl`) or a Keiyoushi source's `homeURL` (one button when the sources share a site, else
+one per source). **Keiyoushi sources** listed (turned-on languages first, others "· Off"); a turned-on source opens
+`KeiyoushiSourceSettingsView` = per-extension settings from the Extensions list. Yomi/LNReader plugins have no settings
+mechanism — nothing to show. Mihon's changelog/readme: no repository format carries one, skipped.
+- **Firebase `public/index.json` now has `site` for all 16 Yomi plugins** (hashes unchanged; backup
+  `Firebase/index.json.before-S171`) — **NOT deployed**: until Martin runs the deploy, Yomi's own plugins show no
+  Website button (LNReader + Keiyoushi already do).
+- **Verified (sim):** Asura (installed Yomi plugin) page; Keiyoushi WuxiaWorld (not installed) → Website opened
+  wuxiaworld.site, Cloudflare passed in the same view; LNReader Arcane Translations → Website button + row, Add → "Added"
+  + Remove appear live, Remove → confirm → back to the list with Add again. Build 0 warnings, UI tests 13/13.
+- NOT checked: Keiyoushi source settings from the page (needs the JVM = iPhone build), Update/Go Back on the page (no
+  update available on the sim), the device. The sim now also has LNReader's repository (added through the app).
+
 ---
 
 ## S170 — catch-up audit + three decisions (2026-10-15, no app code changed)

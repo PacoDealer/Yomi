@@ -2320,3 +2320,8 @@ previously here was removed during the 2026-08-04 doc restructure.
   xattrs and codesign fails ("detritus not allowed").
 - `xctrace record … --launch -- pacodealer.Yomi` works on the sim and catches launch-time signposts that `--attach`
   misses; export `OSSignpostIntervals` with `xctrace export --xpath`.
+- **`simctl spawn <sim> defaults write <bundle id>` does NOT write the app's container plist** — it lands in a domain
+  the app only falls back to for keys its own plist lacks (S171: `mihonRepoURLs` showed up, `pluginCatalogURLs` didn't).
+  Change app settings through the app's UI, or edit the container plist with the app terminated.
+- A list row that should open a page but holds a pill button: `.contentShape(Rectangle()).onTapGesture` on the row —
+  the Button still wins taps on itself (PluginsView rows, S171).

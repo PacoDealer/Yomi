@@ -31,8 +31,8 @@ keyword is strong evidence, not proof. Supersedes older rows below where they di
   (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
 - Updates/downloads: ~~refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
   an hour (v3.4)~~ (S171 L3a; Yomi's own manga plugins have no details call); ~~Retry All failed downloads (v4.8); low-storage warning (v4.14)~~ (S162).
-- Extensions: extension details page with changelog/readme (v2.1); open a source's website without installing it
-  (v4.14).
+- Extensions: ~~extension details page (v2.1); open a source's website without installing it (v4.14)~~ (S171 L3b —
+  no changelog/readme: no repository format carries one).
 - Trackers: MangaUpdates, MangaBaka, enhanced Komga/Kavita/Suwayomi, tracker → local progress sync, refresh, bulk
   add tracking (v4.20, v5.0). Yomi trackers find a title by name — no stored per-title link.
 - Local source (CBZ etc.) — S148 part C.
@@ -50,8 +50,8 @@ duration carried ✅ (S148: read dates kept, duration = max); remove downloads o
 
 **S157 re-check (2026-10-13):** changelog re-read — nothing newer than Stable v5.1 (Oct 8). Every "Missing" line
 above was grepped again and is still missing, except Local source (done S148, CBR added S156). Done since S148:
-per-extension settings (S156, gear in the source's Browse screen; no entry from the Extensions list, unseen on a
-device), `.tmb` import (S155), daily on-device backup (S156, no frequency picker). Corrections: "separate tap-zone
+per-extension settings (S156, gear in the source's Browse screen; since S171 also from the Extensions list → details
+→ Sources; unseen on a device), `.tmb` import (S155), daily on-device backup (S156, no frequency picker). Corrections: "separate tap-zone
 presets" is NOT present — `tapZoneLayout` is one setting for every mode (Tachimanga v5.0 splits paged/webtoon).
 New gaps this pass found: **source filters** — `KeiyoushiBridge.search` always sends an empty `filterList` and no
 Browse screen has a filter sheet (genre/sort/status inside a source); save/share a page image (no long-press menu
