@@ -23,6 +23,9 @@ protocol MangaTracker: AnyObject {
     /// The host segment of this tracker's `yomi://<host>/callback` redirect URI — lets a single
     /// `.onOpenURL` dispatch a callback to the right service without guessing.
     static var callbackHost: String { get }
+    /// False when this build has no client id for the service (AppSecrets left empty) — login could never
+    /// work, so the service isn't listed at all (S170).
+    static var isConfigured: Bool { get }
 
     var isLoggedIn: Bool { get }
     var username: String? { get }
@@ -53,6 +56,8 @@ protocol MangaTracker: AnyObject {
 }
 
 extension MangaTracker {
+    static var isConfigured: Bool { true }
+
 
     // MARK: - OAuth CSRF state
 

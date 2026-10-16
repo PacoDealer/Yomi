@@ -20,6 +20,7 @@ private let graphQLURL  = URL(string: "https://graphql.anilist.co")!
     static let shared = AniListTrackerService()
     static let displayName = "AniList"
     static let callbackHost = "anilist"
+    static var isConfigured: Bool { !clientId.isEmpty }
     private init() { loadToken() }
 
     // MARK: - State

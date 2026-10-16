@@ -1423,32 +1423,32 @@ reader on a 3-chapter offline novel, `Features/Reader/ReaderFixture.swift`). Run
 ## Backlog — novel reader parity with ArcReader (S126, 2026-09-24)
 
 Martin reads novels in ArcReader today; he sent 24 screenshots of it (reader settings, TTS, audio, downloads,
-library, sources) so this list exists and doesn't have to be re-derived. Unchecked = not in Yomi yet. Suggested
+library, sources) so this list exists and doesn't have to be re-derived. Unchecked = not in Yomi yet (ticks re-checked S170 against the S133–S167 entries). Suggested
 order from S126: **offline + preload first** (loading is where ArcReader feels smoother), then infinite scroll, then
 TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headline item across all of this.
 
 **Chapter list (Tachimanga)**
 - [x] Read before / Select range / Select all / Invert (S126, `1f61fdb`)
-- [ ] Bookmark a chapter (+ bookmark filter) — needs a `v23_` migration on `chapter` + `novel_chapter`, CloudKit mapping
+- [x] Bookmark a chapter (+ bookmark filter) — needs a `v23_` migration on `chapter` + `novel_chapter`, CloudKit mapping (S167)
 - [x] Download from the selection bar for novels (S127)
 
 **Reader — Text**
-- [ ] Font browser beyond serif/sans (ArcReader lists Google Fonts with a live preview; bundled fonts at least: Newsreader, Lora, Quicksand…)
-- [ ] Letter spacing (Tight / Normal / Loose) separate from line height
-- [ ] Font size as a number readout (ArcReader shows "20")
+- [x] Font browser beyond serif/sans (ArcReader lists Google Fonts with a live preview; bundled fonts at least: Newsreader, Lora, Quicksand…) (S136: Apple faces + 4 bundled OFL fonts; no Google Fonts browser)
+- [x] Letter spacing (Tight / Normal / Loose) separate from line height (S136)
+- [x] Font size as a number readout (ArcReader shows "20") (S136)
 
 **Reader — Look**
 - [ ] More themes (ArcReader: Light, Sage, Void, E-ink, Sepia, Dark, AMOLED) + **custom themes** ("New")
 - [ ] Background textures (Midnight, Ember, Rose, Cream, Paper, Dusk, Slate, Forest, Vignette, Parchment, Linen)
 
 **Reader — Reading**
-- [ ] **Pages mode** (paged, with chapter line on top + page number at bottom, each hideable) alongside Scroll
-- [ ] **Infinite scroll** into the next chapter (Off = chapter ends at its last line with Next waiting)
+- [x] **Pages mode** (paged, with chapter line on top + page number at bottom, each hideable) alongside Scroll (S136)
+- [x] **Infinite scroll** into the next chapter (Off = chapter ends at its last line with Next waiting) (S133)
 - [ ] Tap zones: Bottom only / Top + bottom / Off, and **tap scroll** amount (Short / Half / Full, slider %, keeps last lines visible)
-- [ ] Swipe left/right to change chapter (toggle)
+- [x] Swipe left/right to change chapter (toggle) (S133)
 - [ ] On-screen clock (Off / Top / Bottom)
 - [ ] Chapter length readout: Off / Words / **Time left** (estimated from the reader's own pace)
-- [ ] Toolbar opens on 1 tap / 2 taps
+- [x] Toolbar opens on 1 tap / 2 taps (S133)
 - [ ] Italic dialogue + drop cap (both toggles; drop cap scroll mode only)
 - [ ] Customizable toolbar buttons
 - [ ] Reload chapter (refetch when text looks wrong); report chapter
@@ -1459,13 +1459,13 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 - [ ] **Term replacement** list (rename a term everywhere — fixes inconsistent MTL/fan-TL names)
 
 **Text-to-speech**
-- [ ] Voice picker (system voices) + premium neural voices (ArcReader: sherpa-onnx, 140 downloadable voices — §22.11)
-- [ ] Speed presets 0.75×–3×
-- [ ] Auto-advance chapters (offline if downloaded, stream otherwise)
-- [ ] Play alongside other apps' audio vs. own lock-screen/headphone controls
-- [ ] Full-screen player option; **tap a paragraph to jump**; dim other paragraphs; follow position Center/Top
+- [x] Voice picker (system voices) + premium neural voices (ArcReader: sherpa-onnx, 140 downloadable voices — §22.11) (S143 system voices; neural voices still open)
+- [x] Speed presets 0.75×–3× (S143)
+- [x] Auto-advance chapters (offline if downloaded, stream otherwise) (S143)
+- [x] Play alongside other apps' audio vs. own lock-screen/headphone controls (S143 + mix setting S144)
+- [x] Full-screen player option; **tap a paragraph to jump**; dim other paragraphs; follow position Center/Top (S143 full player + "Listen from Here"; no dimming/follow choice)
 - [ ] Pronunciation text filters
-- [ ] Sentence/paragraph highlight while reading (Yomi today speaks the whole chapter as one utterance)
+- [x] Sentence/paragraph highlight while reading (Yomi today speaks the whole chapter as one utterance) (S143)
 
 **Audio experience**
 - [ ] Ambient sounds + background music (start with the reader, shuffle, duck under narration)
@@ -3812,6 +3812,10 @@ the app until updating to iOS 26. The app depends on iOS 26-exclusive APIs:
 If iOS 18 support is required in the future → branch `compat/ios18`, never on main.
 
 ## Target plugin sources
+
+> **STALE (S20-era, kept for history — #159).** Comick and NovelUpdates are not in the catalog; the live list is
+> `Firebase/public/index.json` (16 entries, see ARQUITECTURA "Firebase Hosting").
+
 | Source | Format | Status |
 |--------|--------|--------|
 | MangaDex | Format A (JSON API) | ✅ Working — on Firebase |

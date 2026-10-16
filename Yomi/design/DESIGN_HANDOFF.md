@@ -1,4 +1,8 @@
 # YOMI — Design Session Handoff & Roadmap to Launch
+
+> **HISTORICAL (S170 note).** Frozen S79 snapshot: every phase below shipped in S82–S95 and the whole look was then
+> replaced by the S138 "calm" direction (RESEARCH §26). Do not follow its checklists. Publishing state lives in
+> ROADMAP.md (App Store submission checklist) and APP_STORE_LISTING.md.
 **Session S79 · 2026‑07‑16 · Design track (no code shipped).**
 _Self-contained handoff: you can resume in a brand-new chat from this file alone without losing anything._
 

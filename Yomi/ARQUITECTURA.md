@@ -111,7 +111,7 @@ Yomi/
 ├── AppSettings.swift                # @Observable singleton, UserDefaults-backed, 60 stored properties (S116). Covers reader mode/font/theme, canvas (primary appearance axis: Ink/Midnight/Paper/Sepia/""), OLED (pureBlack), tap zones, webtoon padding, auto-scroll speed, novel theme/font, library columns/badges/categories, update skip filters, concurrent downloads, incognito, notifications, onboarding, accent color (#E5473A Vermilion default), colorBlendLevel (S108), alternate icon, libraryDisplayMode, use24HourClock/dateOrderDayFirst (S108), suwayomiURL, opdsURL/opdsUsername/opdsPassword. `canvasColors: YomiTokens.CanvasColors` (added S85) is the pure unblended preset; `blendedCanvasColors` (S108) is `canvasColors` with bg/surface1/surface2 blended toward `accentColor` by `colorBlendLevel` — this is what should actually be threaded through the app, not `canvasColors` directly.
 ├── Core/CanvasEnvironment.swift     # `\.yomiCanvas` EnvironmentKey (S85) — set once in ContentView from `settings.blendedCanvasColors` (S108, was `canvasColors`), read via `@Environment(\.yomiCanvas)` anywhere the canvas bg/surface/text colors are needed. This is how the Ink/Midnight/Paper/Sepia canvas actually reaches the chrome — it is NOT derived from `.preferredColorScheme` (that only controls system light/dark, a separate axis).
 ├── Core/GlassChip.swift             # `.glassChip()` view modifier (S85) — shared 44×44 floating Liquid Glass circle for chrome buttons (reader top bars, Detail's glass nav). Factor any new floating icon button through this rather than re-inlining `.frame(44,44).background{Circle().glassEffect()}`. Any Color/Rectangle used as a purely-decorative symmetric spacer next to a glassChip needs an explicit height too (S95 finding — Color is greedy in unconstrained dimensions under .overlay).
-├── Core/YomiEmptyState.swift        # Reusable empty-state view (S95 — N.09 spec): boxed SF Symbol (s1 card + hairline ring + accent dot), title, message, optional accent-pill action. Replaces 12 native ContentUnavailableView call sites app-wide (Library, Categories, Downloads, Updates, Browse ×4, OPDS ×2, History) — `.search(text:)` call sites stay native (system-provided, no mock equivalent).
+├── Core/YomiEmptyState.swift        # Reusable empty-state view (S95 — N.09 spec): boxed SF Symbol (s1 card + hairline ring + accent dot), title, message, optional accent-pill action. Replaces the native ContentUnavailableView across the app (grep `YomiEmptyState(` for the current call sites — counts here drifted, #160) — `.search(text:)` call sites stay native (system-provided, no mock equivalent).
 ├── Core/ChapterRecognition.swift    # Mihon v0.21 port (S165): volume + chapter number from names. `numbers(mangaTitle:names:sourceNumbers:)` reads a WHOLE list in either order (shared numbers ignored, unnumbered chapters filled from neighbours); `number(...)` = single name (local files, v24). Source numbers always win. Tests: scripts/chapter-recognition-tests/run.sh (swiftc, Mihon's ChapterRecognitionTest ported). Keiyoushi lists go through KeiyoushiMapping.chapters; ChapterQueries.refreshPaths writes changed numbers back onto saved rows.
 ├── Core/FetchInterval.swift         # Mihon v0.21 port (S166) of FetchInterval + ReleaseSchedule + ReleasePattern: from a title's release days (upload dates, else fetch days) → interval (median gap, 1…28, default 7), calendar pattern (weekdays / day or weekday of month / batches / every N days), hiatus back-off, next expected day. `Day` = timezone-free calendar day. Tests: scripts/fetch-interval-tests/run.sh. Stored by Database/Queries/UpdateScheduleQueries.swift (`recordCheck` after each successful refresh check, `notExpected` for the "Titles not due yet" skip rule).
 ├── Core/YomiToast.swift             # `.yomiToast(_:)` view modifier (S100) — self-dismissing top banner for surfacing failures that would otherwise be silent (generalizes UpdatesView's ad-hoc refresh-summary banner). `YomiHaptics.error()` alongside it. Used by ChapterReaderView.markChapterRead and MangaDetailView.toggleLibrary's catch blocks.
@@ -497,22 +497,17 @@ Injected via `injectRequireShim(into: ctx)` as an IIFE. Module cache prevents do
 **Project:** yomi-plugins
 **URL:** https://yomi-plugins.web.app
 **index.json:** https://yomi-plugins.web.app/index.json
-**Local folder:** `~/Projects/Yomi/Firebase/` (outside Xcode repo, not committed to git)
-**Deploy:** `cd ~/Projects/Yomi/Firebase && firebase deploy --only hosting`
+**Local folder:** `~/Desktop/Projects/Yomi/Firebase/` (outside Xcode repo, not committed to git)
+**Deploy:** `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting:plugins` (second target `site` =
+home/support/privacy at `yomi-reader.web.app`, files in `site/`, S154)
 
 **Structure:**
 ```
 public/
-  index.json     ← plugin catalog ([PluginCatalogEntry] JSON array)
-  mangadex.js
-  asurascans.js
-  aquamanga.js
-  royalroad.js
-  scribblehub.js
-  novelfire.js
-  freewebnovel.js
-  novelbin.js
-  novelfull.js
+  index.json     ← plugin catalog ([PluginCatalogEntry] JSON array) — 16 entries (S170): AquaManga, Asura Scans,
+                   BabelNovel, BoxNovel, FreeWebNovel, LightNovelPub, MTLNovel, MangaDex, NovelBin, NovelFire,
+                   NovelFull, NovelHall, ReadWN, Royal Road, Scribble Hub, WeTried Translations
+  <one .js per entry> (+ test-source.js; comick.js / lightnovelworld.js still on disk, not in the catalog)
 ```
 Note: comick.js removed (Cloudflare 403 from non-browser clients). lightnovelworld.js removed (site permanently closed Jan 2026).
 

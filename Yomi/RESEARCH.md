@@ -1,5 +1,5 @@
 # Yomi — Master Research Document
-**Last updated:** 2026-09-29 (S132 §25 audits §4, §5 and design/DESIGN_RESEARCH.md against primary sources — read §25 before trusting any number in §4; S122 §22 corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
+**Last updated:** 2026-10-13 (§27 CBR/RAR, S156; §26 design, S138) · 2026-09-29 (S132 §25 audits §4, §5 and design/DESIGN_RESEARCH.md against primary sources — read §25 before trusting any number in §4; S122 §22 corrects §7b and §19) | **Do not re-research topics marked with ✅ RESEARCHED**
 
 This file is the single source of truth for all Yomi research. It replaces all prior per-session research notes. Update only when new research is conducted or when a section becomes stale.
 

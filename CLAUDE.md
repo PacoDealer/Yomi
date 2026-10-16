@@ -125,7 +125,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   unproven until on a phone). **Never upload to TestFlight without Martin's explicit go for that build.**
   S156 (simulator only, in NO build): Library reloads when the first-run screen closes; novel genres from the
   source (`JSBridge.novelGenres`; WeTried + NovelFire plugins deployed; CloudKit
-  Production `Novel.genres` exists); daily on-device backup (`saveLocalBackupIfDue`,
+  Production `Novel.genres` UNVERIFIED — settled at the pre-upload schema deploy, ROADMAP S170); daily on-device backup (`saveLocalBackupIfDue`,
   More → Backup → On This iPhone); `YomiTokens.Font` helpers follow Dynamic Type (cap 1.5×). **CBR/RAR**
   via `Core/ComicArchive.swift` + Swift package Unrar.swift (RARLAB UnRAR; licence text in `licence-unrar.txt` —
   keep the package updated, it parses untrusted files; a new picker file type needs an Info.plist UTType).
