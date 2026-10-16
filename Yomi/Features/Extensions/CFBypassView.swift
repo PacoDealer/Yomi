@@ -9,6 +9,9 @@ import UIKit
 /// storage so that JSBridge SOURCE.fetch picks them up automatically on the next load.
 struct CFBypassView: View {
     var initialURL: String
+    /// Website mode (L3b, S171): a source's site opened from its extension's details page, like Mihon's WebView — same
+    /// cookie store, so a Cloudflare check or a login done here also reaches the plugin. Done is always available.
+    var isWebsite = false
     var onSuccess: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -16,8 +19,9 @@ struct CFBypassView: View {
     @State private var committed = false
     @State private var bypassed: [String] = []
 
-    init(initialURL: String = "https://", onSuccess: @escaping () -> Void) {
+    init(initialURL: String = "https://", isWebsite: Bool = false, onSuccess: @escaping () -> Void) {
         self.initialURL = initialURL
+        self.isWebsite  = isWebsite
         self.onSuccess  = onSuccess
         _urlText = State(initialValue: initialURL)
     }
@@ -39,7 +43,7 @@ struct CFBypassView: View {
                     }
                 )
             }
-            .navigationTitle("Bypass Cloudflare")
+            .navigationTitle(isWebsite ? (URL(string: initialURL)?.host() ?? "Website") : "Bypass Cloudflare")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -51,7 +55,7 @@ struct CFBypassView: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(bypassed.isEmpty)
+                    .disabled(bypassed.isEmpty && !isWebsite)
                 }
             }
         }

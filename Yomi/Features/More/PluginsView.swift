@@ -80,6 +80,8 @@ struct PluginsView: View {
     @State private var keiyoushiInstallPick: KeiyoushiExtension? = nil
     @State private var keiyoushiLanguageEdit: InstalledKeiyoushiExtension? = nil
     @State private var errorToast: String? = nil
+    /// The extension whose details page is open (L3b, S171) — tap a row.
+    @State private var detailTarget: ExtensionDetailTarget? = nil
     /// Base language code the Available list is filtered to ("" = every language).
     @AppStorage("extensionsLanguageFilter") private var languageFilter = "en"
 
@@ -215,6 +217,12 @@ struct PluginsView: View {
             }
         }
         .navigationDestination(isPresented: $showRepositories) { RepositoriesView() }
+        .navigationDestination(item: $detailTarget) { target in
+            ExtensionDetailView(target: target, busy: busy,
+                                onAdd: { await add($0) },
+                                onUpdate: { await updatePlugin($0, to: $1) },
+                                onInstallKeiyoushi: { await installKeiyoushi($0, langs: $1) })
+        }
         .sheet(isPresented: $showInstallSheet) {
             InstallFromURLSheet(extensionManager: extensionManager)
         }
@@ -403,8 +411,15 @@ struct PluginsView: View {
 
     // MARK: Rows
 
-    @ViewBuilder
     private func row(_ item: ExtensionItem, shared: Set<String>) -> some View {
+        rowContent(item, shared: shared)
+            .contentShape(Rectangle())
+            .onTapGesture { detailTarget = item.detailTarget }
+            .accessibilityAction(named: "Details") { detailTarget = item.detailTarget }
+    }
+
+    @ViewBuilder
+    private func rowContent(_ item: ExtensionItem, shared: Set<String>) -> some View {
         let origin = shared.contains(item.name.lowercased()) ? repoName(for: item) : nil
         switch item {
         case .installed(let ext):
@@ -607,6 +622,16 @@ private enum ExtensionItem: Identifiable {
         case .installedKeiyoushi(let ext): return "kei:\(ext.id)"
         case .available(let group): return "jsgroup:\(group.id)"
         case .availableKeiyoushi(let ext): return "kei:\(ext.id)"
+        }
+    }
+
+    var detailTarget: ExtensionDetailTarget {
+        switch self {
+        case .installed(let ext): return .plugin(installedId: ext.id, groupName: nil, repoURL: nil)
+        case .installedKeiyoushi(let ext): return .keiyoushi(packageName: ext.id)
+        case .available(let group):
+            return .plugin(installedId: nil, groupName: group.name, repoURL: group.primaryEntry.repoURL)
+        case .availableKeiyoushi(let ext): return .keiyoushi(packageName: ext.id)
         }
     }
 

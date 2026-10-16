@@ -19,6 +19,9 @@ struct PluginCatalogEntry: nonisolated Codable, Identifiable {
     /// Hex SHA-256 of the plugin file, optional. When a catalog gives it, an install whose bytes differ is refused
     /// (#151: a truncated or swapped file never replaces a working plugin).
     var sha256: String? = nil
+    /// The source's website (L3b, S171) — Yomi catalogs' optional `site`, LNReader's `site`, Mangayomi's `baseUrl`.
+    /// Opened from the extension's details page, installed or not (Tachimanga v2.1/v4.14).
+    var site: String? = nil
 
     var isNovel: Bool { kind == "novel" }
     /// Novel or manga when the catalog says so, nil when it doesn't.
@@ -55,7 +58,7 @@ struct PluginCatalogEntry: nonisolated Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, version, language, description, iconURL, fileURL, isNSFW, kind, sha256
+        case id, name, version, language, description, iconURL, fileURL, isNSFW, kind, sha256, site
     }
 }
 
@@ -92,6 +95,7 @@ private nonisolated struct LNReaderEntry: Decodable {
             isNSFW: false
         )
         entry.kind = "novel"
+        entry.site = site
         return entry
     }
 }
@@ -109,7 +113,7 @@ private nonisolated struct MangayomiEntry: Decodable {
     let baseUrl: String?
 
     nonisolated func toEntry() -> PluginCatalogEntry {
-        PluginCatalogEntry(
+        var entry = PluginCatalogEntry(
             id: String(id),
             name: name,
             version: version,
@@ -119,6 +123,8 @@ private nonisolated struct MangayomiEntry: Decodable {
             fileURL: sourceCodeUrl,
             isNSFW: isNsfw ?? false
         )
+        entry.site = baseUrl
+        return entry
     }
 }
 
