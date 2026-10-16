@@ -274,7 +274,7 @@ struct MangaDetailView: View {
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
         .background(canvas.bg.ignoresSafeArea())
-        .refreshable { await loadChapters() }
+        .refreshable { await loadChapters(force: true) }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : "")
@@ -391,7 +391,7 @@ struct MangaDetailView: View {
             CFBypassView(initialURL: bridge?.cfBlockedURL ?? keiyoushiCFURL ?? "https://") {
                 bridge?.clearCFBlock()
                 keiyoushiCFURL = nil
-                Task { await loadChapters() }
+                Task { await loadChapters(force: true) }
             }
         }
         .sheet(isPresented: $showNotesSheet) {
@@ -814,7 +814,7 @@ struct MangaDetailView: View {
         let langs = ext.sources.filter { $0.id == sourceId }.map(\.lang)
         do {
             try await KeiyoushiRepository.shared.install(ext, langs: langs.isEmpty ? nil : langs)
-            await loadChapters()
+            await loadChapters(force: true)
         } catch {
             toastMessage = "Couldn't add \(ext.name): \(error.localizedDescription)"
         }
@@ -1338,7 +1338,9 @@ struct MangaDetailView: View {
 
     // MARK: - Load Chapters
 
-    private func loadChapters() async {
+    /// `force` = pull to refresh (or a retry): always asks the source. Otherwise a library title checked within the
+    /// hour shows its saved chapters only (`skipsSource`).
+    private func loadChapters(force: Bool = false) async {
         let perf = Perf.begin("OpenManga")
         defer { perf.end() }
         let sourceId = manga.sourceId
@@ -1362,7 +1364,7 @@ struct MangaDetailView: View {
             return
         }
         if KeiyoushiMapping.isKeiyoushiSourceId(sourceId) {
-            await loadKeiyoushiChapters()
+            await loadKeiyoushiChapters(force: force)
             return
         }
         // Local files (S148): "refresh" = look for new chapter files, then show what's saved.
@@ -1388,6 +1390,12 @@ struct MangaDetailView: View {
         isLoadingChapters = true
 
         let loadedBridge = await ExtensionManager.shared.loadBridge(for: ext)
+        if await skipsSource(force: force) {
+            bridge = loadedBridge
+            chapters = await savedChapters(mangaId: mangaId)
+            isLoadingChapters = false
+            return
+        }
         let (loadedChapters, mangayomiMeta) = await Task.detached(priority: .userInitiated) {
             let chapters = loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
             let meta = loadedBridge?.lastMangayomiMeta
@@ -1419,6 +1427,9 @@ struct MangaDetailView: View {
         }.value
 
         bridge = loadedBridge
+        if !loadedChapters.isEmpty {
+            await Task.detached { try? UpdateScheduleQueries.markChecked(.manga, id: mangaId) }.value
+        }
 
         // Fetch persisted chapters from DB (off main thread per GRDB rule)
         let saved = await Task.detached(priority: .userInitiated) {
@@ -1454,6 +1465,14 @@ struct MangaDetailView: View {
         }
 
         isLoadingChapters = false
+    }
+
+    /// L3a (S171, Tachimanga v3.4): a library title whose saved chapters are on screen and that was checked against
+    /// its source less than an hour ago — by a refresh or an earlier visit — isn't fetched again on open.
+    private func skipsSource(force: Bool) async -> Bool {
+        guard !force, manga.inLibrary, !chapters.isEmpty, AppSettings.shared.detailRefreshHourly else { return false }
+        let id = manga.id
+        return await Task.detached { (try? UpdateScheduleQueries.checkedRecently(.manga, id: id)) ?? false }.value
     }
 
     // MARK: - Load Chapters (Suwayomi)
@@ -1554,7 +1573,7 @@ struct MangaDetailView: View {
 
     /// Chapter loading for a manga from an on-device Keiyoushi (Mihon) extension, run by the embedded JVM through
     /// `KeiyoushiBridge`. Same persist-and-merge shape as the Suwayomi path above.
-    private func loadKeiyoushiChapters() async {
+    private func loadKeiyoushiChapters(force: Bool = false) async {
         let mangaId = manga.id
         let mangaTitle = manga.title
         let mangaURL = manga.path
@@ -1570,6 +1589,11 @@ struct MangaDetailView: View {
             return
         }
 
+        if await skipsSource(force: force) {
+            chapters = await savedChapters(mangaId: mangaId)
+            isLoadingChapters = false
+            return
+        }
         isLoadingChapters = true
 
         // Details first: a browse result usually carries only title + cover. A failure here is not fatal.
@@ -1616,6 +1640,7 @@ struct MangaDetailView: View {
             try? ChapterQueries.refreshPaths(fetched)
             try? UpdateScheduleQueries.setUploadDates(uploadDates)
             try? MangaQueries.updateSourceMetadata(mangaSnapshot)
+            if !fetched.isEmpty { try? UpdateScheduleQueries.markChecked(.manga, id: mangaId) }
         }.value
 
         let saved = await savedChapters(mangaId: mangaId)

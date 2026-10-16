@@ -362,6 +362,19 @@ import Observation
         didSet { defaults.set(skipUpdateNotExpected, forKey: "skipUpdateNotExpected") }
     }
 
+    /// A library refresh also takes each title's cover, summary, status and genres from the source (Tachimanga v4.18,
+    /// Mihon's "Automatically refresh metadata"). On by default (S171; Mihon's is off): novels and Mangayomi plugins
+    /// return details with the chapter list anyway; Keiyoushi titles pay one more request each.
+    var updateRefreshMetadata: Bool {
+        didSet { defaults.set(updateRefreshMetadata, forKey: "updateRefreshMetadata") }
+    }
+
+    /// Opening a library title asks the source again only when it was last checked over an hour ago (Tachimanga v3.4);
+    /// pull to refresh always does. On by default (S171) — before, every open hit the source.
+    var detailRefreshHourly: Bool {
+        didSet { defaults.set(detailRefreshHourly, forKey: "detailRefreshHourly") }
+    }
+
     /// Category IDs excluded from update checks
     var excludedCategoryIds: [String] {
         didSet { defaults.set(excludedCategoryIds, forKey: "excludedCategoryIds") }
@@ -662,6 +675,8 @@ import Observation
         skipUpdateNotStarted    = d.object(forKey: "skipUpdateNotStarted")         as? Bool ?? false
         skipUpdateCompleted     = d.object(forKey: "skipUpdateCompleted")          as? Bool ?? false
         skipUpdateNotExpected   = d.object(forKey: "skipUpdateNotExpected")        as? Bool ?? true
+        updateRefreshMetadata   = d.object(forKey: "updateRefreshMetadata")        as? Bool ?? true
+        detailRefreshHourly     = d.object(forKey: "detailRefreshHourly")          as? Bool ?? true
         excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
