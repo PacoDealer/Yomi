@@ -53,6 +53,10 @@ struct ChapterReaderView: View {
     @State private var isPreloadingNextChapter = false
     @State private var didUpdateTrackerForCurrentChapter = false
     @State private var pagePrefetcher = ReaderPagePrefetcher()
+    /// Toolbar quick actions (L3c) change chapters the reader was handed as a `let`: kept here so the bookmark button
+    /// and the chapter list show them.
+    @State private var bookmarkOverrides: [String: Bool] = [:]
+    @State private var markedReadIds: Set<String> = []
 
     init(manga: Manga, bridge: JSBridge?, chapters: [Chapter], chapterIndex: Int) {
         self.manga = manga
@@ -76,6 +80,18 @@ struct ChapterReaderView: View {
     private var activeChapter: Chapter { chapters[currentChapterIndex] }
     private var hasPrevChapter: Bool { currentChapterIndex > 0 }
     private var hasNextChapter: Bool { currentChapterIndex < chapters.count - 1 }
+    private var isActiveBookmarked: Bool { bookmarkOverrides[activeChapter.id] ?? activeChapter.isBookmarked }
+
+    /// `chapters` with the toolbar's bookmark / mark-read changes, for the overlay's chapter list.
+    private var shownChapters: [Chapter] {
+        guard !bookmarkOverrides.isEmpty || !markedReadIds.isEmpty else { return chapters }
+        return chapters.map { ch in
+            var c = ch
+            if let b = bookmarkOverrides[ch.id] { c.isBookmarked = b }
+            if markedReadIds.contains(ch.id) { c.isRead = true }
+            return c
+        }
+    }
 
     /// Only continuous-scroll modes get the seamless in-scroll chapter-boundary transition —
     /// paged modes keep the explicit tap-to-advance flow via the overlay's Next button.
@@ -174,7 +190,7 @@ struct ChapterReaderView: View {
                 manga: manga,
                 chapter: activeChapter,
                 currentChapterIndex: currentChapterIndex,
-                chapters: chapters,
+                chapters: shownChapters,
                 currentPage: $currentPage,
                 totalPages: pages.count,
                 readerMode: $readerMode,
@@ -189,7 +205,11 @@ struct ChapterReaderView: View {
                 onViewSource: { showSourceSheet = true },
                 onPrevChapter: { navigateToChapter(currentChapterIndex - 1) },
                 onNextChapter: { navigateToChapter(currentChapterIndex + 1) },
-                onJumpToChapter: { navigateToChapter($0) }
+                onJumpToChapter: { navigateToChapter($0) },
+                isBookmarked: isActiveBookmarked,
+                onToggleBookmark: toggleBookmark,
+                onMarkPreviousRead: markPreviousRead,
+                currentPageURL: pages.indices.contains(currentPage) ? pages[currentPage] : nil
             )
         }
         .navigationBarHidden(true)
@@ -295,6 +315,26 @@ struct ChapterReaderView: View {
         .onChange(of: shouldRequestReview) { _, should in
             if should { requestReview(); shouldRequestReview = false }
         }
+    }
+
+    // MARK: - Toolbar quick actions (L3c)
+
+    private func toggleBookmark() {
+        let id = activeChapter.id, mangaId = manga.id, bookmarked = !isActiveBookmarked
+        bookmarkOverrides[id] = bookmarked
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        infoMessage = bookmarked ? "Chapter bookmarked" : "Bookmark removed"
+        Task.detached { try? ChapterQueries.setBookmarked(chapterIds: [id], mangaId: mangaId, bookmarked: bookmarked) }
+    }
+
+    /// Every chapter before this one (reading order), like the detail screen's "Mark previous". Only unread ones are
+    /// written: `setReadBatch` stamps `readAt`, and chapters already read keep their real read date.
+    private func markPreviousRead() {
+        let ids = shownChapters[..<currentChapterIndex].filter { !$0.isRead }.map(\.id), mangaId = manga.id
+        guard !ids.isEmpty else { infoMessage = "Earlier chapters are already read"; return }
+        markedReadIds.formUnion(ids)
+        infoMessage = ids.count == 1 ? "1 chapter marked as read" : "\(ids.count) chapters marked as read"
+        Task.detached { try? ChapterQueries.setReadBatch(chapterIds: ids, mangaId: mangaId, isRead: true) }
     }
 
     // MARK: - Chapter Finished Banner
@@ -731,9 +771,11 @@ struct MangaReaderView: View {
     @ViewBuilder
     private func spreadContent(_ group: [Int]) -> some View {
         if group.count == 2 {
+            // "Invert double pages" (L3c): the pair swaps sides; reading order (and `currentPage`) stays the same.
+            let (first, second) = settings.doublePageInvert ? (group[1], group[0]) : (group[0], group[1])
             HStack(spacing: 0) {
-                MangaPageView(url: pages[group[0]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[0]])
-                MangaPageView(url: pages[group[1]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[1]])
+                MangaPageView(url: pages[first], isZoomed: $isZoomed).readerPageMenu(url: pages[first])
+                MangaPageView(url: pages[second], isZoomed: $isZoomed).readerPageMenu(url: pages[second])
             }
         } else {
             MangaPageView(url: pages[group[0]], isZoomed: $isZoomed).readerPageMenu(url: pages[group[0]])
@@ -860,7 +902,8 @@ private struct MangaPageView: View {
                         lastScale = scale
                         lastOffset = offset
                         if scale <= 1.0 { resetZoom() }
-                    }
+                    },
+                including: settings.readerPinchZoom ? .all : .subviews
             )
             // Pan only while zoomed: a drag gesture on the page at 1x steals the page swipe from the TabView.
             .simultaneousGesture(
@@ -924,7 +967,7 @@ struct WebtoonReaderView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: settings.readerScrollIndicator) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
                         pageImage(url)
@@ -973,7 +1016,7 @@ struct WebtoonReaderView: View {
                 withAnimation { proxy.scrollTo(newId, anchor: .top) }
             }
         }
-        .modifier(ReaderZoom(scrollAxis: .vertical))
+        .modifier(ReaderZoom(scrollAxis: .vertical, pinchEnabled: settings.readerPinchZoom && !isHolding))
         .ignoresSafeArea()
         .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
         .onTapGesture(coordinateSpace: .local) { p in
@@ -1108,6 +1151,8 @@ struct ChapterBoundaryCard: View {
 
 struct ReaderZoom: ViewModifier {
     let scrollAxis: Axis
+    /// Off: no pinch (Settings → Pinch to zoom, or long strip while a finger holds it scrolling — L3c).
+    var pinchEnabled = true
 
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
@@ -1138,7 +1183,8 @@ struct ReaderZoom: ViewModifier {
                         lastScale = scale
                         lastOffset = offset
                         if !isZoomed { reset() }
-                    }
+                    },
+                including: pinchEnabled ? .all : .subviews
             )
             // Across the scroll direction only; along it, the scroll view itself moves.
             .simultaneousGesture(
@@ -1184,7 +1230,7 @@ struct ContinuousHorizontalReaderView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal, showsIndicators: settings.readerScrollIndicator) {
                 LazyHStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
                         pageImage(url)
@@ -1227,7 +1273,7 @@ struct ContinuousHorizontalReaderView: View {
                 withAnimation { proxy.scrollTo(newId, anchor: .center) }
             }
         }
-        .modifier(ReaderZoom(scrollAxis: .horizontal))
+        .modifier(ReaderZoom(scrollAxis: .horizontal, pinchEnabled: settings.readerPinchZoom))
         .ignoresSafeArea()
         .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
         // One page per screen, so tap zones step a page (strip zones, F16); the scroll follows `currentPage`.
@@ -1328,10 +1374,126 @@ struct ReaderOverlayView: View {
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
     var onJumpToChapter: ((Int) -> Void)? = nil
+    /// Custom toolbar (L3c): bookmark + mark-previous quick actions, and the page on screen for Share page.
+    var isBookmarked = false
+    var onToggleBookmark: (() -> Void)? = nil
+    var onMarkPreviousRead: (() -> Void)? = nil
+    var currentPageURL: String? = nil
 
     @State private var showChapterSheet = false
     @State private var showSettingsSheet = false
+    @State private var showMarkPreviousConfirm = false
+    @State private var shareImage: UIImage? = nil
     @State private var settings = AppSettings.shared
+
+    private var isStripMode: Bool {
+        switch readerMode {
+        case .verticalScroll, .continuousRTL, .continuousLTR: true
+        default: false
+        }
+    }
+
+    @ViewBuilder private var readingModeOptions: some View {
+        Label("Right to left", systemImage: "book.pages").tag(ReaderMode.horizontalRTL)
+        Label("Left to right", systemImage: "book.pages.fill").tag(ReaderMode.horizontalLTR)
+        Label("Paged (vertical)", systemImage: "square.stack").tag(ReaderMode.verticalPaged)
+        Label("Continuous (right to left)", systemImage: "arrow.left").tag(ReaderMode.continuousRTL)
+        Label("Continuous (left to right)", systemImage: "arrow.right").tag(ReaderMode.continuousLTR)
+        Label("Webtoon", systemImage: "scroll").tag(ReaderMode.verticalScroll)
+    }
+
+    @ViewBuilder private var spreadOptions: some View {
+        Text("Off").tag("single")
+        Text("Always").tag("double")
+        Text("In landscape").tag("automatic")
+    }
+
+    /// Crop borders is two settings (paged / strip, F17) — the button flips the one for the mode being read.
+    private var cropBinding: Binding<Bool> {
+        isStripMode ? $settings.cropBordersStrip : $settings.cropBorders
+    }
+
+    // MARK: - Custom toolbar (L3c)
+
+    /// The saved buttons minus those that don't apply right now (spreads outside the paged modes, comments the source
+    /// doesn't have, Share before a page has loaded).
+    private var toolbarItems: [ReaderToolbarItem] {
+        ReaderToolbarItem.current(settings).filter { item in
+            switch item {
+            case .spreads:   readerMode == .horizontalRTL || readerMode == .horizontalLTR
+            case .comments:  discussURL != nil
+            case .sharePage: currentPageURL != nil
+            default:         true
+            }
+        }
+    }
+
+    @ViewBuilder private func toolbarButton(_ item: ReaderToolbarItem) -> some View {
+        switch item {
+        case .previousChapter:
+            Button(action: onPrevChapter) { toolbarIcon(item.systemImage, dimmed: !hasPrevChapter) }
+                .disabled(!hasPrevChapter)
+                .accessibilityLabel(item.title)
+        case .nextChapter:
+            Button(action: onNextChapter) { toolbarIcon(item.systemImage, dimmed: !hasNextChapter) }
+                .disabled(!hasNextChapter)
+                .accessibilityLabel(item.title)
+        case .bookmark:
+            Button { onToggleBookmark?() } label: {
+                toolbarIcon(isBookmarked ? "bookmark.fill" : "bookmark", tinted: isBookmarked)
+            }
+            .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark chapter")
+        case .markPreviousRead:
+            Button {
+                if unreadBefore == 0 { onMarkPreviousRead?() } else { showMarkPreviousConfirm = true }
+            } label: {
+                toolbarIcon(item.systemImage, dimmed: currentChapterIndex == 0)
+            }
+            .disabled(currentChapterIndex == 0)
+            .accessibilityLabel(item.title)
+        case .readingMode:
+            Menu {
+                Picker("Reading mode", selection: $readerMode) { readingModeOptions }
+            } label: { toolbarIcon(item.systemImage) }
+            .accessibilityLabel(item.title)
+        case .spreads:
+            Menu {
+                Picker("Two-page spreads", selection: $settings.pageLayout) { spreadOptions }
+            } label: { toolbarIcon(item.systemImage, tinted: settings.pageLayout != "single") }
+            .accessibilityLabel(item.title)
+        case .cropBorders:
+            Button { cropBinding.wrappedValue.toggle() } label: {
+                toolbarIcon(item.systemImage, tinted: cropBinding.wrappedValue)
+            }
+            .accessibilityLabel(item.title)
+            .accessibilityValue(cropBinding.wrappedValue ? "On" : "Off")
+        case .sharePage:
+            Button {
+                guard let url = currentPageURL else { return }
+                Task {
+                    if let image = await ReaderPageActions.image(for: url) { shareImage = image }
+                    else { ReaderPageActions.say("The page isn't loaded yet") }
+                }
+            } label: { toolbarIcon(item.systemImage) }
+            .accessibilityLabel(item.title)
+        case .comments:
+            Button(action: onDiscuss) { toolbarIcon(item.systemImage) }
+                .accessibilityLabel(item.title)
+        }
+    }
+
+    /// Unread chapters before this one — what "Mark previous as read" would change.
+    private var unreadBefore: Int {
+        chapters.prefix(currentChapterIndex).filter { !$0.isRead }.count
+    }
+
+    private func toolbarIcon(_ name: String, dimmed: Bool = false, tinted: Bool = false) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 17))
+            .foregroundStyle(tinted ? Color.accentColor : Color.primary.opacity(dimmed ? 0.3 : 1))
+            .frame(minWidth: 28, minHeight: 28)
+            .contentShape(Rectangle())
+    }
 
     /// Same settings as More → Settings → Manga & Webtoon, for the mode being read (F16).
     @ViewBuilder private var gesturesSection: some View {
@@ -1371,19 +1533,18 @@ struct ReaderOverlayView: View {
             switch readerMode {
             case .verticalScroll, .continuousRTL, .continuousLTR:
                 Toggle("Crop borders", isOn: $settings.cropBordersStrip)
+                Toggle("Scroll bar", isOn: $settings.readerScrollIndicator)
             case .horizontalRTL, .horizontalLTR:
-                Picker("Two-page spreads", selection: $settings.pageLayout) {
-                    Text("Off").tag("single")
-                    Text("Always").tag("double")
-                    Text("In landscape").tag("automatic")
-                }
+                Picker("Two-page spreads", selection: $settings.pageLayout) { spreadOptions }
                 if settings.pageLayout != "single" {
                     Toggle("Cover on its own", isOn: $settings.doublePageCoverAlone)
+                    Toggle("Swap the two pages", isOn: $settings.doublePageInvert)
                 }
                 Toggle("Crop borders", isOn: $settings.cropBorders)
             default:
                 Toggle("Crop borders", isOn: $settings.cropBorders)
             }
+            Toggle("Pinch to zoom", isOn: $settings.readerPinchZoom)
             ReaderBackgroundPicker(selection: $settings.readerBackground)
         }
     }
@@ -1500,19 +1661,15 @@ struct ReaderOverlayView: View {
                 NavigationStack {
                     Form {
                         Section("Reading mode") {
-                            Picker("Mode", selection: $readerMode) {
-                                Label("Right to left", systemImage: "book.pages").tag(ReaderMode.horizontalRTL)
-                                Label("Left to right", systemImage: "book.pages.fill").tag(ReaderMode.horizontalLTR)
-                                Label("Paged (vertical)", systemImage: "square.stack").tag(ReaderMode.verticalPaged)
-                                Label("Continuous (right to left)", systemImage: "arrow.left").tag(ReaderMode.continuousRTL)
-                                Label("Continuous (left to right)", systemImage: "arrow.right").tag(ReaderMode.continuousLTR)
-                                Label("Webtoon", systemImage: "scroll").tag(ReaderMode.verticalScroll)
-                            }
+                            Picker("Mode", selection: $readerMode) { readingModeOptions }
                             .pickerStyle(.inline)
                             .labelsHidden()
                         }
                         gesturesSection
                         pagesSection
+                        Section {
+                            NavigationLink("Toolbar") { ReaderToolbarEditor() }
+                        } footer: { Text("Pick the buttons in the bar at the bottom of the reader.") }
                     }
                     .navigationTitle("Reader Settings")
                     .navigationBarTitleDisplayMode(.inline)
@@ -1536,26 +1693,22 @@ struct ReaderOverlayView: View {
                         Text("\(currentPage + 1)/\(totalPages)")
                     }
                     Spacer()
-                    HStack(spacing: 18) {
-                        Button(action: onPrevChapter) {
-                            Image(systemName: "backward.end.fill")
-                                .font(.system(size: 17))
-                                .foregroundStyle(hasPrevChapter ? Color.primary : Color.primary.opacity(0.3))
+                    // Up to three buttons sit next to the page count (the pre-L3c bar = previous + next).
+                    if toolbarItems.count <= 3 {
+                        HStack(spacing: 18) {
+                            ForEach(toolbarItems) { toolbarButton($0) }
                         }
-                        .disabled(!hasPrevChapter)
-                        .accessibilityLabel("Previous chapter")
-
-                        Button(action: onNextChapter) {
-                            Image(systemName: "forward.end.fill")
-                                .font(.system(size: 17))
-                                .foregroundStyle(hasNextChapter ? Color.primary : Color.primary.opacity(0.3))
-                        }
-                        .disabled(!hasNextChapter)
-                        .accessibilityLabel("Next chapter")
                     }
                 }
                 .font(YomiTokens.Font.mono(12))
                 .foregroundStyle(.secondary)
+
+                // More than three get a row of their own, spread across the bar.
+                if toolbarItems.count > 3 {
+                    HStack(spacing: 0) {
+                        ForEach(toolbarItems) { toolbarButton($0).frame(maxWidth: .infinity) }
+                    }
+                }
 
                 if showPageNumber && totalPages > 1 {
                     HStack(spacing: 10) {
@@ -1587,6 +1740,19 @@ struct ReaderOverlayView: View {
         }
         .opacity(showOverlay ? 1 : 0)
         .animation(.easeInOut(duration: 0.2), value: showOverlay)
+        .confirmationDialog("Mark previous as read", isPresented: $showMarkPreviousConfirm, titleVisibility: .hidden) {
+            Button("Mark as Read") { onMarkPreviousRead?() }
+        } message: {
+            Text(unreadBefore == 1 ? "1 unread chapter before this one will be marked as read."
+                                   : "\(unreadBefore) unread chapters before this one will be marked as read.")
+        }
+        .sheet(isPresented: Binding(get: { shareImage != nil }, set: { if !$0 { shareImage = nil } })) {
+            if let shareImage {
+                ActivityView(items: [shareImage])
+                    .presentationDetents([.medium, .large])
+                    .ignoresSafeArea()
+            }
+        }
     }
 }
 

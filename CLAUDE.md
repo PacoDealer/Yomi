@@ -24,14 +24,17 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S171 — 2026-10-16)
+## Current state (S172 — 2026-10-16)
+- **S172 (sim):** L3c reader extras — Swap the two pages (`doublePageInvert`), Pinch to zoom off (`readerPinchZoom`;
+  zoom was already "strict" 1×–4×), Scroll bar (`readerScrollIndicator`), **custom reader toolbar**
+  (`readerToolbarItems`, `Features/Reader/ReaderToolbar.swift`: bookmark, mark previous read — unread only, reading
+  mode, spreads, crop, share page, comments). NEXT: L3d OCR → L4 → I (ROADMAP S171/S172).
 - **S171 (sim):** L1 library load measured on the phone's DB (149–212 ms, no hangs, no fix) · L2 novel reader already
   matches LNReader's checklist · Martin wants ALL of L3 + L4 (order in ROADMAP S171). **L3a:** refresh takes covers +
   details (novels, Keiyoushi, Mangayomi — Yomi's own manga plugins have NO details call); opening a library title asks
   the source at most once an hour (v29 `lastCheckedAt`, pull to refresh forces); Update rules → Refreshing.
   **L3b:** tap an Extensions row → `ExtensionDetailView` (Website in `CFBypassView(isWebsite:)` without installing,
   `PluginCatalogEntry.site`; Keiyoushi sources → their settings). Firebase `index.json` `site` deployed (16/16 live).
-  NEXT: L3c reader extras → L3d OCR → L4 → I (ROADMAP S171).
 - **S169 (sim):** F17 — crop borders (`cropBorders` paged, `cropBordersStrip` strip+continuous; `PageBorders.swift` =
   **MPL-2.0 port**, kept — ROADMAP S170), two-page spreads via `PageSpreads` (cover alone option,
   wide pages alone, shapes must match; `PageShapes` observable + `PageShapes.learn`), reader background

@@ -21,6 +21,39 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S172 — L3c reader extras (2026-10-16, simulator)
+
+What the four items mean was checked on Tachimanga's changelog (tachimanga.app/docs/changelogs.html), not guessed:
+v4.14 "invert double pages", v3.1 "disable pinch to zoom", v4.12 "strict scale" = *"restricts zoom to a fixed range
+with no bounce"* + "reader scroll indicator" + "disable pinch when long-press scrolling", v5.1 "Customizable Reader
+Toolbar" (+ v5.2 quick actions "Mark Previous Chapter as Read", "Delete Download").
+
+- **Swap the two pages** (`doublePageInvert`, off): the pair in a two-page spread swaps sides; reading order and
+  `currentPage` unchanged. Reader sheet (under Cover on its own) + Manga & Webtoon.
+- **Pinch to zoom** (`readerPinchZoom`, on): off = no pinch in any manga mode (`MangaPageView` gesture, `ReaderZoom(pinchEnabled:)`).
+  Pinch is also off while "scroll while held" is scrolling (long strip). **Strict scale: no setting** — Yomi's zoom was
+  already clamped 1×–4× with no bounce everywhere, i.e. always "strict".
+- **Scroll bar** (`readerScrollIndicator`, off): `showsIndicators` of the long-strip and continuous scroll views.
+- **Custom reader toolbar** (`readerToolbarItems`, new `Features/Reader/ReaderToolbar.swift`): the bottom bar shows the
+  picked buttons in order — previous/next chapter (default = the pre-S172 bar), bookmark chapter, mark previous as read,
+  reading mode (menu), two-page spreads (menu), crop borders (flips the paged or strip setting for the mode open), share
+  page, comments. ≤ 3 sit next to the page count, more get their own row. A button that doesn't apply is hidden at that
+  moment (spreads outside right-to-left/left-to-right, comments without a discussion URL, share before a page loads).
+  Editor = reader sheet → Toolbar and More → Settings → Manga & Webtoon → Reader → Toolbar (`ReaderToolbarEditor`).
+  Mark previous only writes UNREAD chapters (`setReadBatch` stamps `readAt` — an early version overwrote 17 real read
+  dates in the sim, caught + restored from `phone-backups/S171-sim-before-L1`); confirm dialog counts unread ones, none →
+  "Earlier chapters are already read". Bookmark/mark-read changes are kept in the reader (`bookmarkOverrides`,
+  `markedReadIds`) so the chapter list shows them. Delete Download (v5.2) not added.
+- **Verified (sim):** Spread Test P3|P2 → swap → P2|P3; toolbar editor add (7 → row of its own), the row added while
+  editing had no delete/drag handles → fixed (`.id(shown.count)`), live; bookmark → `isBookmarked = 1` in the DB; crop
+  button crops live; share → share sheet; 30 Years (Asura) chapter 19 with 16 + 18 unread → dialog "2 unread", only
+  those two written, again → "already read"; Webtoon via the toolbar menu → spreads button hidden. Settings screens show
+  every new row. Build 0 warnings (Yomi + YomiWidget), UI tests 13/13. Sim DB rows + reader prefs restored after.
+- NOT checked: the scroll bar itself on screen (the setting is wired; a screen recording couldn't separate the thin bar
+  from the artwork), pinch on/off (no pinch in the sim tooling), VoiceOver labels of the menus, the device.
+
+---
+
 ## S171 — L1 library load time · L2 novel reader vs LNReader (2026-10-16, simulator, no app code changed)
 
 - **L1 library load time — measured, no fix needed.** Method: the phone's own DB (`phone-backups/S166-after-…`, 171

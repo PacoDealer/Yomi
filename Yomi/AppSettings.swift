@@ -419,6 +419,28 @@ import Observation
         didSet { defaults.set(doublePageCoverAlone, forKey: "doublePageCoverAlone") }
     }
 
+    /// Two-page mode (L3c, Tachimanga v4.14 "Invert double pages"): the pair swaps sides on screen, for spreads the
+    /// source scanned in the other order.
+    var doublePageInvert: Bool {
+        didSet { defaults.set(doublePageInvert, forKey: "doublePageInvert") }
+    }
+
+    /// Pinch to zoom in every manga mode (L3c, Tachimanga v3.1). Off = no accidental zoom while holding the phone.
+    /// Zoom is always "strict" (Tachimanga v4.12): 1×–4×, no bounce past either end.
+    var readerPinchZoom: Bool {
+        didSet { defaults.set(readerPinchZoom, forKey: "readerPinchZoom") }
+    }
+
+    /// Scroll bar in long strip + continuous (L3c, Tachimanga v4.12).
+    var readerScrollIndicator: Bool {
+        didSet { defaults.set(readerScrollIndicator, forKey: "readerScrollIndicator") }
+    }
+
+    /// Buttons in the manga reader's bottom bar, in order (L3c, Tachimanga v5.1) — `ReaderToolbarItem` raw values.
+    var readerToolbarItems: [String] {
+        didSet { defaults.set(readerToolbarItems, forKey: "readerToolbarItems") }
+    }
+
     /// Cut the plain white/black margins off each page (F17): paged modes, and long strip + continuous.
     var cropBorders: Bool {
         didSet { defaults.set(cropBorders, forKey: "cropBorders") }
@@ -685,6 +707,10 @@ import Observation
         stripLongPress           = d.string(forKey: "stripLongPress")            ?? "autoScroll"
         pageLayout               = d.string(forKey: "pageLayout")                ?? "single"
         doublePageCoverAlone     = d.object(forKey: "doublePageCoverAlone")      as? Bool ?? false
+        doublePageInvert         = d.object(forKey: "doublePageInvert")          as? Bool ?? false
+        readerPinchZoom          = d.object(forKey: "readerPinchZoom")           as? Bool ?? true
+        readerScrollIndicator    = d.object(forKey: "readerScrollIndicator")     as? Bool ?? false
+        readerToolbarItems       = d.stringArray(forKey: "readerToolbarItems")   ?? ReaderToolbarItem.defaults
         cropBorders              = d.object(forKey: "cropBorders")               as? Bool ?? false
         cropBordersStrip         = d.object(forKey: "cropBordersStrip")          as? Bool ?? false
         readerBackground         = d.string(forKey: "readerBackground")          ?? "black"
