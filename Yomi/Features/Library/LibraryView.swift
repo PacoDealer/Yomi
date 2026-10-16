@@ -29,6 +29,42 @@ struct LibraryView: View {
               count: max(2, settings.libraryColumns))
     }
 
+    /// "Sort" for All; "Sort · Favourites" when the category shown keeps its own sort (S170).
+    private var sortTitle: String {
+        guard let id = viewModel.selectedCategoryId,
+              let name = viewModel.categories.first(where: { $0.id == id })?.name else { return "Sort" }
+        return "Sort · \(name)"
+    }
+
+    /// Sources → each one cycles show only → hide → all (S170).
+    @ViewBuilder
+    private var sourceFilterMenu: some View {
+        let sources = viewModel.librarySources
+        if sources.count > 1 {
+            Menu {
+                if viewModel.sourceFilterActive {
+                    Button("Show All Sources", systemImage: "arrow.counterclockwise") { viewModel.clearSourceFilter() }
+                }
+                Section("Tap: show only, hide, all") {
+                    ForEach(sources, id: \.id) { source in
+                        Button {
+                            viewModel.cycleSourceFilter(source.id)
+                        } label: {
+                            switch viewModel.sourceFilterState(source.id) {
+                            case .all: Label("\(source.name) (\(source.count))", systemImage: "circle")
+                            case .only: Label("\(source.name) (\(source.count))", systemImage: "checkmark.circle.fill")
+                            case .hidden: Label("\(source.name) (\(source.count))", systemImage: "minus.circle.fill")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Label(viewModel.sourceFilterActive ? "Sources (filtered)" : "Sources", systemImage: "square.stack.3d.up")
+            }
+            .menuActionDismissBehavior(.disabled)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -382,16 +418,19 @@ struct LibraryView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
-                            ForEach(SortOrder.allCases) { order in
-                                Button {
-                                    viewModel.sortOrder = order
-                                } label: {
-                                    Label(order.rawValue, systemImage: order.systemImage)
-                                    if viewModel.sortOrder == order {
-                                        Image(systemName: "checkmark")
+                            Section(sortTitle) {
+                                ForEach(SortOrder.allCases) { order in
+                                    Button {
+                                        viewModel.sortOrder = order
+                                    } label: {
+                                        Label(order.rawValue, systemImage: order.systemImage)
+                                        if viewModel.sortOrder == order {
+                                            Image(systemName: "checkmark")
+                                        }
                                     }
                                 }
                             }
+                            sourceFilterMenu
                             Divider()
                             Button {
                                 viewModel.statusFilter = nil
@@ -409,6 +448,7 @@ struct LibraryView: View {
                             }
                         } label: {
                             let active = viewModel.sortOrder != .lastRead || viewModel.statusFilter != nil
+                                || viewModel.sourceFilterActive
                             Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                         }
                     }

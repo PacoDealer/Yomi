@@ -454,6 +454,15 @@ import Observation
         recentSourceKeys = [key] + recentSourceKeys.filter { $0 != key }.prefix(4)
     }
 
+    /// Sources pinned to the top of Browse → Sources (`BrowseSourceKey` strings, in pin order). S170, Tachimanga v2.2.
+    var pinnedSourceKeys: [String] {
+        didSet { defaults.set(pinnedSourceKeys, forKey: "pinnedSourceKeys") }
+    }
+
+    func togglePinned(_ key: String) {
+        pinnedSourceKeys = pinnedSourceKeys.contains(key) ? pinnedSourceKeys.filter { $0 != key } : pinnedSourceKeys + [key]
+    }
+
     // MARK: - App Lock
 
     /// Require biometric/passcode authentication when app enters foreground
@@ -673,6 +682,7 @@ import Observation
             mihonRepoURLs = legacy.isEmpty ? [] : [legacy]
         }
         recentSourceKeys         = d.stringArray(forKey: "recentSourceKeys")     ?? []
+        pinnedSourceKeys         = d.stringArray(forKey: "pinnedSourceKeys")     ?? []
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5

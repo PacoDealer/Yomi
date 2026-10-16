@@ -36,13 +36,92 @@ final class LibraryViewModel {
     var searchText: String = "" { didSet { rebuildDisplayed() } }
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    /// The sort of the category being shown — each category keeps its own (S170, Tachimanga v4.1). "All" is the
+    /// old global `librarySortOrder`, and the fallback for a category never sorted on its own.
     var sortOrder: SortOrder = {
         SortOrder(rawValue: UserDefaults.standard.string(forKey: "librarySortOrder") ?? "") ?? .lastRead
     }() {
         didSet {
-            UserDefaults.standard.set(sortOrder.rawValue, forKey: "librarySortOrder")
+            if !isLoadingCategorySort {
+                if let catId = selectedCategoryId {
+                    var byCategory = Self.categorySorts
+                    byCategory[catId] = sortOrder.rawValue
+                    Self.categorySorts = byCategory
+                } else {
+                    UserDefaults.standard.set(sortOrder.rawValue, forKey: "librarySortOrder")
+                }
+            }
             rebuildDisplayed()
         }
+    }
+    @ObservationIgnored private var isLoadingCategorySort = false
+
+    private static var categorySorts: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: "librarySortByCategory") as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "librarySortByCategory") }
+    }
+
+    /// True when the category shown has a sort of its own, not the "All" one.
+    var categoryHasOwnSort: Bool { selectedCategoryId.map { Self.categorySorts[$0] != nil } ?? false }
+
+    private func loadCategorySort() {
+        let global = SortOrder(rawValue: UserDefaults.standard.string(forKey: "librarySortOrder") ?? "") ?? .lastRead
+        let own = selectedCategoryId.flatMap { Self.categorySorts[$0] }.flatMap(SortOrder.init(rawValue:))
+        isLoadingCategorySort = true
+        sortOrder = own ?? global
+        isLoadingCategorySort = false
+    }
+
+    // MARK: - Source filter (S170, Tachimanga v4.15/v5.0)
+
+    /// Source ids to show only (empty = every source) and to hide. A source is in at most one of the two.
+    var includedSources: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "libraryIncludedSources") ?? []) {
+        didSet { UserDefaults.standard.set(Array(includedSources), forKey: "libraryIncludedSources"); rebuildDisplayed() }
+    }
+    var excludedSources: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "libraryExcludedSources") ?? []) {
+        didSet { UserDefaults.standard.set(Array(excludedSources), forKey: "libraryExcludedSources"); rebuildDisplayed() }
+    }
+    var sourceFilterActive: Bool { !includedSources.isEmpty || !excludedSources.isEmpty }
+
+    enum SourceFilterState { case all, only, hidden }
+
+    func sourceFilterState(_ sourceId: String) -> SourceFilterState {
+        includedSources.contains(sourceId) ? .only : excludedSources.contains(sourceId) ? .hidden : .all
+    }
+
+    /// Off → show only → hide → off.
+    func cycleSourceFilter(_ sourceId: String) {
+        switch sourceFilterState(sourceId) {
+        case .all: includedSources.insert(sourceId)
+        case .only: includedSources.remove(sourceId); excludedSources.insert(sourceId)
+        case .hidden: excludedSources.remove(sourceId)
+        }
+    }
+
+    func clearSourceFilter() {
+        includedSources = []
+        excludedSources = []
+    }
+
+    /// Every source a library title comes from, with its title count, by name.
+    var librarySources: [(id: String, name: String, count: Int)] {
+        var counts: [String: Int] = [:]
+        for id in mangas.map(\.sourceId) + novels.map(\.sourceId) { counts[id, default: 0] += 1 }
+        let named = counts.map { (id: $0.key, name: SourceStatus.sourceName($0.key), count: $0.value) }
+        // Asura Scans as a plugin and as a Keiyoushi extension: say which is which.
+        let names = named.map { $0.name.lowercased() }
+        return named.map { source in
+            names.filter { $0 == source.name.lowercased() }.count > 1
+                ? (id: source.id, name: "\(source.name) · \(SourceStatus.kindLabel(source.id))", count: source.count) : source
+        }
+        .sorted {
+            let order = $0.name.localizedCaseInsensitiveCompare($1.name)
+            return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+        }
+    }
+
+    private func passesSourceFilter(_ sourceId: String) -> Bool {
+        (includedSources.isEmpty || includedSources.contains(sourceId)) && !excludedSources.contains(sourceId)
     }
     /// When nil → show all titles regardless of reading status.
     var statusFilter: ReadingStatus? = {
@@ -72,7 +151,10 @@ final class LibraryViewModel {
 
     /// When nil → show all library manga. When set → filter to that category.
     var selectedCategoryId: String? = nil {
-        didSet { updateFilteredIds() }
+        didSet {
+            loadCategorySort()
+            updateFilteredIds()
+        }
     }
 
     private(set) var filteredIds: Set<String> = []
@@ -108,7 +190,8 @@ final class LibraryViewModel {
     // MARK: - Display builders
 
     private func buildDisplayedManga() -> [Manga] {
-        let categoryFiltered = selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) }
+        let categoryFiltered = (selectedCategoryId == nil ? mangas : mangas.filter { filteredIds.contains($0.id) })
+            .filter { passesSourceFilter($0.sourceId) }
         let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Manga]
         switch sortOrder {
@@ -144,7 +227,8 @@ final class LibraryViewModel {
     }
 
     private func buildDisplayedNovels() -> [Novel] {
-        let categoryFiltered = selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) }
+        let categoryFiltered = (selectedCategoryId == nil ? novels : novels.filter { filteredNovelIds.contains($0.id) })
+            .filter { passesSourceFilter($0.sourceId) }
         let base = statusFilter == nil ? categoryFiltered : categoryFiltered.filter { $0.readingStatus == statusFilter }
         let sorted: [Novel]
         switch sortOrder {

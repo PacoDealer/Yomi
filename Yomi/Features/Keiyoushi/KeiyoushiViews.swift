@@ -12,6 +12,7 @@ struct KeiyoushiLanguagesView: View {
     let packageName: String
     @Environment(\.yomiCanvas) private var canvas
     @State private var repo = KeiyoushiRepository.shared
+    @State private var settings = AppSettings.shared
     @State private var editing = false
 
     private var ext: InstalledKeiyoushiExtension? {
@@ -40,6 +41,13 @@ struct KeiyoushiLanguagesView: View {
                             Text(source.lang.uppercased())
                                 .font(.footnote)
                                 .foregroundStyle(canvas.textSecondary)
+                        }
+                    }
+                    .contextMenu {
+                        let key = BrowseSourceKey.keiyoushi(source.id)
+                        let pinned = settings.pinnedSourceKeys.contains(key)
+                        Button { settings.togglePinned(key) } label: {
+                            Label(pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin")
                         }
                     }
                 }
