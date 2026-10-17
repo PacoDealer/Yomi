@@ -2375,3 +2375,16 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Weekday names in prose: check the calendar, not memory** — 2026-10-16 is a Friday; I called it Thursday in chat
   while the app (correctly) said Friday.
 
+
+## S175 lessons
+
+- **SwiftPM `unsafeFlags`:** a dependency pinned by version is refused ("contains unsafe build flags"); pinned by
+  revision it builds. Test the pin in a throwaway package before editing project.pbxproj.
+- **Solid 7z = whole-block decode per call** in the LZMA SDK (not just "up to the file"). Batch extraction into one
+  call; measure per-call vs batch on a real-size archive before designing the reader path.
+- **Test a decoder with archives from an INDEPENDENT writer** (py7zr in a scratch venv), never only its own encoder.
+- **XcodeBuildMCP `tap` sometimes reports success and does nothing** (twice on the reader's Next button);
+  `touch` with down+up on the same ref worked. Also: rows under the floating tab bar get the tab's tap.
+- **A licence script run on another checkout can rewrite unrelated files** (CRLF in licence-unrar.txt): check
+  `git diff -w` and put whitespace-only changes back.
+

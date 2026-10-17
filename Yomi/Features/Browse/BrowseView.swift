@@ -411,7 +411,7 @@ struct BrowseView: View {
                         Text("Local Files")
                             .font(.body)
                             .foregroundStyle(canvas.textPrimary)
-                        Text("CBZ, CBR, EPUB and image folders")
+                        Text("CBZ, CBR, CB7, EPUB and image folders")
                             .font(.subheadline)
                             .foregroundStyle(canvas.textSecondary)
                     }

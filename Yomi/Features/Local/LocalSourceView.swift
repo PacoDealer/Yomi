@@ -25,6 +25,8 @@ struct LocalSourceView: View {
     static let cbzType = UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip
     static let cbrType = UTType("com.yomi.cbr") ?? UTType(filenameExtension: "cbr") ?? .data
     static let rarType = UTType("com.rarlab.rar-archive") ?? UTType(filenameExtension: "rar") ?? .data
+    static let cb7Type = UTType("com.yomi.cb7") ?? UTType(filenameExtension: "cb7") ?? .data
+    static let sevenZType = UTType("org.7-zip.7-zip-archive") ?? UTType(filenameExtension: "7z") ?? .data
     static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
     var body: some View {
@@ -74,7 +76,7 @@ struct LocalSourceView: View {
             } header: {
                 CalmSectionHeader(manga.isEmpty && novels.isEmpty ? "Add your files" : "Files")
             } footer: {
-                Text("CBZ, CBR, ZIP, RAR and folders of images open as manga; EPUBs open as novels. A linked folder works like Mihon's local folder: one folder per series, one archive or image folder per chapter, cover.jpg optional.")
+                Text("CBZ, CBR, CB7, ZIP, RAR, 7Z and folders of images open as manga; EPUBs open as novels. A linked folder works like Mihon's local folder: one folder per series, one archive or image folder per chapter, cover.jpg optional.")
                     .font(.footnote)
                     .foregroundStyle(canvas.textSecondary)
             }
@@ -87,7 +89,7 @@ struct LocalSourceView: View {
         }
         .fileImporter(
             isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
-            allowedContentTypes: pickedMode == .linkFolder ? [.folder] : [Self.cbzType, .zip, Self.cbrType, Self.rarType, Self.epubType, .folder],
+            allowedContentTypes: pickedMode == .linkFolder ? [.folder] : [Self.cbzType, .zip, Self.cbrType, Self.rarType, Self.cb7Type, Self.sevenZType, Self.epubType, .folder],
             allowsMultipleSelection: pickedMode != .linkFolder
         ) { result in
             let mode = pickedMode

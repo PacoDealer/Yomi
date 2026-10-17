@@ -12,7 +12,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Tech stack
 - Swift + SwiftUI, **iOS 26.2 deployment target — no older-iOS fallbacks, ever**
-- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader) · Unrar.swift (CBR)
+- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader) · Unrar.swift (CBR) · PLzmaSDK (CB7/7z, pinned by REVISION — its `unsafeFlags` are refused for version pins)
 - Keiyoushi: OpenJDK Mobile Zero + patched M-Extension-Server (`Yomi/Features/Keiyoushi/`, `scripts/keiyoushi/`)
 - `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` project-wide — check build settings before claiming an isolation bug
 
@@ -24,10 +24,15 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S174 — 2026-10-17)
+## Current state (S175 — 2026-10-17)
+- **S175 (sim):** **CB7/7z** local files via PLzmaSDK 1.6.1 (LZMA SDK 26.01): `ComicArchive` detects 7z by its bytes,
+  `write(_:)` unpacks a chapter in ONE pass (solid 7z: per-page calls decoded the whole block each time — 30 pages
+  26.6 s vs all 150 in 1.4 s on the Mac); LZMA/LZMA2/PPMd/Copy/AES ok, BZip2/Deflate not in this build (clear error);
+  password → "password-protected" (incl. hidden names). Reader now shows a local archive's own error. **59 ld
+  "could not associate debug note" warnings from the package on clean builds** — decision pending (ROADMAP S175).
 - **S174 (sim):** L4 **streak repair** — `Core/ReadingStreak.swift` (1–2 missed days, streak ≥ 2, once a week; tests
   `scripts/streak-tests/run.sh` 12/12), quiet row + Repair Streak button in Insights only, repaired days outlined in the
-  heatmap, stored in `AppSettings.streakRepairedDays` (device-only). NEXT: CB7 → better voices → I (ROADMAP S171/S174).
+  heatmap, stored in `AppSettings.streakRepairedDays` (device-only). NEXT: better voices (research first) → I (ROADMAP S171).
 - **S173 (sim):** L3d **Text on Page** (`Features/Reader/PageText.swift`): long press a page or toolbar button
   `pageText` → Vision OCR on the device, blocks in reading order, Copy / Copy All / tap an outline on the page /
   Translate (Apple's sheet — sends to Apple unless offline translation is set). Grouping/order in
@@ -114,7 +119,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   Backlog: genre chips on NOVELS (LNReader `genres` dropped by `SourceNovel`; manga have them — S145).
   Backlog added S142: Dynamic Type, auto backups, lockable SFW mode, reader auto-dark at night, separate tap
   zones per manga mode, Spanish (ROADMAP S142). Aidoku/Paperback: answered S143 (possible, not now).
-- Open gaps: Keiyoushi page list ~4.5 s warm (JVM work, S159); no CBR/RAR; NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
+- Open gaps: Keiyoushi page list ~4.5 s warm (JVM work, S159); NewPipe-free extension-server jar staged + on phone since S150, Keiyoushi device check pending; notification prompt on a fresh install not yet observed on device.
 - S149–S150: manga reader slide/swipe/zoom everywhere; Migrate = sources (with icons) → titles → carry-over options →
   **every installed manga source searched, most chapters suggested, no Skip** (row tap = manual search) → Copy / Migrate.
   Source icons: gradient+initials only as fallback (`SourceIconBadge`, `isMihonIcon`). No novel migration exists.

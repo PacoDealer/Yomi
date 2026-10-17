@@ -12,6 +12,7 @@
 		274F4DCE6FCF66961F6A14D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E2FE408826B57FBD0DE3A78D /* Foundation.framework */; };
 		3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */ = {isa = PBXBuildFile; productRef = 0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */; };
 		7A1C56D2A0B14C0E9D0F5601 /* Unrar in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1C56D1A0B14C0E9D0F5601 /* Unrar */; };
+		7B2C66E2B1C24D1E8F1A6701 /* PLzmaSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 7B2C66E1B1C24D1E8F1A6701 /* PLzmaSDK */; };
 		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB2C53D86030B3A2FA45D469 /* ReaderUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */; };
 		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
@@ -145,6 +146,7 @@
 				3738A5BA8B134BD6207F8292 /* Pulse in Frameworks */,
 				1EC7FBB55A0FC3E8F1211B76 /* PulseUI in Frameworks */,
 				7A1C56D2A0B14C0E9D0F5601 /* Unrar in Frameworks */,
+				7B2C66E2B1C24D1E8F1A6701 /* PLzmaSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,6 +259,7 @@
 				0CDBCF91ABDC3D7B7AFCDD0F /* Pulse */,
 				61D0474D93CEB0EF171D3949 /* PulseUI */,
 				7A1C56D1A0B14C0E9D0F5601 /* Unrar */,
+				7B2C66E1B1C24D1E8F1A6701 /* PLzmaSDK */,
 			);
 			productName = Yomi;
 			productReference = 0EE530CD2F64CF600074B935 /* Yomi.app */;
@@ -314,6 +317,7 @@
 				9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */,
 				7A1C56D0A0B14C0E9D0F5601 /* XCRemoteSwiftPackageReference "Unrar" */,
+				7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0EE530CE2F64CF600074B935 /* Products */;
@@ -741,6 +745,14 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/OlehKulykov/PLzmaSDK";
+			requirement = {
+				kind = revision;
+				revision = f449bc3e13204b68a7e05fca80ce8c31642085ec;
+			};
+		};
 		7A1C56D0A0B14C0E9D0F5601 /* XCRemoteSwiftPackageReference "Unrar" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mtgto/Unrar.swift";
@@ -779,6 +791,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */;
 			productName = PulseUI;
+		};
+		7B2C66E1B1C24D1E8F1A6701 /* PLzmaSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */;
+			productName = PLzmaSDK;
 		};
 		7A1C56D1A0B14C0E9D0F5601 /* Unrar */ = {
 			isa = XCSwiftPackageProductDependency;

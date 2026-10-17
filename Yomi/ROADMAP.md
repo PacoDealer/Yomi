@@ -21,6 +21,41 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S175 — L4 CB7/7z archives (2026-10-17, simulator)
+
+- **Library choice (checked live):** SWCompression 4.9.1 (pure Swift, MIT) — `SevenZipContainer.open(container: Data)`
+  takes the whole archive in memory and decodes every entry: no for 100 MB+ CB7s on a phone. **PLzmaSDK 1.6.1** (MIT,
+  wraps Igor Pavlov's **LZMA SDK 26.01**, public domain — scanned: no GPL/LGPL text) reads from a file path and
+  extracts chosen items. Its Package.swift uses `unsafeFlags`; SwiftPM **refuses that for a version pin** ("contains
+  unsafe build flags", tried) and **allows it for a revision pin** → Xcode package pinned to `f449bc3` (= tag 1.6.1).
+- **Methods (tested on the Mac against archives written by py7zr, an independent writer):** Copy, LZMA, LZMA2 (7-Zip's
+  default), PPMd → byte-identical; AES with the password ok (incl. encrypted names); **BZip2 and Deflate fail** (not in
+  this LZMA SDK build); Zstandard fails (not standard 7-Zip). Yomi has no password UI (same as CBR).
+- **Solid archives:** the LZMA SDK decodes the whole solid block on EVERY extract call — 150 real pages / 128 MB:
+  one call per page = 26.6 s for the first 30 pages; one call for all = **1.4 s** (Mac). So `ComicArchive.write(_:)`
+  unpacks a chapter in one pass (ZIP/RAR keep reading file by file); `LocalLibrary.pageURLs` uses it.
+- **Code:** `Core/ComicArchive.swift` (`is7z` by magic bytes, `.sevenZip` backing, `is7zHeaderEncrypted` = packed header
+  with AES coder 06F10701 → "password-protected" instead of "damaged", `unsupported7z` message names BZip2/Deflate and
+  suggests LZMA2/CBZ); `LocalLibrary` (cb7/7z are normal archives now; a failed unpack removes its Caches folder);
+  Info.plist `com.yomi.cb7` type + document type; picker takes cb7 + `org.7-zip.7-zip-archive`; format lists in Browse,
+  Local Files and the repository help mention CB7. **Reader:** a local chapter with no pages now shows the archive's
+  own error (was "No pages found." for every case, CBR included). Licences: `licence-plzmasdk.txt` + row.
+- **Verified (sim):** "CB7 Test" series in `Documents/Local` (5 chapters): scan found it, cover from chapter 1; LZMA2 +
+  PPMd chapters 8/8 pages, byte-identical in Caches; AES (hidden names) → "This archive is password-protected — Yomi
+  can't open it."; BZip2 → the 7z method message; 150-page 128 MB LZMA2 → 1/150, all 150 byte-identical, unpack
+  ~3.2 s (folder created → stamp; Debug build in the sim). UI tests 13/13, Swift 0 warnings. Test title, files and
+  caches removed again (157 manga).
+- **⚠ Linker warnings — decision for Martin:** clean builds (Debug and Release) print **59 `ld: warning: could not
+  associate debug note to atom …`** for LZMA SDK internals (IsMatch, kAlign…). Incremental builds: 0. Harmless debug
+  info notes from the package's C code, but they break the "0 warnings" rule. Options: accept them (third-party), or
+  vendor PLzmaSDK as a local package to change its debug flags (more upkeep, untested whether it helps).
+- NOT checked: the device (phone CPU will be slower than the sim's ~3 s for 128 MB), a CB7 made by real 7-Zip (py7zr
+  only), Import through the Files picker / "Open in Yomi" with a .cb7 (types declared, not exercised), the empty-folder
+  cleanup on screen (compile only), memory on a phone during a large unpack (files are written by stream, not RAM).
+- NEXT: better voices (research first: size, licence, quality vs iOS Premium voices) → I (ROADMAP S171).
+
+---
+
 ## S174 — L4 streak repair (2026-10-17, simulator)
 
 - **What and why:** RESEARCH §25.10 #9 — Silverman & Barasch 2023 (J. Consumer Research 49(6)): after a broken streak
@@ -40,7 +75,7 @@ The research audit revealed that 800+ sources are already available across four 
   (read back through cfprefsd); after a relaunch still 4 + the caption. The repaired day was deleted again afterwards.
   Build 0 warnings (Yomi + YomiWidget).
 - NOT checked: the device, VoiceOver reading of the row, a week-limit case on screen (tests only).
-- NEXT: CB7/7z archives → better voices (research first) → I (ROADMAP S171).
+- NEXT: CB7/7z archives → better voices (research first) → I (ROADMAP S171). (CB7 done S175.)
 
 ---
 
