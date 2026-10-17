@@ -99,7 +99,7 @@ struct PluginsView: View {
     private var availableGroups: [PluginCatalogGroup] {
         catalogService.groupedEntries.filter { group in
             !catalogService.isGroupInstalled(group)
-                && (settings.showNSFW || !group.primaryEntry.isNSFW)
+                && (settings.allowsAdultExtensions || !group.primaryEntry.isNSFW)
                 && matchesSearch(group.name)
                 && (languageFilter.isEmpty || group.entries.contains {
                     let code = SourceLanguage.baseCode(for: $0.language)
@@ -115,7 +115,8 @@ struct PluginsView: View {
         let installedIds = Set(keiyoushi.installed.map(\.id))
         return keiyoushi.available.filter { ext in
             !installedIds.contains(ext.id)
-                && (settings.showNSFW || !ext.isNSFW)
+                && (settings.allowsAdultExtensions || !ext.isNSFW)
+                && !SafeMode.hides(ext)
                 && matchesSearch(ext.name)
                 && (languageFilter.isEmpty
                     || ext.sources.contains { SourceLanguage.baseCode(for: $0.lang) == languageFilter })
@@ -127,9 +128,10 @@ struct PluginsView: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// Installed extensions; Safe Mode hides the 18+ ones (and mixed ones when chosen) here too.
     private var installedItems: [ExtensionItem] {
-        (extensionManager.installed.map(ExtensionItem.installed)
-            + keiyoushi.installed.map(ExtensionItem.installedKeiyoushi))
+        (extensionManager.installed.filter { !(settings.safeMode && $0.isNSFW) }.map(ExtensionItem.installed)
+            + keiyoushi.installed.filter { !SafeMode.hides($0.info) }.map(ExtensionItem.installedKeiyoushi))
             .filter { matchesSearch($0.name) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -787,8 +789,10 @@ struct RepositoriesView: View {
             Section(calm: "Content") {
                 Toggle(isOn: $settings.showNSFW) {
                     Text("Show 18+ extensions")
-                    Text("Off hides extensions their repository marks as 18+.")
+                    Text(settings.safeMode ? "Safe Mode is on, so 18+ extensions stay hidden."
+                                           : "Off hides extensions their repository marks as 18+.")
                 }
+                .disabled(settings.safeMode)
             }
         }
         .navigationTitle("Repositories")

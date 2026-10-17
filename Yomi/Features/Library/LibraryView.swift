@@ -473,6 +473,8 @@ struct LibraryView: View {
             // S156: the Library appears once, behind the first-run cover — a backup imported there showed
             // "No sources yet" until the tab was left and re-entered.
             .onChange(of: settings.hasSeenOnboarding) { Task { await viewModel.loadLibrary() } }
+            .onChange(of: settings.safeMode) { Task { await viewModel.loadLibrary() } }
+            .onChange(of: settings.safeModeHidesMixed) { Task { await viewModel.loadLibrary() } }
             .onChange(of: appRouter.pendingOpenMangaId, initial: true) { _, id in
                 guard let id else { return }
                 appRouter.pendingOpenMangaId = nil

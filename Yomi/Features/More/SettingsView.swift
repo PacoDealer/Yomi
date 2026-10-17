@@ -137,6 +137,12 @@ struct SettingsView: View {
                 toggle("Incognito", isOn: $settings.isIncognito, note: "Reading progress and history aren't saved.")
                 toggle("App Lock", isOn: appLockBinding, note: "Face ID or passcode when you open Yomi.")
                 toggle("Hide in App Switcher", isOn: $settings.secureScreenEnabled)
+                NavigationLink {
+                    SafeModeView()
+                } label: {
+                    valueLabel("Safe Mode", !settings.safeMode ? "Off" : SafeMode.isLocked ? "Locked" : "On")
+                }
+                .accessibilityIdentifier("safeModeLink")
             } header: { CalmSectionHeader("Privacy") }
 
             Section {

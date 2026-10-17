@@ -266,9 +266,10 @@ struct HistoryView: View {
 
     private func loadHistory() async {
         isLoading = true
+        let safe = SafeMode.filter
         let (result, subtitles) = await Task.detached {
-            let mangas = (try? MangaQueries.fetchHistory()) ?? []
-            let novels = (try? NovelQueries.fetchHistory()) ?? []
+            let mangas = ((try? MangaQueries.fetchHistory()) ?? []).filter(safe.allows)
+            let novels = ((try? NovelQueries.fetchHistory()) ?? []).filter(safe.allows)
 
             // "Chapter 722 · 32%" — same wording as the Continue shelf. Falls back to the chapter's NAME
             // when the source gives no number (S141: several rows showed no chapter at all).

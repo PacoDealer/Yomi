@@ -108,6 +108,19 @@ import Observation
         didSet { defaults.set(showNSFW, forKey: "showNSFW") }
     }
 
+    /// Safe Mode (S179, `Core/SafeMode.swift`): hides 18+ sources and adult-tagged titles everywhere.
+    var safeMode: Bool {
+        didSet { defaults.set(safeMode, forKey: "safeMode") }
+    }
+
+    /// With Safe Mode on, also hide sources their repository marks "mixed" (most big aggregators).
+    var safeModeHidesMixed: Bool {
+        didSet { defaults.set(safeModeHidesMixed, forKey: "safeModeHidesMixed") }
+    }
+
+    /// The 18+ extension switch as it applies: Safe Mode overrides it.
+    var allowsAdultExtensions: Bool { showNSFW && !safeMode }
+
     // MARK: - Backup
 
     var iCloudAutoBackup: Bool {
@@ -683,6 +696,8 @@ import Observation
         use24HourClock          = d.object(forKey: "use24HourClock") as? Bool
         dateOrderDayFirst       = d.object(forKey: "dateOrderDayFirst") as? Bool
         showNSFW                = d.object(forKey: "showNSFW")     as? Bool  ?? false
+        safeMode                = d.bool(forKey: "safeMode")
+        safeModeHidesMixed      = d.bool(forKey: "safeModeHidesMixed")
         hasRequestedNotifications = d.bool(forKey: "hasRequestedNotifications")
         sendUpdateNotifications = d.object(forKey: "sendUpdateNotifications") as? Bool ?? true
         novelSepia              = d.bool(forKey: "novelSepia")

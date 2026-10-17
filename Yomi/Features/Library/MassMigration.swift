@@ -34,7 +34,9 @@ struct MigrationTarget: Identifiable, Hashable, Sendable {
             plugins.filter { ext in manager.bridge(for: ext).map { !$0.isLNReaderPlugin } ?? false }
                 .map { MigrationTarget(id: $0.id, name: $0.name, kind: .js($0)) }
         }.value
-        return (js + keiyoushi).sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let safe = SafeMode.filter
+        return (js + keiyoushi).filter { !safe.hidesSource($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     // MARK: Source calls

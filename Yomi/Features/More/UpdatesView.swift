@@ -88,11 +88,12 @@ private struct NovelReaderDest: Identifiable, Hashable {
     }
 
     func loadFromDB() async {
+        let safe = SafeMode.filter
         entries = await Task.detached(priority: .userInitiated) {
             let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
-            let mangas = Dictionary(((try? MangaQueries.fetchLibrary()) ?? []).map { ($0.id, $0) },
+            let mangas = Dictionary(((try? MangaQueries.fetchLibrary()) ?? []).filter(safe.allows).map { ($0.id, $0) },
                                     uniquingKeysWith: { a, _ in a })
-            let novels = Dictionary(((try? NovelQueries.fetchLibrary()) ?? []).map { ($0.id, $0) },
+            let novels = Dictionary(((try? NovelQueries.fetchLibrary()) ?? []).filter(safe.allows).map { ($0.id, $0) },
                                     uniquingKeysWith: { a, _ in a })
             var out: [UpdateFeedEntry] = []
             for (ch, at) in (try? ChapterQueries.fetchRecentlyFetched(since: cutoff)) ?? [] {
@@ -144,7 +145,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             excludedIds: Set(AppSettings.shared.excludedCategoryIds),
             notify: AppSettings.shared.sendUpdateNotifications,
             autoDownload: AppSettings.shared.backgroundDownloadEnabled,
-            refreshMetadata: AppSettings.shared.updateRefreshMetadata)
+            refreshMetadata: AppSettings.shared.updateRefreshMetadata,
+            safe: SafeMode.filter)
 
         // The skip rules read the DB per title — do that off the main thread, once, before counting.
         let targets: [UpdateTarget]
@@ -244,6 +246,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let notExpectedNovels = s.skipNotExpected ? ((try? UpdateScheduleQueries.notExpected(.novel)) ?? []) : []
         for manga in (try? MangaQueries.fetchLibrary()) ?? [] {
             if manga.isLocal { continue }  // local files: nothing to check online (S148)
+            if !s.safe.allows(manga) { continue }
             if notExpectedManga.contains(manga.id) { continue }
             if s.skipNotStarted && manga.lastReadAt == nil { continue }
             if s.skipCompleted && manga.status == .completed { continue }
@@ -256,6 +259,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
         for novel in (try? NovelQueries.fetchLibrary()) ?? [] {
             if LocalLibrary.isLocalSourceId(novel.sourceId) { continue }
+            if !s.safe.allows(novel) { continue }
             if notExpectedNovels.contains(novel.id) { continue }
             if s.skipNotStarted && novel.lastReadAt == nil { continue }
             if s.skipCompleted && novel.status.lowercased().contains("completed") { continue }
@@ -568,6 +572,8 @@ private struct RefreshSettings: Sendable {
     let notify: Bool
     let autoDownload: Bool
     let refreshMetadata: Bool
+    /// Safe Mode (S179): hidden titles aren't checked, so they never notify or appear in Updates.
+    let safe: SafeFilter
 }
 
 private struct UpdateFeedGroup: Identifiable {

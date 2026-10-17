@@ -321,6 +321,8 @@ struct MangaDetailView: View {
                 glassNavBar
             }
         }
+        // After the floating bar, so its ⋯ menu (website, share) is covered too; Go Back is the way out.
+        .safeModeCover(sourceId: manga.sourceId, genres: manga.genres)
         .safeAreaInset(edge: .bottom) {
             if isSelectingChapters {
                 selectionActionBar

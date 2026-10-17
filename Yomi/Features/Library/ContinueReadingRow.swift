@@ -75,11 +75,14 @@ struct ContinueReadingRow: View {
     /// At most two titles: the last manga and the last novel read, most recent first (KNOWN_ISSUES #165 —
     /// Martin wants "what I'm reading now", not a history row).
     private func loadItems() async {
+        // Safe Mode: the last title it allows (a few more rows, so a hidden one doesn't empty the shelf).
+        let safe = SafeMode.filter
+        let limit = safe.isOn ? 20 : 1
         async let mangaFetch = Task.detached(priority: .userInitiated) {
-            (try? MangaQueries.fetchRecentlyRead(limit: 1)) ?? []
+            Array(((try? MangaQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(1))
         }.value
         async let novelFetch = Task.detached(priority: .userInitiated) {
-            (try? NovelQueries.fetchRecentlyRead(limit: 1)) ?? []
+            Array(((try? NovelQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(1))
         }.value
         let (mangas, novels) = await (mangaFetch, novelFetch)
 
