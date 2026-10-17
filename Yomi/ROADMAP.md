@@ -25,9 +25,8 @@ The research audit revealed that 800+ sources are already available across four 
 
 - **Text on Page** (new `Features/Reader/PageText.swift`): long press a manga page → *Text on Page*, or the new reader
   toolbar button *Text on page* (`ReaderToolbarItem.pageText`, off by default — add it in the toolbar editor). Vision
-  `RecognizeTextRequest` (accurate) on the device; lines whose boxes touch are joined into blocks (≈ one bubble), blocks
-  in reading order (rows top→bottom; right→left when the language is Japanese/Chinese or Automatic finds mostly
-  kana/hanzi; vertical columns inside a block read right→left). Sheet: **Text** tab (selectable blocks, Copy per block)
+  `RecognizeTextRequest` (accurate) on the device; lines joined into blocks (≈ one bubble) and blocks put in reading
+  order — see "Japanese raw test" below for the rules (`PageTextLayout.swift`). Sheet: **Text** tab (selectable blocks, Copy per block)
   · **Page** tab (the page with each block outlined, tap one = copy) · Copy All (closes, toast "Text copied") ·
   Translate (Apple's `translationPresentation` sheet) · globe menu = language (`pageTextLanguage`, default Automatic;
   15 languages).
@@ -42,8 +41,29 @@ The research audit revealed that 800+ sources are already available across four 
   order (Copy All → `simctl pbpaste` matched the page); single-block Copy → only that bubble; Page tab outlines sit on
   the bubbles at the top and after scrolling past slice joins; tap outline → clipboard = that bubble; Translate opens
   Apple's sheet (Continue not pressed). Build 0 warnings (Yomi + YomiWidget), UI tests 13/13.
-- NOT checked: Japanese/Chinese/Korean pages (right-to-left order and vertical columns are untested — no raw manga in
-  the sim library), the toolbar button on screen (compile only), the language menu re-run, the device.
+- **Japanese raw test (Martin asked, same session).** Source: Keiyoushi **MangaFire `ja`** (source id
+  524110931382140732) through the Mac extension server (`Tools/keiyoushi-poc/harness/run-server.sh`, POST /dalvik),
+  One Piece ch. 1, 12 pages (760 × 1200) → a folder in the sim's `Documents/Local` → Browse → Local Files. No raw source
+  exists in Yomi's own catalog, MangaDex is off-limits, the sim has no JVM, and MangaFire has no Korean.
+  **First result was wrong:** top row = page header + sound effect + two bubbles in ONE block, read backwards. Cause:
+  sizes were compared in normalized units (width vs height of a 760 × 1200 page differ 1.6×), so columns weren't seen
+  as columns. **Rewrite (`PageTextLayout.swift`, no UIKit, tested on the Mac by `scripts/page-text-tests/run.sh`):**
+  pixels throughout; glyph size = a column's height per character (Vision's boxes hug glyphs — one bubble's columns
+  measured 17 and 30 px wide, both 18 px per character); two lines join only when they run the same way, glyph sizes
+  within 1.6×, and they sit side by side (columns, gap < 0.8 glyph, overlapping 30 % in height) or stacked (lines, gap
+  < 0.9 line height, overlapping in width); rows grouped explicitly, Japanese right→left; furigana dropped (kana-only
+  columns under ¾ of the page's usual glyph size); lines with no letter of the page's main script dropped (Thai/Hangul
+  read from artwork on Japanese pages, Arabic digits/Hangul on English ones; Latin stays on Japanese pages).
+  Automatic = right→left when kana > 20 % of the text or most Han lines are vertical; Korean/English left→right.
+  **Result:** all 12 pages read bubble by bubble in order (p. 4 = 11 blocks exactly as the page reads, p. 5 = 13); the
+  English Asura pages unchanged; 10/10 fixed cases (box numbers from the real pages — no images in the public repo).
+  Sim: p. 4 Text tab = Mac output, Page tab outlines each vertical bubble, tap → clipboard = that bubble. Test title
+  removed again (library 157 manga, local folder + DB rows deleted, Mac server stopped, downloads deleted).
+- **Known OCR limits (Vision, not fixable here):** small-print errors on low-res scans (カナヅチ → カナッチ, a
+  furigana-crowded caption garbled); 2× upscaling didn't help (lost a line); Han-looking junk from artwork stays
+  (confidence is only 0.3 / 0.5 / 1 and real lines get 0.3); sound effects come out as their own blocks.
+- NOT checked: a Korean raw page (no source reachable from the Mac set-up — synthetic case only), Chinese, the toolbar
+  button on screen (compile only), the language menu re-run, the device.
 - Xcode updated itself to 27.1 mid-session: stale explicit modules ("malformed or corrupted precompiled file") and
   "CoreSimulator is out of date" → delete `DerivedData/SDKExplicitPrecompiledModules` + `ModuleCache.noindex`, run
   `xcodebuild -runFirstLaunch` (worked without sudo).

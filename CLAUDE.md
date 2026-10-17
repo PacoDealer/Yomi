@@ -27,8 +27,9 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 ## Current state (S173 — 2026-10-16)
 - **S173 (sim):** L3d **Text on Page** (`Features/Reader/PageText.swift`): long press a page or toolbar button
   `pageText` → Vision OCR on the device, blocks in reading order, Copy / Copy All / tap an outline on the page /
-  Translate (Apple's sheet — sends to Apple unless offline translation is set). Tall pages read in slices
-  (`PageTextRecognizer.tiles`). CJK pages untested. NEXT: L4 streak repair → CB7 → better voices → I (ROADMAP S171/S173).
+  Translate (Apple's sheet — sends to Apple unless offline translation is set). Grouping/order in
+  `PageTextLayout.swift` (pixels, glyph size per character, furigana + other-script junk dropped), tested by
+  `scripts/page-text-tests/run.sh` (10/10) + Japanese raw One Piece via Mac Keiyoushi MangaFire `ja`. Korean untested. NEXT: L4 streak repair → CB7 → better voices → I (ROADMAP S171/S173).
 - **S172 (sim):** L3c reader extras — Swap the two pages (`doublePageInvert`), Pinch to zoom off (`readerPinchZoom`;
   zoom was already "strict" 1×–4×), Scroll bar (`readerScrollIndicator`), **custom reader toolbar**
   (`readerToolbarItems`, `Features/Reader/ReaderToolbar.swift`: bookmark, mark previous read — unread only, reading
