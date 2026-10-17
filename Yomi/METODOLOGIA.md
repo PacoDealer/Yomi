@@ -2358,4 +2358,12 @@ previously here was removed during the 2026-08-04 doc restructure.
   `simctl pbpaste <sim>` reads what the app copied — proof for copy features.
 - **An Xcode auto-update mid-session** breaks builds two ways: stale explicit modules and an old CoreSimulator. Fix:
   delete `DerivedData/SDKExplicitPrecompiledModules` + `ModuleCache.noindex`, then `xcodebuild -runFirstLaunch`.
+- **Test layout code on the hardest real input before calling it done.** The English webtoon passed by luck; the first
+  Japanese page exposed that sizes were compared in normalized units (non-square). Measure in pixels.
+- **Raw pages for tests without a raw source in the app:** Keiyoushi MangaFire `ja` through the Mac extension server
+  (`Tools/keiyoushi-poc/harness/run-server.sh`; source id = the varint in `index.pb`), images with
+  `Referer: https://mangafire.to/`, copied as a folder into the sim's `Documents/Local`. Keep copyrighted pages OUT of
+  the public repo — fixed tests store box numbers, real images are passed to `run.sh` as arguments.
+- **A test-harness argument parser that guesses** ("contains '-' = language") ate a path with `claude-501` in it and
+  produced garbage that looked like an OCR failure. Check the harness before blaming the code under test.
 
