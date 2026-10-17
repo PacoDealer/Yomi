@@ -2391,4 +2391,7 @@ previously here was removed during the 2026-08-04 doc restructure.
   file, and that file turned out to be dead code — deleting it fixed the warnings without hiding anything.
 - **Vendoring a remote package changes what Xcode shows:** local packages surface their compiler warnings (remote ones
   don't). Expect a second round of warnings after switching, and keep any suppression to the vendored target only.
+- **After adding files under a new folder, check `git status` lists them before pushing.** `Vendor/` was ignored
+  (S124, for the Keiyoushi runtime), so the first vendoring commit pushed a project that a fresh clone couldn't build;
+  fixed in the next commit and confirmed by cloning from GitHub and resolving packages.
 
