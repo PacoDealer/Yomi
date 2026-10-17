@@ -2395,3 +2395,18 @@ previously here was removed during the 2026-08-04 doc restructure.
   (S124, for the Keiyoushi runtime), so the first vendoring commit pushed a project that a fresh clone couldn't build;
   fixed in the next commit and confirmed by cloning from GitHub and resolving packages.
 
+
+## S177 lessons
+
+- **Check the backlog against the code before building a group item.** "Letter spacing" in group I had shipped in
+  S136; a grep of AppSettings saved building it twice.
+- **A web-view query API must wait for the page, not return nil.** `evaluate` silently gave nil before `ready`, which
+  only showed up when a new feature asked right after `show`. A debug stand-in (`-yomiFakeTranslate`) exposed it in
+  the simulator, where the real framework doesn't run.
+- **Apple's Translation framework doesn't run in the simulator** — it shows "not supported on simulated devices".
+  Build a fake for the page side and leave the real path for the device check.
+- **XcodeBuildMCP: `type_text` did nothing in SwiftUI Form fields (twice); screenshots lag one action behind.**
+  mobile-mcp tap-then-`mobile_type_keys` typed reliably. Take a second screenshot before concluding a tap failed.
+- **Persisted test data breaks the UI tests**: a fixture-novel replacement rule ("paragraph" → "verse") would fail
+  every test that looks for "paragraph". Clean the sim DB after manual testing on the fixture.
+

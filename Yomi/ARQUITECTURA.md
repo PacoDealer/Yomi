@@ -269,7 +269,13 @@ excluded_scanlator (mangaId TEXT NOT NULL REFERENCES manga ON DELETE CASCADE,  -
   Continue, History, reader list, downloads). Synced: `Manga.excludedScanlators` (string list), chapter-state
   `isBookmarked`.
 
-> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v29_`.
+- **v29_last_checked** (S171): `manga`/`novel.lastCheckedAt` — opening a library title asks the source at most hourly.
+- **v30_term_replacement** (S177): `term_replacement` (id, novelId NULL = every novel, find, replacement, matchCase,
+  createdAt). No foreign key (a novel opened from Browse may have no row). Device-local, in backups
+  (`termReplacements`). Applied by `NovelContent.html` → `TermReplacer` (Core) whenever a chapter is read; downloaded
+  files stay as the source sent them.
+
+> Note: two migrations with v4_ prefix coexist without conflict — GRDB tracks by string name. Next migration must use prefix `v31_`.
 
 ### Why GRDB and not SwiftData
 - Full SQL schema and incremental migration control
@@ -297,7 +303,11 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `tapZoneLayout: String` — reader tap zone config: "default"/"sides"/"disabled" (S39); default "default"
 - `webtoonHorizontalPadding: Int` — horizontal inset for webtoon pages in points: 0/8/16/24 (S39); default 0
 - `autoScrollSpeed: Double` — hold-to-auto-scroll interval in seconds (S39); default 3.0
-- `novelTheme: String` — novel reader theme: "light"/"dark"/"sepia" (S39); default "light"
+- `novelTheme: String` — novel reader theme: a built-in name (Light, Sepia, Sage, E-ink, Warm, Dark, Void, AMOLED —
+  `YomiTokens.Reader.all`) or "custom:<uuid>" from `novelCustomThemes` (JSON `[CustomNovelTheme]`, S177); resolved by
+  `NovelTheme.resolve` (`Features/Reader/NovelThemes.swift`), a deleted custom theme falls back to Light
+- `novelTranslateIds: [String]`, `novelTranslateTarget: String` — novels translated in the reader (Apple Translation,
+  on device) and the target language ("" = iPhone language), S177
 - `novelFontFamily: String` — novel reader font family name (S39); default system serif
 - `novelHorizontalPadding: Int` — novel reader horizontal padding (S39); default 16
 
