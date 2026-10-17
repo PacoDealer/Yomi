@@ -4,6 +4,8 @@ Yomi/Config/AppSecrets.swift
 build/
 fastlane/report.xml
 fastlane/test_output
-Vendor/
+# Vendor/ holds the staged Keiyoushi runtime (large, scripts/stage-vendor.sh); vendored source packages are tracked.
+Vendor/*
+!Vendor/PLzmaSDK/
 perf-traces/
 __pycache__/
