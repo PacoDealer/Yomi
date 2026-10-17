@@ -13,8 +13,11 @@ struct InsightsView: View {
 
     // MARK: - State
 
+    @State private var settings = AppSettings.shared
     @State private var isLoading = true
     @State private var streak: Int = 0
+    @State private var repairOffer: ReadingStreak.Offer? = nil
+    @State private var readDays: Set<String> = []
     @State private var readChaptersCount: Int = 0
     @State private var totalSeconds: Int = 0
     @State private var titlesStarted: Int = 0
@@ -43,10 +46,12 @@ struct InsightsView: View {
                             stat(num: titlesStarted.formatted(), label: "Titles started")
                         }
                         .padding(.top, 8)
-                        .padding(.bottom, 32)
+                        .padding(.bottom, repairOffer == nil ? 32 : 16)
+
+                        if let repairOffer { repairRow(repairOffer).padding(.bottom, 32) }
 
                         sectionTitle("Activity")
-                        ActivityHeatmap(calendarMap: readingCalendar)
+                        ActivityHeatmap(calendarMap: readingCalendar, repairedDays: Set(settings.streakRepairedDays))
                             .padding(.bottom, 32)
 
                         if !mostRead.isEmpty {
@@ -92,6 +97,38 @@ struct InsightsView: View {
         }
     }
 
+    /// Quiet, on this screen only (RESEARCH §25.10 #9): what was missed and one button. No notification, no badge.
+    private func repairRow(_ offer: ReadingStreak.Offer) -> some View {
+        let days = offer.missedDays.sorted()
+        let missed = days.count == 1
+            ? days[0].formatted(.dateTime.weekday(.wide))
+            : "\(days[0].formatted(.dateTime.weekday(.wide))) and \(days[1].formatted(.dateTime.weekday(.wide)))"
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("You didn't read on \(missed), which ended a \(offer.lostStreak)-day streak. You can repair it once a week.")
+                .font(.subheadline)
+                .foregroundStyle(canvas.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Repair Streak") { repair(offer) }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+    }
+
+    private func repair(_ offer: ReadingStreak.Offer) {
+        let added = offer.missedDays.map { ReadingStreak.key($0, calendar: .current) }
+        settings.streakRepairedDays = Array(Set(settings.streakRepairedDays).union(added)).sorted()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        updateStreak()
+    }
+
+    private func updateStreak() {
+        let result = ReadingStreak.compute(readDays: readDays, repairedDays: Set(settings.streakRepairedDays), today: Date())
+        withAnimation {
+            streak = result.streak
+            repairOffer = result.offer
+        }
+    }
+
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
             .font(.title3.bold())
@@ -103,7 +140,7 @@ struct InsightsView: View {
 
     private func loadStats() async {
         let result = await Task.detached(priority: .userInitiated) { () -> (
-            Int, Int, Int, Int,
+            Set<String>, Int, Int, Int,
             [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)],
             [DateComponents: Int]
         ) in
@@ -120,34 +157,9 @@ struct InsightsView: View {
                 try NovelChapter.filter(Column("readAt") != nil).fetchAll(db)
             }) ?? []
 
-            // --- Streak: union of both ---
-            var days = Set(readMangaChapters.compactMap { ch -> DateComponents? in
-                guard let d = ch.readAt else { return nil }
-                return calendar.dateComponents([.year, .month, .day], from: d)
-            })
-            days.formUnion(readNovelChapters.compactMap { ch -> DateComponents? in
-                guard let d = ch.readAt else { return nil }
-                return calendar.dateComponents([.year, .month, .day], from: d)
-            })
-
-            var streak = 0
-            var checking = calendar.dateComponents([.year, .month, .day], from: Date())
-            while days.contains(checking) {
-                streak += 1
-                let date = calendar.date(from: checking)!
-                let prev = calendar.date(byAdding: .day, value: -1, to: date)!
-                checking = calendar.dateComponents([.year, .month, .day], from: prev)
-            }
-            if streak == 0 {
-                let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
-                var yc = calendar.dateComponents([.year, .month, .day], from: yesterday)
-                while days.contains(yc) {
-                    streak += 1
-                    let date = calendar.date(from: yc)!
-                    let prev = calendar.date(byAdding: .day, value: -1, to: date)!
-                    yc = calendar.dateComponents([.year, .month, .day], from: prev)
-                }
-            }
+            // --- Days with reading (manga + novels), for the streak ---
+            let readDays = Set((readMangaChapters.compactMap(\.readAt) + readNovelChapters.compactMap(\.readAt))
+                .map { ReadingStreak.key($0, calendar: calendar) })
 
             // --- Chapters read + time ---
             let allMangaChapters = (try? appDatabase.read { try Chapter.fetchAll($0) }) ?? []
@@ -199,11 +211,11 @@ struct InsightsView: View {
                 calendarMap[dc, default: 0] += 1
             }
 
-            return (streak, totalSeconds, readCount, titlesStarted, mostRead, calendarMap)
+            return (readDays, totalSeconds, readCount, titlesStarted, mostRead, calendarMap)
         }.value
 
         await MainActor.run {
-            streak            = result.0
+            readDays          = result.0
             totalSeconds      = result.1
             readChaptersCount = result.2
             titlesStarted     = result.3
@@ -211,6 +223,7 @@ struct InsightsView: View {
             readingCalendar   = result.5
             isLoading = false
         }
+        updateStreak()
     }
 
     // MARK: - Formatting
@@ -230,6 +243,8 @@ struct InsightsView: View {
 
 private struct ActivityHeatmap: View {
     let calendarMap: [DateComponents: Int]
+    /// Streak-repaired days (`ReadingStreak.key`), drawn outlined.
+    var repairedDays: Set<String> = []
 
     @Environment(\.yomiCanvas) private var canvas
 
@@ -272,8 +287,14 @@ private struct ActivityHeatmap: View {
                         VStack(spacing: gap) {
                             ForEach(0..<7, id: \.self) { dayIdx in
                                 let index = weekIdx * 7 + dayIdx
+                                let repaired = repairedDays.contains(ReadingStreak.key(dayCounts[index].date, calendar: cal))
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(Color.accentColor.opacity(opacity(for: dayCounts[index].count)))
+                                    .overlay {
+                                        if repaired {
+                                            RoundedRectangle(cornerRadius: 2).strokeBorder(Color.accentColor, lineWidth: 1.5)
+                                        }
+                                    }
                                     .aspectRatio(1, contentMode: .fit)
                             }
                         }
@@ -297,6 +318,13 @@ private struct ActivityHeatmap: View {
                 }
                 .font(.caption)
                 .foregroundStyle(canvas.textSecondary)
+
+                if days.contains(where: { repairedDays.contains(ReadingStreak.key($0.date, calendar: cal)) }) {
+                    Text("Outlined days were repaired to keep your streak.")
+                        .font(.caption)
+                        .foregroundStyle(canvas.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
     }

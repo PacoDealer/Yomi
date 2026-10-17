@@ -441,6 +441,11 @@ import Observation
         didSet { defaults.set(readerToolbarItems, forKey: "readerToolbarItems") }
     }
 
+    /// Days filled in by a streak repair (L4, `ReadingStreak`), "yyyy-MM-dd". Device-only.
+    var streakRepairedDays: [String] {
+        didSet { defaults.set(streakRepairedDays, forKey: "streakRepairedDays") }
+    }
+
     /// Language for "Text on Page" (L3d, Vision OCR): "auto" or a BCP-47 code ("ja-JP", "ko-KR", "zh-Hans"…).
     var pageTextLanguage: String {
         didSet { defaults.set(pageTextLanguage, forKey: "pageTextLanguage") }
@@ -717,6 +722,7 @@ import Observation
         readerScrollIndicator    = d.object(forKey: "readerScrollIndicator")     as? Bool ?? false
         readerToolbarItems       = d.stringArray(forKey: "readerToolbarItems")   ?? ReaderToolbarItem.defaults
         pageTextLanguage         = d.string(forKey: "pageTextLanguage")          ?? "auto"
+        streakRepairedDays       = d.stringArray(forKey: "streakRepairedDays")   ?? []
         cropBorders              = d.object(forKey: "cropBorders")               as? Bool ?? false
         cropBordersStrip         = d.object(forKey: "cropBordersStrip")          as? Bool ?? false
         readerBackground         = d.string(forKey: "readerBackground")          ?? "black"
