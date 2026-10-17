@@ -12,7 +12,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Tech stack
 - Swift + SwiftUI, **iOS 26.2 deployment target — no older-iOS fallbacks, ever**
-- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader) · Unrar.swift (CBR) · PLzmaSDK (CB7/7z, pinned by REVISION — its `unsafeFlags` are refused for version pins)
+- GRDB (SQLite, not SwiftData) · JavaScriptCore (JS plugins) · Kingfisher (images) · WKWebView (novel reader) · Unrar.swift (CBR) · PLzmaSDK (CB7/7z, VENDORED in `Vendor/PLzmaSDK` — read its VENDORED.md before updating)
 - Keiyoushi: OpenJDK Mobile Zero + patched M-Extension-Server (`Yomi/Features/Keiyoushi/`, `scripts/keiyoushi/`)
 - `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` project-wide — check build settings before claiming an isolation bug
 
@@ -28,8 +28,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - **S175 (sim):** **CB7/7z** local files via PLzmaSDK 1.6.1 (LZMA SDK 26.01): `ComicArchive` detects 7z by its bytes,
   `write(_:)` unpacks a chapter in ONE pass (solid 7z: per-page calls decoded the whole block each time — 30 pages
   26.6 s vs all 150 in 1.4 s on the Mac); LZMA/LZMA2/PPMd/Copy/AES ok, BZip2/Deflate not in this build (clear error);
-  password → "password-protected" (incl. hidden names). Reader now shows a local archive's own error. **59 ld
-  "could not associate debug note" warnings from the package on clean builds** — decision pending (ROADMAP S175).
+  password → "password-protected" (incl. hidden names). Reader now shows a local archive's own error. PLzmaSDK
+  vendored (dead ARM64 asm removed → the 59 ld warnings are gone; clean Debug + Release 0 warnings).
 - **S174 (sim):** L4 **streak repair** — `Core/ReadingStreak.swift` (1–2 missed days, streak ≥ 2, once a week; tests
   `scripts/streak-tests/run.sh` 12/12), quiet row + Repair Streak button in Insights only, repaired days outlined in the
   heatmap, stored in `AppSettings.streakRepairedDays` (device-only). NEXT: better voices (research first) → I (ROADMAP S171).

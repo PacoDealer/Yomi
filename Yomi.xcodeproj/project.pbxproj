@@ -317,7 +317,7 @@
 				9BD83372FC5C47E0A7DCBBB8 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				30C02B35DD582946DE77C937 /* XCRemoteSwiftPackageReference "Pulse" */,
 				7A1C56D0A0B14C0E9D0F5601 /* XCRemoteSwiftPackageReference "Unrar" */,
-				7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */,
+				7B2C66E0B1C24D1E8F1A6701 /* XCLocalSwiftPackageReference "Vendor/PLzmaSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0EE530CE2F64CF600074B935 /* Products */;
@@ -728,6 +728,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		7B2C66E0B1C24D1E8F1A6701 /* XCLocalSwiftPackageReference "Vendor/PLzmaSDK" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/PLzmaSDK;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		0E2B3AB02F658FC9006E6D41 /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -743,14 +750,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.0.0;
-			};
-		};
-		7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/OlehKulykov/PLzmaSDK";
-			requirement = {
-				kind = revision;
-				revision = f449bc3e13204b68a7e05fca80ce8c31642085ec;
 			};
 		};
 		7A1C56D0A0B14C0E9D0F5601 /* XCRemoteSwiftPackageReference "Unrar" */ = {
@@ -794,7 +793,7 @@
 		};
 		7B2C66E1B1C24D1E8F1A6701 /* PLzmaSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 7B2C66E0B1C24D1E8F1A6701 /* XCRemoteSwiftPackageReference "PLzmaSDK" */;
+			package = 7B2C66E0B1C24D1E8F1A6701 /* XCLocalSwiftPackageReference "Vendor/PLzmaSDK" */;
 			productName = PLzmaSDK;
 		};
 		7A1C56D1A0B14C0E9D0F5601 /* Unrar */ = {
