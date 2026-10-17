@@ -544,8 +544,20 @@ struct ChapterReaderView: View {
             pages = result.pages
             if result.fromCache { cachedListPaths.insert(path) }
             isLoading = false
-            if result.pages.isEmpty { errorMessage = "No pages found." }
+            if result.pages.isEmpty {
+                errorMessage = await Self.localArchiveError(path: path) ?? "No pages found."
+            }
         }
+    }
+
+    /// Why a local chapter has no pages ("password-protected", "a 7z method Yomi doesn't read"…) — `fetchPages` only
+    /// returns pages, so on failure ask once more for the error (S175; before, every case said "No pages found").
+    private static func localArchiveError(path: String) async -> String? {
+        guard path.hasPrefix(LocalLibrary.mangaScheme) else { return nil }
+        return await Task.detached(priority: .userInitiated) { () -> String? in
+            do { _ = try LocalLibrary.pageURLs(chapterPath: path); return nil }
+            catch { return error.localizedDescription }
+        }.value
     }
 
     /// A page of a cached list failed to load (D12b): its URLs may have gone stale. Fetch the list again — once per

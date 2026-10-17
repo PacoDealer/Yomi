@@ -9,7 +9,7 @@ PKGS="${YOMI_SOURCE_PACKAGES:-$HOME/Library/Developer/Xcode/DerivedData/Yomi-per
 JAR="$ROOT/Vendor/Keiyoushi/MExtensionServer.jar"
 OUT="$ROOT/Yomi/Resources/Licenses"
 TP="$ROOT/scripts/third-party-licences"   # committed copies, so the build needs no network
-for need in "$PKGS/GRDB.swift/LICENSE" "$PKGS/Unrar.swift/Sources/Cunrar/license.txt" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
+for need in "$PKGS/GRDB.swift/LICENSE" "$PKGS/Unrar.swift/Sources/Cunrar/license.txt" "$PKGS/PLzmaSDK/LICENSE" "$ROOT/node_modules/cheerio/LICENSE" "$JAR" "$WORK/jre-base/legal/java.base/LICENSE" \
             "$WORK/M-Extension-Server/LICENSE" "$WORK/openjdk-ios/SOURCE_MANIFEST.txt" "$TP/ported/mihon-LICENSE.txt"; do
   [ -e "$need" ] || { echo "Missing $need" >&2; exit 1; }
 done
@@ -25,6 +25,12 @@ cp "$PKGS/Pulse/LICENSE.md"    "$OUT/licence-pulse.txt"
   rule "UnRAR source code (RARLAB) — its licence"; cat "$PKGS/Unrar.swift/Sources/Cunrar/license.txt"
   rule "UnRAR source code (RARLAB) — acknowledgments"; cat "$PKGS/Unrar.swift/Sources/Cunrar/acknow.txt"
 } > "$OUT/licence-unrar.txt"
+# PLzmaSDK (MIT) wraps Igor Pavlov's LZMA SDK (public domain) — CB7/7z, S175.
+{ cat "$PKGS/PLzmaSDK/LICENSE"
+  rule "LZMA SDK (Igor Pavlov)"
+  echo "The LZMA SDK is placed in the public domain (https://www.7-zip.org/sdk.html); its source files say so."
+  echo "Version built into Yomi: LZMA SDK $(sed -n 's/.*MY_VERSION_NUMBERS "\(.*\)".*/\1/p' "$PKGS/PLzmaSDK/src/C/7zVersion.h")."
+} > "$OUT/licence-plzmasdk.txt"
 
 # JS libraries bundled into Resources/yomi-js-libs.js (scripts/build-js-libs.mjs): each one plus everything it pulls in.
 ( cd "$ROOT" && node -e '

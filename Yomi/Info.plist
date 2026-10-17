@@ -21,6 +21,7 @@
 			<array>
 				<string>com.yomi.cbz</string>
 				<string>com.yomi.cbr</string>
+				<string>com.yomi.cb7</string>
 			</array>
 		</dict>
 		<dict>
@@ -154,6 +155,28 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>application/vnd.comicbook-rar</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.archive</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Comic Book Archive (7z)</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.yomi.cb7</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>cb7</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-cb7</string>
 				</array>
 			</dict>
 		</dict>
