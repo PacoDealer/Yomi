@@ -268,6 +268,7 @@ struct ICloudFolderError: LocalizedError {
             }
         }
         let categories = try CategoryQueries.fetchAll()
+        let termReplacements = try TermReplacementQueries.exportRows()
         // Hidden scanlation groups per manga (v28).
         let excludedScanlators = try await appDatabase.read { db -> [String: [String]] in
             var map: [String: [String]] = [:]
@@ -292,7 +293,8 @@ struct ICloudFolderError: LocalizedError {
                 "novelChapters":   novelChapters.map  { Self.encodeNovelChapter($0) },
                 "novelCategories": novelCatPairs,
                 "mangaCategories": mangaCatPairs,
-                "excludedScanlators": excludedScanlators
+                "excludedScanlators": excludedScanlators,
+                "termReplacements": termReplacements
             ]
             return try JSONSerialization.data(withJSONObject: payload)
         }.value
@@ -509,6 +511,8 @@ struct ICloudFolderError: LocalizedError {
                     try db.execute(sql: "UPDATE novel_chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
                 }
                 try CloudSyncManager.applyPendingNovelChapterStates(decoded.novelChapters, db: db)
+                // Term replacements (S177) — after the novels they belong to.
+                try TermReplacementQueries.importRows(decoded.termReplacements, db: db)
 
                 for pair in decoded.novelCatPairs {
                     guard let novelId = pair["novelId"], let catId = pair["categoryId"] else { continue }
@@ -555,6 +559,7 @@ struct ICloudFolderError: LocalizedError {
         var novelCatPairs: [[String: String]] = []
         var mangaCatPairs: [[String: String]] = []
         var excludedScanlators: [String: [String]] = [:]
+        nonisolated(unsafe) var termReplacements: [[String: Any]] = []
     }
 
     /// Reads and fully decodes a backup file. Pure I/O + parsing, no DB access and no observable
@@ -590,6 +595,7 @@ struct ICloudFolderError: LocalizedError {
         result.novelCatPairs = payload["novelCategories"] as? [[String: String]] ?? []
         result.mangaCatPairs = payload["mangaCategories"] as? [[String: String]] ?? []
         result.excludedScanlators = payload["excludedScanlators"] as? [String: [String]] ?? [:]
+        result.termReplacements = payload["termReplacements"] as? [[String: Any]] ?? []
         return result
     }
 

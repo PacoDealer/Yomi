@@ -28,6 +28,8 @@ final class NovelReaderController {
         case page(id: String, page: Int, pages: Int)
         /// "Listen from Here" in the text-selection menu (S143).
         case listenFromHere
+        /// "Replace…" in the text-selection menu (S177): add a term replacement for the selected text.
+        case replaceSelection
     }
 
     struct Options: Equatable {
@@ -99,12 +101,39 @@ final class NovelReaderController {
         await evaluate("return yomi.selectionChapter()", [:]) as? String
     }
 
+    // MARK: Translation (S177)
+
+    /// The chapter's text blocks (their lines joined by "\n"), or nil when it's not in the page or already translated.
+    func translationBlocks(id: String) async -> [String]? {
+        await evaluate("return yomi.translationBlocks(id)", ["id": id]) as? [String]
+    }
+
+    /// Replaces the chapter's blocks with `texts` (same order as `translationBlocks`).
+    func applyTranslation(id: String, texts: [String]) {
+        call("yomi.applyTranslation(id, list)", ["id": id, "list": texts])
+    }
+
+    /// Every translated chapter back to its original text.
+    func showOriginal() {
+        call("yomi.showOriginal()", [:])
+    }
+
+    /// The selected text, or "" (S177 — "Replace…").
+    func selectedText() async -> String {
+        (await evaluate("var s = window.getSelection(); return s ? String(s) : ''", [:]) as? String) ?? ""
+    }
+
     /// Index of the sentence (of chapter `id`, after `ttsSet`) where the selection starts; clears the selection.
     func ttsSelectionIndex(id: String) async -> Int {
         (await evaluate("return yomi.ttsSelectionIndex(id)", ["id": id]) as? NSNumber)?.intValue ?? 0
     }
 
+    /// Queries made before the page finished loading wait for it (S177: the first chapter's translation asked
+    /// for its text right after `show`, while the page was still starting, and got nothing).
     private func evaluate(_ body: String, _ args: [String: Any]) async -> Any? {
+        if !isReady, webView != nil {
+            await withCheckedContinuation { readyWaiters.append($0) }
+        }
         guard isReady, let webView else { return nil }
         return try? await webView.callAsyncJavaScript(body, arguments: args, contentWorld: .page)
     }
@@ -129,7 +158,11 @@ final class NovelReaderController {
         let queued = pending
         pending = []
         for (body, args) in queued { call(body, args) }
+        let waiters = readyWaiters
+        readyWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
+    private var readyWaiters: [CheckedContinuation<Void, Never>] = []
 
     private func call(_ body: String, _ args: [String: Any]) {
         guard isReady, let webView else {
@@ -197,6 +230,7 @@ struct ReaderWebView: UIViewRepresentable {
 
         let webView = ReaderWKWebView(frame: .zero, configuration: config)
         webView.onListenFromHere = { [weak controller] in controller?.onEvent(.listenFromHere) }
+        webView.onReplace = { [weak controller] in controller?.onEvent(.replaceSelection) }
         webView.backgroundColor = .clear
         webView.isOpaque = false
         webView.scrollView.backgroundColor = .clear
@@ -279,14 +313,24 @@ struct ReaderWebView: UIViewRepresentable {
     /// through the responder chain's `buildMenu(with:)`.
     final class ReaderWKWebView: WKWebView {
         var onListenFromHere: (() -> Void)?
+        var onReplace: (() -> Void)?
 
         override func buildMenu(with builder: any UIMenuBuilder) {
             super.buildMenu(with: builder)
-            guard onListenFromHere != nil else { return }
-            let listen = UIAction(title: "Listen from Here", image: UIImage(systemName: "speaker.wave.2")) { [weak self] _ in
-                self?.onListenFromHere?()
+            var items: [UIMenuElement] = []
+            if onListenFromHere != nil {
+                items.append(UIAction(title: "Listen from Here", image: UIImage(systemName: "speaker.wave.2")) { [weak self] _ in
+                    self?.onListenFromHere?()
+                })
             }
-            builder.insertSibling(UIMenu(options: .displayInline, children: [listen]), afterMenu: .standardEdit)
+            // S177 (ArcReader's "Replace"): rename the selected term in every chapter of this novel.
+            if onReplace != nil {
+                items.append(UIAction(title: "Replace…", image: UIImage(systemName: "character.cursor.ibeam")) { [weak self] _ in
+                    self?.onReplace?()
+                })
+            }
+            guard !items.isEmpty else { return }
+            builder.insertSibling(UIMenu(options: .displayInline, children: items), afterMenu: .standardEdit)
         }
     }
 
@@ -722,8 +766,53 @@ enum NovelReaderScript {
       }
       function ttsClear() { if (ttsHL) ttsHL.clear(); }
 
+      // ── Translation (S177) ───────────────────────────────────────────────
+      // A chapter's text blocks = the innermost block elements with text. Swift translates each block's lines
+      // (innerText, so <br> breaks survive) and sends them back; the originals are kept to show again.
+      var BLOCKS = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,div,td,dd,dt,figcaption,pre';
+      function textBlocks(s) {
+        var body = s.querySelector(':scope > .yomi-chapter-body');
+        if (!body) return [];
+        var out = [], all = body.querySelectorAll(BLOCKS);
+        for (var i = 0; i < all.length; i++) {
+          if (!all[i].querySelector(BLOCKS) && all[i].innerText.trim()) out.push(all[i]);
+        }
+        if (!out.length && body.innerText.trim()) out.push(body);
+        return out;
+      }
+      function escapeHTML(t) {
+        return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      function restore(s) {
+        if (!s._orig) return;
+        for (var i = 0; i < s._orig.length; i++) s._orig[i][0].innerHTML = s._orig[i][1];
+        s._orig = null;
+        s.classList.remove('yomi-translated');
+      }
+
       // ── API for Swift ────────────────────────────────────────────────────
       window.yomi = {
+        translationBlocks: function (id) {
+          var s = find(id);
+          if (!s || s._orig) return null;      // gone, or already translated
+          s._blocks = textBlocks(s);
+          return s._blocks.map(function (el) { return el.innerText; });
+        },
+        applyTranslation: function (id, list) {
+          var s = find(id);
+          if (!s || !s._blocks || s._blocks.length !== list.length) return;
+          relayout(function () {
+            s._orig = s._blocks.map(function (el) { return [el, el.innerHTML]; });
+            for (var i = 0; i < list.length; i++) {
+              s._blocks[i].innerHTML = escapeHTML(list[i]).replace(/\n/g, '<br>');
+            }
+            s.classList.add('yomi-translated');
+            tts.id = null; tts.ranges = null;
+          });
+        },
+        showOriginal: function () {
+          relayout(function () { sections().forEach(restore); tts.id = null; tts.ranges = null; });
+        },
         setStyle: function (css) {
           relayout(function () { document.getElementById('yomi-style').textContent = css; });
         },
