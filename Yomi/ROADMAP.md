@@ -45,10 +45,17 @@ The research audit revealed that 800+ sources are already available across four 
   can't open it."; BZip2 → the 7z method message; 150-page 128 MB LZMA2 → 1/150, all 150 byte-identical, unpack
   ~3.2 s (folder created → stamp; Debug build in the sim). UI tests 13/13, Swift 0 warnings. Test title, files and
   caches removed again (157 manga).
-- **⚠ Linker warnings — decision for Martin:** clean builds (Debug and Release) print **59 `ld: warning: could not
-  associate debug note to atom …`** for LZMA SDK internals (IsMatch, kAlign…). Incremental builds: 0. Harmless debug
-  info notes from the package's C code, but they break the "0 warnings" rule. Options: accept them (third-party), or
-  vendor PLzmaSDK as a local package to change its debug flags (more upkeep, untested whether it helps).
+- **Linker warnings → fixed by vendoring (Martin's pick, same session).** Clean builds had printed 59 `ld: warning:
+  could not associate debug note to atom …` — every one a constant from `src/Asm/arm64/LzmaDecOpt.S`. That file is
+  dead code: nothing defines `Z7_LZMA_DEC_OPT`, so `LzmaDec.c` always builds its own `static` C decoder; the linker
+  strips the asm but its debug notes stay. **PLzmaSDK is now vendored in `Vendor/PLzmaSDK`** (commit f449bc3 =
+  1.6.1; `src/`, `swift/`, `libplzma.h/.hpp`, resources, LICENSE; `src/Asm/` removed; test targets dropped; see its
+  `VENDORED.md`), referenced as a local package. As a local package Xcode shows its compiler warnings: 2×
+  deprecated `readdir_r` in `plzma_path*.cpp` (encoder-side directory listing) → `-Wno-deprecated-declarations` on the
+  C/C++ target only; code unchanged. **Result: clean Debug AND Release builds 0 warnings** (were 59); YomiWidget 0.
+  Re-checked: Mac tool against the vendored copy — Copy/LZMA/LZMA2/PPMd/AES (both kinds) 8/8 byte-identical; sim app —
+  LZMA2 + PPMd chapters 8/8 byte-identical, password message, and the failed chapter left no empty Caches folder.
+  `scripts/build-licenses.sh` reads PLzmaSDK from `Vendor/` (output unchanged).
 - NOT checked: the device (phone CPU will be slower than the sim's ~3 s for 128 MB), a CB7 made by real 7-Zip (py7zr
   only), Import through the Files picker / "Open in Yomi" with a .cb7 (types declared, not exercised), the empty-folder
   cleanup on screen (compile only), memory on a phone during a large unpack (files are written by stream, not RAM).

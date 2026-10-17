@@ -1,5 +1,5 @@
 {
-  "originHash" : "cd221c28feab092fb2c8e30ca5e1890d0defb8fea3a5933a8659369e281b55b8",
+  "originHash" : "22d5f116f2fb41fc4eb6baf31f025de1009649b289507a553bc56d94fb1819b7",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -17,14 +17,6 @@
       "state" : {
         "revision" : "cf8be20d07654570554c8a8a4952bc8a5766a8b0",
         "version" : "8.9.0"
-      }
-    },
-    {
-      "identity" : "plzmasdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/OlehKulykov/PLzmaSDK",
-      "state" : {
-        "revision" : "f449bc3e13204b68a7e05fca80ce8c31642085ec"
       }
     },
     {
