@@ -2367,3 +2367,11 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **A test-harness argument parser that guesses** ("contains '-' = language") ate a path with `claude-501` in it and
   produced garbage that looked like an OCR failure. Check the harness before blaming the code under test.
 
+
+## S174 lessons
+
+- **Look for the test case in the data you already have.** The sim's own reading history (Oct 13–15, nothing on the
+  16th) was exactly a repairable break — no fake rows needed. Check with `date(readAt,'localtime')` grouped by day.
+- **Weekday names in prose: check the calendar, not memory** — 2026-10-16 is a Friday; I called it Thursday in chat
+  while the app (correctly) said Friday.
+

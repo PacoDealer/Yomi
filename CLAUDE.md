@@ -24,12 +24,15 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S173 — 2026-10-16)
+## Current state (S174 — 2026-10-17)
+- **S174 (sim):** L4 **streak repair** — `Core/ReadingStreak.swift` (1–2 missed days, streak ≥ 2, once a week; tests
+  `scripts/streak-tests/run.sh` 12/12), quiet row + Repair Streak button in Insights only, repaired days outlined in the
+  heatmap, stored in `AppSettings.streakRepairedDays` (device-only). NEXT: CB7 → better voices → I (ROADMAP S171/S174).
 - **S173 (sim):** L3d **Text on Page** (`Features/Reader/PageText.swift`): long press a page or toolbar button
   `pageText` → Vision OCR on the device, blocks in reading order, Copy / Copy All / tap an outline on the page /
   Translate (Apple's sheet — sends to Apple unless offline translation is set). Grouping/order in
   `PageTextLayout.swift` (pixels, glyph size per character, furigana + other-script junk dropped), tested by
-  `scripts/page-text-tests/run.sh` (10/10) + Japanese raw One Piece via Mac Keiyoushi MangaFire `ja`. Korean untested. NEXT: L4 streak repair → CB7 → better voices → I (ROADMAP S171/S173).
+  `scripts/page-text-tests/run.sh` (10/10) + Japanese raw One Piece via Mac Keiyoushi MangaFire `ja`. Korean untested.
 - **S172 (sim):** L3c reader extras — Swap the two pages (`doublePageInvert`), Pinch to zoom off (`readerPinchZoom`;
   zoom was already "strict" 1×–4×), Scroll bar (`readerScrollIndicator`), **custom reader toolbar**
   (`readerToolbarItems`, `Features/Reader/ReaderToolbar.swift`: bookmark, mark previous read — unread only, reading
