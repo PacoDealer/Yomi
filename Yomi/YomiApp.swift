@@ -155,7 +155,7 @@ struct YomiApp: App {
     /// The app, or the UI-test reader fixture when launched with `-yomiReaderFixture` (Debug only).
     @ViewBuilder private var rootView: some View {
         #if DEBUG
-        if Self.readerFixture { ReaderFixture.RootView() } else { ContentView() }
+        if Self.readerFixture { if ReaderFixture.isManga { ReaderFixture.MangaRootView() } else { ReaderFixture.RootView() } } else { ContentView() }
         #else
         ContentView()
         #endif
