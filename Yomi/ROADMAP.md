@@ -21,6 +21,29 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S174 — L4 streak repair (2026-10-17, simulator)
+
+- **What and why:** RESEARCH §25.10 #9 — Silverman & Barasch 2023 (J. Consumer Research 49(6)): after a broken streak
+  people keep going far more often when they can repair it; keep it quiet. Insights had a streak, no repair.
+- **Rules** (`Core/ReadingStreak.swift`, pure Foundation): streak = days in a row with a chapter read, ending today or
+  yesterday (unchanged). A break can be repaired when it is **1–2 missed days** right before the current run (or before
+  today/yesterday), the streak it ended was **≥ 2 days**, and **no day was repaired in the 7 days before the break**
+  (one repair a week). Repaired days count as streak days. Tests: `scripts/streak-tests/run.sh` (12/12).
+- **UI (Insights only — no notification, no badge):** under the numbers, "You didn't read on Friday, which ended a
+  3-day streak. You can repair it once a week." + a small bordered **Repair Streak** button; after it the streak
+  updates and the row goes away. Repaired days are outlined in the Activity heatmap, with a caption "Outlined days were
+  repaired to keep your streak." while one is visible.
+- **Storage:** `AppSettings.streakRepairedDays` ("yyyy-MM-dd"), device-only — not in Yomi's backups (they don't carry
+  settings) or sync. Fine for a cosmetic number; move to the DB if streaks ever sync.
+- **Verified (sim, the sim's own data):** reading on Oct 13–15, nothing Oct 16 or yet on the 17th → Insights showed 0
+  + the offer for Friday (a 3-day streak) → Repair → streak 4, offer gone, Oct 16 outlined, stored as "2026-10-16"
+  (read back through cfprefsd); after a relaunch still 4 + the caption. The repaired day was deleted again afterwards.
+  Build 0 warnings (Yomi + YomiWidget).
+- NOT checked: the device, VoiceOver reading of the row, a week-limit case on screen (tests only).
+- NEXT: CB7/7z archives → better voices (research first) → I (ROADMAP S171).
+
+---
+
 ## S173 — L3d text on page / OCR (2026-10-16, simulator)
 
 - **Text on Page** (new `Features/Reader/PageText.swift`): long press a manga page → *Text on Page*, or the new reader
@@ -67,7 +90,7 @@ The research audit revealed that 800+ sources are already available across four 
 - Xcode updated itself to 27.1 mid-session: stale explicit modules ("malformed or corrupted precompiled file") and
   "CoreSimulator is out of date" → delete `DerivedData/SDKExplicitPrecompiledModules` + `ModuleCache.noindex`, run
   `xcodebuild -runFirstLaunch` (worked without sudo).
-- NEXT: L4 streak repair → CB7 → better voices (research first) → I (ROADMAP S171).
+- NEXT: L4 streak repair → CB7 → better voices (research first) → I (ROADMAP S171). (L4 streak repair done S174.)
 
 ---
 
