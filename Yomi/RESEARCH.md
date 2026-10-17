@@ -2336,3 +2336,50 @@ Read from each project's own repository / issue tracker today (dependency lists,
 
 **Not found:** academic papers relevant to this choice (it is a licensing/engineering question); Reddit threads (the
 search returned none); the share of CBRs in the wild that are RAR5 or solid.
+
+## §28 Better voices — neural read-aloud vs iOS Premium voices (S176, 2026-10-17)
+
+Martin's ask (S171, L4): "better voices". Checked today from each project's own repo / Hugging Face API / CLI runs on
+the Mac (M-series, macOS 26.6.2). Samples: `~/Desktop/Projects/Yomi/reports/S176-voices/` (same paragraph, 5 voices).
+
+### §28.1 What iOS gives for free (already in Yomi)
+- `AVSpeechSynthesizer` + the voice picker (S143). Best quality = **Premium / Enhanced** voices the user downloads in
+  Settings → Accessibility → Read & Speak (Spoken Content) → Voices. Yomi already prefers the best installed voice.
+- **Siri voices are not available to apps** through `AVSpeechSynthesizer` (WWDC20 10022; no source found that iOS 26
+  changed this). Personal Voice is (iOS 17+, needs permission) — it is the user's own voice, not a "better" one.
+- iOS 26 regression reported: `AVSpeechSynthesisVoice(language:)` returns the system default instead of the user's
+  pick when a third-party voice is installed (developer.apple.com/forums/thread/804648). Yomi uses identifiers, fine.
+- Word-level highlight (`willSpeakRange`), zero download, zero RAM cost, every language.
+
+### §28.2 Neural options checked
+
+| Engine (runtime) | Licence (code / weights) | Download | Peak RAM (Mac) | Notes |
+|---|---|---|---|---|
+| **Kokoro-82M via FluidAudio** (Swift, Core ML/ANE) | Apache-2.0 / Apache-2.0 | ~330 MB + voices (28 MB all) | 0.84–1.03 GB | **No GPL** (own Core ML G2P, CMUdict). EN/ES/FR/JA/ZH. 25 s of audio in ~3.3 s (warm, Mac). Shipping iOS app named by FluidAudio: Local Narrator (EPUB audiobook reader, EN+ES). FluidAudio itself: "physical iOS inference remains unvalidated" for ANE-v3; BNNS crash on iOS 26.4–26.5.x **fixed in 26.6** (Martin: iOS 26.6.1). |
+| PocketTTS (Kyutai) via FluidAudio | MIT code / **CC-BY-4.0** weights | 550 MB (int8) – 770 MB | 0.77 GB | Streams (first audio ~26 ms), voice cloning, EN/DE/ES/FR/IT/PT. CC-BY = attribution in licences screen. Printed an E5RT exception on the Mac but still produced the audio. |
+| Supertonic-3 | MIT code / **OpenRAIL** weights | ~398 MB (int8 ~65 MB) | — | **Upstream ARCHIVED** (supertone-inc, moved to `supertone-oss-archive`); OpenRAIL use restrictions must be passed on. Skip. |
+| **sherpa-onnx** (C++/ONNX) | Apache-2.0 | per model | — | **Every TTS build statically links espeak-ng (GPL-3.0)** — `CMakeLists.txt` includes `espeak-ng-for-piper` whenever TTS is on; `build-ios.sh` merges `libespeak-ng.a`. Yomi is all-rights-reserved → not usable without patching espeak out. Skip. (Same reason ArcReader-style Piper/Kokoro-with-espeak is out.) |
+| Piper | now **GPL-3.0** (`OHF-Voice/piper1-gpl`; old `rhasspy/piper` archived) + espeak | 6–100 MB | — | GPL. Skip. |
+
+Intelligibility check (FluidAudio Parakeet ASR on each sample): all five samples (Kokoro ×3, PocketTTS, Apple
+Samantha default) transcribe **word-perfect**, incl. "Lin Feng", "Qi Condensation". Apple's transcript lost most
+sentence boundaries (flatter prosody) — weak signal, not a quality verdict. **Quality vs Premium = Martin's ears**:
+no Premium voice is installed on the Mac (download is UI-only), so compare the samples against Yomi on the phone with a
+Premium voice selected.
+
+### §28.3 How it would fit Yomi (if Martin prefers Kokoro)
+- `ListenPlayer` already plays **sentence by sentence** → a neural engine = synthesize sentence N+1 while N plays
+  (`AVAudioEngine` + `AVAudioPlayerNode`), keep Now Playing / remote commands / sleep timer / mix-with-others.
+- Loses word-level highlight (sentence highlight stays). Speed via Kokoro's `speed` param.
+- Voice = optional download in Listening settings (never bundled; App Store 2.5.2 is about code, these are data
+  files), Apple voices stay the default and the fallback for languages Kokoro lacks.
+- Dependency: FluidAudio SPM with `traits: ["TTS"]` only; Xcode 26.3 has no trait UI → wrap in a one-target local
+  package (FluidAudio docs, PostProcessing.md). Licences rows: FluidAudio + Kokoro-82M (Apache-2.0).
+- Background: synthesis must run while the app is backgrounded with audio playing — check on the phone (FluidAudio
+  demos claim "background-capable", unverified by us).
+
+Sources: github.com/k2-fsa/sherpa-onnx (CMakeLists.txt, build-ios.sh, cmake/espeak-ng-for-piper.cmake @ HEAD
+2026-10-17) · github.com/FluidInference/FluidAudio (README, Documentation/TTS/*.md @ 2d6c42c) · huggingface.co API for
+hexgrad/Kokoro-82M, kyutai/pocket-tts, FluidInference/kokoro-82m-coreml, FluidInference/pocket-tts-coreml,
+supertone-oss-archive/supertonic-3 · GitHub API licence fields (espeak-ng GPL-3.0, piper1-gpl GPL-3.0) ·
+developer.apple.com/forums/thread/804648 · WWDC20 10022.

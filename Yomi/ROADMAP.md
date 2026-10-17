@@ -21,6 +21,21 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S176 — better voices: research (2026-10-17, Mac only, no app code)
+
+- Full write-up: **RESEARCH §28**. Samples (same light-novel paragraph): `../reports/S176-voices/` — 1–3 Kokoro
+  (af_heart, am_michael, bf_emma), 4 PocketTTS (alba), 5 Apple Samantha (default, NOT Premium).
+- **Only clean path = Kokoro-82M via FluidAudio** (Swift/Core ML, Apache-2.0 code + weights, no GPL, ~330 MB optional
+  download, ~1 GB RAM while speaking). **sherpa-onnx is out**: every TTS build links espeak-ng (GPL-3.0). Piper is GPL
+  now; Supertonic upstream archived + OpenRAIL.
+- All 5 samples transcribe word-perfect (Parakeet ASR) → the choice is about sound, which only Martin can judge.
+- **Martin decides:** listen to 1–4, then the same paragraph in Yomi on the phone with an iOS **Premium** voice
+  (Settings → Accessibility → Read & Speak → Voices). Kokoro clearly better → build it (plan in §28.3); not clearly
+  better → keep Apple voices, close L4 "better voices", go to I.
+- NOT checked: Kokoro on a physical iPhone (speed, heat, background synthesis), Premium voice side by side.
+
+---
+
 ## S175 — L4 CB7/7z archives (2026-10-17, simulator)
 
 - **Library choice (checked live):** SWCompression 4.9.1 (pure Swift, MIT) — `SevenZipContainer.open(container: Data)`
