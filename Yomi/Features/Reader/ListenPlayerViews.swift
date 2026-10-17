@@ -188,7 +188,7 @@ struct ListenPlayerView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
                     .frame(minHeight: 60)
-                    .animation(.easeInOut(duration: 0.2), value: player.sentenceIndex)
+                    .motion(.easeInOut(duration: 0.2), value: player.sentenceIndex)
             }
         }
     }

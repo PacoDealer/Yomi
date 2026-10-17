@@ -191,7 +191,7 @@ private struct SkeletonView: View {
                     )
                 )
                 .onAppear {
-                    withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    withMotion(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
                         shimmerPhase = 1
                     }
                 }

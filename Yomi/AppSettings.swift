@@ -80,9 +80,11 @@ import Observation
     /// Palette for the current `canvas` preset. "Automatic" (S142): follows the device's light/dark
     /// setting, Paper by day and Ink by night — pass the scheme the views are drawn in. The accent
     /// "blend into surfaces" slider was removed in S142 (RESEARCH §26: chrome stays neutral).
-    func canvasColors(for scheme: ColorScheme) -> YomiTokens.CanvasColors {
-        guard canvas == Self.automaticCanvas else { return YomiTokens.Canvas.named(canvas) }
-        return scheme == .dark ? YomiTokens.Canvas.ink : YomiTokens.Canvas.paper
+    func canvasColors(for scheme: ColorScheme, contrast: ColorSchemeContrast = .standard) -> YomiTokens.CanvasColors {
+        let palette = canvas == Self.automaticCanvas
+            ? (scheme == .dark ? YomiTokens.Canvas.ink : YomiTokens.Canvas.paper)
+            : YomiTokens.Canvas.named(canvas)
+        return contrast == .increased ? palette.increasedContrast() : palette
     }
 
     /// The preset palette, Ink for Automatic. Only for code without a view's colour scheme at hand.
@@ -189,6 +191,24 @@ import Observation
     /// The reader's own themes (S177), JSON `[CustomNovelTheme]`. Device-only, like the other reader settings.
     var novelCustomThemes: Data {
         didSet { defaults.set(novelCustomThemes, forKey: "novelCustomThemes") }
+    }
+
+    /// Night theme for the novel reader (S178, RESEARCH §25.3 #9): a `NovelTheme` id, "" = off. Used instead of
+    /// `novelTheme` while `NightTheme.isNight`.
+    var novelNightTheme: String {
+        didSet { defaults.set(novelNightTheme, forKey: "novelNightTheme") }
+    }
+
+    /// When the night theme applies: "system" = while the iPhone is in dark mode, "schedule" = between
+    /// `novelNightStart` and `novelNightEnd` (minutes after midnight).
+    var novelNightMode: String {
+        didSet { defaults.set(novelNightMode, forKey: "novelNightMode") }
+    }
+    var novelNightStart: Int {
+        didSet { defaults.set(novelNightStart, forKey: "novelNightStart") }
+    }
+    var novelNightEnd: Int {
+        didSet { defaults.set(novelNightEnd, forKey: "novelNightEnd") }
     }
 
     /// Novels the reader translates (S177, Apple's on-device Translation), by novel id.
@@ -684,6 +704,10 @@ import Observation
         novelParagraphSpacing   = d.object(forKey: "novelParagraphSpacing") as? Double ?? 1.0
         novelLetterSpacing      = d.object(forKey: "novelLetterSpacing") as? Int ?? 0
         novelCustomThemes       = d.data(forKey: "novelCustomThemes") ?? Data()
+        novelNightTheme         = d.string(forKey: "novelNightTheme") ?? ""
+        novelNightMode          = d.string(forKey: "novelNightMode") ?? "system"
+        novelNightStart         = d.object(forKey: "novelNightStart") as? Int ?? 21 * 60
+        novelNightEnd           = d.object(forKey: "novelNightEnd") as? Int ?? 7 * 60
         novelTranslateIds       = d.stringArray(forKey: "novelTranslateIds") ?? []
         novelTranslateTarget    = d.string(forKey: "novelTranslateTarget") ?? ""
         novelJustifyText        = d.object(forKey: "novelJustifyText") as? Bool ?? false

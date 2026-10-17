@@ -269,7 +269,7 @@ struct MangaDetailView: View {
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 410
         } action: { _, past in
-            withAnimation(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
+            withMotion(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
         }
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
@@ -295,20 +295,20 @@ struct MangaDetailView: View {
                     let visibleIds = Set(visibleOrder)
                     // Tachimanga's selection toolbar: range, all, invert.
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = ChapterSelection.range(selectedChapterIds, in: visibleOrder)
                         }
                     } label: { Image(systemName: "arrow.up.and.down") }
                     .accessibilityLabel("Select range")
                     .disabled(selectedChapterIds.count < 2)
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = selectedChapterIds.count == visibleIds.count ? [] : visibleIds
                         }
                     } label: { Image(systemName: "checklist") }
                     .accessibilityLabel(selectedChapterIds.count == visibleIds.count ? "Deselect all" : "Select all")
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = visibleIds.subtracting(selectedChapterIds)
                         }
                     } label: { Image(systemName: "circle.lefthalf.filled") }
@@ -535,7 +535,7 @@ struct MangaDetailView: View {
                 }
 
                 Button {
-                    withAnimation(.spring(duration: 0.2)) {
+                    withMotion(.spring(duration: 0.2)) {
                         isSelectingChapters = true
                         selectedChapterIds = []
                     }
@@ -1005,7 +1005,7 @@ struct MangaDetailView: View {
             showScanlator: !(oneTranslationPerChapter && hasDuplicateTranslations),
             onTap: {
                 if isSelectingChapters {
-                    withAnimation(.spring(duration: 0.15)) {
+                    withMotion(.spring(duration: 0.15)) {
                         if selectedChapterIds.contains(chapter.id) {
                             selectedChapterIds.remove(chapter.id)
                         } else {
@@ -1019,7 +1019,7 @@ struct MangaDetailView: View {
             onLongPress: {
                 guard !isSelectingChapters else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                withAnimation(.spring(duration: 0.2)) {
+                withMotion(.spring(duration: 0.2)) {
                     isSelectingChapters = true
                     selectedChapterIds = [chapter.id]
                 }
@@ -1226,7 +1226,7 @@ struct MangaDetailView: View {
 
     private func endSelection() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(duration: 0.2)) {
+        withMotion(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
         }
@@ -1708,7 +1708,7 @@ struct MangaDetailView: View {
             }
             return ch
         }
-        withAnimation(.spring(duration: 0.2)) {
+        withMotion(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
         }

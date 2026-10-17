@@ -267,7 +267,7 @@ struct ChapterReaderView: View {
             prefetchAhead()
             if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
             if pages.count > 0 && newPage >= pages.count - 2 {
-                withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
+                withMotion(.spring(duration: 0.4)) { showFinishedBanner = true }
             }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage >= pages.count - 2 {
                 markChapterRead()
@@ -369,11 +369,11 @@ struct ChapterReaderView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 36)
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(Motion.slide(.bottom))
         .onAppear {
             Task {
                 try? await Task.sleep(for: .seconds(5))
-                withAnimation(.easeOut(duration: 0.25)) { showFinishedBanner = false }
+                withMotion(.easeOut(duration: 0.25)) { showFinishedBanner = false }
             }
         }
     }
@@ -805,12 +805,12 @@ struct MangaReaderView: View {
         let next = groups[targetIdx].first!
         if next != currentPage {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            withAnimation(.easeInOut(duration: 0.3)) { currentPage = next }   // slide, like novel Pages mode
+            withMotion(.easeInOut(duration: 0.3)) { currentPage = next }   // slide, like novel Pages mode
         }
     }
 
     private func tapMenu() {
-        withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+        withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
     }
 
     // MARK: - Tap zones
@@ -820,7 +820,7 @@ struct MangaReaderView: View {
 
     private func handleTap(at p: CGPoint, in size: CGSize) {
         // Zoomed in: a tap zooms back out rather than turning the page under your finger.
-        if isZoomed { withAnimation(.spring(duration: 0.3)) { isZoomed = false }; return }
+        if isZoomed { withMotion(.spring(duration: 0.3)) { isZoomed = false }; return }
         switch ReaderTapZones.paged(settings.tapZoneLayout, at: p, in: size, isRTL: isRTL) {
         case .back:    moveSpread(forward: false)
         case .forward: moveSpread(forward: true)
@@ -930,7 +930,7 @@ private struct MangaPageView: View {
                 including: isZoomed ? .all : .subviews
             )
             .onChange(of: isZoomed) { _, zoomed in
-                if !zoomed { withAnimation(.spring(duration: 0.3)) { resetZoom() } }
+                if !zoomed { withMotion(.spring(duration: 0.3)) { resetZoom() } }
             }
         }
     }
@@ -1025,7 +1025,7 @@ struct WebtoonReaderView: View {
                 // change originated from the scroll itself.
                 let newId = "cur:\(new)"
                 guard newId != visibleId, newId != observedId else { return }
-                withAnimation { proxy.scrollTo(newId, anchor: .top) }
+                withMotion { proxy.scrollTo(newId, anchor: .top) }
             }
         }
         .modifier(ReaderZoom(scrollAxis: .vertical, pinchEnabled: settings.readerPinchZoom && !isHolding))
@@ -1035,7 +1035,7 @@ struct WebtoonReaderView: View {
             switch ReaderTapZones.strip(settings.stripTapZoneLayout, at: p, in: viewSize) {
             case .back:    scroller.page(by: -0.75)
             case .forward: scroller.page(by: 0.75)
-            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+            case .menu:    withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
         // Long press (F16): auto-scroll on/off (the pre-F16 behaviour, default) · scroll while held · page menu
@@ -1043,7 +1043,7 @@ struct WebtoonReaderView: View {
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.6)
                 .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.2)) { isAutoScrolling.toggle() }
+                    withMotion(.easeInOut(duration: 0.2)) { isAutoScrolling.toggle() }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 },
             including: settings.stripLongPress == "autoScroll" ? .all : .subviews
@@ -1069,10 +1069,10 @@ struct WebtoonReaderView: View {
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.bottom, 60)
-                    .transition(.scale.combined(with: .opacity))
+                    .transition(Motion.pop)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isAutoScrolling)
+        .motion(.easeInOut(duration: 0.2), value: isAutoScrolling)
         .task(id: isAutoScrolling) {
             guard isAutoScrolling else { return }
             while !Task.isCancelled && isAutoScrolling {
@@ -1209,7 +1209,7 @@ struct ReaderZoom: ViewModifier {
                     .onEnded { _ in lastOffset = offset },
                 including: isZoomed ? .all : .subviews
             )
-            .gesture(TapGesture().onEnded { withAnimation(.spring(duration: 0.3)) { reset() } },
+            .gesture(TapGesture().onEnded { withMotion(.spring(duration: 0.3)) { reset() } },
                      including: isZoomed ? .all : .subviews)
     }
 
@@ -1282,7 +1282,7 @@ struct ContinuousHorizontalReaderView: View {
             .onChange(of: currentPage) { _, new in
                 let newId = "cur:\(new)"
                 guard newId != visibleId else { return }
-                withAnimation { proxy.scrollTo(newId, anchor: .center) }
+                withMotion { proxy.scrollTo(newId, anchor: .center) }
             }
         }
         .modifier(ReaderZoom(scrollAxis: .horizontal, pinchEnabled: settings.readerPinchZoom))
@@ -1293,7 +1293,7 @@ struct ContinuousHorizontalReaderView: View {
             switch ReaderTapZones.strip(settings.stripTapZoneLayout, at: p, in: viewSize, isRTL: isRTL) {
             case .back:    step(-1)
             case .forward: step(1)
-            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+            case .menu:    withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
     }
@@ -1350,7 +1350,7 @@ struct VerticalPagedReaderView: View {
             switch ReaderTapZones.paged(settings.tapZoneLayout, at: p, in: viewSize, isRTL: false) {
             case .back:    step(-1)
             case .forward: step(1)
-            case .menu:    withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+            case .menu:    withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
             }
         }
         .onChange(of: currentPage) { _, _ in isZoomed = false }
@@ -1360,7 +1360,7 @@ struct VerticalPagedReaderView: View {
         let target = min(max(currentPage + delta, 0), pages.count - 1)
         guard target != currentPage else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        withAnimation(.easeInOut(duration: 0.3)) { currentPage = target }
+        withMotion(.easeInOut(duration: 0.3)) { currentPage = target }
     }
 }
 
@@ -1761,7 +1761,7 @@ struct ReaderOverlayView: View {
             .padding(.bottom, 14)
         }
         .opacity(showOverlay ? 1 : 0)
-        .animation(.easeInOut(duration: 0.2), value: showOverlay)
+        .motion(.easeInOut(duration: 0.2), value: showOverlay)
         .confirmationDialog("Mark previous as read", isPresented: $showMarkPreviousConfirm, titleVisibility: .hidden) {
             Button("Mark as Read") { onMarkPreviousRead?() }
         } message: {

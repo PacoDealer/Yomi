@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var backupManager = BackupManager.shared
     @State private var settings = AppSettings.shared
 
@@ -78,7 +79,7 @@ struct OnboardingView: View {
         .sheet(item: $importReport) { report in
             // Outside ContentView, so give the sheet the app's palette for the current light/dark itself.
             TachiyomiImportView(report: report)
-                .environment(\.yomiCanvas, settings.canvasColors(for: colorScheme))
+                .environment(\.yomiCanvas, settings.canvasColors(for: colorScheme, contrast: contrast))
         }
         .sheet(isPresented: $showAddRepo, onDismiss: {
             if repoCount > repoCountAtOpen { done.insert(.repo) }

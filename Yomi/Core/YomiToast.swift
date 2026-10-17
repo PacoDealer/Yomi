@@ -30,10 +30,10 @@ private struct YomiToastModifier: ViewModifier {
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(Motion.slide(.top))
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: message)
+            .motion(.easeInOut(duration: 0.2), value: message)
             .task(id: message) {
                 guard message != nil else { return }
                 try? await Task.sleep(for: duration)

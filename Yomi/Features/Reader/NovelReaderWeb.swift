@@ -448,6 +448,10 @@ enum NovelReaderScript {
         return null;
       }
       function clamp(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
+      // Reduce Motion (S178): WebKit reports the iPhone setting through this media query; jump instead of gliding.
+      function smooth() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      }
 
       function build(ch, withTitle) {
         var s = document.createElement('section');
@@ -669,7 +673,7 @@ enum NovelReaderScript {
         var lastPageIndex = list.length ? span(list[list.length - 1]).b : 0;
         if (p < 0) { post('swipe', 'prev'); return; }
         if (p > lastPageIndex) { post('swipe', 'next'); return; }
-        window.scrollTo({ left: p * pageW(), top: 0, behavior: 'smooth' });
+        window.scrollTo({ left: p * pageW(), top: 0, behavior: smooth() });
       }
 
       function menuTap() {
@@ -747,11 +751,11 @@ enum NovelReaderScript {
         var rect = firstRect(r);
         if (opts.pages) {
           var page = Math.floor((rect.left + window.scrollX + 1) / pageW());
-          if (page !== pageNow()) window.scrollTo({ left: page * pageW(), top: 0, behavior: 'smooth' });
+          if (page !== pageNow()) window.scrollTo({ left: page * pageW(), top: 0, behavior: smooth() });
         } else {
           var vh = window.innerHeight;
           if (rect.top < vh * 0.12 || rect.bottom > vh * 0.7) {
-            window.scrollTo({ top: window.scrollY + rect.top - vh * 0.3, left: 0, behavior: 'smooth' });
+            window.scrollTo({ top: window.scrollY + rect.top - vh * 0.3, left: 0, behavior: smooth() });
           }
         }
       }

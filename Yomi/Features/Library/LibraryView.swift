@@ -146,7 +146,7 @@ struct LibraryView: View {
                                                     Color.clear
                                                         .contentShape(Rectangle())
                                                         .onTapGesture {
-                                                            withAnimation(.spring(duration: 0.15)) {
+                                                            withMotion(.spring(duration: 0.15)) {
                                                                 if selectedIds.contains(manga.id) {
                                                                     selectedIds.remove(manga.id)
                                                                 } else {
@@ -160,7 +160,7 @@ struct LibraryView: View {
                                             .contextMenu {
                                                 if !isSelecting {
                                                     Button {
-                                                        withAnimation(.spring(duration: 0.2)) {
+                                                        withMotion(.spring(duration: 0.2)) {
                                                             isSelecting = true
                                                             selectedIds.insert(manga.id)
                                                         }
@@ -201,13 +201,13 @@ struct LibraryView: View {
                                                 isSelecting: isSelecting,
                                                 isSelected: selectedIds.contains(manga.id),
                                                 onLongPress: {
-                                                    withAnimation(.spring(duration: 0.2)) {
+                                                    withMotion(.spring(duration: 0.2)) {
                                                         isSelecting = true
                                                         selectedIds.insert(manga.id)
                                                     }
                                                 },
                                                 onSelect: {
-                                                    withAnimation(.spring(duration: 0.15)) {
+                                                    withMotion(.spring(duration: 0.15)) {
                                                         if selectedIds.contains(manga.id) {
                                                             selectedIds.remove(manga.id)
                                                         } else {
@@ -252,7 +252,7 @@ struct LibraryView: View {
                                                         Color.clear
                                                             .contentShape(Rectangle())
                                                             .onTapGesture {
-                                                                withAnimation(.spring(duration: 0.15)) {
+                                                                withMotion(.spring(duration: 0.15)) {
                                                                     if selectedNovelIds.contains(novel.id) {
                                                                         selectedNovelIds.remove(novel.id)
                                                                     } else {
@@ -266,7 +266,7 @@ struct LibraryView: View {
                                                 .contextMenu {
                                                     if !isSelecting {
                                                     Button {
-                                                        withAnimation(.spring(duration: 0.2)) {
+                                                        withMotion(.spring(duration: 0.2)) {
                                                             isSelecting = true
                                                             selectedNovelIds.insert(novel.id)
                                                         }
@@ -310,13 +310,13 @@ struct LibraryView: View {
                                                     isSelecting: isSelecting,
                                                     isSelected: selectedNovelIds.contains(novel.id),
                                                     onLongPress: {
-                                                        withAnimation(.spring(duration: 0.2)) {
+                                                        withMotion(.spring(duration: 0.2)) {
                                                             isSelecting = true
                                                             selectedNovelIds.insert(novel.id)
                                                         }
                                                     },
                                                     onSelect: {
-                                                        withAnimation(.spring(duration: 0.15)) {
+                                                        withMotion(.spring(duration: 0.15)) {
                                                             if selectedNovelIds.contains(novel.id) {
                                                                 selectedNovelIds.remove(novel.id)
                                                             } else {
@@ -352,9 +352,9 @@ struct LibraryView: View {
                                 let tabIds: [String?] = [nil] + viewModel.categories.map { Optional($0.id) }
                                 guard let idx = tabIds.firstIndex(where: { $0 == viewModel.selectedCategoryId }) else { return }
                                 if value.translation.width < -50 && idx < tabIds.count - 1 {
-                                    withAnimation(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx + 1] }
+                                    withMotion(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx + 1] }
                                 } else if value.translation.width > 50 && idx > 0 {
-                                    withAnimation(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx - 1] }
+                                    withMotion(.easeInOut(duration: 0.2)) { viewModel.selectedCategoryId = tabIds[idx - 1] }
                                 }
                             }
                     )
@@ -374,7 +374,7 @@ struct LibraryView: View {
                 if isSelecting {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") {
-                            withAnimation(.spring(duration: 0.2)) {
+                            withMotion(.spring(duration: 0.2)) {
                                 isSelecting = false
                                 selectedIds = []
                                 selectedNovelIds = []
@@ -386,7 +386,7 @@ struct LibraryView: View {
                         let allNovels = Set(viewModel.displayedNovels.map { $0.id })
                         let allSelected = selectedIds == allManga && selectedNovelIds == allNovels
                         Button(allSelected ? "Deselect All" : "Select All") {
-                            withAnimation(.spring(duration: 0.15)) {
+                            withMotion(.spring(duration: 0.15)) {
                                 if allSelected {
                                     selectedIds = []
                                     selectedNovelIds = []
@@ -556,7 +556,7 @@ struct LibraryView: View {
             }
         }.value
         await viewModel.loadLibrary()
-        withAnimation(.spring(duration: 0.2)) {
+        withMotion(.spring(duration: 0.2)) {
             isSelecting = false
             selectedIds = []
             selectedNovelIds = []
@@ -571,7 +571,7 @@ struct LibraryView: View {
             for id in novelIds { try? NovelQueries.markAllChapters(novelId: id, read: true) }
         }.value
         await viewModel.loadLibrary()
-        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
+        withMotion(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
     }
 
     private func downloadSelected() async {
@@ -594,7 +594,7 @@ struct LibraryView: View {
             guard DownloadManager.canDownload(manga, bridge: bridge) else { continue }
             unread.forEach { DownloadManager.shared.enqueue($0, manga: manga, bridge: bridge) }
         }
-        withAnimation(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
+        withMotion(.spring(duration: 0.2)) { isSelecting = false; selectedIds = []; selectedNovelIds = [] }
     }
 
     // MARK: - Category Tab Bar
@@ -640,7 +640,7 @@ struct LibraryView: View {
             }
             .background(canvas.bg)
             .onChange(of: viewModel.selectedCategoryId) { _, newId in
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withMotion(.easeInOut(duration: 0.2)) {
                     proxy.scrollTo(newId.map { "tab_\($0)" } ?? "tab_all", anchor: .center)
                 }
             }
@@ -737,7 +737,7 @@ private struct LibraryTab: View {
             .fixedSize()
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .motion(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 

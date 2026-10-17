@@ -116,7 +116,7 @@ enum ReaderBackdrop {
 
     /// The iPhone's own light/dark. Not the view's colour scheme: the reader forces dark on itself. A screen's traits
     /// don't follow a window's override.
-    private static var systemIsDark: Bool {
+    static var systemIsDark: Bool {
         let scene = UIApplication.shared.connectedScenes.first { $0 is UIWindowScene } as? UIWindowScene
         return scene?.screen.traitCollection.userInterfaceStyle == .dark
     }
