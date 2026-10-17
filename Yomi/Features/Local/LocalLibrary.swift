@@ -8,7 +8,7 @@ import CryptoKit
 // optional cover.jpg. Martin's picks: an EPUB is a NOVEL (its table of contents = chapters, read in the novel reader),
 // files come in two ways — Import (copied into Yomi's own `Documents/Local`) and a folder the user links once in the
 // Files app (security-scoped bookmark; Yomi's Documents stays hidden because it holds the database) — and CBR/RAR was
-// skipped until S156 (now read through `ComicArchive`; CB7/7z still is).
+// skipped until S156 (now read through `ComicArchive`, and CB7/7z since S175).
 //
 // Titles are ordinary `manga`/`novel` rows with sourceId "local"; chapter paths say where the file is:
 //   manga chapter  local://<root>/<relative path>              (archive or image folder)
@@ -31,8 +31,7 @@ nonisolated enum LocalLibrary {
     }
 
     static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif", "bmp"]
-    static let archiveExtensions: Set<String> = ["cbz", "zip", "cbr", "rar"]
-    static let unsupportedArchiveExtensions: Set<String> = ["cb7", "7z"]
+    static let archiveExtensions: Set<String> = ["cbz", "zip", "cbr", "rar", "cb7", "7z"]
 
     // MARK: - Roots
 
@@ -129,11 +128,8 @@ nonisolated enum LocalLibrary {
                 destination = dir.appendingPathComponent(name)
             } else if ext == "epub" {
                 destination = appRoot.appendingPathComponent(name)
-            } else if unsupportedArchiveExtensions.contains(ext) {
-                result.skipped.append("\(name) — CB7/7z isn't supported yet; convert it to CBZ")
-                continue
             } else {
-                result.skipped.append("\(name) — not a CBZ, CBR, ZIP, RAR, EPUB or folder")
+                result.skipped.append("\(name) — not a CBZ, CBR, CB7, ZIP, RAR, 7Z, EPUB or folder")
                 continue
             }
             if fm.fileExists(atPath: destination.path) {
@@ -231,8 +227,6 @@ nonisolated enum LocalLibrary {
                     .chapters.append((itemRel, item.deletingPathExtension().lastPathComponent, info))
             } else if ext == "epub" {
                 epubs.append(itemRel)
-            } else if unsupportedArchiveExtensions.contains(ext) {
-                skipped.append("\(name) — CB7/7z isn't supported yet")
             }
         }
     }
@@ -272,8 +266,6 @@ nonisolated enum LocalLibrary {
             } else if imageExtensions.contains(ext) {
                 if child.deletingPathExtension().lastPathComponent.lowercased() == "cover" { draft.coverFile = child }
                 else { looseImages = true }
-            } else if unsupportedArchiveExtensions.contains(ext) {
-                skipped.append("\(child.lastPathComponent) — CB7/7z isn't supported yet")
             }
         }
         // A series folder holding images directly (no chapter folders) is one chapter.
@@ -396,19 +388,26 @@ nonisolated enum LocalLibrary {
         }
         try? fm.removeItem(at: cache)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
+        do {
+            return try unpack(source, into: cache, stamp: stamp, marker: marker)
+        } catch {
+            try? fm.removeItem(at: cache)   // no empty or half-written folder left behind (S175)
+            throw error
+        }
+    }
+
+    private static func unpack(_ source: URL, into cache: URL, stamp: String, marker: URL) throws -> [URL] {
         let archive = try ComicArchive(url: source)
         // Mihon: folders inside an archive are ignored — every image is a page, ordered by its path.
         let images = archive.paths
             .filter { !$0.hasPrefix("__MACOSX") && !($0 as NSString).lastPathComponent.hasPrefix(".")
                 && imageExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        var out: [URL] = []
-        for (i, path) in images.enumerated() {
-            let ext = (path as NSString).pathExtension.lowercased()
-            let file = cache.appendingPathComponent(String(format: "%04d.%@", i + 1, ext))
-            try archive.contents(of: path).write(to: file)
-            out.append(file)
+        let files = images.enumerated().map { i, path in
+            (path: path, to: cache.appendingPathComponent(String(format: "%04d.%@", i + 1, (path as NSString).pathExtension.lowercased())))
         }
+        try archive.write(files)   // one pass: a solid 7z decodes once
+        let out = files.map(\.to)
         try stamp.write(to: marker, atomically: true, encoding: .utf8)
         return out
     }
