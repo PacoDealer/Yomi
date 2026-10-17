@@ -2423,3 +2423,19 @@ previously here was removed during the 2026-08-04 doc restructure.
 - `xcrun simctl ui <udid> appearance dark|light` and `increase_contrast enabled|disabled` work for checks; there is no
   simctl switch for Reduce Motion.
 
+## S179 lessons
+
+- **A dead switch can be the test tool, not the app.** XCodeBuildMCP and simulator-control taps on Safe Mode's first
+  switch never flipped it ON→OFF, while a drag on the same spot did and every other switch tapped fine. Before rewriting
+  a binding, try a second input (drag, label tap) and read the stored value (`plutil -p` on the app's prefs plist).
+- **Check what a new test file actually ran.** "TEST SUCCEEDED" with "Executed 0 tests": YomiUITests is a classic
+  group, not a synced folder, so a new .swift file isn't in the target until project.pbxproj lists it.
+- **Simulator perf metrics are partial.** `XCTHitchMetric` (iOS 26) silently records nothing in the simulator, and the
+  scroll signpost metric only reports duration there. Gate what the simulator does measure (launch, memory) and keep
+  hitch limits for a device run.
+- **"Solid" is the archive property that matters, not the format.** S175's 7z lesson applied to RAR too: per-entry
+  extraction reopens and skips, and in a solid archive skipping decodes — 36 s vs 0.5 s for 150 pages. Make solid test
+  archives on purpose (RARLAB `rar a -s`; RAR 7 can't write RAR4, use 6.24 `-ma4`).
+- **Ship the code you test.** `RarExtract.swift` is compiled into the Mac harness by symlink, so the benchmark measured
+  the app's file, not a copy.
+

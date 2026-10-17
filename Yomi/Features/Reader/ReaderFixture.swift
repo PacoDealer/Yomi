@@ -7,6 +7,12 @@ import SwiftUI
 /// Each paragraph reads "Fixture chapter N, paragraph K" so a test can tell which chapter the web view shows.
 enum ReaderFixture {
     static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-yomiReaderFixture") }
+    /// `-yomiReaderFixture manga`: the manga reader on a long-strip chapter instead (S179 perf gates).
+    static var isManga: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-yomiReaderFixture"), i + 1 < args.count else { return false }
+        return args[i + 1] == "manga"
+    }
 
     static let novel = Novel(
         id: "fixture-novel", path: "/fixture", sourceId: "fixture", title: "Fixture Novel",
@@ -30,6 +36,69 @@ enum ReaderFixture {
         let script = FileManager.default.temporaryDirectory.appendingPathComponent("fixture-plugin.js")
         try? "var fixture = true;".write(to: script, atomically: true, encoding: .utf8)
         return JSBridge(scriptURL: script)
+    }
+
+    // MARK: Manga long strip
+
+    static let manga = Manga(
+        id: "fixture-manga", path: "local://app/.perf-fixture", sourceId: LocalLibrary.sourceId, title: "Perf Fixture",
+        coverURL: nil, summary: nil, author: nil, artist: nil, status: .unknown, genres: [], inLibrary: false,
+        isLocal: true, lastReadAt: nil, lastUpdatedAt: nil, readingSeconds: 0)
+
+    static let mangaChapter = Chapter(
+        id: "fixture-manga-ch-1", mangaId: manga.id, path: "local://app/.perf-fixture/Chapter 1", name: "Chapter 1",
+        chapterNumber: 1, isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil, progress: 0,
+        readingSeconds: 0, lastPageRead: 0)
+
+    nonisolated static let stripPages = 8
+    /// Asura's shape (900×16000, #190/#209): tall enough that the reader must draw them in strips.
+    nonisolated static let stripSize = CGSize(width: 900, height: 16000)
+
+    /// Writes the chapter's pages once, into Documents/Local/.perf-fixture/Chapter 1 (hidden: a Local Files scan skips
+    /// it) — bands of colour with numbers, so the JPEGs aren't trivially small.
+    nonisolated static func prepareManga() {
+        let dir = LocalLibrary.appRoot.appendingPathComponent(".perf-fixture/Chapter 1", isDirectory: true)
+        let fm = FileManager.default
+        if ((try? fm.contentsOfDirectory(atPath: dir.path))?.count ?? 0) >= stripPages { return }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: stripSize, format: format)
+        for page in 1...stripPages {
+            let data = renderer.jpegData(withCompressionQuality: 0.7) { ctx in
+                for band in 0..<Int(stripSize.height / 200) {
+                    let hue = CGFloat((page * 37 + band * 11) % 360) / 360
+                    UIColor(hue: hue, saturation: 0.5, brightness: 0.85, alpha: 1).setFill()
+                    ctx.fill(CGRect(x: 0, y: CGFloat(band) * 200, width: stripSize.width, height: 200))
+                    ("Page \(page) · \(band)" as NSString).draw(
+                        at: CGPoint(x: 40, y: CGFloat(band) * 200 + 70),
+                        withAttributes: [.font: UIFont.boldSystemFont(ofSize: 56), .foregroundColor: UIColor.black])
+                }
+            }
+            try? data.write(to: dir.appendingPathComponent(String(format: "%03d.jpg", page)))
+        }
+    }
+
+    struct MangaRootView: View {
+        @State private var ready = false
+        @State private var path = ["reader"]
+        var body: some View {
+            NavigationStack(path: $path) {
+                Text("Fixture home")
+                    .navigationDestination(for: String.self) { _ in
+                        if ready {
+                            ChapterReaderView(manga: ReaderFixture.manga, bridge: nil,
+                                              chapters: [ReaderFixture.mangaChapter], chapterIndex: 0)
+                        } else {
+                            ProgressView("Preparing pages")
+                        }
+                    }
+            }
+            .task {
+                await Task.detached(priority: .userInitiated) { ReaderFixture.prepareManga() }.value
+                ready = true
+            }
+        }
     }
 
     struct RootView: View {

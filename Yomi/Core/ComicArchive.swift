@@ -96,10 +96,27 @@ nonisolated struct ComicArchive: Sendable {
         }
     }
 
-    /// Writes several files at once. A "solid" 7z (the default) is one compressed stream, so reading page N alone
-    /// decodes everything before it — page by page that is quadratic. One `extract` call decodes the stream once.
-    /// ZIP and RAR just read each file.
+    /// Writes several files at once. A "solid" 7z or RAR is one compressed stream, so reading page N alone decodes
+    /// everything before it — page by page that is quadratic (S179: a 150-page solid CBR took 36 s that way on the Mac,
+    /// 0.5 s in one pass). 7z: one `extract` call; RAR: one walk (`RarExtract`). ZIP just reads each file.
     func write(_ files: [(path: String, to: URL)]) throws {
+        if case .rar(let archive, let entries) = backing {
+            var byName: [String: URL] = [:]
+            for file in files {
+                guard let index = paths.firstIndex(of: file.path) else { throw ArchiveError.unreadable(file.path) }
+                byName[entries[index].fileName] = file.to
+            }
+            do {
+                try RarExtract.write(archive: archive.fileURL, files: byName)
+            } catch RarExtract.Failure.encrypted {
+                throw ArchiveError.encrypted
+            } catch RarExtract.Failure.read(let name), RarExtract.Failure.incomplete(let name) {
+                throw ArchiveError.unreadable((name.replacingOccurrences(of: "\\", with: "/") as NSString).lastPathComponent)
+            } catch {
+                throw ArchiveError.unreadable(archive.fileURL.lastPathComponent)
+            }
+            return
+        }
         guard case .sevenZip(let decoder, let items) = backing else {
             for file in files { try contents(of: file.path).write(to: file.to) }
             return

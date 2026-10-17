@@ -108,6 +108,14 @@ struct ChapterReaderView: View {
         ZStack {
             ReaderBackdrop.base(settings.readerBackground).ignoresSafeArea()
 
+            #if DEBUG
+            // UI tests (perf gates, S179) read the page on screen here: "page/pages", "loading" until pages arrive.
+            Color.clear.frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("reader.mangaPage")
+                .accessibilityValue(pages.isEmpty ? "loading" : "\(currentPage + 1)/\(pages.count)")
+            #endif
+
             // Tap-to-hide chrome — sits behind all reader content so
             // scroll/pinch gestures on the reader views still take priority.
             Color.clear

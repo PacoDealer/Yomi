@@ -24,7 +24,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S178 — 2026-10-17)
+## Current state (S179 — 2026-10-17)
+- **S179 (sim):** I — **Safe Mode** (`Core/SafeMode.swift` filter: `SafeMode.filter` → Sendable `SafeFilter`, capture it
+  before detaching; `SafeModeView`; Settings → Privacy) hides 18+ sources + adult-tagged titles everywhere, optional
+  hide-mixed, Yomi passcode lock in the keychain; **any new title list must filter with `SafeMode.filter.allows`**.
+  **Perf gates:** `scripts/perf-gates.sh` (+ `--device <id>` for hitches — `XCTHitchMetric` records nothing in the
+  sim), `YomiUITests/PerfUITests.swift`, fixture `-yomiReaderFixture manga`. **Solid CBR** one pass: `Core/RarExtract.swift`
+  (tests `scripts/rar-extract-tests/run.sh <cbr files>`). New UI-test files must be added to project.pbxproj by hand.
 - **S178 (sim):** I — **Reduce Motion** everywhere via `Core/Motion.swift` (`withMotion`, `.motion`, `Motion.slide/pop`
   — use these in new code, never bare withAnimation); **Increase Contrast** (`CanvasColors.increasedContrast()`, reader
   panel labels); **novel night theme** (Settings → Novels → Night / reader Look → At night; iPhone dark or set times;
@@ -166,12 +172,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   filter button in `KeiyoushiBrowseView`; Mac-server + sample-data verified, real screen unseen on a device); #207 =
   filters an extension fetches from its site (Asura genres) don't load (zstd JNI). Parity list: `TACHIMANGA_PARITY.md`.
   Open: #206 double back button from Library search, per-extension settings screen unseen on a device
-  (built + Mac-verified; `KeiyoushiSourceSettingsView`), solid/huge CBR. NEXT in ROADMAP S156.
+  (built + Mac-verified; `KeiyoushiSourceSettingsView`). NEXT in ROADMAP S156.
 - Phone has the S166 Release build `98af933` (paid team): profile expires **2027-10-15**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v31_`** (v30 = `term_replacement`, S177). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v31_`** (v30 = `term_replacement`, S177). UI tests: ReaderUITests 13/13 (#193 and #196 are flaky — re-run alone) + PerfUITests 3/3 (S179).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in

@@ -15,6 +15,7 @@
 		7B2C66E2B1C24D1E8F1A6701 /* PLzmaSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 7B2C66E1B1C24D1E8F1A6701 /* PLzmaSDK */; };
 		AABB000AAABB000AAABB000A /* YomiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AABB0001AABB0001AABB0001 /* YomiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB2C53D86030B3A2FA45D469 /* ReaderUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */; };
+		5179A0000000000000000001 /* PerfUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5179A0000000000000000002 /* PerfUITests.swift */; };
 		EE235E1803F24911AB5E4646 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 514D11379D494BB1B5834DDA /* Kingfisher */; };
 /* End PBXBuildFile section */
 
@@ -53,6 +54,7 @@
 		0EE530CD2F64CF600074B935 /* Yomi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yomi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		66F9E11E6FB28C90A19E1BBD /* YomiUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YomiUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReaderUITests.swift; sourceTree = "<group>"; };
+		5179A0000000000000000002 /* PerfUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PerfUITests.swift; sourceTree = "<group>"; };
 		AABB0001AABB0001AABB0001 /* YomiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = YomiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2FE408826B57FBD0DE3A78D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
@@ -201,6 +203,7 @@
 			isa = PBXGroup;
 			children = (
 				7A115B8F76727687FEA4ED78 /* ReaderUITests.swift */,
+				5179A0000000000000000002 /* PerfUITests.swift */,
 			);
 			path = YomiUITests;
 			sourceTree = "<group>";
@@ -397,6 +400,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DB2C53D86030B3A2FA45D469 /* ReaderUITests.swift in Sources */,
+				5179A0000000000000000001 /* PerfUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

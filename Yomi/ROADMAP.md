@@ -21,6 +21,53 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S179 — I: Safe Mode, perf gates, solid/huge CBR (2026-10-17, simulator)
+
+Martin picked lockable SFW mode + perf gates + CBR edge cases from the rest of I.
+
+- **Safe Mode** (`Core/SafeMode.swift`, `Features/More/SafeModeView.swift`; Settings → Privacy → Safe Mode, off by
+  default). Hides sources their repository marks 18+ (Keiyoushi `contentWarning` 3, JS/LNReader `isNSFW`) and titles
+  tagged Adult/Hentai/Smut/Ecchi/Mature/Pornographic/Erotica/18+/R-18/… (exact tag match, so "theme:primarily_adult_cast"
+  stays) — in Library (counts, category counts, source filter, widget), Continue shelf, History, Updates (feed AND
+  refresh: hidden titles aren't checked, so no notification names them), Browse sources/pinned/last used, Search all
+  sources, browse results with genres, Extensions (installed + available), Migrate (sources and targets), reading
+  reminder. Mixed sources stay (Keiyoushi index today: 561 safe / **486 mixed** — MangaFire, MangaDex, Bato… / 387
+  18+); "Hide mixed sources" option hides them too. A title page whose genres arrive adult (mixed sites tag late) is
+  covered: "Hidden by Safe Mode" + Go Back, drawn over the floating bar so ⋯ (website) is covered too. The 18+ switch in
+  Repositories is disabled while Safe Mode is on (`allowsAdultExtensions`).
+  **Lock:** a Yomi 4-digit passcode (not Face ID/iPhone passcode — a child knows those), SHA-256 in the keychain;
+  turning Safe Mode off or showing mixed sources asks for it; stricter changes never ask. 5 wrong → 1 minute wait.
+  Forgot it → reinstall (a fresh install clears a passcode left in the keychain, `clearStalePasscode`). Honest note on
+  screen: untagged adult titles can still appear; Screen Time for more.
+  **Verified (sim, on a copy of the S152 library):** 157 → 156 with Safe Mode ("Evolution", tagged Mature, gone; Action
+  116 → 115); tagged a second title Smut in the DB → 155; relaunch keeps it on + locked; wrong code refused, right code
+  works; Hide-mixed off while locked snaps back + asks; cover appears on an open page when Safe Mode turns on, Go Back
+  works. Test tags reverted, Safe Mode left off. NOT checked: a real 18+ source in Browse (none installed in the sim),
+  device. **Tooling:** XcodeBuildMCP/control TAPS on this screen's first switch don't flip it ON→OFF (a drag does) — first
+  binding version looked dead because of that; switched to `$settings` bindings + onChange anyway.
+- **Perf gates** (RESEARCH §25.10 #11): `YomiUITests/PerfUITests.swift` (added to the target in project.pbxproj — the UI
+  test group is NOT a synced folder) + `scripts/perf-gates.sh` / `perf-gates.json`. Tests measure; the script reads the
+  averages from the .xcresult (`xcresulttool get test-results metrics`) and fails over a limit. New fixture
+  `-yomiReaderFixture manga` = Webtoon reader on 8 generated 900×16000 pages in hidden `Documents/Local/.perf-fixture`;
+  DEBUG marker `reader.mangaPage` ("page/pages"). **`XCTHitchMetric` (iOS 26) records NOTHING in the simulator**, and the
+  scroll signpost metric only gives scroll duration there → simulator gates = launch (1.41–1.44 s, limit 2.5) + long-strip
+  memory peak (64–81 MB, limit 300 MB; `footprint` showed 105 MB/peak 168 MB); hitch gates (5 ms/s) are `deviceOnly`,
+  run with `--device <id>` — their metric name "Hitch Time Ratio" is a guess until the first device run (the script
+  says "not measured" if wrong). Script end to end: passed.
+- **CBR solid/huge:** Unrar.swift's `extract(entry)` reopens and skips to each page; in a SOLID RAR skipping decodes, so
+  a chapter was quadratic. New `Core/RarExtract.swift` walks once (Cunrar C API, data callback → file); `ComicArchive.write`
+  uses it for RAR. Mac (`scripts/rar-extract-tests/run.sh`, same file compiled): 150 pages/63 MB — RAR5 solid **35.9 s →
+  0.53 s**, RAR4 solid 38.7 s → 0.59 s, non-solid 0.55 → 0.52 s, all byte-identical to Unrar.swift; password →
+  `.encrypted`; missing name throws. Huge: a real 796 MB RAR5 (1 GB unpacked, one 734 MB file) in 5.9 s, peak RSS 64 MB.
+  Sim app: RAR5 + RAR4 solid chapters 150/150 byte-identical in Caches, each unpacked in ~1 s; password chapter shows
+  "password-protected". Test archives made with RARLAB rar 7.23 (RAR5) / 6.24 (`-ma4`, RAR 7 dropped RAR4 writing),
+  kept in scratch only. Test title + caches removed (157 manga).
+- UI tests: ReaderUITests 13/13, PerfUITests 3/3. Builds 0 warnings (Yomi + YomiWidget).
+- NEXT: rest of I (Spanish, #194 Asura 100-chapter cap, #69) → CloudKit schema deploy + personal build + J (add: Safe
+  Mode on the phone, perf gates `--device` once).
+
+---
+
 ## S178 — I: accessibility baseline + reader night theme (2026-10-17, simulator)
 
 - **Reduce Motion** (`Core/Motion.swift`): `withMotion` / `.motion(_:value:)` / `Motion.slide(edge)` / `Motion.pop`

@@ -1,0 +1,9 @@
+{
+  "_about": "Limits for scripts/perf-gates.sh (S179). 'metric' matches the start of an XCTest metric's display name; the gate uses the AVERAGE of the measure() iterations. 'deviceOnly' metrics are skipped in the simulator, which doesn't record hitches. Simulator baseline S179 (iPhone 17 Pro sim, M-series Mac): launch 1.41 s, strip memory peak 81 MB. Hitch limit = RESEARCH §25.10 #11 (Apple: under 5 ms/s is good).",
+  "gates": [
+    { "test": "testReaderLaunch", "metric": "Duration (ApplicationFirstFramePresentationResponsive)", "max": 2.5, "unit": "s" },
+    { "test": "testMangaStripScrollHitchesAndMemory", "metric": "Memory Peak Physical", "max": 300000, "unit": "kB" },
+    { "test": "testMangaStripScrollHitchesAndMemory", "metric": "Hitch Time Ratio", "max": 5, "unit": "ms per s", "deviceOnly": true },
+    { "test": "testNovelReaderScrollHitches", "metric": "Hitch Time Ratio", "max": 5, "unit": "ms per s", "deviceOnly": true }
+  ]
+}
