@@ -144,8 +144,9 @@ struct BrowseView: View {
     /// Plugins and Keiyoushi extensions in one list. Keiyoushi extensions are always manga; a plugin is a novel
     /// source when its script is an LNReader plugin. Until a new plugin is classified it counts as manga.
     private var allItems: [BrowseSourceItem] {
-        extensionManager.installed.map { .plugin($0, isNovel: pluginIsNovel[$0.id] ?? false) }
-            + keiyoushi.installed.map { .keiyoushi($0) }
+        (extensionManager.installed.map { .plugin($0, isNovel: pluginIsNovel[$0.id] ?? false) }
+            + keiyoushi.installed.map { .keiyoushi($0) })
+            .filter { !$0.isHiddenBySafeMode }
     }
 
     private func sorted(_ items: [BrowseSourceItem]) -> [BrowseSourceItem] {
@@ -178,6 +179,7 @@ struct BrowseView: View {
             }
             return nil
         }
+        .filter { !$0.isHiddenBySafeMode }
     }
 
     @ViewBuilder
@@ -516,7 +518,7 @@ struct BrowseView: View {
         do {
             let sources = try await SuwayomiService.shared.fetchSources()
             await MainActor.run {
-                suwayomiSources = sources.filter { !$0.isNsfw || settings.showNSFW }
+                suwayomiSources = sources.filter { !$0.isNsfw || settings.allowsAdultExtensions }
                 suwayomiLoading = false
             }
         } catch {
@@ -699,6 +701,14 @@ private enum BrowseSourceItem: Identifiable {
         return false
     }
 
+    /// True when Safe Mode hides this source.
+    var isHiddenBySafeMode: Bool {
+        switch self {
+        case .plugin(let ext, _): return AppSettings.shared.safeMode && ext.isNSFW
+        case .keiyoushi(let ext), .keiyoushiSource(let ext, _): return SafeMode.hides(ext.info)
+        }
+    }
+
     /// Subtitle suffix naming where the source comes from, shown only when two sources share a name.
     var origin: String {
         if case .plugin = self { return " · Yomi" }
@@ -746,7 +756,7 @@ private struct GlobalSearchView: View {
         let id: String
         let sourceName: String
         let isNovel: Bool
-        let mangas: [Manga]
+        var mangas: [Manga]
         let novels: [NovelItem]
         let bridge: JSBridge
     }
@@ -875,7 +885,8 @@ private struct GlobalSearchView: View {
     }
 
     private func runParallelSearch(query: String) async {
-        let sources = extensionManager.installed
+        let safe = SafeMode.filter
+        let sources = extensionManager.installed.filter { !safe.hidesSource($0.id) }
         await MainActor.run { pendingCount = sources.count }
 
         await withTaskGroup(of: SearchSection?.self) { group in
@@ -906,7 +917,8 @@ private struct GlobalSearchView: View {
             for await result in group {
                 await MainActor.run {
                     pendingCount = max(0, pendingCount - 1)
-                    if let section = result {
+                    if var section = result {
+                        section.mangas = section.mangas.filter { !SafeMode.hidesGenres($0.genres) }
                         sections.append(section)
                     }
                 }
@@ -959,13 +971,15 @@ struct SourceBrowseView: View {
     // MARK: Filtered Content
 
     private var filteredMangas: [Manga] {
-        guard !searchText.isEmpty else { return mangas }
-        return mangas.filter { $0.title.localizedStandardContains(searchText) }
+        let shown = mangas.filter { !SafeMode.hidesGenres($0.genres) }
+        guard !searchText.isEmpty else { return shown }
+        return shown.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     private var filteredNovels: [Novel] {
-        guard !searchText.isEmpty else { return novels }
-        return novels.filter { $0.title.localizedStandardContains(searchText) }
+        let shown = novels.filter { !SafeMode.hidesGenres($0.genres) }
+        guard !searchText.isEmpty else { return shown }
+        return shown.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     private var isContentEmpty: Bool {

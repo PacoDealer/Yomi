@@ -74,7 +74,7 @@ struct KeiyoushiBrowseView: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(mangas) { manga in
+                        ForEach(mangas.filter { !SafeMode.hidesGenres($0.genres) }) { manga in
                             Button {
                                 selectedManga = manga
                                 showMangaDetail = true

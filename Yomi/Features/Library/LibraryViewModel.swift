@@ -180,10 +180,20 @@ final class LibraryViewModel {
     }
 
     func loadCategories() {
+        // Safe Mode: count only the titles the Library shows.
+        let visible: Set<String>? = AppSettings.shared.safeMode ? Set(mangas.map(\.id) + novels.map(\.id)) : nil
         Task.detached {
             let cats = (try? CategoryQueries.fetchAll()) ?? []
-            let counts = (try? CategoryQueries.fetchItemCounts()) ?? [:]
-            await MainActor.run { self.categories = cats; self.categoryItemCounts = counts }
+            var counts = (try? CategoryQueries.fetchItemCounts()) ?? [:]
+            if let visible {
+                for cat in cats {
+                    let ids = ((try? CategoryQueries.mangaIds(inCategory: cat.id)) ?? [])
+                        + ((try? CategoryQueries.novelIds(inCategory: cat.id)) ?? [])
+                    counts[cat.id] = ids.filter(visible.contains).count
+                }
+            }
+            let finalCounts = counts
+            await MainActor.run { self.categories = cats; self.categoryItemCounts = finalCounts }
         }
     }
 
@@ -271,6 +281,7 @@ final class LibraryViewModel {
         isLoading = true
         errorMessage = nil
         loadCategories()
+        let safe = SafeMode.filter
         let result = await Task.detached(priority: .userInitiated) {
             do {
                 let m = try MangaQueries.fetchLibrary()
@@ -286,8 +297,10 @@ final class LibraryViewModel {
                 return ([], [], [:], [:], error.localizedDescription)
             }
         }.value
-        mangas = result.0
-        novels = result.1
+        // Safe Mode (S179): hidden titles leave every count, filter, shelf and the widget, not just the grid.
+        mangas = result.0.filter(safe.allows)
+        novels = result.1.filter(safe.allows)
+        if safe.isOn { loadCategories() }
         unreadCounts = result.2
         novelUnreadCounts = result.3
         if let err = result.4 { errorMessage = err }

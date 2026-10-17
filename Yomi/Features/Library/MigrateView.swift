@@ -148,7 +148,9 @@ struct MigrateView: View {
     }
 
     private func load() async {
-        let library = (try? await Task.detached(priority: .userInitiated) { try MangaQueries.fetchLibrary() }.value) ?? []
+        let safe = SafeMode.filter
+        let library = ((try? await Task.detached(priority: .userInitiated) { try MangaQueries.fetchLibrary() }.value) ?? [])
+            .filter(safe.allows)
         let bySource = Dictionary(grouping: library.filter { !$0.isLocal }, by: \.sourceId)
         groups = bySource.map { id, titles in
             SourceGroup(id: id, name: SourceStatus.sourceName(id), titles: titles,
@@ -253,7 +255,9 @@ struct MigrateTitlesView: View {
 
     private func load() async {
         let id = sourceId
-        let library = (try? await Task.detached(priority: .userInitiated) { try MangaQueries.fetchLibrary() }.value) ?? []
+        let safe = SafeMode.filter
+        let library = ((try? await Task.detached(priority: .userInitiated) { try MangaQueries.fetchLibrary() }.value) ?? [])
+            .filter(safe.allows)
         titles = library.filter { $0.sourceId == id }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         selected.formIntersection(titles.map(\.id))

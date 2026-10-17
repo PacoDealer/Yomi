@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        SafeMode.clearStalePasscode()
         BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundRefreshTaskId, using: nil) { task in
             handleBackgroundRefresh(task as! BGAppRefreshTask)
         }
@@ -269,10 +270,11 @@ struct YomiApp: App {
                 }
                 if settings.readingReminderEnabled {
                     let days = settings.readingReminderDays
+                    let safe = SafeMode.filter
                     Task {
                         let title = await Task.detached {
-                            (try? MangaQueries.fetchRecentlyRead(limit: 1))?.first?.title
-                                ?? (try? NovelQueries.fetchRecentlyRead(limit: 1))?.first?.title
+                            (try? MangaQueries.fetchRecentlyRead(limit: 20))?.first(where: safe.allows)?.title
+                                ?? (try? NovelQueries.fetchRecentlyRead(limit: 20))?.first(where: safe.allows)?.title
                         }.value
                         NotificationManager.shared.scheduleReadingReminder(
                             lastReadTitle: title,
