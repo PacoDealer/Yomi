@@ -169,7 +169,8 @@ import Observation
         didSet { defaults.set(novelSepia, forKey: "novelSepia") }
     }
 
-    /// Color theme for the novel reader: "Light" | "Sepia" | "Warm" | "Dark" | "AMOLED"
+    /// Novel reader theme: a built-in name ("Light", "Sepia", "Sage", "E-ink", "Warm", "Dark", "Void", "AMOLED")
+    /// or "custom:<uuid>" for one of `novelCustomThemes` (S177).
     var novelTheme: String {
         didSet { defaults.set(novelTheme, forKey: "novelTheme") }
     }
@@ -183,6 +184,21 @@ import Observation
     /// Space after each paragraph in the novel reader, in em: 0.5 | 1.0 | 1.5.
     var novelParagraphSpacing: Double {
         didSet { defaults.set(novelParagraphSpacing, forKey: "novelParagraphSpacing") }
+    }
+
+    /// The reader's own themes (S177), JSON `[CustomNovelTheme]`. Device-only, like the other reader settings.
+    var novelCustomThemes: Data {
+        didSet { defaults.set(novelCustomThemes, forKey: "novelCustomThemes") }
+    }
+
+    /// Novels the reader translates (S177, Apple's on-device Translation), by novel id.
+    var novelTranslateIds: [String] {
+        didSet { defaults.set(novelTranslateIds, forKey: "novelTranslateIds") }
+    }
+
+    /// Language novels are translated into (BCP-47 code); "" = the iPhone's language.
+    var novelTranslateTarget: String {
+        didSet { defaults.set(novelTranslateTarget, forKey: "novelTranslateTarget") }
     }
 
     /// Letter spacing in the novel reader: -1 tight | 0 normal | 1 loose.
@@ -667,6 +683,9 @@ import Observation
         }
         novelParagraphSpacing   = d.object(forKey: "novelParagraphSpacing") as? Double ?? 1.0
         novelLetterSpacing      = d.object(forKey: "novelLetterSpacing") as? Int ?? 0
+        novelCustomThemes       = d.data(forKey: "novelCustomThemes") ?? Data()
+        novelTranslateIds       = d.stringArray(forKey: "novelTranslateIds") ?? []
+        novelTranslateTarget    = d.string(forKey: "novelTranslateTarget") ?? ""
         novelJustifyText        = d.object(forKey: "novelJustifyText") as? Bool ?? false
         novelHorizontalPadding  = d.object(forKey: "novelHorizontalPadding") as? Int ?? 16
         hasSeenOnboarding       = d.bool(forKey: "hasSeenOnboarding")

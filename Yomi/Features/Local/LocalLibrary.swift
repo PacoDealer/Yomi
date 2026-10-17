@@ -494,11 +494,18 @@ nonisolated enum LocalLibrary {
 // MARK: - NovelContent
 
 /// One place every novel screen gets a chapter's HTML from (reader, preload, read-aloud): local EPUB → downloaded
-/// copy → the plugin. Runs off the main actor (a plugin call blocks its thread).
+/// copy → the plugin, then the novel's term replacements (S177; downloads stay as the source sent them).
+/// Runs off the main actor (a plugin call blocks its thread).
 nonisolated enum NovelContent {
     static func html(novelId: String, path: String, bridge: JSBridge?) -> String {
-        if path.hasPrefix(LocalLibrary.epubScheme) { return LocalLibrary.epubChapterHTML(path: path) ?? "" }
-        return NovelDownloadStore.content(novelId: novelId, chapterPath: path) ?? bridge?.parseChapter(path: path) ?? ""
+        let raw: String
+        if path.hasPrefix(LocalLibrary.epubScheme) {
+            raw = LocalLibrary.epubChapterHTML(path: path) ?? ""
+        } else {
+            raw = NovelDownloadStore.content(novelId: novelId, chapterPath: path) ?? bridge?.parseChapter(path: path) ?? ""
+        }
+        guard !raw.isEmpty else { return raw }
+        return TermReplacer.apply(TermReplacementQueries.rules(novelId: novelId), toHTML: raw)
     }
 }
 

@@ -21,6 +21,42 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S177 — I: ArcReader novel leftovers (2026-10-17, simulator)
+
+Martin picked "ArcReader novel leftovers: term replacement, translate, letter spacing, themes" from group I.
+**Letter spacing was already done (S136: Tight / Normal / Loose)** — nothing to build.
+
+- **Themes** (`Features/Reader/NovelThemes.swift`): three more built-ins from ArcReader's list — **Sage** (#E4ECDF /
+  #1F2B1C, contrast 12.2:1), **E-ink** (#EAEAE4 / #141414, 15.3:1), **Void** (#0D0F17 / #C9CEDB, 12.1:1) — and **your
+  own themes**: Look tab → **New** (name, background, text colour, live sample, contrast readout, warning under 4.5:1);
+  touch and hold one of yours → Edit / Delete. Look row now scrolls; each swatch shows "Aa" in its text colour.
+  `NovelTheme` is a struct now (was an enum); `AppSettings.novelCustomThemes` (JSON, device-only).
+- **Term replacement** (`Core/TermReplacer.swift`, v30 `term_replacement`, `TermReplacementQueries`,
+  `TermReplacementViews.swift`): select text → **Replace…** (new item in the selection menu, next to Listen from Here)
+  → editor prefilled with the selection; Reading tab → **Replacements** lists this novel's + all-novel rules (tap =
+  edit, swipe = delete, + = add). Options: This novel / All novels, Match case (on). Whole words for spaced scripts;
+  CJK/Thai terms match anywhere; longest term first, one pass (no chaining); tags/attributes/scripts untouched;
+  empty replacement removes the term (translator notes). Applied in `NovelContent.html`, so reader AND read-aloud get
+  it; downloads on disk unchanged. A rule change reloads the open chapter at the same spot. In backups. Tests:
+  `scripts/term-replace-tests/run.sh` 18/18.
+- **Translate** (`NovelTranslation.swift`): Reading tab → **Translate this novel** (remembered per novel) + **Into**
+  (iPhone language or any language Apple's Translation supports). Each chapter is translated as it enters the page
+  (infinite scroll too), on the iPhone, after term replacements; the system asks to download the languages first.
+  Block by block, line by line (`<br>` kept); italics/links inside a paragraph are lost in the translation. Off =
+  original text back. Status chip "Translating…" / error messages at the top. Read-aloud still reads the ORIGINAL
+  text (and its highlight won't find it in a translated page) — not handled.
+- **Bug found on the way:** `NovelReaderController.evaluate` returned nil before the page finished loading, so the
+  first chapter's text query (translation) got nothing. Queries now wait for the page (`readyWaiters`).
+- Verified in the simulator (iPhone 17 Pro, iOS 26.3): Sage + New theme saved/listed; Replacements add → chapter
+  reloads with the replacement; selection menu Replace… prefilled; translate on → page swap (DEBUG `-yomiFakeTranslate`
+  upper-cases the text, because **Translation is "not supported on simulated devices"** — the real session was
+  reached and showed that message); off → original. UI tests 13/13; build 0 warnings (Yomi + YomiWidget).
+- NOT checked: real translation (needs the phone: model download prompt, speed on a long chapter, pages mode with
+  translated text), the colour pickers (tool can't drive them), backup round-trip of rules, VoiceOver.
+- NEXT: rest of I (Martin picks) → CloudKit schema deploy + personal build + J.
+
+---
+
 ## S176 — better voices: research (2026-10-17, Mac only, no app code)
 
 - Full write-up: **RESEARCH §28**. Samples (same light-novel paragraph): `../reports/S176-voices/` — 1–3 Kokoro
@@ -1700,7 +1736,7 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 - [x] Font size as a number readout (ArcReader shows "20") (S136)
 
 **Reader — Look**
-- [ ] More themes (ArcReader: Light, Sage, Void, E-ink, Sepia, Dark, AMOLED) + **custom themes** ("New")
+- [x] More themes (ArcReader: Light, Sage, Void, E-ink, Sepia, Dark, AMOLED) + **custom themes** ("New") (S177: Sage, E-ink, Void + New/edit/delete own themes)
 - [ ] Background textures (Midnight, Ember, Rose, Cream, Paper, Dusk, Slate, Forest, Vignette, Parchment, Linen)
 
 **Reader — Reading**
@@ -1717,8 +1753,8 @@ TTS. Translation (Apple Translation framework, RESEARCH §22.11) stays the headl
 - [ ] Skeleton loading state ("Extracting chapter content…" + tips) instead of a spinner
 
 **Text selection ("hold selection" default action)**
-- [ ] Highlight, Copy, **Translate**, **Quick translate**, **Dictionary**, Speak, Listen from here, Pronounce, Replace
-- [ ] **Term replacement** list (rename a term everywhere — fixes inconsistent MTL/fan-TL names)
+- [ ] Highlight, Copy, **Translate**, **Quick translate**, **Dictionary**, Speak, Listen from here, Pronounce, Replace (S177: **Replace…** added; whole-chapter translate in the Reading tab; Copy/Look Up/Translate are the system menu's own)
+- [x] **Term replacement** list (rename a term everywhere — fixes inconsistent MTL/fan-TL names) (S177)
 
 **Text-to-speech**
 - [x] Voice picker (system voices) + premium neural voices (ArcReader: sherpa-onnx, 140 downloadable voices — §22.11) (S143 system voices; neural voices still open)

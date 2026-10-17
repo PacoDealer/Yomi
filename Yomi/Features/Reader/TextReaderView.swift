@@ -1,30 +1,7 @@
 import SwiftUI
+import Translation
 import StoreKit
 import WebKit
-
-// MARK: - NovelTheme
-
-enum NovelTheme: String, CaseIterable {
-    case light  = "Light"
-    case sepia  = "Sepia"
-    case warm   = "Warm"
-    case dark   = "Dark"
-    case amoled = "AMOLED"
-
-    private var token: YomiTokens.ReaderTheme { YomiTokens.Reader.theme(named: rawValue) }
-
-    var bg:        String { token.bg }
-    var fg:        String { token.fg }
-    var linkColor: String { token.link }
-    var isDark:    Bool   { token.isDark }
-
-    var colorScheme: ColorScheme { isDark ? .dark : .light }
-
-    /// Color for the theme swatch circle in the overlay
-    var swatchColor: Color { token.bgColor }
-
-    var uiColor: UIColor { UIColor(hex: bg) ?? .systemBackground }
-}
 
 // MARK: - TextReaderView
 
@@ -63,7 +40,7 @@ struct TextReaderView: View {
     // Reader settings — initialized from persisted AppSettings
     @State private var fontSize: Double        = AppSettings.shared.fontSize
     @State private var lineSpacing: Double     = AppSettings.shared.lineSpacing
-    @State private var novelTheme: NovelTheme  = NovelTheme(rawValue: AppSettings.shared.novelTheme) ?? .light
+    @State private var novelTheme: NovelTheme  = NovelTheme.resolve(AppSettings.shared.novelTheme)
     @State private var fontFamily: String      = AppSettings.shared.novelFontFamily
     @State private var justifyText: Bool       = AppSettings.shared.novelJustifyText
     @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
@@ -87,12 +64,23 @@ struct TextReaderView: View {
     @State private var player = ListenPlayer.shared
     @State private var showPlayerSheet = false
 
+    // Term replacements (S177): the editor from "Replace…", the list from the Reading tab.
+    @State private var termEditor: TermReplacement?
+    @State private var showTermList = false
+
+    // Translation (S177): on per novel; chapters queue up as they enter the page, the translation task works the queue.
+    @State private var translateOn: Bool
+    @State private var translationConfig: TranslationSession.Configuration?
+    @State private var translateQueue: [String] = []
+    @State private var translateStatus: String?
+
     init(novel: Novel, bridge: JSBridge?, chapters: [NovelChapter], startIndex: Int = 0) {
         self.novel   = novel
         self.bridge  = bridge
         self.chapters = chapters
         self.startIndex = min(max(startIndex, 0), max(chapters.count - 1, 0))
         _currentChapterIndex = State(initialValue: self.startIndex)
+        _translateOn = State(initialValue: AppSettings.shared.novelTranslateIds.contains(novel.id))
     }
 
     // MARK: - Computed
@@ -212,6 +200,19 @@ struct TextReaderView: View {
                 chapterFinishedBanner
             }
 
+            if let status = translateStatus, !showOverlay {
+                VStack {
+                    Text(status)
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 8)
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
+
             // Docked under the text while listening; the menu panel takes its place when open.
             if listeningHere && !showOverlay {
                 VStack {
@@ -263,7 +264,9 @@ struct TextReaderView: View {
                     onNextChapter:        { navigateToChapter(currentChapterIndex + 1) },
                     onJumpToChapter:      { navigateToChapter($0) },
                     onToggleTTS:          { toggleListening() },
-                    onViewSource:         { showSourceSheet = true }
+                    onViewSource:         { showSourceSheet = true },
+                    onTermReplacements:   { showTermList = true },
+                    translateOn:          $translateOn
                 )
                 // The app root's .preferredColorScheme (app theme) wins over this view's, so the glass menu
                 // followed the app theme, not the reader theme the user picked under Look (Martin, S136).
@@ -299,6 +302,24 @@ struct TextReaderView: View {
             controller.setListening(on)
             if !on { controller.ttsClear() }
         }
+        .translationTask(translationConfig) { session in
+            await runTranslations(session)
+        }
+        .onChange(of: translateOn) { _, on in
+            var ids = AppSettings.shared.novelTranslateIds.filter { $0 != novel.id }
+            if on { ids.append(novel.id) }
+            AppSettings.shared.novelTranslateIds = ids
+            restartTranslation()
+        }
+        .onChange(of: AppSettings.shared.novelTranslateTarget) { _, _ in
+            if translateOn { restartTranslation() }
+        }
+        .sheet(item: $termEditor) { rule in
+            TermReplacementEditor(rule: rule, novelId: novel.id, isNew: true) { reloadForReplacements() }
+        }
+        .sheet(isPresented: $showTermList) {
+            TermReplacementList(novelId: novel.id) { reloadForReplacements() }
+        }
         .sheet(isPresented: $showSourceSheet) {
             if let url = sourceURL {
                 DiscussWebSheet(url: url, title: "Source")
@@ -306,7 +327,7 @@ struct TextReaderView: View {
         }
         .onChange(of: fontSize)   { _, v in AppSettings.shared.fontSize = v }
         .onChange(of: novelTheme) { _, v in
-            AppSettings.shared.novelTheme  = v.rawValue
+            AppSettings.shared.novelTheme  = v.id
         }
         .onChange(of: lineSpacing) { _, v in AppSettings.shared.lineSpacing = v }
         .onChange(of: fontFamily)    { _, v in AppSettings.shared.novelFontFamily = v }
@@ -433,7 +454,20 @@ struct TextReaderView: View {
             pageInfo = PageInfo(chapterName: chapters.first { $0.id == id }?.name ?? "", page: page, pages: pages)
         case .listenFromHere:
             Task { await listenFromSelection() }
+        case .replaceSelection:
+            Task {
+                let text = await controller.selectedText().trimmingCharacters(in: .whitespacesAndNewlines)
+                termEditor = .new(novelId: novel.id, find: text, replacement: text)
+            }
         }
+    }
+
+    /// A replacement rule changed: show the chapter again with it (same position). Preloaded copies were made with
+    /// the old rules, so they go too; the chapter being read aloud keeps its sentences until the next chapter.
+    private func reloadForReplacements() {
+        guard errorMessage == nil, !chapters.isEmpty else { return }
+        chapterContentCache = [:]
+        openChapter(currentChapterIndex, restorePercent: lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0)
     }
 
     private func chapterCompleted(_ id: String) {
@@ -559,6 +593,7 @@ struct TextReaderView: View {
             loadedContent = [chapter.id: html]
             controller.show(id: chapter.id, title: chapter.name, html: html, restorePercent: restorePercent)
             isLoading = false
+            requestTranslation(chapter.id)
             if listen {
                 self.listen(chapterIndex: index, html: html, from: 0)
             } else {
@@ -588,6 +623,7 @@ struct TextReaderView: View {
             }
             loadedContent[next.id] = html
             controller.append(id: next.id, title: next.name, html: html)
+            requestTranslation(next.id)
             resendListeningSentences(for: next.id)
         }
     }
@@ -634,6 +670,68 @@ struct TextReaderView: View {
                 guard !html.isEmpty, nextChapterForPreload?.id == nextId else { return }
                 chapterContentCache[nextId] = html
             }
+        }
+    }
+
+    // MARK: - Translation
+
+    /// Queues a chapter that just entered the page; the translation task picks it up.
+    private func requestTranslation(_ id: String) {
+        guard translateOn else { return }
+        #if DEBUG
+        // The simulator has no Translation; `-yomiFakeTranslate` upper-cases the text to check the page swap.
+        if ProcessInfo.processInfo.arguments.contains("-yomiFakeTranslate") {
+            Task {
+                guard let blocks = await controller.translationBlocks(id: id) else { return }
+                controller.applyTranslation(id: id, texts: blocks.map { $0.uppercased() })
+            }
+            return
+        }
+        #endif
+        if !translateQueue.contains(id) { translateQueue.append(id) }
+        if translationConfig == nil {
+            translationConfig = .init(source: sourceLanguage.map { Locale.Language(identifier: $0) },
+                                      target: NovelTranslation.target(AppSettings.shared.novelTranslateTarget))
+        } else {
+            translationConfig?.invalidate()
+        }
+    }
+
+    /// Switched on or off, or a new target language: back to the original text, then (if on) translate again.
+    private func restartTranslation() {
+        controller.showOriginal()
+        translateQueue = []
+        translationConfig = nil
+        translateStatus = nil
+        guard translateOn else { return }
+        // The chapter being read first, then the rest of what's in the page.
+        let ids = [activeChapter.id] + loadedContent.keys.filter { $0 != activeChapter.id }
+        for id in ids where loadedContent[id] != nil { requestTranslation(id) }
+    }
+
+    private func runTranslations(_ session: TranslationSession) async {
+        while translateOn, !translateQueue.isEmpty {
+            let id = translateQueue.removeFirst()
+            guard let blocks = await controller.translationBlocks(id: id), !blocks.isEmpty else { continue }
+            withAnimation { translateStatus = "Translating…" }
+            do {
+                let texts = try await NovelTranslation.translate(blocks, session: session)
+                guard translateOn else { break }
+                controller.applyTranslation(id: id, texts: texts)
+            } catch {
+                translateQueue = []
+                showTranslateStatus(NovelTranslation.message(for: error))
+                return
+            }
+        }
+        withAnimation { translateStatus = nil }
+    }
+
+    private func showTranslateStatus(_ text: String) {
+        withAnimation { translateStatus = text }
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if translateStatus == text { withAnimation { translateStatus = nil } }
         }
     }
 
@@ -732,9 +830,14 @@ struct TextReaderOverlayView: View {
     var onJumpToChapter:      ((Int) -> Void)? = nil
     var onToggleTTS:          (() -> Void)? = nil
     var onViewSource:         (() -> Void)? = nil
+    var onTermReplacements:   (() -> Void)? = nil
+    @Binding var translateOn: Bool
+    @State private var translateLanguages: [Locale.Language] = []
 
     @State private var showChapterSheet = false
     @State private var settings = AppSettings.shared
+    @State private var themes = NovelTheme.all
+    @State private var editingTheme: CustomNovelTheme?
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("novelPanelTab") private var panelTabRaw = ReaderPanelTab.text.rawValue
 
@@ -1073,35 +1176,85 @@ extension TextReaderOverlayView {
 
     // MARK: Look
 
+    /// Built-in themes, the reader's own, and "New" (S177). Long press one of your own to edit or delete it.
     var lookTab: some View {
-        HStack(spacing: 14) {
-            ForEach(NovelTheme.allCases, id: \.rawValue) { theme in
-                Button { novelTheme = theme } label: {
-                    VStack(spacing: 5) {
-                        ZStack {
-                            Circle()
-                                .fill(theme.swatchColor)
-                                .frame(width: 36, height: 36)
-                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.3), lineWidth: 1))
-                            if novelTheme == theme {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(theme.isDark ? Color.white : Color.black)
-                            }
-                        }
-                        Text(theme.rawValue)
-                            .font(.caption2)
-                            .foregroundStyle(novelTheme == theme ? Color.primary : Color.secondary)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(themes) { theme in
+                        themeSwatch(theme)
+                            .id(theme.id)
                     }
+                    Button { editingTheme = .new(from: novelTheme) } label: {
+                        VStack(spacing: 5) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(width: 36, height: 36)
+                                .background(Color.primary.opacity(0.08), in: Circle())
+                            Text("New").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("New reading theme")
                 }
-                .buttonStyle(.plain)
-                // Selection is colour + a checkmark glyph only without this (Known Issue #121).
-                .accessibilityLabel("\(theme.rawValue) reading theme")
-                .accessibilityAddTraits(novelTheme == theme ? .isSelected : [])
+                .padding(.horizontal, 20)
+            }
+            .onAppear { proxy.scrollTo(novelTheme.id, anchor: .center) }
+        }
+        .padding(.vertical, 4)
+        .sheet(item: $editingTheme) { custom in
+            CustomThemeEditor(theme: custom, isNew: !themes.contains { $0.id == custom.id }) { saved in
+                themes = NovelTheme.all
+                if let saved {
+                    novelTheme = saved.theme
+                } else if novelTheme.id == custom.id {
+                    novelTheme = .light
+                }
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+    }
+
+    private func themeSwatch(_ theme: NovelTheme) -> some View {
+        let selected = novelTheme.id == theme.id
+        return Button { novelTheme = theme } label: {
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .fill(theme.swatchColor)
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.3), lineWidth: 1))
+                    if selected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color(hex: theme.fg))
+                    } else {
+                        Text("Aa")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(hex: theme.fg))
+                    }
+                }
+                Text(theme.name)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .frame(maxWidth: 64)
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if theme.isCustom, let custom = CustomNovelTheme.load().first(where: { $0.id == theme.id }) {
+                Button("Edit", systemImage: "pencil") { editingTheme = custom }
+                Button("Delete", systemImage: "trash", role: .destructive) {
+                    CustomNovelTheme.delete(id: custom.id)
+                    themes = NovelTheme.all
+                    if novelTheme.id == custom.id { novelTheme = .light }
+                }
+            }
+        }
+        // Selection is colour + a checkmark glyph only without this (Known Issue #121).
+        .accessibilityLabel("\(theme.name) reading theme")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(theme.isCustom ? "Touch and hold to edit or delete" : "")
     }
 
     // MARK: Reading
@@ -1138,6 +1291,42 @@ extension TextReaderOverlayView {
                                        selection: $settings.novelMenuTaps,
                                        accessibilityName: "Show menu with")
             }
+            Toggle(isOn: $translateOn) {
+                Text("Translate this novel").font(.subheadline)
+            }
+            .accessibilityHint("Translates each chapter on this iPhone with Apple's Translation")
+            if translateOn {
+                HStack {
+                    Text("Into").font(.subheadline)
+                    Spacer()
+                    Menu {
+                        Picker("Into", selection: $settings.novelTranslateTarget) {
+                            Text("iPhone language (\(NovelTranslation.name(Locale.current.language)))").tag("")
+                            ForEach(translateLanguages, id: \.maximalIdentifier) { language in
+                                Text(NovelTranslation.name(language)).tag(language.minimalIdentifier)
+                            }
+                        }
+                    } label: {
+                        Text(NovelTranslation.name(NovelTranslation.target(settings.novelTranslateTarget)))
+                            .font(.subheadline)
+                    }
+                    .task {
+                        guard translateLanguages.isEmpty else { return }
+                        translateLanguages = await LanguageAvailability().supportedLanguages
+                            .sorted { NovelTranslation.name($0) < NovelTranslation.name($1) }
+                    }
+                }
+            }
+            Button { onTermReplacements?() } label: {
+                HStack {
+                    Text("Replacements").font(.subheadline)
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Terms renamed in every chapter of this novel")
         }
         .padding(.horizontal, 20)
     }
@@ -1189,19 +1378,6 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
             }
         }
         .background(Color.primary.opacity(0.12), in: Capsule())
-    }
-}
-
-// MARK: - UIColor hex init (needed for NovelTheme.uiColor)
-
-private extension UIColor {
-    convenience init?(hex: String) {
-        let h = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
-        guard h.count == 6, let val = UInt64(h, radix: 16) else { return nil }
-        self.init(red:   CGFloat((val >> 16) & 0xFF) / 255,
-                  green: CGFloat((val >>  8) & 0xFF) / 255,
-                  blue:  CGFloat( val        & 0xFF) / 255,
-                  alpha: 1)
     }
 }
 

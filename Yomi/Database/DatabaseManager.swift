@@ -411,6 +411,21 @@ final class DatabaseManager {
             }
         }
 
+        // I (S177): term replacement rules for novels — `novelId` NULL = every novel. Device-local (not synced), but in
+        // backups. Applied when a chapter is read (`NovelContent.html`, `TermReplacer`).
+        migrator.registerMigration("v30_term_replacement") { db in
+            try db.create(table: "term_replacement") { t in
+                t.column("id", .text).primaryKey()
+                // No foreign key: a novel opened from Browse may not have a row yet, and its rules should still save.
+                t.column("novelId", .text)
+                t.column("find", .text).notNull()
+                t.column("replacement", .text).notNull()
+                t.column("matchCase", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(index: "term_replacement_novel", on: "term_replacement", columns: ["novelId"])
+        }
+
         try migrator.migrate(db)
     }
 

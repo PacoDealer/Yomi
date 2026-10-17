@@ -24,10 +24,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S176 — 2026-10-17)
+## Current state (S177 — 2026-10-17)
+- **S177 (sim):** I — ArcReader novel leftovers. **Themes:** Sage, E-ink, Void + your own (Look → New; hold to
+  edit/delete; `NovelThemes.swift`, `novelCustomThemes`). **Term replacement:** selection menu **Replace…** + Reading
+  tab → Replacements (`Core/TermReplacer.swift`, v30 `term_replacement`, applied in `NovelContent.html`; tests
+  `scripts/term-replace-tests/run.sh` 18/18). **Translate this novel** (Reading tab; Apple Translation on device,
+  per novel, `NovelTranslation.swift`) — **simulator can't translate**: verify on the phone. Letter spacing was already
+  done (S136). `NovelReaderController.evaluate` now waits for the page. Read-aloud reads the original, not the translation.
 - **S176 (research, no code):** better voices — RESEARCH §28. Martin: Kokoro sounds clearly better than iOS Premium,
   but FluidAudio's Core ML Kokoro crashes on iOS 26.6/27 iPhones (#844/#889) → **parked until iOS 27.2** (then re-check;
-  fallback = Kokoro on ONNX Runtime CPU). sherpa-onnx is out (GPL espeak-ng). NEXT: I (ROADMAP S171).
+  fallback = Kokoro on ONNX Runtime CPU). sherpa-onnx is out (GPL espeak-ng).
 - **S175 (sim):** **CB7/7z** local files via PLzmaSDK 1.6.1 (LZMA SDK 26.01): `ComicArchive` detects 7z by its bytes,
   `write(_:)` unpacks a chapter in ONE pass (solid 7z: per-page calls decoded the whole block each time — 30 pages
   26.6 s vs all 150 in 1.4 s on the Mac); LZMA/LZMA2/PPMd/Copy/AES ok, BZip2/Deflate not in this build (clear error);
@@ -161,7 +167,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v30_`** (v29 = `lastCheckedAt`, S171). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
+- Next GRDB migration prefix: **`v31_`** (v30 = `term_replacement`, S177). UI tests 13/13 (S148; #193 and #196 are flaky — re-run alone).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -219,7 +225,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (free team; read the pri
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v30_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v31_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift

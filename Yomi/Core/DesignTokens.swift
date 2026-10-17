@@ -212,14 +212,36 @@ enum YomiTokens {
             isDark: true
         )
 
+        // S177 — ArcReader's extra presets (ROADMAP ArcReader backlog). Contrast (WCAG): Sage 12.2, E-ink 15.3, Void 12.1.
+        static let sage = ReaderTheme(
+            name:   "Sage",
+            bg:     "#E4ECDF",
+            fg:     "#1F2B1C",
+            link:   "#0A6ADA",
+            isDark: false
+        )
+        // Paper grey + near-black ink, like an e-reader screen.
+        static let eink = ReaderTheme(
+            name:   "E-ink",
+            bg:     "#EAEAE4",
+            fg:     "#141414",
+            link:   "#0A6ADA",
+            isDark: false
+        )
+        // Blue-black, softer text than AMOLED.
+        static let void = ReaderTheme(
+            name:   "Void",
+            bg:     "#0D0F17",
+            fg:     "#C9CEDB",
+            link:   "#5BA3F5",
+            isDark: true
+        )
+
+        /// Picker order: light themes, then dark.
+        static let all: [ReaderTheme] = [light, sepia, sage, eink, warm, dark, void, amoled]
+
         static func theme(named name: String) -> ReaderTheme {
-            switch name {
-            case "Sepia":  return sepia
-            case "Warm":   return warm
-            case "Dark":   return dark
-            case "AMOLED": return amoled
-            default:       return light
-            }
+            all.first { $0.name == name } ?? light
         }
     }
 
