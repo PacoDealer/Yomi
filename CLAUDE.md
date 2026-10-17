@@ -24,7 +24,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S175 — 2026-10-17)
+## Current state (S176 — 2026-10-17)
+- **S176 (research, no code):** better voices — RESEARCH §28. Only clean neural path = **Kokoro-82M via FluidAudio**
+  (Apache-2.0, no GPL; sherpa-onnx links GPL espeak-ng). Samples in `../reports/S176-voices/`. **Waiting on Martin**:
+  Kokoro vs iOS Premium by ear → build (§28.3) or close and go to I.
 - **S175 (sim):** **CB7/7z** local files via PLzmaSDK 1.6.1 (LZMA SDK 26.01): `ComicArchive` detects 7z by its bytes,
   `write(_:)` unpacks a chapter in ONE pass (solid 7z: per-page calls decoded the whole block each time — 30 pages
   26.6 s vs all 150 in 1.4 s on the Mac); LZMA/LZMA2/PPMd/Copy/AES ok, BZip2/Deflate not in this build (clear error);
