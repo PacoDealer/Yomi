@@ -33,6 +33,11 @@ The research audit revealed that 800+ sources are already available across four 
   (Settings → Accessibility → Read & Speak → Voices). Kokoro clearly better → build it (plan in §28.3); not clearly
   better → keep Apple voices, close L4 "better voices", go to I.
 - NOT checked: Kokoro on a physical iPhone (speed, heat, background synthesis), Premium voice side by side.
+- **Part 2 — decision:** Martin listened: **Kokoro clearly better than Premium**. Before building, found FluidAudio's
+  Core ML Kokoro still crashes (uncatchable libBNNS SIGSEGV) on iPhone 17 + iOS 26.6 (#844) and iOS 27.0 (#889) —
+  §28 corrected. Options given: ONNX Runtime CPU route (stable evidence, ~2 sessions, +30–50 MB), Core ML experimental,
+  or wait. **Martin: wait for Apple** — re-check after iOS 27.2 (FluidAudio #889 asks testers to try 27.2; watch
+  whether `isBnnsCrashProneOS` stops flagging it). ONNX route stays the fallback plan. NEXT: I (ROADMAP S171).
 
 ---
 
