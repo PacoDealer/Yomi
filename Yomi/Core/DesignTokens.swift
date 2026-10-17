@@ -57,6 +57,13 @@ enum YomiTokens {
         let textPrimary:  Color   // primary label (~100%)
         let textSecondary: Color  // secondary label (~60%)
         let hairline:     Color   // dividers, borders (~10%)
+
+        /// Settings → Accessibility → Display & Text Size → Increase Contrast (S178): secondary text and dividers move
+        /// toward the primary ink, as Apple's own high-contrast label colours do. Backgrounds stay.
+        func increasedContrast() -> CanvasColors {
+            CanvasColors(name: name, bg: bg, surface1: surface1, surface2: surface2, textPrimary: textPrimary,
+                         textSecondary: textPrimary.opacity(0.82), hairline: textPrimary.opacity(0.45))
+        }
     }
 
     enum Canvas {

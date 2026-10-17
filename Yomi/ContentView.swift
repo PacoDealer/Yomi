@@ -19,8 +19,10 @@ struct ContentView: View {
     @State private var openedFileReport: String?
     /// The device's light/dark setting — the Automatic theme follows it (S142).
     @Environment(\.colorScheme) private var colorScheme
+    /// Increase Contrast (S178) strengthens the palette's secondary text and dividers.
+    @Environment(\.colorSchemeContrast) private var contrast
 
-    private var palette: YomiTokens.CanvasColors { settings.canvasColors(for: colorScheme) }
+    private var palette: YomiTokens.CanvasColors { settings.canvasColors(for: colorScheme, contrast: contrast) }
 
     /// Visible tabs in the user's chosen order — CustomizeTabsView is iPhone's only way to
     /// reorder/hide tabs, since the system's own sidebar-editing UI never renders in compact

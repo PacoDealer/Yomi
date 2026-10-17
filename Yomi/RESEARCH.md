@@ -1854,9 +1854,9 @@ unsourced.
 | Justify option | ✅ S136 | `hyphens:auto` + `<html lang>` when justified, confirmed on device. Was: ✅ but — `novelJustifyText` exists; **no `hyphens:auto`** → justified ~40-CPL phone lines get large word gaps (the one case where justification is known to read worse). |
 | Dynamic Type / Bold Text support (Apple HIG) | ❌ | Zero `dynamicTypeSize`/`UIFontMetrics`/`@ScaledMetric` in the app. 197 `YomiTokens.Font.grotesk(size)` + 38 `.system(size:)` fixed sizes; reader px ignores the system text size. 189 places use text styles (those scale). |
 | Avoid light font weights (HIG) | ⚠️ | `YomiTokens.Font.groteskPS = "SpaceGrotesk-Light"` default instance (only used when `useSystemFont` is off; default is on since S122). |
-| Reduce Motion | ❌ | no `accessibilityReduceMotion` checks; 59 `withAnimation` calls |
+| Reduce Motion | ✅ S178 | (was ❌: no checks, 59 `withAnimation`) — every animation goes through `Core/Motion.swift` (`withMotion`, `.motion`, `Motion.slide/pop`); reader JS honours `prefers-reduced-motion` |
 | True black + dark grey themes (§4) | ✅ | Reader: Dark `#1C1C1E`, AMOLED `#0A0A0A`; chrome: Midnight `#000` |
-| Reader contrast ≥ 7:1 (HIG dark-mode page) | ✅ | Computed: Light 17.0, Sepia 14.1, Warm 9.2, Dark 13.9, AMOLED 15.0 |
+| Reader contrast ≥ 7:1 (HIG dark-mode page) | ✅ | Computed: Light 17.0, Sepia 14.1, Warm 9.2, Dark 13.9, AMOLED 15.0; S177 Sage 12.2, E-ink 15.3, Void 12.1. Increase Contrast (S178): palette secondary text/dividers + reader panel labels strengthened |
 | Liquid Glass only on floating chrome, never over text (DESIGN_RESEARCH §5) | ⚠️ | Reader overlay uses glass; the S129 a11y bug (invisible overlay still in the VoiceOver tree) is open. Check under iOS 26.1 **Tinted**, Reduce Transparency, Increase Contrast. |
 | Pages mode for novels (§4 "scroll or paginated") | ✅ S136 | Reading → Layout → Pages (CSS columns + native paging), verified on device. Was: ❌ |
 | Estimated time left per chapter (§4) | ❌ | not built |

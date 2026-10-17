@@ -82,7 +82,7 @@ final class StripScroller {
         guard abs(target - sv.contentOffset.y) > 1 else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         drivenUntil = CACurrentMediaTime() + 0.6   // setContentOffset's animation is ~0.3 s
-        sv.setContentOffset(CGPoint(x: sv.contentOffset.x, y: target), animated: true)
+        sv.setContentOffset(CGPoint(x: sv.contentOffset.x, y: target), animated: !Motion.reduced)   // jump with Reduce Motion
     }
 
     /// Scrolls down at about a screen every 2 s while held (Tachimanga's "press and hold to scroll").

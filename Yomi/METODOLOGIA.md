@@ -2410,3 +2410,16 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Persisted test data breaks the UI tests**: a fixture-novel replacement rule ("paragraph" → "verse") would fail
   every test that looks for "paragraph". Clean the sim DB after manual testing on the fixture.
 
+
+## S178 lessons
+
+- **One wrapper beats 76 guards.** Reduce Motion went in as `withMotion`/`.motion` helpers plus a mechanical perl
+  rewrite; a grep for `withAnimation|.animation(|.transition(.move` afterwards proves nothing was missed.
+- **zsh doesn't word-split `$files`** — `for f in $files` got ONE argument (all paths). Pipe into `while read -r f`.
+- **Downscaled screenshots lie about text colour**: light-grey text on near-black looked dark at 700 px. Crop at
+  full size before calling a contrast bug.
+- **The reader forces its own colour scheme, so "is the iPhone dark?" must come from the screen's traits**
+  (`ReaderBackdrop.systemIsDark`), not `@Environment(\.colorScheme)`.
+- `xcrun simctl ui <udid> appearance dark|light` and `increase_contrast enabled|disabled` work for checks; there is no
+  simctl switch for Reduce Motion.
+

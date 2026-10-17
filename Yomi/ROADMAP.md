@@ -21,6 +21,31 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S178 — I: accessibility baseline + reader night theme (2026-10-17, simulator)
+
+- **Reduce Motion** (`Core/Motion.swift`): `withMotion` / `.motion(_:value:)` / `Motion.slide(edge)` / `Motion.pop`
+  replace every `withAnimation`, `.animation(_:value:)`, slide and scale transition in the app (76 call sites, 11
+  files): with Reduce Motion on, changes happen at once and slides become fades — animated page turns, overlay
+  slides, banners, selection toolbars, scroll-to animations, the cover shimmer. Long-strip tap-zone scrolling jumps
+  (`ReaderPageActions`); the novel reader's JS uses `prefers-reduced-motion` for its smooth scrolls. Read when the
+  change happens, so the setting applies to the next animation. **New code: use these helpers, not withAnimation.**
+- **Increase Contrast:** `CanvasColors.increasedContrast()` — secondary text at 82 % and dividers at 45 % of the
+  primary ink; `canvasColors(for:contrast:)` from ContentView/Onboarding (`\.colorSchemeContrast`). Novel reader panel:
+  unselected tab/segment labels 0.6–0.75 → 0.92, swatch rings stronger. System colours and Liquid Glass adapt on
+  their own (glass turned more opaque in the sim).
+- **Reader night theme** (RESEARCH §25.3 #9): Settings → Novels → **Night** (theme, "When the iPhone is dark" / "At set
+  times" with From/Until, default 21:00–07:00) and the reader's Look tab → **At night** menu. While night applies
+  the reader shows that theme; choosing a theme in Look at night changes the night theme (what you pick is what you
+  see). Checked every 30 s + on foreground. Off by default. No health claims anywhere.
+- Verified (simulator): Void night theme appears ~30 s after switching the sim to dark (light text on #0D0F17);
+  Increase Contrast via `simctl ui increase_contrast` darkens the panel labels; UI tests 13/13; build 0 warnings
+  (Yomi + YomiWidget). NOT checked: Reduce Motion on screen (no simctl switch — code path only), the schedule mode
+  on screen, the manga reader's own background "Automatic" (unchanged, already follows dark mode).
+- NEXT: rest of I (Spanish, lockable SFW mode, perf gates in UI tests, #194 Asura 100-chapter cap, CBR solid/huge)
+  → CloudKit schema deploy + personal build + J.
+
+---
+
 ## S177 — I: ArcReader novel leftovers (2026-10-17, simulator)
 
 Martin picked "ArcReader novel leftovers: term replacement, translate, letter spacing, themes" from group I.

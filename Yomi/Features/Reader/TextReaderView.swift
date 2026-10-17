@@ -41,6 +41,8 @@ struct TextReaderView: View {
     @State private var fontSize: Double        = AppSettings.shared.fontSize
     @State private var lineSpacing: Double     = AppSettings.shared.lineSpacing
     @State private var novelTheme: NovelTheme  = NovelTheme.resolve(AppSettings.shared.novelTheme)
+    /// Night theme (S178): while true the reader shows `AppSettings.novelNightTheme` instead of `novelTheme`.
+    @State private var isNight = NightTheme.isNight()
     @State private var fontFamily: String      = AppSettings.shared.novelFontFamily
     @State private var justifyText: Bool       = AppSettings.shared.novelJustifyText
     @State private var hPadding: Int           = AppSettings.shared.novelHorizontalPadding
@@ -120,14 +122,14 @@ struct TextReaderView: View {
         return """
             \(font.fontFaceCSS)
             :root { --m: \(hPadding)px; }
-            html, body { background: \(novelTheme.bg); }
+            html, body { background: \(shownTheme.bg); }
             body {
                 font-family: \(font.css);
                 font-size: \(fs)px;
                 line-height: \(ls);
                 \(align)
                 \(spacing)
-                color: \(novelTheme.fg);
+                color: \(shownTheme.fg);
                 -webkit-text-size-adjust: 100%;
                 word-break: break-word;
                 overflow-wrap: break-word;
@@ -142,6 +144,23 @@ struct TextReaderView: View {
             h1, h2, h3 { margin: 0.5em 0 0.4em 0; line-height: 1.3; }
             ::highlight(yomi-tts) { background-color: color-mix(in srgb, \(lnk) 30%, transparent); }
             """
+    }
+
+    /// The theme on screen: the night theme at night (S178), otherwise the reader's chosen one.
+    private var shownTheme: NovelTheme {
+        isNight ? NovelTheme.resolve(AppSettings.shared.novelNightTheme) : novelTheme
+    }
+
+    /// The Look tab edits the theme on screen — at night that's the night theme.
+    private var themeBinding: Binding<NovelTheme> {
+        Binding(get: { shownTheme }, set: { theme in
+            if isNight { AppSettings.shared.novelNightTheme = theme.id } else { novelTheme = theme }
+        })
+    }
+
+    private func refreshNight() {
+        let night = NightTheme.isNight()
+        if night != isNight { withMotion(.easeInOut(duration: 0.4)) { isNight = night } }
     }
 
     private var pagesMode: Bool { AppSettings.shared.novelReadingMode == "pages" }
@@ -163,7 +182,7 @@ struct TextReaderView: View {
 
     var body: some View {
         ZStack {
-            Color(novelTheme.uiColor)
+            Color(shownTheme.uiColor)
                 .ignoresSafeArea()
 
             // Always mounted: changing chapter never depends on SwiftUI rebuilding the web view (bug #1).
@@ -176,7 +195,7 @@ struct TextReaderView: View {
 
             if isLoading || errorMessage != nil {
                 ZStack {
-                    Color(novelTheme.uiColor).ignoresSafeArea()
+                    Color(shownTheme.uiColor).ignoresSafeArea()
                     if let error = errorMessage {
                         VStack(spacing: 14) {
                             Text(error)
@@ -188,12 +207,12 @@ struct TextReaderView: View {
                         .padding()
                     } else {
                         ProgressView()
-                            .tint(novelTheme.isDark ? .white : .gray)
+                            .tint(shownTheme.isDark ? .white : .gray)
                     }
                 }
                 // Tapping the placeholder still toggles the menu, so Back is always reachable.
                 .contentShape(Rectangle())
-                .onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() } }
+                .onTapGesture { withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() } }
             }
 
             if showFinishedBanner {
@@ -218,11 +237,11 @@ struct TextReaderView: View {
                 VStack {
                     Spacer()
                     ListenMiniPlayer(onOpen: { showPlayerSheet = true })
-                        .environment(\.colorScheme, novelTheme.colorScheme)
+                        .environment(\.colorScheme, shownTheme.colorScheme)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 6)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(Motion.slide(.bottom))
             }
 
             #if DEBUG
@@ -248,7 +267,7 @@ struct TextReaderView: View {
                     progress:             lastKnownScrollPercent ?? activeChapter.lastScrollPercent ?? 0,
                     fontSize:             $fontSize,
                     lineSpacing:          $lineSpacing,
-                    novelTheme:           $novelTheme,
+                    novelTheme:           themeBinding,
                     fontFamily:           $fontFamily,
                     justifyText:          $justifyText,
                     hPadding:             $hPadding,
@@ -270,7 +289,7 @@ struct TextReaderView: View {
                 )
                 // The app root's .preferredColorScheme (app theme) wins over this view's, so the glass menu
                 // followed the app theme, not the reader theme the user picked under Look (Martin, S136).
-                .environment(\.colorScheme, novelTheme.colorScheme)
+                .environment(\.colorScheme, shownTheme.colorScheme)
                 .transition(.opacity)
             }
         }
@@ -279,7 +298,7 @@ struct TextReaderView: View {
         .navigationBarStaysHidden(true)   // #206: opened while a search was active
         .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!showOverlay)
-        .preferredColorScheme(novelTheme.colorScheme)
+        .preferredColorScheme(shownTheme.colorScheme)
         .task {
             guard !didStart, !chapters.isEmpty else { return }
             didStart = true
@@ -305,6 +324,20 @@ struct TextReaderView: View {
         .translationTask(translationConfig) { session in
             await runTranslations(session)
         }
+        // Night theme: the iPhone's dark mode or the clock can change while reading.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                refreshNight()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshNight()
+        }
+        .onChange(of: AppSettings.shared.novelNightTheme) { _, _ in refreshNight() }
+        .onChange(of: AppSettings.shared.novelNightMode) { _, _ in refreshNight() }
+        .onChange(of: AppSettings.shared.novelNightStart) { _, _ in refreshNight() }
+        .onChange(of: AppSettings.shared.novelNightEnd) { _, _ in refreshNight() }
         .onChange(of: translateOn) { _, on in
             var ids = AppSettings.shared.novelTranslateIds.filter { $0 != novel.id }
             if on { ids.append(novel.id) }
@@ -370,7 +403,7 @@ struct TextReaderView: View {
                 .padding(.bottom, listeningHere && !showOverlay ? 72 : 6)
         }
         .font(YomiTokens.Font.mono(11))
-        .foregroundStyle(Color(hex: novelTheme.fg).opacity(0.5))
+        .foregroundStyle(Color(hex: shownTheme.fg).opacity(0.5))
         .padding(.horizontal, 24)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
@@ -413,11 +446,11 @@ struct TextReaderView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 36)
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(Motion.slide(.bottom))
         .onAppear {
             Task {
                 try? await Task.sleep(for: .seconds(5))
-                withAnimation(.easeOut(duration: 0.25)) { showFinishedBanner = false }
+                withMotion(.easeOut(duration: 0.25)) { showFinishedBanner = false }
             }
         }
     }
@@ -427,7 +460,7 @@ struct TextReaderView: View {
     private func handle(_ event: NovelReaderController.Event) {
         switch event {
         case .tap:
-            withAnimation(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
+            withMotion(.easeInOut(duration: 0.2)) { showOverlay.toggle() }
         case .swipe(let next):
             navigateToChapter(currentChapterIndex + (next ? 1 : -1))
         case .current(let id):
@@ -498,7 +531,7 @@ struct TextReaderView: View {
         // without "continue" ends on its own Next chapter page, so the banner would just cover it.
         let isLast = chapter.id == chapters.last?.id
         if id == activeChapter.id && (isLast || (!continuesIntoNext && !pagesMode)) {
-            withAnimation(.spring(duration: 0.4)) { showFinishedBanner = true }
+            withMotion(.spring(duration: 0.4)) { showFinishedBanner = true }
         }
     }
 
@@ -713,7 +746,7 @@ struct TextReaderView: View {
         while translateOn, !translateQueue.isEmpty {
             let id = translateQueue.removeFirst()
             guard let blocks = await controller.translationBlocks(id: id), !blocks.isEmpty else { continue }
-            withAnimation { translateStatus = "Translating…" }
+            withMotion { translateStatus = "Translating…" }
             do {
                 let texts = try await NovelTranslation.translate(blocks, session: session)
                 guard translateOn else { break }
@@ -724,14 +757,14 @@ struct TextReaderView: View {
                 return
             }
         }
-        withAnimation { translateStatus = nil }
+        withMotion { translateStatus = nil }
     }
 
     private func showTranslateStatus(_ text: String) {
-        withAnimation { translateStatus = text }
+        withMotion { translateStatus = text }
         Task {
             try? await Task.sleep(for: .seconds(4))
-            if translateStatus == text { withAnimation { translateStatus = nil } }
+            if translateStatus == text { withMotion { translateStatus = nil } }
         }
     }
 
@@ -751,7 +784,7 @@ struct TextReaderView: View {
             // Start where the reader is looking, not at the top of the chapter.
             let first = await controller.ttsFirstVisible(id: id)
             startPlayer(chapterIndex: index, sentences: sentences, from: first)
-            withAnimation(.easeInOut(duration: 0.2)) { showOverlay = false }
+            withMotion(.easeInOut(duration: 0.2)) { showOverlay = false }
         }
     }
 
@@ -836,6 +869,7 @@ struct TextReaderOverlayView: View {
 
     @State private var showChapterSheet = false
     @State private var settings = AppSettings.shared
+    @Environment(\.colorSchemeContrast) var contrast
     @State private var themes = NovelTheme.all
     @State private var editingTheme: CustomNovelTheme?
     @Environment(\.colorScheme) var colorScheme
@@ -993,6 +1027,10 @@ struct TextReaderOverlayView: View {
 enum ReaderPanelStyle {
     static func selectedFill(_ scheme: ColorScheme) -> Color { scheme == .dark ? .white : .black }
     static func selectedText(_ scheme: ColorScheme) -> Color { scheme == .dark ? .black : .white }
+    /// Unselected labels: faded ink, nearly full ink with Increase Contrast (S178).
+    static func unselectedText(_ opacity: Double, _ contrast: ColorSchemeContrast) -> Color {
+        Color.primary.opacity(contrast == .increased ? 0.92 : opacity)
+    }
 }
 
 enum ReaderPanelTab: String, CaseIterable {
@@ -1063,11 +1101,11 @@ extension TextReaderOverlayView {
             ForEach(ReaderPanelTab.allCases, id: \.self) { tab in
                 let selected = panelTab == tab
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { panelTabRaw = tab.rawValue }
+                    withMotion(.easeInOut(duration: 0.15)) { panelTabRaw = tab.rawValue }
                 } label: {
                     Text(tab.rawValue)
                         .font(.subheadline.weight(selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? Color.primary : Color.primary.opacity(0.6))
+                        .foregroundStyle(selected ? Color.primary : ReaderPanelStyle.unselectedText(0.6, contrast))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
                         .background(Color.primary.opacity(selected ? 0.16 : 0), in: Capsule())
@@ -1104,7 +1142,7 @@ extension TextReaderOverlayView {
                 Button { justifyText.toggle() } label: {
                     Label("Justify", systemImage: "text.justify")
                         .font(.caption).fontWeight(.medium)
-                        .foregroundStyle(justifyText ? ReaderPanelStyle.selectedText(colorScheme) : Color.primary.opacity(0.75))
+                        .foregroundStyle(justifyText ? ReaderPanelStyle.selectedText(colorScheme) : ReaderPanelStyle.unselectedText(0.75, contrast))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
                         .background(justifyText ? ReaderPanelStyle.selectedFill(colorScheme) : Color.primary.opacity(0.12), in: Capsule())
@@ -1178,6 +1216,7 @@ extension TextReaderOverlayView {
 
     /// Built-in themes, the reader's own, and "New" (S177). Long press one of your own to edit or delete it.
     var lookTab: some View {
+        VStack(spacing: 10) {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -1201,6 +1240,8 @@ extension TextReaderOverlayView {
             }
             .onAppear { proxy.scrollTo(novelTheme.id, anchor: .center) }
         }
+        nightRow
+        }
         .padding(.vertical, 4)
         .sheet(item: $editingTheme) { custom in
             CustomThemeEditor(theme: custom, isNew: !themes.contains { $0.id == custom.id }) { saved in
@@ -1214,6 +1255,39 @@ extension TextReaderOverlayView {
         }
     }
 
+    /// Night theme (S178): which theme, and whether it follows the iPhone's dark mode or set times (Settings → Novels).
+    private var nightRow: some View {
+        HStack {
+            Text("At night").font(.subheadline)
+            Spacer()
+            Menu {
+                Picker("Night theme", selection: $settings.novelNightTheme) {
+                    Text("Off").tag("")
+                    ForEach(NightTheme.choices) { Text($0.name).tag($0.id) }
+                }
+                if !settings.novelNightTheme.isEmpty {
+                    Picker("Switch", selection: $settings.novelNightMode) {
+                        Text("When the iPhone is dark").tag("system")
+                        Text("\(NightTheme.timeLabel(settings.novelNightStart)) – \(NightTheme.timeLabel(settings.novelNightEnd))")
+                            .tag("schedule")
+                    }
+                }
+            } label: {
+                Text(nightSummary).font(.subheadline)
+            }
+        }
+        .padding(.horizontal, 20)
+        .accessibilityHint("Switches to another theme at night. Times are in Settings, Novels.")
+    }
+
+    private var nightSummary: String {
+        guard !settings.novelNightTheme.isEmpty else { return "Off" }
+        let name = NovelTheme.resolve(settings.novelNightTheme).name
+        return settings.novelNightMode == "schedule"
+            ? "\(name), \(NightTheme.timeLabel(settings.novelNightStart))–\(NightTheme.timeLabel(settings.novelNightEnd))"
+            : "\(name) when dark"
+    }
+
     private func themeSwatch(_ theme: NovelTheme) -> some View {
         let selected = novelTheme.id == theme.id
         return Button { novelTheme = theme } label: {
@@ -1222,7 +1296,7 @@ extension TextReaderOverlayView {
                     Circle()
                         .fill(theme.swatchColor)
                         .frame(width: 36, height: 36)
-                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.3), lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(contrast == .increased ? 0.7 : 0.3), lineWidth: 1))
                     if selected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
@@ -1357,6 +1431,7 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
     var matches: (Value, Value) -> Bool = { $0 == $1 }
     let accessibilityName: String
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 0) {
@@ -1366,7 +1441,7 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
                 Button { selection = opt.value } label: {
                     Text(opt.label)
                         .font(.caption).fontWeight(.medium)
-                        .foregroundStyle(selected ? ReaderPanelStyle.selectedText(colorScheme) : Color.primary.opacity(0.75))
+                        .foregroundStyle(selected ? ReaderPanelStyle.selectedText(colorScheme) : ReaderPanelStyle.unselectedText(0.75, contrast))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
                         .background(selected ? ReaderPanelStyle.selectedFill(colorScheme) : Color.clear, in: Capsule())

@@ -24,7 +24,11 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S177 — 2026-10-17)
+## Current state (S178 — 2026-10-17)
+- **S178 (sim):** I — **Reduce Motion** everywhere via `Core/Motion.swift` (`withMotion`, `.motion`, `Motion.slide/pop`
+  — use these in new code, never bare withAnimation); **Increase Contrast** (`CanvasColors.increasedContrast()`, reader
+  panel labels); **novel night theme** (Settings → Novels → Night / reader Look → At night; iPhone dark or set times;
+  `NightTheme` in `NovelThemes.swift`, off by default).
 - **S177 (sim):** I — ArcReader novel leftovers. **Themes:** Sage, E-ink, Void + your own (Look → New; hold to
   edit/delete; `NovelThemes.swift`, `novelCustomThemes`). **Term replacement:** selection menu **Replace…** + Reading
   tab → Replacements (`Core/TermReplacer.swift`, v30 `term_replacement`, applied in `NovelContent.html`; tests

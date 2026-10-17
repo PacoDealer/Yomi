@@ -123,7 +123,7 @@ struct InsightsView: View {
 
     private func updateStreak() {
         let result = ReadingStreak.compute(readDays: readDays, repairedDays: Set(settings.streakRepairedDays), today: Date())
-        withAnimation {
+        withMotion {
             streak = result.streak
             repairOffer = result.offer
         }

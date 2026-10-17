@@ -44,7 +44,7 @@ struct YomiScrubber: View {
             }
             .frame(maxHeight: .infinity, alignment: .center)
             .contentShape(Rectangle())
-            .animation(.easeOut(duration: 0.15), value: isDragging)
+            .motion(.easeOut(duration: 0.15), value: isDragging)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in

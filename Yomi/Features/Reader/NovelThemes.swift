@@ -39,6 +39,36 @@ struct NovelTheme: Equatable, Identifiable {
     }
 }
 
+// MARK: - Night theme (S178, RESEARCH §25.3 #9 — "offer auto-switch to a dark theme at night"; no health claims)
+
+enum NightTheme {
+    /// Whether the reader should show the night theme now.
+    static func isNight(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        let s = AppSettings.shared
+        guard !s.novelNightTheme.isEmpty else { return false }
+        guard s.novelNightMode == "schedule" else { return ReaderBackdrop.systemIsDark }
+        let c = calendar.dateComponents([.hour, .minute], from: now)
+        return inWindow((c.hour ?? 0) * 60 + (c.minute ?? 0), start: s.novelNightStart, end: s.novelNightEnd)
+    }
+
+    /// `minute` (after midnight) inside [start, end), which may run past midnight. start == end = never.
+    nonisolated static func inWindow(_ minute: Int, start: Int, end: Int) -> Bool {
+        if start == end { return false }
+        return start < end ? (minute >= start && minute < end) : (minute >= start || minute < end)
+    }
+
+    /// Dark themes first — what a night theme is usually chosen from — then the light ones.
+    static var choices: [NovelTheme] {
+        NovelTheme.all.filter(\.isDark) + NovelTheme.all.filter { !$0.isDark }
+    }
+
+    static func timeLabel(_ minutes: Int) -> String {
+        var c = DateComponents(); c.hour = minutes / 60; c.minute = minutes % 60
+        let date = Calendar.current.date(from: c) ?? Date()
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+}
+
 // MARK: - CustomNovelTheme
 
 struct CustomNovelTheme: Codable, Equatable, Identifiable {

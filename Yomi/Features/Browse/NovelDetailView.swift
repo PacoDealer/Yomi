@@ -179,7 +179,7 @@ struct NovelDetailView: View {
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 410
         } action: { _, past in
-            withAnimation(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
+            withMotion(.easeInOut(duration: 0.2)) { scrolledPastHeader = past }
         }
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
@@ -230,7 +230,7 @@ struct NovelDetailView: View {
             if isSelectingChapters {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") {
-                        withAnimation(.spring(duration: 0.2)) {
+                        withMotion(.spring(duration: 0.2)) {
                             isSelectingChapters = false
                             selectedChapterIds = []
                         }
@@ -239,20 +239,20 @@ struct NovelDetailView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     // Tachimanga's selection toolbar: range, all, invert.
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = ChapterSelection.range(selectedChapterIds, in: displayedChapters.map(\.id))
                         }
                     } label: { Image(systemName: "arrow.up.and.down") }
                     .accessibilityLabel("Select range")
                     .disabled(selectedChapterIds.count < 2)
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = selectedChapterIds.count == visibleChapterIds.count ? [] : visibleChapterIds
                         }
                     } label: { Image(systemName: "checklist") }
                     .accessibilityLabel(selectedChapterIds.count == visibleChapterIds.count ? "Deselect all" : "Select all")
                     Button {
-                        withAnimation(.spring(duration: 0.15)) {
+                        withMotion(.spring(duration: 0.15)) {
                             selectedChapterIds = visibleChapterIds.subtracting(selectedChapterIds)
                         }
                     } label: { Image(systemName: "circle.lefthalf.filled") }
@@ -396,7 +396,7 @@ struct NovelDetailView: View {
             guard !loading, let resume = resumeChapter else { return }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
-                withAnimation { proxy.scrollTo(resume.id, anchor: .center) }
+                withMotion { proxy.scrollTo(resume.id, anchor: .center) }
             }
         }
         } // ScrollViewReader
@@ -466,7 +466,7 @@ struct NovelDetailView: View {
                 }
 
                 Button {
-                    withAnimation(.spring(duration: 0.2)) {
+                    withMotion(.spring(duration: 0.2)) {
                         isSelectingChapters = true
                         selectedChapterIds = []
                     }
@@ -794,7 +794,7 @@ struct NovelDetailView: View {
         NovelChapterList.Actions(
             tap: { chapter in
                 if isSelectingChapters {
-                    withAnimation(.spring(duration: 0.15)) {
+                    withMotion(.spring(duration: 0.15)) {
                         if selectedChapterIds.contains(chapter.id) {
                             selectedChapterIds.remove(chapter.id)
                         } else {
@@ -828,7 +828,7 @@ struct NovelDetailView: View {
             startSelecting: { chapter in
                 guard !isSelectingChapters else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                withAnimation(.spring(duration: 0.2)) {
+                withMotion(.spring(duration: 0.2)) {
                     isSelectingChapters = true
                     selectedChapterIds = [chapter.id]
                 }
@@ -1236,7 +1236,7 @@ extension NovelDetailView {
 
     private func endSelection() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(duration: 0.2)) {
+        withMotion(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
         }
@@ -1286,7 +1286,7 @@ extension NovelDetailView {
             }
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(.spring(duration: 0.2)) {
+        withMotion(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
         }

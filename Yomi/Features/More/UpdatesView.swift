@@ -639,10 +639,10 @@ struct UpdatesView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(Motion.slide(.top))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: refreshSummary)
+        .motion(.easeInOut(duration: 0.2), value: refreshSummary)
         .sheet(isPresented: $showSummary) {
             UpdatesSummaryView(vm: vm)
         }

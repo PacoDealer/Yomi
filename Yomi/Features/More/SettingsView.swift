@@ -366,6 +366,26 @@ private struct NovelReaderSettingsView: View {
                 Text("Text size, font, page colour and spacing: tap the middle of a page while reading.")
             }
 
+            // S178 (RESEARCH §25.3 #9): another theme at night — the same choice as the reader's Look tab.
+            Section {
+                Picker("Night theme", selection: $settings.novelNightTheme) {
+                    Text("Off").tag("")
+                    ForEach(NightTheme.choices) { Text($0.name).tag($0.id) }
+                }
+                if !settings.novelNightTheme.isEmpty {
+                    Picker("Switch", selection: $settings.novelNightMode) {
+                        Text("When the iPhone is dark").tag("system")
+                        Text("At set times").tag("schedule")
+                    }
+                    if settings.novelNightMode == "schedule" {
+                        DatePicker("From", selection: minutesBinding(\.novelNightStart), displayedComponents: .hourAndMinute)
+                        DatePicker("Until", selection: minutesBinding(\.novelNightEnd), displayedComponents: .hourAndMinute)
+                    }
+                }
+            } header: { CalmSectionHeader("Night") } footer: {
+                Text("The reader changes to this theme at night and back in the morning. Choosing a theme in the reader at night changes the night theme.")
+            }
+
             Section {
                 Picker("Save ahead", selection: $settings.novelDownloadAhead) {
                     Text("Off").tag(0)
@@ -411,6 +431,17 @@ private struct NovelReaderSettingsView: View {
         }
         .navigationTitle("Novels")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// A time of day for a minutes-after-midnight setting.
+    private func minutesBinding(_ key: ReferenceWritableKeyPath<AppSettings, Int>) -> Binding<Date> {
+        Binding(get: {
+            Calendar.current.date(bySettingHour: settings[keyPath: key] / 60, minute: settings[keyPath: key] % 60,
+                                  second: 0, of: Date()) ?? Date()
+        }, set: { date in
+            let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+            settings[keyPath: key] = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        })
     }
 }
 

@@ -306,6 +306,9 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 - `novelTheme: String` — novel reader theme: a built-in name (Light, Sepia, Sage, E-ink, Warm, Dark, Void, AMOLED —
   `YomiTokens.Reader.all`) or "custom:<uuid>" from `novelCustomThemes` (JSON `[CustomNovelTheme]`, S177); resolved by
   `NovelTheme.resolve` (`Features/Reader/NovelThemes.swift`), a deleted custom theme falls back to Light
+- `novelNightTheme: String` ("" = off), `novelNightMode` ("system" = while the iPhone is dark, "schedule"),
+  `novelNightStart` / `novelNightEnd` (minutes after midnight, default 21:00–07:00) — S178; `NightTheme.isNight`
+  (`NovelThemes.swift`), checked every 30 s and on foreground while the novel reader is open
 - `novelTranslateIds: [String]`, `novelTranslateTarget: String` — novels translated in the reader (Apple Translation,
   on device) and the target language ("" = iPhone language), S177
 - `novelFontFamily: String` — novel reader font family name (S39); default system serif
