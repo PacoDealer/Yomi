@@ -45,7 +45,9 @@ session did the part of "rest of the Spanish tail" I can do alone.
   bug-report mail body, NSError domains, background task names, source data (genres, chapter names, "Episode n").
 - Sim (`-AppleLanguages (es)`): Ajustes headers (Leyendo / Biblioteca / …), Apariencia (theme/icon/accent labels),
   Extensiones (Instaladas / Disponibles / "Inglés · Novelas") Spanish. Widget gallery and notifications unseen.
-- **Still English:** App Store listing in Spanish; anything a plugin/server sends as an error message.
+- **Spanish App Store listing drafted:** `APP_STORE_LISTING.md` §1b (subtitle, promo, description, keywords; lengths
+  checked; same claims as §1). Open for Martin: Spanish app name or keep the English one.
+- **Still English:** anything a plugin/server sends as an error message.
 - NEXT (needs Martin): deploy plugins (`firebase deploy --only hosting:plugins`) → CloudKit schema deploy → personal
   build → J (phone check: Spanish incl. widget, Safe Mode, perf `--device`, #203/#209, Translate this novel).
 

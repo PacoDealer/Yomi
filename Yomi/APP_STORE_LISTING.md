@@ -105,6 +105,73 @@ only, files in `Firebase/site/`. **Live since 2026-10-13** (all three pages chec
 
 ---
 
+## 1b. Spanish (Mexico / Spain) — draft (S181, 2026-10-18)
+
+Neutral Latin American Spanish with tú, same as the app (Martin's S180 pick). Same claims as §1 — nothing added, so
+the §1 [CHECK] notes apply here too. App Store Connect has separate "Spanish (Mexico)" and "Spanish (Spain)"
+localizations; the same text can go in both. Name stays "Yomi Manga and Novels Reader" unless Martin wants a Spanish
+one (e.g. "Yomi: lector de manga y novelas", 30 max) — **his call**. Lengths checked by script: subtitle 30/30,
+promo 123/170, keywords 96/100 bytes, description 1821/4000.
+
+### Subtítulo
+```
+Webtoon, cómics, EPUB, offline
+```
+
+### Texto promocional
+```
+Un lector tranquilo para manga, webtoons, novelas ligeras y libros. Tus archivos, tu biblioteca, sin anuncios y sin cuenta.
+```
+
+### Descripción
+```
+Yomi es un lector tranquilo y rápido para manga, manhwa, webtoons y novelas ligeras en iPhone. Sin anuncios, sin cuenta, sin rastreo.
+
+LEE TUS PROPIOS ARCHIVOS
+• Abre archivos CBZ, ZIP y EPUB, o vincula una carpeta de la app Archivos
+• Conecta un catálogo OPDS en un servidor tuyo o que puedas usar
+• Descarga capítulos y lee sin conexión, solo con Wi-Fi si lo prefieres
+
+UN LECTOR PARA CÓMICS
+• Modos de derecha a izquierda, izquierda a derecha, vertical y tira larga (webtoon)
+• Las páginas se deslizan bajo tu dedo; el zoom se acerca justo donde pellizcas
+• Retoma en la página donde te quedaste
+
+UN LECTOR PARA NOVELAS
+• Desplázate, o pasa páginas como en un libro
+• Temas Claro, Sepia, Cálido, Oscuro y negro puro
+• Fuentes elegidas para leer mucho rato, incluida una diseñada para la dislexia
+• Tamaño, espaciado, márgenes y separación silábica, todo ajustable
+• Lectura en voz alta con la oración resaltada mientras se lee, control de velocidad y temporizador
+
+TU BIBLIOTECA
+• Categorías, historial y una lista de capítulos nuevos
+• Un estante Seguir leyendo que te lleva directo al capítulo
+• Tiempo de lectura y estadísticas de capítulos
+• Bloqueo de la app con Face ID y un modo incógnito que no guarda historial
+
+TUYA PARA SIEMPRE
+• Sincronización opcional con iCloud, guardada en tu propio iCloud privado
+• Exporta un archivo de copia de seguridad y restáuralo cuando quieras
+• Importa una copia de biblioteca en formato .tachibk
+
+EXTENSIONES OPCIONALES
+Yomi se puede ampliar con extensiones de repositorios que agregas pegando su enlace. No incluye ninguna ni sugiere ninguna.
+
+Yomi no incluye un catálogo de contenido ni da acceso a contenido. Eres responsable de los archivos, servidores y extensiones que elijas usar, y de tener derecho a leer lo que abres.
+
+Preguntas o problemas: yomiappreader@gmail.com
+```
+
+### Palabras clave
+```
+manhwa,manhua,cbz,zip,novela,ligera,web,ebook,libro,opds,biblioteca,leer en voz alta,temas,copia
+```
+Same rule as §1: no names of other apps or companies. Words already in the name aren't repeated ("manga", "reader" are
+English there, so Spanish "manga" is still covered; "lector" could replace "copia" if Martin names the app in Spanish).
+
+---
+
 ## 2. Age rating — proposed answers
 
 The form (opened and read in App Store Connect 2026-10-12, then cancelled — nothing saved) has 7 steps. Result with
