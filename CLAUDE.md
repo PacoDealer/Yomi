@@ -24,7 +24,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S179 — 2026-10-17)
+## Current state (S180 — 2026-10-18)
+- **S180:** **Spanish** (neutral, tú). `Yomi/Localizable.xcstrings` is GENERATED — never edit it in Xcode: build, then
+  `python3 scripts/localization/build-catalog.py` (reads `.stringsdata` + `scripts/localization/es-*.json`,
+  `plurals.json`, `dynamic.json`; fails on mismatched format specifiers; lists missing keys). **New UI text:** literals in
+  `Text`/`Button`/`Label` or a `LocalizedStringKey` param are extracted; text built as `String` needs
+  `String(localized:)`; plurals = write the English plural (`"\(n) titles"`) + a `plurals.json` row — never
+  `\(n == 1 ? "" : "s")`; shared components take `LocalizedStringKey` (pass dynamic text as `"\(value)"`); shown raw
+  values → `LocalizedStringKey(x.rawValue)` + `dynamic.json`. Test with launch args `-AppleLanguages (es)`.
+  Plugin fixes **#194** (Asura offset paging) + **#69** (MangaDex external chapters) in `Firebase/public` 1.1.0 —
+  verified live with `scripts/plugin-live/run.mjs`, **not deployed** (Martin runs the deploy).
 - **S179 (sim):** I — **Safe Mode** (`Core/SafeMode.swift` filter: `SafeMode.filter` → Sendable `SafeFilter`, capture it
   before detaching; `SafeModeView`; Settings → Privacy) hides 18+ sources + adult-tagged titles everywhere, optional
   hide-mixed, Yomi passcode lock in the keychain; **any new title list must filter with `SafeMode.filter.allows`**.
@@ -41,26 +50,9 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   `scripts/term-replace-tests/run.sh` 18/18). **Translate this novel** (Reading tab; Apple Translation on device,
   per novel, `NovelTranslation.swift`) — **simulator can't translate**: verify on the phone. Letter spacing was already
   done (S136). `NovelReaderController.evaluate` now waits for the page. Read-aloud reads the original, not the translation.
-- **S176 (research, no code):** better voices — RESEARCH §28. Martin: Kokoro sounds clearly better than iOS Premium,
-  but FluidAudio's Core ML Kokoro crashes on iOS 26.6/27 iPhones (#844/#889) → **parked until iOS 27.2** (then re-check;
-  fallback = Kokoro on ONNX Runtime CPU). sherpa-onnx is out (GPL espeak-ng).
-- **S175 (sim):** **CB7/7z** local files via PLzmaSDK 1.6.1 (LZMA SDK 26.01): `ComicArchive` detects 7z by its bytes,
-  `write(_:)` unpacks a chapter in ONE pass (solid 7z: per-page calls decoded the whole block each time — 30 pages
-  26.6 s vs all 150 in 1.4 s on the Mac); LZMA/LZMA2/PPMd/Copy/AES ok, BZip2/Deflate not in this build (clear error);
-  password → "password-protected" (incl. hidden names). Reader now shows a local archive's own error. PLzmaSDK
-  vendored (dead ARM64 asm removed → the 59 ld warnings are gone; clean Debug + Release 0 warnings).
-- **S174 (sim):** L4 **streak repair** — `Core/ReadingStreak.swift` (1–2 missed days, streak ≥ 2, once a week; tests
-  `scripts/streak-tests/run.sh` 12/12), quiet row + Repair Streak button in Insights only, repaired days outlined in the
-  heatmap, stored in `AppSettings.streakRepairedDays` (device-only). NEXT: better voices (research first) → I (ROADMAP S171).
-- **S173 (sim):** L3d **Text on Page** (`Features/Reader/PageText.swift`): long press a page or toolbar button
-  `pageText` → Vision OCR on the device, blocks in reading order, Copy / Copy All / tap an outline on the page /
-  Translate (Apple's sheet — sends to Apple unless offline translation is set). Grouping/order in
-  `PageTextLayout.swift` (pixels, glyph size per character, furigana + other-script junk dropped), tested by
-  `scripts/page-text-tests/run.sh` (10/10) + Japanese raw One Piece via Mac Keiyoushi MangaFire `ja`. Korean untested.
-- **S172 (sim):** L3c reader extras — Swap the two pages (`doublePageInvert`), Pinch to zoom off (`readerPinchZoom`;
-  zoom was already "strict" 1×–4×), Scroll bar (`readerScrollIndicator`), **custom reader toolbar**
-  (`readerToolbarItems`, `Features/Reader/ReaderToolbar.swift`: bookmark, mark previous read — unread only, reading
-  mode, spreads, crop, share page, text on page, comments).
+- **S172–S176** (sim; details in ROADMAP): reader extras + custom reader toolbar (`ReaderToolbar.swift`), Text on Page
+  OCR (`PageText.swift`, tests `scripts/page-text-tests`), streak repair (`Core/ReadingStreak.swift`), **CB7/7z** via
+  PLzmaSDK **vendored** in `Vendor/PLzmaSDK` (read its VENDORED.md), better voices parked until iOS 27.2 (RESEARCH §28).
 - **S171 (sim):** L1 library load measured on the phone's DB (149–212 ms, no hangs, no fix) · L2 novel reader already
   matches LNReader's checklist · Martin wants ALL of L3 + L4 (order in ROADMAP S171). **L3a:** refresh takes covers +
   details (novels, Keiyoushi, Mangayomi — Yomi's own manga plugins have NO details call); opening a library title asks

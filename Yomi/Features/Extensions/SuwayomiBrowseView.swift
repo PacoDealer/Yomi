@@ -73,7 +73,7 @@ struct SuwayomiBrowseView: View {
             if source.supportsLatest {
                 Picker("Feed", selection: $selectedFeed) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                        Text(LocalizedStringKey(tab.rawValue)).tag(tab)
                     }
                 }
                 .pickerStyle(.segmented)

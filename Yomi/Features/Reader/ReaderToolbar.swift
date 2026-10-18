@@ -15,16 +15,16 @@ enum ReaderToolbarItem: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .previousChapter:  "Previous chapter"
-        case .nextChapter:      "Next chapter"
-        case .bookmark:         "Bookmark chapter"
-        case .markPreviousRead: "Mark previous as read"
-        case .readingMode:      "Reading mode"
-        case .spreads:          "Two-page spreads"
-        case .cropBorders:      "Crop borders"
-        case .sharePage:        "Share page"
-        case .pageText:         "Text on page"
-        case .comments:         "Comments"
+        case .previousChapter:  String(localized: "Previous chapter")
+        case .nextChapter:      String(localized: "Next chapter")
+        case .bookmark:         String(localized: "Bookmark chapter")
+        case .markPreviousRead: String(localized: "Mark previous as read")
+        case .readingMode:      String(localized: "Reading mode")
+        case .spreads:          String(localized: "Two-page spreads")
+        case .cropBorders:      String(localized: "Crop borders")
+        case .sharePage:        String(localized: "Share page")
+        case .pageText:         String(localized: "Text on page")
+        case .comments:         String(localized: "Comments")
         }
     }
 

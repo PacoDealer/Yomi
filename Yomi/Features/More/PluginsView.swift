@@ -31,7 +31,7 @@ struct RepositoryHelpView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func topic(_ title: String, _ text: String) -> some View {
+    private func topic(_ title: LocalizedStringKey, _ text: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.headline)
             Text(text).font(.subheadline).foregroundStyle(.secondary)
@@ -687,7 +687,7 @@ private struct ExtensionRow<Trailing: View>: View {
 
 /// Grey capsule, accent text — the App Store "Get" button, used for Add / Update / Languages.
 struct PillButton: View {
-    let title: String
+    let title: LocalizedStringKey
     /// Shows this symbol instead of the title (the title stays as the accessibility label).
     var systemImage: String? = nil
     var busy = false
@@ -720,7 +720,7 @@ struct PillButton: View {
 /// Swipe left → red trash.
 struct DeleteSwipe: ViewModifier {
     /// "Remove" where the swipe only takes a row out of a list (History) and deletes nothing.
-    var title = "Delete"
+    var title: LocalizedStringKey = "Delete"
     let action: () -> Void
 
     func body(content: Content) -> some View {
@@ -812,7 +812,7 @@ struct RepositoriesView: View {
                     .foregroundStyle(canvas.textPrimary)
                 Spacer()
                 if let count {
-                    Text("\(count) extension\(count == 1 ? "" : "s")")
+                    Text("\(count) extensions")
                         .font(.subheadline)
                         .monospacedDigit()
                         .foregroundStyle(canvas.textSecondary)

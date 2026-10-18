@@ -12,11 +12,11 @@ enum YomiTabID: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .library: "Library"
-        case .browse: "Browse"
-        case .history: "History"
-        case .updates: "Updates"
-        case .more: "More"
+        case .library: String(localized: "Library")
+        case .browse: String(localized: "Browse")
+        case .history: String(localized: "History")
+        case .updates: String(localized: "Updates")
+        case .more: String(localized: "More")
         }
     }
 

@@ -319,13 +319,13 @@ struct ReaderWebView: UIViewRepresentable {
             super.buildMenu(with: builder)
             var items: [UIMenuElement] = []
             if onListenFromHere != nil {
-                items.append(UIAction(title: "Listen from Here", image: UIImage(systemName: "speaker.wave.2")) { [weak self] _ in
+                items.append(UIAction(title: String(localized: "Listen from Here"), image: UIImage(systemName: "speaker.wave.2")) { [weak self] _ in
                     self?.onListenFromHere?()
                 })
             }
             // S177 (ArcReader's "Replace"): rename the selected term in every chapter of this novel.
             if onReplace != nil {
-                items.append(UIAction(title: "Replace…", image: UIImage(systemName: "character.cursor.ibeam")) { [weak self] _ in
+                items.append(UIAction(title: String(localized: "Replace…"), image: UIImage(systemName: "character.cursor.ibeam")) { [weak self] _ in
                     self?.onReplace?()
                 })
             }

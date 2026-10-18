@@ -1103,7 +1103,7 @@ extension TextReaderOverlayView {
                 Button {
                     withMotion(.easeInOut(duration: 0.15)) { panelTabRaw = tab.rawValue }
                 } label: {
-                    Text(tab.rawValue)
+                    Text(LocalizedStringKey(tab.rawValue))
                         .font(.subheadline.weight(selected ? .semibold : .regular))
                         .foregroundStyle(selected ? Color.primary : ReaderPanelStyle.unselectedText(0.6, contrast))
                         .frame(maxWidth: .infinity)
@@ -1408,7 +1408,7 @@ extension TextReaderOverlayView {
 
 /// Title + segmented capsule — the reader panel's one control style for presets.
 private struct ReaderSegmentedRow<Value: Equatable>: View {
-    let title: String
+    let title: LocalizedStringKey
     let options: [(label: String, value: Value)]
     @Binding var selection: Value
     var matches: (Value, Value) -> Bool = { $0 == $1 }
@@ -1439,7 +1439,8 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
                 let opt = options[i]
                 let selected = matches(selection, opt.value)
                 Button { selection = opt.value } label: {
-                    Text(opt.label)
+                    // Labels and names are English keys looked up here (scripts/localization/dynamic.json).
+                    Text(LocalizedStringKey(opt.label))
                         .font(.caption).fontWeight(.medium)
                         .foregroundStyle(selected ? ReaderPanelStyle.selectedText(colorScheme) : ReaderPanelStyle.unselectedText(0.75, contrast))
                         .padding(.horizontal, 11)
@@ -1448,7 +1449,7 @@ private struct ReaderSegmentedControl<Value: Equatable>: View {
                 }
                 .buttonStyle(.plain)
                 // A bare "Tight" doesn't say tight *what* (Known Issue #121).
-                .accessibilityLabel("\(accessibilityName): \(opt.label)")
+                .accessibilityLabel("\(String(localized: String.LocalizationValue(accessibilityName))): \(String(localized: String.LocalizationValue(opt.label)))")
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }

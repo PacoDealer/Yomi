@@ -334,7 +334,7 @@ private struct HistoryRow: View {
         let when = lastReadAt.map {
             Notation.historyTimestamp($0, use24Hour: settings.use24HourClock, dayFirst: settings.dateOrderDayFirst)
         }
-        return [time.isEmpty ? nil : "\(time) read", when].compactMap { $0 }.joined(separator: " · ")
+        return [time.isEmpty ? nil : String(localized: "\(time) read"), when].compactMap { $0 }.joined(separator: " · ")
     }
 
     var body: some View {

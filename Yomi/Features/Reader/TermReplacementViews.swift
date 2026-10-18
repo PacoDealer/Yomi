@@ -116,7 +116,7 @@ struct TermReplacementList: View {
         }
     }
 
-    @ViewBuilder private func section(_ title: String, _ list: [TermReplacement]) -> some View {
+    @ViewBuilder private func section(_ title: LocalizedStringKey, _ list: [TermReplacement]) -> some View {
         if !list.isEmpty {
             Section(title) {
                 ForEach(list) { rule in

@@ -193,7 +193,7 @@ struct MangaDetailView: View {
         var parts: [String] = []
         if let author = manga.author, !author.isEmpty { parts.append(author) }
         if manga.status != .unknown { parts.append(Notation.status(manga.status.rawValue)) }
-        if !readingChapters.isEmpty { parts.append("\(readingChapters.count) chapter\(readingChapters.count == 1 ? "" : "s")") }
+        if !readingChapters.isEmpty { parts.append(String(localized: "\(readingChapters.count) chapters")) }
         if let score = aniListScore { parts.append("\(score)%") }
         return parts.joined(separator: " · ")
     }
@@ -361,7 +361,7 @@ struct MangaDetailView: View {
                 let source = SourceStatus.sourceName(entry.manga.sourceId)
                 let count = entry.chapterCount
                 return count == 0 ? "\(entry.manga.title) — \(source)"
-                                  : "\(entry.manga.title) — \(source) · \(count) chapter\(count == 1 ? "" : "s")"
+                                  : String(localized: "\(entry.manga.title) — \(source) · \(count) chapters")
             }.joined(separator: "\n"))
         }
         .navigationDestination(item: $chapterForNav) { chapter in
@@ -1067,7 +1067,7 @@ struct MangaDetailView: View {
                 }
                 chip("All", selected: scanlatorFilter == nil) { scanlatorFilter = nil }
                 ForEach(available, id: \.self) { s in
-                    chip(s, selected: scanlatorFilter == s) {
+                    chip("\(s)", selected: scanlatorFilter == s) {
                         scanlatorFilter = scanlatorFilter == s ? nil : s
                     }
                 }
@@ -1105,7 +1105,7 @@ struct MangaDetailView: View {
             }
             .accessibilityHint("Shows every translation of each chapter")
             ForEach(available, id: \.self) { group in
-                chip(group, systemImage: preferredScanlator == group ? "star.fill" : "star",
+                chip("\(group)", systemImage: preferredScanlator == group ? "star.fill" : "star",
                      selected: preferredScanlator == group) {
                     preferredScanlator = preferredScanlator == group ? nil : group
                     UserDefaults.standard.set(preferredScanlator, forKey: preferredScanlatorKey)
@@ -1128,7 +1128,7 @@ struct MangaDetailView: View {
     }
 
     /// Same capsule as the genre chips; the selected one is filled with the accent (Library's filter chips).
-    private func chip(_ title: String, systemImage: String? = nil, selected: Bool,
+    private func chip(_ title: LocalizedStringKey, systemImage: String? = nil, selected: Bool,
                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
@@ -1215,7 +1215,7 @@ struct MangaDetailView: View {
         Task.detached { try? ChapterQueries.setBookmarked(chapterIds: ids, mangaId: mangaId, bookmarked: bookmarked) }
     }
 
-    private func selectionButton(_ title: String, systemImage: String,
+    private func selectionButton(_ title: LocalizedStringKey, systemImage: String,
                                  action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {

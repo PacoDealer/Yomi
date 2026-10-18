@@ -114,12 +114,12 @@ struct BackupView: View {
     // MARK: - Rows
 
     /// Accent action row with an optional grey note under it — the note says what the action does.
-    private func actionRow(_ title: String, note: String? = nil, action: @escaping () -> Void) -> some View {
+    private func actionRow(_ title: LocalizedStringKey, note: LocalizedStringKey? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) { actionLabel(title, note: note) }
             .buttonStyle(.plain)
     }
 
-    private func actionLabel(_ title: String, note: String?) -> some View {
+    private func actionLabel(_ title: LocalizedStringKey, note: LocalizedStringKey?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .foregroundStyle(Color.accentColor)

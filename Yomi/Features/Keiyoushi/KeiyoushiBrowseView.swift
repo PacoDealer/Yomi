@@ -63,7 +63,7 @@ struct KeiyoushiBrowseView: View {
                     }
                 } else {
                     YomiEmptyState(systemImage: "exclamationmark.triangle", title: "Couldn't load \(source.name)",
-                                   message: error, actionLabel: "Try again", actionIcon: "arrow.clockwise") {
+                                   message: "\(error)", actionLabel: "Try again", actionIcon: "arrow.clockwise") {
                         Task { await reset(keepQuery: isSearching); await loadMore() }
                     }
                 }
@@ -101,7 +101,7 @@ struct KeiyoushiBrowseView: View {
             if supportsLatest && !usesSearch {
                 Picker("Feed", selection: $selectedFeed) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                        Text(LocalizedStringKey(tab.rawValue)).tag(tab)
                     }
                 }
                 .pickerStyle(.segmented)

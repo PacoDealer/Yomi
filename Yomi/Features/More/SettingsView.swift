@@ -13,9 +13,9 @@ private enum ConnectionTestStatus: Equatable {
     var label: String {
         switch self {
         case .idle:              return ""
-        case .loading:          return "Connecting…"
-        case .connected(let n): return "Connected — \(n) sources"
-        case .failed(let msg):  return "Error: \(msg)"
+        case .loading:          return String(localized: "Connecting…")
+        case .connected(let n): return String(localized: "Connected — \(n) sources")
+        case .failed(let msg):  return String(localized: "Error: \(msg)")
         }
     }
     var color: Color {
@@ -177,10 +177,10 @@ struct SettingsView: View {
 
     private var themeName: String {
         switch settings.canvas {
-        case AppSettings.automaticCanvas: "Automatic"
-        case "Midnight": "Black"
-        case "Paper": "Light"
-        case "Sepia": "Sepia"
+        case AppSettings.automaticCanvas: String(localized: "Automatic")
+        case "Midnight": String(localized: "Black")
+        case "Paper": String(localized: "Light")
+        case "Sepia": String(localized: "Sepia")
         default: "Dark"
         }
     }
@@ -225,14 +225,14 @@ struct SettingsView: View {
     }
 
     /// Toggle with a one-line grey note under the title (instead of the old caption paragraphs).
-    private func toggle(_ title: String, isOn: Binding<Bool>, note: String? = nil) -> some View {
+    private func toggle(_ title: LocalizedStringKey, isOn: Binding<Bool>, note: LocalizedStringKey? = nil) -> some View {
         Toggle(isOn: isOn) {
             Text(title)
             if let note { Text(note) }
         }
     }
 
-    private func valueLabel(_ title: String, _ value: String) -> some View {
+    private func valueLabel(_ title: LocalizedStringKey, _ value: String) -> some View {
         LabeledContent(title, value: value)
     }
 }

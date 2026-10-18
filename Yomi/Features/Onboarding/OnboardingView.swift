@@ -110,7 +110,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func optionCard(_ option: Option, systemImage: String, title: String, detail: String,
+    private func optionCard(_ option: Option, systemImage: String, title: LocalizedStringKey, detail: LocalizedStringKey,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 14) {

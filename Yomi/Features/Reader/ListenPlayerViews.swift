@@ -59,7 +59,7 @@ struct ListenMiniPlayer: View {
 
     private var subtitle: String {
         switch player.status {
-        case .loading: return "Loading…"
+        case .loading: return String(localized: "Loading…")
         case .failed(let message): return message
         default: return player.novel?.title ?? ""
         }
@@ -320,7 +320,7 @@ struct ListenPlayerView: View {
         .buttonStyle(.plain)
     }
 
-    private func optionLabel(_ title: String, systemImage: String, value: String?) -> some View {
+    private func optionLabel(_ title: LocalizedStringKey, systemImage: String, value: String?) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .frame(width: 24)

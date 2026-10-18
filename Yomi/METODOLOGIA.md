@@ -2439,3 +2439,18 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Ship the code you test.** `RarExtract.swift` is compiled into the Mac harness by symlink, so the benchmark measured
   the app's file, not a copy.
 
+
+## S180 lessons
+
+- **A "has more" loop is only as good as the field it reads.** Asura's API never sent `meta`, so `has_more` was always
+  undefined and the loop stopped after page 1 — for every series, since the plugin was written. Probe the live API for
+  the paging contract (does `page` change the result? what does `limit` > N do?) before trusting a loop's exit.
+- **Run the real plugin file, not a re-implementation.** `scripts/plugin-live/run.mjs` loads the deployed-shape JS in a
+  Node `vm` with a curl `SOURCE.fetch`; old vs new side by side made both bugs (and the MangaDex 2000 cap nobody had
+  reported) visible in minutes. Gotcha: curl needs `-g`, or MangaDex's `translatedLanguage[]` brackets are a glob error
+  that the plugin's `catch` turns into an empty list.
+- **Localization: let the compiler find the strings, then fix what it can't see.** The `.stringsdata` files from a normal
+  build list every extracted key; the leftovers on screen were all `String`-typed params and enum labels. Changing a
+  shared component's param to `LocalizedStringKey` and letting the build list the dynamic callers was faster and safer
+  than hunting call sites. Validate format specifiers per translation — a Spanish plural that added `%@`s would have read
+  the wrong arguments.

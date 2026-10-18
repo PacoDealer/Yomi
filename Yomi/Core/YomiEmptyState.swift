@@ -9,9 +9,9 @@ import SwiftUI
 
 struct YomiEmptyState: View {
     let systemImage: String
-    let title: String
-    let message: String
-    var actionLabel: String? = nil
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
+    var actionLabel: LocalizedStringKey? = nil
     var actionIcon: String? = nil
     var action: (() -> Void)? = nil
 

@@ -21,6 +21,45 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S180 — I: #194 + #69 plugin fixes, Spanish (2026-10-18, simulator + live sites)
+
+Martin picked all three of the rest of I.
+
+- **#194 Asura JS 100-chapter cap — FIXED in `Firebase/public/asurascans.js` 1.1.0 (NOT deployed).** Live API probe:
+  `/api/series/{slug}/chapters` sends no `meta` at all and ignores `page`, so the old `has_more` loop always stopped
+  after the first 100 (newest first). `limit` > 100 is a 403; `offset` works. Now `limit=100&offset=n` until a short
+  page, de-duplicated by id. Run against the live site with the real plugin file (`scripts/plugin-live/run.mjs`, Node +
+  curl shim for `SOURCE.fetch`): old 100/100/100 → new **123 / 205 / 215** (Absolute Regression / Absolute Sword Sense /
+  Shenwu Tianzun), every id unique; chapter 1 pages still load (22).
+- **#69 MangaDex licensed chapters — FIXED in `mangadex.js` 1.1.0 (NOT deployed).** Feed now asks
+  `includeExternalUrl=0` and skips `externalUrl` / `pages == 0` rows as a backstop. One Piece: 115 → 62 chapters (the
+  53 dropped are MangaPlus links; 19 of them claim `pages: 1` = a placeholder image or a 404). 13 kept chapters sampled
+  across the list all open (17–53 pages). Also lifted a second cap: `offset > 2000` stopped long multi-language feeds →
+  `limit=500`, stop at offset + limit > 10000 (MangaDex's max); a 1,166-entry feed comes back whole in 3 requests.
+  (MangaDex used here only because the bug is in the MangaDex plugin.)
+- Both bumped to 1.1.0 in `index.json`, hashes refreshed with `catalog-hashes.py` (the predeploy hook redoes it).
+  Originals in `Firebase/plugin-backups-S180/`. **Martin deploys:** `cd ~/Desktop/Projects/Yomi/Firebase && firebase
+  deploy --only hosting:plugins`. Installed copies update through the normal version check; the missing Asura chapters
+  appear at the next refresh of each title.
+- **Spanish (neutral Latin American, Martin's pick — tú, no voseo).** `Yomi/Localizable.xcstrings` (835 keys, all
+  Spanish) + `Yomi/InfoPlist.xcstrings` (3 permission prompts); `es` in knownRegions. The catalog is **generated**:
+  `scripts/localization/build-catalog.py` reads the compiler's `.stringsdata` (build first) + `es-*.json` +
+  `plurals.json` (one/other for en + es) + `dynamic.json` (keys looked up at run time); it refuses a translation whose
+  format specifiers differ from its key (caught two real bugs while writing it). Code changes so text reaches the
+  catalog: the English `chapter\(n == 1 ? "" : "s")` trick (25 sites) → plural keys; shared components take
+  `LocalizedStringKey` (YomiEmptyState, PillButton, DeleteSwipe, MoreRow, LibraryTab/SectionHeader, StorageRow,
+  settings/backup/browse/insights helpers, ReaderSegmentedRow) — pass dynamic text as `"\(value)"`; display enums and
+  `Notation` (Chapter, status words, date buckets) use `String(localized:)`; raw-value enums shown via
+  `LocalizedStringKey(x.rawValue)` (raw values are stored — never change them). Sim (`-AppleLanguages (es)`):
+  Library, Historial, Novedades, Explorar, Más, Ajustes, manga reader + its settings sheet all Spanish; long rows fit.
+- **Not translated yet:** text built as `String` deeper in (error messages from services/plugins, alerts with String
+  vars, notifications other than new-chapter, widget, onboarding sub-sheets, novel reader panel except spacing rows),
+  App Store listing in Spanish. Source data (genres, chapter names) stays as the source sends it.
+- NEXT: Martin deploys the plugins + checks Spanish on the phone (part of J) → rest of the Spanish tail → CloudKit
+  schema deploy + personal build + J.
+
+---
+
 ## S179 — I: Safe Mode, perf gates, solid/huge CBR (2026-10-17, simulator)
 
 Martin picked lockable SFW mode + perf gates + CBR edge cases from the rest of I.

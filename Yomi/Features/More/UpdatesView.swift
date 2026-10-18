@@ -725,7 +725,7 @@ struct UpdatesView: View {
 
     private static func statusLine(_ run: UpdateRunSummary) -> String {
         let n = run.results.count
-        return "Checked \(n) title\(n == 1 ? "" : "s") · \(Notation.time(run.date, use24Hour: AppSettings.shared.use24HourClock))"
+        return String(localized: "Checked \(n) titles · \(Notation.time(run.date, use24Hour: AppSettings.shared.use24HourClock))")
     }
 
     // MARK: - Section header
@@ -794,10 +794,10 @@ struct UpdatesView: View {
         // "No new chapters" used to be shown identically whether nothing was new or every source
         // failed — always say when a check couldn't actually complete. Tapping it opens the summary.
         var summary = newCount == 0
-            ? "No new chapters"
-            : "\(newCount) new chapter\(newCount == 1 ? "" : "s") found"
+            ? String(localized: "No new chapters")
+            : String(localized: "\(newCount) new chapters found")
         if failed > 0 {
-            summary += " · \(failed) failed"
+            summary += String(localized: " · \(failed) failed")
         }
         refreshSummary = summary
         try? await Task.sleep(for: .seconds(3))
@@ -914,8 +914,8 @@ private struct UpdatesSummaryView: View {
         }
     }
 
-    private func header(_ title: String, count: Int) -> some View {
-        Text("\(title) · \(count)")
+    private func header(_ title: LocalizedStringKey, count: Int) -> some View {
+        Text("\(Text(title)) · \(count)")
             .font(.title3.bold())
             .foregroundStyle(canvas.textPrimary)
             .padding(.top, 16)
@@ -945,7 +945,7 @@ private struct UpdatesSummaryView: View {
                     case .failed(let why):
                         Text(why).foregroundStyle(.red)
                     case .checked(let n):
-                        Text(n == 0 ? "No new chapters" : "\(n) new chapter\(n == 1 ? "" : "s")")
+                        Text(n == 0 ? "No new chapters" : "\(n) new chapters")
                             .foregroundStyle(canvas.textSecondary)
                     }
                 }
