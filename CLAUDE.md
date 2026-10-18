@@ -37,7 +37,7 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   `\(n == 1 ? "" : "s")`; shared components take `LocalizedStringKey` (pass dynamic text as `"\(value)"`); shown raw
   values → `LocalizedStringKey(x.rawValue)` + `dynamic.json`. Test with launch args `-AppleLanguages (es)`.
   Plugin fixes **#194** (Asura offset paging) + **#69** (MangaDex external chapters) in `Firebase/public` 1.1.0 —
-  verified live with `scripts/plugin-live/run.mjs`, **not deployed** (Martin runs the deploy).
+  verified live with `scripts/plugin-live/run.mjs`, **DEPLOYED 2026-10-18** (S181, live index.json = 1.1.0).
 - **S179 (sim):** I — **Safe Mode** (`Core/SafeMode.swift` filter: `SafeMode.filter` → Sendable `SafeFilter`, capture it
   before detaching; `SafeModeView`; Settings → Privacy) hides 18+ sources + adult-tagged titles everywhere, optional
   hide-mixed, Yomi passcode lock in the keychain; **any new title list must filter with `SafeMode.filter.allows`**.

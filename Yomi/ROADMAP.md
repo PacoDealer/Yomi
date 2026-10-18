@@ -48,7 +48,10 @@ session did the part of "rest of the Spanish tail" I can do alone.
 - **Spanish App Store listing drafted:** `APP_STORE_LISTING.md` §1b (subtitle, promo, description, keywords; lengths
   checked; same claims as §1). Open for Martin: Spanish app name or keep the English one.
 - **Still English:** anything a plugin/server sends as an error message.
-- NEXT (needs Martin): deploy plugins (`firebase deploy --only hosting:plugins`) → CloudKit schema deploy → personal
+- **Plugins DEPLOYED** by Martin (after `firebase login --reauth`): live `index.json` has Asura Scans + MangaDex
+  1.1.0, both live files contain the fixes. Installed copies update via the version check; missing Asura chapters
+  appear at each title's next refresh.
+- NEXT (needs Martin): CloudKit schema deploy → personal
   build → J (phone check: Spanish incl. widget, Safe Mode, perf `--device`, #203/#209, Translate this novel).
 
 ---
