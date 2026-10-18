@@ -111,6 +111,16 @@ REPLACES Martin's Yomi — with the default signing it would have synced against
     Kingfisher disk cache are still keyed by the random URL → Keiyoushi pages re-download after every launch.
   - Perf `--device` twice: "Timed out while enabling automation mode" — phone screen locked; needs it awake + unlocked.
   - ReaderUITests 13/13, 0 warnings. Personal Release reinstalled on the phone (has both fixes).
+- **Perf `--device` RAN (phone unlocked, Debug):** launch wall clock **2.48 s** (sim 3.48), strip memory peak **45 MB**,
+  Yomi hitch ratio strip **1.3 ms/s**, novel **0**. Gate change: hitch gates now read `Hitch Time Ratio (Yomi)` — the
+  scroll-signpost ratio failed at 16.3 avg from ONE 8.3 ms frame in iteration 4 (78 ms/s over a very short scroll
+  interval; others 3.4/0/0/0). All gates pass. Personal Release reinstalled after.
+
+### BACKLOG — Support / donate (Martin, 2026-10-18)
+A "Support Yomi" spot (More → About?) where people can donate if they want. Before building: check the CURRENT App
+Store rules live (guideline 3.1.1 in-app purchase / tips, 3.2.1 / 3.2.2 on donations, and the US external-link
+rules) — tips for the developer's own app likely must be In-App Purchase (consumable "tip jar"), external donation
+links (Ko-fi, GitHub Sponsors) may be refused. Keep it calm: no nagging, no locked features, one quiet row.
 
 ---
 
