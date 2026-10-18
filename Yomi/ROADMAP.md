@@ -77,6 +77,16 @@ Martin's phone, S177 version: slow (a whole chapter through Apple's on-device mo
    any server engine needs a key/cost and sends text off the phone (privacy label).
 5. Read-aloud on the translated text; keep italics/links.
 Turn back on = `NovelTranslation.isAvailable = true` + device check.
+
+### Perf gates on the phone (S182, first device run)
+`scripts/perf-gates.sh --device 00008150-00187C4A1EF3401C` now builds with `Personal.xcconfig` (the test install
+REPLACES Martin's Yomi — with the default signing it would have synced against the Development environment) in Debug
+(the reader fixture is Debug-only — a Release run found no fixture, 2 tests failed). Reinstall afterwards with
+`build-personal.sh --release` (done). iPhone 17, Debug:
+- Manga long strip: memory peak **43 MB** (limit 300 MB), hitch ratio **0.4 ms/s** (limit 5). Novel reader: **0.0 ms/s**.
+- Launch: **not measured** — the device run records no `XCTApplicationLaunchMetric` value at all (the test passes, the
+  result has no launch metric; sim records it). Open: find why (iOS build 24A94232 / Xcode metrics on device) or gate
+  launch with an os_signpost instead.
 - NEXT: personal build → J.
 
 ---

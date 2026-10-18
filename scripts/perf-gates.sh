@@ -3,7 +3,12 @@
 # result bundle and fails when one is over its limit in scripts/perf-gates.json.
 #
 #   scripts/perf-gates.sh                 # simulator (iPhone 17 Pro, iOS 26.3) — launch time + long-strip memory
-#   scripts/perf-gates.sh --device <id>   # a connected iPhone — adds the hitch-ratio gates (simulator has none)
+#   scripts/perf-gates.sh --device <id>   # a connected iPhone — adds the hitch-ratio gates (simulator has none). Built
+#                                         # with Personal.xcconfig like build-personal.sh: the test install replaces Martin's
+#                                         # Yomi, so it must sign the same way (Production CloudKit, Keiyoushi) — S182. Debug,
+#                                         # because the reader fixture is Debug-only → hitches are a worst case vs Release.
+#                                         # Reinstall afterwards: scripts/build-personal.sh --release
+#                                         # <id> = the xcodebuild UDID (00008150-…), not the devicectl one
 #   scripts/perf-gates.sh --result <path> # only check an existing .xcresult
 #
 # Takes ~6 minutes. Run it alone: other simulator or Mac load skews the numbers.
@@ -13,9 +18,11 @@ cd "$(dirname "$0")/.."
 DEST="platform=iOS Simulator,id=F31CC190-186D-4598-9ED8-225821907550"
 ON_DEVICE=0
 RESULT=""
+DEVICE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --device) DEST="platform=iOS,id=$2"; ON_DEVICE=1; shift 2 ;;
+    --device) DEST="platform=iOS,id=$2"; ON_DEVICE=1
+              DEVICE_ARGS=(-xcconfig Config/Personal.xcconfig -allowProvisioningUpdates); shift 2 ;;
     --result) RESULT="$2"; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
@@ -24,7 +31,7 @@ done
 if [[ -z "$RESULT" ]]; then
   RESULT="$(mktemp -d)/perf.xcresult"
   echo "Running PerfUITests on $DEST …"
-  if ! xcodebuild test -scheme Yomi -destination "$DEST" \
+  if ! xcodebuild test -scheme Yomi -destination "$DEST" ${DEVICE_ARGS[@]+"${DEVICE_ARGS[@]}"} \
       -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData/Yomi-perf" \
       -only-testing:YomiUITests/PerfUITests -resultBundlePath "$RESULT" > "${RESULT%.xcresult}.log" 2>&1; then
     echo "PerfUITests failed to run — log: ${RESULT%.xcresult}.log" >&2
