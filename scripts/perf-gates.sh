@@ -42,7 +42,11 @@ fi
 xcrun xcresulttool get test-results metrics --path "$RESULT" --compact > "${RESULT%.xcresult}-metrics.json"
 python3 -I - "${RESULT%.xcresult}-metrics.json" scripts/perf-gates.json "$ON_DEVICE" <<'PY'
 import json, sys
+import re
 metrics, gates, on_device = json.load(open(sys.argv[1])), json.load(open(sys.argv[2]))["gates"], sys.argv[3] == "1"
+# --result alone doesn't say where it ran: simulator ids are UUIDs (8-4-4-4-12), an iPhone's is 00008150-…
+on_device = on_device or any(not re.fullmatch(r"[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}", run["device"]["deviceId"], re.I)
+                             for test in metrics for run in test.get("testRuns", []))
 found = {}
 for test in metrics:
     name = test["testIdentifier"].split("/")[-1].rstrip("()")
@@ -55,6 +59,9 @@ failed = 0
 for g in gates:
     if g.get("deviceOnly") and not on_device:
         print(f"  skip  {g['test']} · {g['metric']} (device only)")
+        continue
+    if g.get("simulatorOnly") and on_device:
+        print(f"  skip  {g['test']} · {g['metric']} (simulator only)")
         continue
     hits = [(k[1], v) for k, v in found.items() if k[0] == g["test"] and k[1].startswith(g["metric"])]
     if not hits:
