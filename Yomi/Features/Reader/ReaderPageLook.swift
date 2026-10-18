@@ -58,7 +58,7 @@ struct PageLook: Codable, Equatable, Sendable {
     }
 }
 
-/// Every page measured so far, by URL. Saved to Caches next to `PageShapes`, so a reopened chapter is cropped from its
+/// Every page measured so far, by URL (`PageNames` for Keiyoushi pages). Saved to Caches next to `PageShapes`, so a reopened chapter is cropped from its
 /// first frame instead of showing the margins for a moment.
 @MainActor enum PageLooks {
     private static let file = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -66,7 +66,7 @@ struct PageLook: Codable, Equatable, Sendable {
     private static var store: [String: PageLook]?
     private static var dirty = false
 
-    static func cached(_ url: String) -> PageLook? { loaded()[url] }
+    static func cached(_ url: String) -> PageLook? { loaded()[PageNames.key(url)] }
 
     /// The page's look, measured now if it isn't known yet.
     static func look(for url: String, image: UIImage) async -> PageLook {
@@ -74,7 +74,7 @@ struct PageLook: Codable, Equatable, Sendable {
         guard let cg = image.cgImage else { return .plain }
         let look = await Task.detached(priority: .userInitiated) { PageLook.measure(cg) }.value
         if (store?.count ?? 0) > 5000 { store?.removeAll() }
-        store?[url] = look
+        store?[PageNames.key(url)] = look
         dirty = true
         return look
     }
