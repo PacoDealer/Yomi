@@ -1,16 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Continue": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continuar"
-          }
-        }
-      }
-    },
     "Continue Reading": {
       "localizations": {
         "es": {

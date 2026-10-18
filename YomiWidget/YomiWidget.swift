@@ -8,6 +8,8 @@ struct ReadingItem: Codable {
     let title: String
     let coverURLString: String?
     let lastChapter: String
+    /// Cover saved by the app in the App Group's `widget-covers` folder (S182) — a widget can't download images.
+    let coverFile: String?
 }
 
 // MARK: - Timeline Entry
@@ -18,7 +20,7 @@ struct ContinueReadingEntry: TimelineEntry {
 
     static let placeholder = ContinueReadingEntry(
         date: .now,
-        items: [ReadingItem(id: "placeholder", title: "One Piece", coverURLString: nil, lastChapter: "Chapter 1100")]
+        items: [ReadingItem(id: "placeholder", title: "One Piece", coverURLString: nil, lastChapter: "Chapter 1100", coverFile: nil)]
     )
 }
 
@@ -52,22 +54,27 @@ struct ContinueReadingProvider: TimelineProvider {
 }
 
 // MARK: - Widget View
+//
+// S182 redesign ("calm", RESEARCH §26 — Apple Music-like): covers come from files the app saves, nothing is drawn on
+// a cover, titles get the full width.
 
 struct ContinueReadingWidgetView: View {
     let entry: ContinueReadingEntry
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if entry.items.isEmpty {
-            emptyView
-        } else {
-            switch family {
-            case .systemSmall:  smallView(entry.items[0])
-            case .systemMedium: mediumView(Array(entry.items.prefix(3)))
-            case .systemLarge:  largeView(Array(entry.items.prefix(6)))
-            default:            smallView(entry.items[0])
+        Group {
+            if entry.items.isEmpty {
+                emptyView
+            } else {
+                switch family {
+                case .systemMedium: mediumView(Array(entry.items.prefix(3)))
+                case .systemLarge:  largeView(Array(entry.items.prefix(5)))
+                default:            smallView(entry.items[0])
+                }
             }
         }
+        .containerBackground(.fill.tertiary, for: .widget)
     }
 
     // MARK: Empty
@@ -75,131 +82,113 @@ struct ContinueReadingWidgetView: View {
     private var emptyView: some View {
         VStack(spacing: 8) {
             Image(systemName: "books.vertical")
-                .font(.largeTitle)
+                .font(.title2)
                 .foregroundStyle(.secondary)
             Text("Open Yomi to start reading")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .containerBackground(.fill, for: .widget)
+        .padding()
     }
 
-    // MARK: Small — single item, cover left + text right
+    // MARK: Small — cover top-left, title across the whole width below
 
     private func smallView(_ item: ReadingItem) -> some View {
-        HStack(spacing: 0) {
-            coverImage(urlString: item.coverURLString, width: 70)
-                .frame(width: 70)
-                .clipped()
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.title)
-                    .font(.caption).fontWeight(.semibold)
-                    .lineLimit(3)
-                Text(item.lastChapter)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Spacer()
-                Label("Continue", systemImage: "play.fill")
-                    .font(.caption2).fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                cover(item, height: 78)
+                Spacer(minLength: 0)
+                Image(systemName: "play.circle.fill")
+                    .font(.title2)
                     .foregroundStyle(.tint)
-                    .labelStyle(.titleAndIcon)
+                    .accessibilityHidden(true)
             }
-            .padding(10)
-            Spacer(minLength: 0)
+            Spacer(minLength: 6)
+            Text(item.title)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(3)
+                .minimumScaleFactor(0.85)
+            Text(item.lastChapter)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.top, 2)
         }
-        .containerBackground(.fill, for: .widget)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
     }
 
-    // MARK: Medium — up to 3 items in a row
+    // MARK: Medium — up to 3 covers side by side
 
     private func mediumView(_ items: [ReadingItem]) -> some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             ForEach(items, id: \.id) { item in
-                mediumCell(item)
+                VStack(alignment: .leading, spacing: 4) {
+                    cover(item, height: 84)
+                    Text(item.title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(2)
+                    Text(item.lastChapter)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if items.count < 3 { Spacer() }
+            ForEach(items.count..<3, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
         }
-        .padding(12)
-        .containerBackground(.fill, for: .widget)
+        .padding(14)
     }
 
-    private func mediumCell(_ item: ReadingItem) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            coverImage(urlString: item.coverURLString, aspectRatio: 2.0 / 3.0)
-                .cornerRadius(6)
-                .frame(height: 90)
-                .clipped()
-            Text(item.title)
-                .font(.caption2).fontWeight(.semibold)
-                .lineLimit(2)
-            Text(item.lastChapter)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: Large — 2 × 3 grid
+    // MARK: Large — a list, like Apple Music's "Recently Played"
 
     private func largeView(_ items: [ReadingItem]) -> some View {
-        let columns = [GridItem(.flexible()), GridItem(.flexible())]
-        return LazyVGrid(columns: columns, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Continue Reading")
+                .font(.subheadline.weight(.semibold))
             ForEach(items, id: \.id) { item in
-                largeCell(item)
-            }
-        }
-        .padding(12)
-        .containerBackground(.fill, for: .widget)
-    }
-
-    private func largeCell(_ item: ReadingItem) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            coverImage(urlString: item.coverURLString, aspectRatio: 2.0 / 3.0)
-                .cornerRadius(6)
-                .clipped()
-            Text(item.title)
-                .font(.caption2).fontWeight(.semibold)
-                .lineLimit(2)
-            Text(item.lastChapter)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-    }
-
-    // MARK: Cover helper
-
-    @ViewBuilder
-    private func coverImage(urlString: String?, width: CGFloat? = nil, aspectRatio: CGFloat? = nil) -> some View {
-        if let urlStr = urlString, let url = URL(string: urlStr) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    if let ar = aspectRatio {
-                        img.resizable().aspectRatio(ar, contentMode: .fill)
-                    } else {
-                        img.resizable().scaledToFill()
+                HStack(spacing: 12) {
+                    cover(item, height: 56)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(2)
+                        Text(item.lastChapter)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                default:
-                    coverPlaceholder(aspectRatio: aspectRatio)
+                    Spacer(minLength: 0)
                 }
             }
-        } else {
-            coverPlaceholder(aspectRatio: aspectRatio)
+            Spacer(minLength: 0)
         }
+        .padding(16)
     }
 
-    @ViewBuilder
-    private func coverPlaceholder(aspectRatio: CGFloat?) -> some View {
-        if let ar = aspectRatio {
-            Color.secondary.opacity(0.3).aspectRatio(ar, contentMode: .fill)
-        } else {
-            Color.secondary.opacity(0.3)
+    // MARK: Cover
+
+    private static let coversDir = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: "group.pacodealer.Yomi")?
+        .appending(path: "widget-covers", directoryHint: .isDirectory)
+
+    /// A 2:3 cover of the given height from the saved file, or a plain tile.
+    private func cover(_ item: ReadingItem, height: CGFloat) -> some View {
+        let image = item.coverFile
+            .flatMap { name in Self.coversDir.map { $0.appending(path: name) } }
+            .flatMap { UIImage(contentsOfFile: $0.path) }
+        return Group {
+            if let image {
+                Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Rectangle().fill(.quaternary)
+                    .overlay { Image(systemName: "book.closed").foregroundStyle(.secondary) }
+            }
         }
+        .frame(width: height * 2 / 3, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5) }
     }
 }
 

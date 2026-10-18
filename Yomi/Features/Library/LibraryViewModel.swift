@@ -349,6 +349,11 @@ final class LibraryViewModel {
                 lastChapter: names[$0.id] ?? String(localized: "Continue reading")
             )
         }
-        WidgetDataWriter.write(merged)
+        // Custom and Local Files covers are files, not links (S182: the widget showed none for them).
+        let shownIds = Set(top.map(\.id))
+        var customCovers: [String: String] = [:]
+        for m in mangas where shownIds.contains(m.id) { customCovers[m.id] = m.resolvedCustomCoverPath }
+        for n in novels where shownIds.contains(n.id) { customCovers[n.id] = n.resolvedCustomCoverPath }
+        WidgetDataWriter.write(await WidgetDataWriter.withSavedCovers(merged, customCovers: customCovers))
     }
 }
