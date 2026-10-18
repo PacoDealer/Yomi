@@ -103,13 +103,13 @@ struct AppearanceStudioView: View {
                             .strokeBorder(isSelected ? accent : canvas.textSecondary.opacity(0.25),
                                           lineWidth: isSelected ? 2.5 : 0.5)
                     )
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.footnote.weight(isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? canvas.textPrimary : canvas.textSecondary)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(label) theme")
+        .accessibilityLabel("\(String(localized: String.LocalizationValue(label))) theme")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -157,7 +157,7 @@ struct AppearanceStudioView: View {
                 .overlay(Circle().strokeBorder(isSelected ? Color(hex: hex) : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(name)
+        .accessibilityLabel(LocalizedStringKey(name))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -196,13 +196,13 @@ struct AppearanceStudioView: View {
                             .strokeBorder(isSelected ? accent : canvas.textSecondary.opacity(0.25),
                                           lineWidth: isSelected ? 2.5 : 0.5)
                     )
-                Text(icon.label)
+                Text(LocalizedStringKey(icon.label))
                     .font(.footnote.weight(isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? canvas.textPrimary : canvas.textSecondary)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(icon.label) app icon")
+        .accessibilityLabel("\(String(localized: String.LocalizationValue(icon.label))) app icon")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

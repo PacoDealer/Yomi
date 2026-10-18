@@ -56,7 +56,7 @@ struct AdvancedSettingsView: View {
                     .font(.footnote)
             }
             Stepper(
-                "Plugin request timeout: \(Int(settings.requestTimeout)) s",
+                String(localized: "Plugin request timeout: \(Int(settings.requestTimeout)) s"),
                 value: $settings.requestTimeout,
                 in: 10...60,
                 step: 5

@@ -317,7 +317,7 @@ struct ChapterReaderView: View {
         }
         .sheet(isPresented: $showSourceSheet) {
             if let url = sourceURL {
-                DiscussWebSheet(url: url, title: "Source")
+                DiscussWebSheet(url: url, title: String(localized: "Source"))
             }
         }
         .onChange(of: shouldRequestReview) { _, should in
@@ -331,7 +331,7 @@ struct ChapterReaderView: View {
         let id = activeChapter.id, mangaId = manga.id, bookmarked = !isActiveBookmarked
         bookmarkOverrides[id] = bookmarked
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        infoMessage = bookmarked ? "Chapter bookmarked" : "Bookmark removed"
+        infoMessage = bookmarked ? String(localized: "Chapter bookmarked") : String(localized: "Bookmark removed")
         Task.detached { try? ChapterQueries.setBookmarked(chapterIds: [id], mangaId: mangaId, bookmarked: bookmarked) }
     }
 
@@ -339,7 +339,7 @@ struct ChapterReaderView: View {
     /// written: `setReadBatch` stamps `readAt`, and chapters already read keep their real read date.
     private func markPreviousRead() {
         let ids = shownChapters[..<currentChapterIndex].filter { !$0.isRead }.map(\.id), mangaId = manga.id
-        guard !ids.isEmpty else { infoMessage = "Earlier chapters are already read"; return }
+        guard !ids.isEmpty else { infoMessage = String(localized: "Earlier chapters are already read"); return }
         markedReadIds.formUnion(ids)
         infoMessage = ids.count == 1 ? "1 chapter marked as read" : "\(ids.count) chapters marked as read"
         Task.detached { try? ChapterQueries.setReadBatch(chapterIds: ids, mangaId: mangaId, isRead: true) }
@@ -401,7 +401,7 @@ struct ChapterReaderView: View {
             } catch {
                 print("markChapterRead error: \(error)")
                 await MainActor.run {
-                    toastMessage = "Couldn't save read status"
+                    toastMessage = String(localized: "Couldn't save read status")
                     YomiHaptics.error()
                 }
             }
@@ -553,7 +553,7 @@ struct ChapterReaderView: View {
             if result.fromCache { cachedListPaths.insert(path) }
             isLoading = false
             if result.pages.isEmpty {
-                errorMessage = await Self.localArchiveError(path: path) ?? "No pages found."
+                errorMessage = await Self.localArchiveError(path: path) ?? String(localized: "No pages found.")
             }
         }
     }
@@ -683,7 +683,7 @@ struct ChapterReaderView: View {
         pages = result
         isLoading = false
         if result.isEmpty {
-            errorMessage = "No pages found for this chapter."
+            errorMessage = String(localized: "No pages found for this chapter.")
         } else {
             // Restore reading progress (prefer stored page number)
             // Downloaded chapters resume too (they always opened at page 1 before D12).
@@ -1493,7 +1493,7 @@ struct ReaderOverlayView: View {
                 guard let url = currentPageURL else { return }
                 Task {
                     if let image = await ReaderPageActions.image(for: url) { shareImage = image }
-                    else { ReaderPageActions.say("The page isn't loaded yet") }
+                    else { ReaderPageActions.say(String(localized: "The page isn't loaded yet")) }
                 }
             } label: { toolbarIcon(item.systemImage) }
             .accessibilityLabel(item.title)
@@ -1502,7 +1502,7 @@ struct ReaderOverlayView: View {
                 guard let url = currentPageURL else { return }
                 Task {
                     if let image = await ReaderPageActions.image(for: url) { pageTextImage = image }
-                    else { ReaderPageActions.say("The page isn't loaded yet") }
+                    else { ReaderPageActions.say(String(localized: "The page isn't loaded yet")) }
                 }
             } label: { toolbarIcon(item.systemImage) }
             .accessibilityLabel(item.title)
@@ -1753,7 +1753,7 @@ struct ReaderOverlayView: View {
                             ),
                             range: 0...Double(totalPages - 1),
                             accessibilityLabelText: "Page",
-                            accessibilityValueText: { "Page \(Int($0.rounded()) + 1) of \(totalPages)" }
+                            accessibilityValueText: { String(localized: "Page \(Int($0.rounded()) + 1) of \(totalPages)") }
                         )
 
                         Text("\(totalPages)")
@@ -1793,7 +1793,7 @@ import WebKit
 
 struct DiscussWebSheet: View {
     let url: URL
-    var title: String = "Discussion"
+    var title: String = String(localized: "Discussion")
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

@@ -31,7 +31,8 @@ struct NovelTheme: Equatable, Identifiable {
     }
 
     private init(_ token: YomiTokens.ReaderTheme) {
-        self.init(id: token.name, name: token.name, bg: token.bg, fg: token.fg, isDark: token.isDark)
+        // id keeps the English token name (it is what settings store); the name is only shown.
+        self.init(id: token.name, name: String(localized: String.LocalizationValue(token.name)), bg: token.bg, fg: token.fg, isDark: token.isDark)
     }
 
     init(id: String, name: String, bg: String, fg: String, isDark: Bool) {
@@ -84,7 +85,7 @@ struct CustomNovelTheme: Codable, Equatable, Identifiable {
     }
 
     static func new(from base: NovelTheme) -> CustomNovelTheme {
-        CustomNovelTheme(id: prefix + UUID().uuidString, name: "My theme", bg: base.bg, fg: base.fg)
+        CustomNovelTheme(id: prefix + UUID().uuidString, name: String(localized: "My theme"), bg: base.bg, fg: base.fg)
     }
 
     static func load() -> [CustomNovelTheme] {
@@ -185,7 +186,7 @@ struct CustomThemeEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         theme.name = theme.name.trimmingCharacters(in: .whitespaces)
-                        if theme.name.isEmpty { theme.name = "My theme" }
+                        if theme.name.isEmpty { theme.name = String(localized: "My theme") }
                         CustomNovelTheme.upsert(theme)
                         onDone(theme)
                         dismiss()
@@ -199,8 +200,8 @@ struct CustomThemeEditor: View {
     private var contrastNote: String {
         let r = String(format: "%.1f", contrast)
         return contrast < 4.5
-            ? "Contrast \(r):1 — hard to read for long. 4.5:1 or more is recommended."
-            : "Contrast \(r):1"
+            ? String(localized: "Contrast \(r):1 — hard to read for long. 4.5:1 or more is recommended.")
+            : String(localized: "Contrast \(r):1")
     }
 
     private func colorBinding(_ key: WritableKeyPath<CustomNovelTheme, String>) -> Binding<Color> {

@@ -38,8 +38,7 @@ enum MigrationService {
         var errorDescription: String? {
             switch self {
             case .noChaptersFromNewSource:
-                return "The new source returned no chapters. Nothing was changed — your original "
-                     + "entry is untouched. The source may be temporarily blocked or unreachable."
+                return String(localized: "The new source returned no chapters. Nothing was changed — your original entry is untouched. The source may be temporarily blocked or unreachable.")
             }
         }
     }

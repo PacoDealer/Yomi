@@ -108,7 +108,7 @@ private struct LicenseTextView: View {
                 return text
             }
         }
-        return "The licence text is missing from this build."
+        return String(localized: "The licence text is missing from this build.")
     }
 }
 

@@ -202,7 +202,7 @@ final class KeiyoushiBridge {
                     if port > 0 {
                         cont.resume(returning: port)
                     } else {
-                        cont.resume(throwing: KeiyoushiError.bridge(error ?? "The extension runtime didn't start."))
+                        cont.resume(throwing: KeiyoushiError.bridge(error ?? String(localized: "The extension runtime didn't start.")))
                     }
                 }
             }
@@ -322,7 +322,7 @@ final class KeiyoushiBridge {
 
     private func call<T: Decodable>(sourceId: String, method: String, params: [String: Any]) async throws -> T {
         guard let ext = KeiyoushiRepository.shared.installedExtension(forSourceId: sourceId) else {
-            throw KeiyoushiError.bridge("This Keiyoushi source isn't installed.")
+            throw KeiyoushiError.bridge(String(localized: "This Keiyoushi source isn't installed."))
         }
         let port = try await ensurePort()
         let pkg = ext.id
@@ -374,7 +374,7 @@ final class KeiyoushiBridge {
                 throw KeiyoushiError.bridge(err?.error ?? "The extension failed (HTTP \(http?.statusCode ?? 0)).")
             }
         }
-        throw KeiyoushiError.bridge("The extension could not be loaded.")
+        throw KeiyoushiError.bridge(String(localized: "The extension could not be loaded."))
     }
 }
 

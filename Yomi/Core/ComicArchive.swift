@@ -16,11 +16,10 @@ nonisolated struct ComicArchive: Sendable {
         case encrypted, unreadable(String), unsupported7z
         var errorDescription: String? {
             switch self {
-            case .encrypted: return "This archive is password-protected — Yomi can't open it."
-            case .unreadable(let name): return "\"\(name)\" couldn't be read from the archive. The file may be damaged."
+            case .encrypted: return String(localized: "This archive is password-protected — Yomi can't open it.")
+            case .unreadable(let name): return String(localized: "\"\(name)\" couldn't be read from the archive. The file may be damaged.")
             case .unsupported7z:
-                return "This 7z archive couldn't be read. It may be damaged, or packed with a method Yomi doesn't read "
-                    + "(BZip2 or Deflate) — re-packing it with 7-Zip's default (LZMA2) or as a CBZ works."
+                return String(localized: "This 7z archive couldn't be read. It may be damaged, or packed with a method Yomi doesn't read (BZip2 or Deflate) — re-packing it with 7-Zip's default (LZMA2) or as a CBZ works.")
             }
         }
     }

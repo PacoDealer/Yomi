@@ -65,15 +65,15 @@ struct CalmList<Content: View>: View {
 
 extension Section where Parent == CalmSectionHeader, Content: View, Footer == EmptyView {
     /// `Section("Title") { … }` for calm lists.
-    init(calm title: String, @ViewBuilder content: () -> Content) {
+    init(calm title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.init(content: content, header: { CalmSectionHeader(title) })
     }
 }
 
 /// Bold section title for calm lists — sentence case, primary colour, not the small grey caps of a grouped list.
 struct CalmSectionHeader: View {
-    let title: String
-    init(_ title: String) { self.title = title }
+    let title: LocalizedStringKey
+    init(_ title: LocalizedStringKey) { self.title = title }
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {

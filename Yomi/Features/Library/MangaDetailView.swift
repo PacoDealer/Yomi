@@ -44,6 +44,15 @@ struct MangaDetailView: View {
         case unread     = "Unread"
         case downloaded = "Downloaded"
         case bookmarked = "Bookmarked"
+
+        var emptyMessage: LocalizedStringKey {
+            switch self {
+            case .all:        "No chapters"
+            case .unread:     "No unread chapters"
+            case .downloaded: "No downloaded chapters"
+            case .bookmarked: "No bookmarked chapters"
+            }
+        }
     }
 
     enum ChapterSortOption: String, CaseIterable {
@@ -178,10 +187,10 @@ struct MangaDetailView: View {
 
     private var resumeButtonTitle: String {
         // "Continue" while chapters load, so the label doesn't flash "Start" → "Chapter 25".
-        if chapters.isEmpty { return "Continue" }
-        guard hasStartedReading, let ch = resumeChapter else { return "Start" }
+        if chapters.isEmpty { return String(localized: "Continue") }
+        guard hasStartedReading, let ch = resumeChapter else { return String(localized: "Start") }
         if let num = ch.chapterNumber { return Notation.chapter(num) }
-        return "Continue"
+        return String(localized: "Continue")
     }
 
     private var sourceName: String? {
@@ -818,7 +827,7 @@ struct MangaDetailView: View {
             try await KeiyoushiRepository.shared.install(ext, langs: langs.isEmpty ? nil : langs)
             await loadChapters(force: true)
         } catch {
-            toastMessage = "Couldn't add \(ext.name): \(error.localizedDescription)"
+            toastMessage = String(localized: "Couldn't add \(ext.name): \(error.localizedDescription)")
         }
     }
 
@@ -880,7 +889,7 @@ struct MangaDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                     } else if filtered.isEmpty && chapterFilter != .all {
-                        Text("No \(chapterFilter.rawValue.lowercased()) chapters")
+                        Text(chapterFilter.emptyMessage)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -1311,7 +1320,7 @@ struct MangaDetailView: View {
             }
         } catch {
             print("toggleLibrary error: \(error)")
-            toastMessage = "Couldn't update library"
+            toastMessage = String(localized: "Couldn't update library")
             YomiHaptics.error()
         }
     }
@@ -1496,7 +1505,7 @@ struct MangaDetailView: View {
         }
         guard let remoteId = SuwayomiService.shared.suwayomiMangaId(from: mangaId) else {
             chapters = await savedChapters(mangaId: mangaId)
-            chapterLoadError = chapters.isEmpty ? "Unrecognized Suwayomi manga id." : nil
+            chapterLoadError = chapters.isEmpty ? String(localized: "Unrecognized Suwayomi manga id.") : nil
             isLoadingChapters = false
             return
         }
@@ -1530,7 +1539,7 @@ struct MangaDetailView: View {
             }
         } catch {
             chapters = await savedChapters(mangaId: mangaId)
-            chapterLoadError = "Could not reach the Suwayomi server — \(error.localizedDescription)"
+            chapterLoadError = String(localized: "Could not reach the Suwayomi server — \(error.localizedDescription)")
             isLoadingChapters = false
             return
         }
@@ -1544,7 +1553,7 @@ struct MangaDetailView: View {
         let saved = await savedChapters(mangaId: mangaId)
         if fetched.isEmpty {
             chapters = saved
-            if saved.isEmpty { chapterLoadError = "No chapters found on the Suwayomi server." }
+            if saved.isEmpty { chapterLoadError = String(localized: "No chapters found on the Suwayomi server.") }
         } else {
             let savedMap = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
             chapters = fetched.map { ch in
@@ -1648,7 +1657,7 @@ struct MangaDetailView: View {
         let saved = await savedChapters(mangaId: mangaId)
         if fetched.isEmpty {
             chapters = saved
-            if saved.isEmpty { chapterLoadError = "This source returned no chapters." }
+            if saved.isEmpty { chapterLoadError = String(localized: "This source returned no chapters.") }
         } else {
             let savedMap = Dictionary(saved.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             chapters = fetched.map { ch in
@@ -1852,7 +1861,7 @@ private struct ChapterRow: View {
         if chapter.lastPageRead > 0 && !chapter.isRead { parts.append("Page \(chapter.lastPageRead + 1)") }
         if showScanlator, let s = chapter.scanlator, !s.isEmpty { parts.append(s) }
         if chapter.isRead, let readAt = chapter.readAt {
-            parts.append("Read \(readAt.formatted(.relative(presentation: .named)))")
+            parts.append(String(localized: "Read \(readAt.formatted(.relative(presentation: .named)))"))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

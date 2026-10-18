@@ -69,8 +69,8 @@ import Network
 
     /// Short reason for a queued download that isn't moving, or nil if it may run.
     var waitReason: String? {
-        if !isConnected { return "Waiting for connection" }
-        if isWaitingForWiFi { return isConstrained && !isExpensive ? "Paused — Low Data Mode" : "Waiting for Wi-Fi" }
+        if !isConnected { return String(localized: "Waiting for connection") }
+        if isWaitingForWiFi { return isConstrained && !isExpensive ? String(localized: "Paused — Low Data Mode") : String(localized: "Waiting for Wi-Fi") }
         return nil
     }
 

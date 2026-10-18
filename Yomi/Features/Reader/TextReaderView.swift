@@ -355,7 +355,7 @@ struct TextReaderView: View {
         }
         .sheet(isPresented: $showSourceSheet) {
             if let url = sourceURL {
-                DiscussWebSheet(url: url, title: "Source")
+                DiscussWebSheet(url: url, title: String(localized: "Source"))
             }
         }
         .onChange(of: fontSize)   { _, v in AppSettings.shared.fontSize = v }
@@ -619,7 +619,7 @@ struct TextReaderView: View {
             perf.end()
             guard generation == loadGeneration else { return }
             if html.isEmpty {
-                errorMessage = "Unable to load chapter content. The source may be temporarily unavailable."
+                errorMessage = String(localized: "Unable to load chapter content. The source may be temporarily unavailable.")
                 isLoading = false
                 return
             }
@@ -746,7 +746,7 @@ struct TextReaderView: View {
         while translateOn, !translateQueue.isEmpty {
             let id = translateQueue.removeFirst()
             guard let blocks = await controller.translationBlocks(id: id), !blocks.isEmpty else { continue }
-            withMotion { translateStatus = "Translating…" }
+            withMotion { translateStatus = String(localized: "Translating…") }
             do {
                 let texts = try await NovelTranslation.translate(blocks, session: session)
                 guard translateOn else { break }

@@ -64,7 +64,7 @@ struct TrackersView: View {
                             .foregroundStyle(canvas.textPrimary)
                     }
                     Spacer()
-                    Text(isLoggedIn ? (username ?? "Connected") : "Not connected")
+                    Text(isLoggedIn ? (username ?? String(localized: "Connected")) : String(localized: "Not connected"))
                         .foregroundStyle(canvas.textSecondary)
                         .font(.body)
                 }

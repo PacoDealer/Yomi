@@ -41,12 +41,22 @@
         }
       }
     },
-    "\"%@\" on %@.": {
+    "\"%@\" couldn't be read from the archive. The file may be damaged.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "\"%@\" en %@."
+            "value": "No se pudo leer «%@» del archivo. Puede estar dañado."
+          }
+        }
+      }
+    },
+    "\"%@\" is password-protected.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» está protegido con contraseña."
           }
         }
       }
@@ -357,6 +367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld / %lld"
+          }
+        }
+      }
+    },
+    "%lld Failed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld con errores"
           }
         }
       }
@@ -1101,6 +1121,17 @@
         }
       }
     },
+    "AMOLED": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AMOLED"
+          }
+        }
+      }
+    },
     "Aa": {
       "localizations": {
         "es": {
@@ -1121,6 +1152,16 @@
         }
       }
     },
+    "About %lld min left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quedan unos %lld min"
+          }
+        }
+      }
+    },
     "About Repositories": {
       "localizations": {
         "es": {
@@ -1137,6 +1178,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acerca de los repositorios"
+          }
+        }
+      }
+    },
+    "Accent": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color de acento"
+          }
+        }
+      }
+    },
+    "Account": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta"
           }
         }
       }
@@ -1381,6 +1442,16 @@
         }
       }
     },
+    "Add your files": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrega tus archivos"
+          }
+        }
+      }
+    },
     "Added": {
       "localizations": {
         "es": {
@@ -1427,6 +1498,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Added from a link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregada desde un enlace"
           }
         }
       }
@@ -1592,6 +1673,16 @@
         }
       }
     },
+    "Allow Yomi to add photos in Settings to save pages": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que Yomi agregue fotos en Ajustes para guardar páginas"
+          }
+        }
+      }
+    },
     "Alphabetical": {
       "comment": "Looked up at run time",
       "localizations": {
@@ -1663,12 +1754,52 @@
         }
       }
     },
+    "AniList: ignored a login callback this app didn't start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AniList: se ignoró un inicio de sesión que esta app no inició."
+          }
+        }
+      }
+    },
+    "AniList: login didn't complete — please try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AniList: el inicio de sesión no terminó. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "Any": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Cualquiera"
+          }
+        }
+      }
+    },
+    "App": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        }
+      }
+    },
+    "App Icon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ícono de la app"
           }
         }
       }
@@ -1753,6 +1884,16 @@
         }
       }
     },
+    "Authentication not available on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La autenticación no está disponible en este dispositivo."
+          }
+        }
+      }
+    },
     "Auto-bypass failed": {
       "localizations": {
         "es": {
@@ -1803,6 +1944,16 @@
         }
       }
     },
+    "Available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disponibles"
+          }
+        }
+      }
+    },
     "Back Up Now": {
       "localizations": {
         "es": {
@@ -1843,6 +1994,16 @@
         }
       }
     },
+    "Backing up…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haciendo copia…"
+          }
+        }
+      }
+    },
     "Backup": {
       "localizations": {
         "es": {
@@ -1853,12 +2014,42 @@
         }
       }
     },
+    "Backup file is incomplete": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo de copia está incompleto"
+          }
+        }
+      }
+    },
     "Bangumi": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Bangumi"
+          }
+        }
+      }
+    },
+    "Bangumi: ignored a login callback this app didn't start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bangumi: se ignoró un inicio de sesión que esta app no inició."
+          }
+        }
+      }
+    },
+    "Bangumi: session expired — please log in again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bangumi: la sesión expiró. Vuelve a iniciar sesión."
           }
         }
       }
@@ -1893,6 +2084,17 @@
         }
       }
     },
+    "Blue": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Azul"
+          }
+        }
+      }
+    },
     "Bookmark": {
       "localizations": {
         "es": {
@@ -1909,6 +2111,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Marcar capítulo"
+          }
+        }
+      }
+    },
+    "Bookmark removed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcador quitado"
           }
         }
       }
@@ -2063,6 +2275,16 @@
         }
       }
     },
+    "Carry over": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué se conserva"
+          }
+        }
+      }
+    },
     "Categories": {
       "localizations": {
         "es": {
@@ -2109,6 +2331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Capítulo %@"
+          }
+        }
+      }
+    },
+    "Chapter bookmarked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capítulo marcado"
           }
         }
       }
@@ -2353,6 +2585,16 @@
         }
       }
     },
+    "Cloudflare — open the title once to verify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloudflare: abre el título una vez para verificar"
+          }
+        }
+      }
+    },
     "Colour": {
       "localizations": {
         "es": {
@@ -2443,6 +2685,16 @@
         }
       }
     },
+    "Connected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        }
+      }
+    },
     "Connected — %lld sources": {
       "localizations": {
         "es": {
@@ -2459,6 +2711,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conectando…"
+          }
+        }
+      }
+    },
+    "Content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenido"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        }
+      }
+    },
+    "Continue %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Seguir con %@?"
+          }
+        }
+      }
+    },
+    "Continue Reading": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir leyendo"
           }
         }
       }
@@ -2519,6 +2811,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continuo de derecha a izquierda"
+          }
+        }
+      }
+    },
+    "Contrast %@:1": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraste %@:1"
+          }
+        }
+      }
+    },
+    "Contrast %@:1 — hard to read for long. 4.5:1 or more is recommended.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraste %@:1: cuesta leer mucho rato. Se recomienda 4.5:1 o más."
           }
         }
       }
@@ -2633,12 +2945,63 @@
         }
       }
     },
+    "Coral": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coral"
+          }
+        }
+      }
+    },
+    "Could not reach the Suwayomi server — %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo conectar con el servidor de Suwayomi: %@"
+          }
+        }
+      }
+    },
+    "Couldn't add %@: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo agregar %@: %@"
+          }
+        }
+      }
+    },
+    "Couldn't link that folder: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo vincular esa carpeta: %@"
+          }
+        }
+      }
+    },
     "Couldn't load %@": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo cargar %@"
+          }
+        }
+      }
+    },
+    "Couldn't load a repository — %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar un repositorio: %@"
           }
         }
       }
@@ -2703,12 +3066,62 @@
         }
       }
     },
+    "Couldn't save read status": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el estado de lectura"
+          }
+        }
+      }
+    },
+    "Couldn't save the page": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar la página"
+          }
+        }
+      }
+    },
+    "Couldn't update library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar la biblioteca"
+          }
+        }
+      }
+    },
     "Couldn't use this match": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo usar esta coincidencia"
+          }
+        }
+      }
+    },
+    "Couldn’t tell which language this chapter is in.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo saber en qué idioma está este capítulo."
+          }
+        }
+      }
+    },
+    "Couldn’t translate this chapter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo traducir este capítulo."
           }
         }
       }
@@ -2813,12 +3226,33 @@
         }
       }
     },
+    "Dark": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oscuro"
+          }
+        }
+      }
+    },
     "Dark grey": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Gris oscuro"
+          }
+        }
+      }
+    },
+    "Data": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos"
           }
         }
       }
@@ -2859,6 +3293,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Días de racha"
+          }
+        }
+      }
+    },
+    "Decompression error (zlib code %d)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al descomprimir (código zlib %d)"
           }
         }
       }
@@ -3033,6 +3477,26 @@
         }
       }
     },
+    "Discussion": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comentarios"
+          }
+        }
+      }
+    },
+    "Don't Check": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No revisar"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "es": {
@@ -3059,6 +3523,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Descarga capítulos desde la lista de capítulos de un título para leerlos sin conexión."
+          }
+        }
+      }
+    },
+    "Download failed — %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falló la descarga: %@"
           }
         }
       }
@@ -3099,6 +3573,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los capítulos descargados no se mueven con una migración."
+          }
+        }
+      }
+    },
+    "Downloading": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargando"
+          }
+        }
+      }
+    },
+    "Downloading from iCloud…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargando de iCloud…"
           }
         }
       }
@@ -3173,6 +3667,17 @@
         }
       }
     },
+    "E-ink": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tinta electrónica"
+          }
+        }
+      }
+    },
     "Each time you leave Yomi.": {
       "localizations": {
         "es": {
@@ -3199,6 +3704,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Antes"
+          }
+        }
+      }
+    },
+    "Earlier chapters are already read": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los capítulos anteriores ya están leídos"
           }
         }
       }
@@ -3263,6 +3778,16 @@
         }
       }
     },
+    "Empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vacía"
+          }
+        }
+      }
+    },
     "End of chapter": {
       "localizations": {
         "es": {
@@ -3279,6 +3804,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Error: %@"
+          }
+        }
+      }
+    },
+    "Everything in %@ is added.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya agregaste todo lo que hay en %@."
           }
         }
       }
@@ -3333,12 +3868,42 @@
         }
       }
     },
+    "Exporting…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportando…"
+          }
+        }
+      }
+    },
+    "Extension": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extensión"
+          }
+        }
+      }
+    },
     "Extension Link": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Enlace de la extensión"
+          }
+        }
+      }
+    },
+    "Extension not installed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extensión no instalada"
           }
         }
       }
@@ -3413,6 +3978,16 @@
         }
       }
     },
+    "Failed to load source plugin.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el plugin de la fuente."
+          }
+        }
+      }
+    },
     "Failed: %@": {
       "localizations": {
         "es": {
@@ -3429,6 +4004,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Novedades"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo"
+          }
+        }
+      }
+    },
+    "File is not a gzip archive (.tachibk)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo no es un gzip (.tachibk)"
+          }
+        }
+      }
+    },
+    "Files": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivos"
           }
         }
       }
@@ -3559,6 +4164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desde"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
           }
         }
       }
@@ -3813,6 +4428,16 @@
         }
       }
     },
+    "Importing…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importando…"
+          }
+        }
+      }
+    },
     "In landscape": {
       "localizations": {
         "es": {
@@ -3829,6 +4454,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "En la biblioteca"
+          }
+        }
+      }
+    },
+    "In the toolbar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En la barra"
           }
         }
       }
@@ -3853,6 +4488,17 @@
         }
       }
     },
+    "Indigo": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Índigo"
+          }
+        }
+      }
+    },
     "Infinite scroll": {
       "localizations": {
         "es": {
@@ -3863,12 +4509,32 @@
         }
       }
     },
+    "Information": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Información"
+          }
+        }
+      }
+    },
     "Insights": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Estadísticas"
+          }
+        }
+      }
+    },
+    "Installed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instaladas"
           }
         }
       }
@@ -3893,12 +4559,32 @@
         }
       }
     },
+    "Invalid backup file": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo de copia no válido"
+          }
+        }
+      }
+    },
     "Invert selection": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Invertir selección"
+          }
+        }
+      }
+    },
+    "Issues found and left as-is (repair doesn't rewrite data):\n": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se encontraron problemas y se dejaron como estaban (reparar no reescribe datos):\n"
           }
         }
       }
@@ -4009,6 +4695,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mantiene juntas las dobles páginas impresas. Las páginas anchas siempre ocupan una pantalla propia."
+          }
+        }
+      }
+    },
+    "Keiyoushi extensions need the on-device runtime, which this build doesn't include.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las extensiones de Keiyoushi necesitan el motor en el dispositivo, que esta versión no incluye."
+          }
+        }
+      }
+    },
+    "Keiyoushi needs the iPhone build": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keiyoushi necesita la versión para iPhone"
           }
         }
       }
@@ -4162,6 +4868,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recientes"
+          }
+        }
+      }
+    },
+    "Lavender": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lavanda"
           }
         }
       }
@@ -4348,6 +5065,16 @@
         }
       }
     },
+    "Listening": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escuchar"
+          }
+        }
+      }
+    },
     "Load More": {
       "localizations": {
         "es": {
@@ -4418,6 +5145,16 @@
         }
       }
     },
+    "Lock": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueo"
+          }
+        }
+      }
+    },
     "Lock with a Passcode": {
       "localizations": {
         "es": {
@@ -4428,12 +5165,32 @@
         }
       }
     },
+    "Locked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqueado"
+          }
+        }
+      }
+    },
     "Logged in as": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Sesión iniciada como"
+          }
+        }
+      }
+    },
+    "Long Strip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tira larga"
           }
         }
       }
@@ -4851,6 +5608,27 @@
         }
       }
     },
+    "Mihon extension runtime": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motor de extensiones de Mihon"
+          }
+        }
+      }
+    },
+    "Mint": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menta"
+          }
+        }
+      }
+    },
     "Mode": {
       "localizations": {
         "es": {
@@ -4867,6 +5645,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Más"
+          }
+        }
+      }
+    },
+    "More buttons": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más botones"
           }
         }
       }
@@ -4921,6 +5709,16 @@
         }
       }
     },
+    "Multiple languages": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varios idiomas"
+          }
+        }
+      }
+    },
     "Music and podcasts keep playing. Lock-screen controls don't appear.": {
       "localizations": {
         "es": {
@@ -4941,12 +5739,42 @@
         }
       }
     },
+    "My theme": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi tema"
+          }
+        }
+      }
+    },
     "MyAnimeList": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "MyAnimeList"
+          }
+        }
+      }
+    },
+    "MyAnimeList: ignored a login callback this app didn't start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyAnimeList: se ignoró un inicio de sesión que esta app no inició."
+          }
+        }
+      }
+    },
+    "MyAnimeList: session expired — please log in again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyAnimeList: la sesión expiró. Vuelve a iniciar sesión."
           }
         }
       }
@@ -4968,6 +5796,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Angosto"
+          }
+        }
+      }
+    },
+    "Network": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Red"
           }
         }
       }
@@ -5112,22 +5950,22 @@
         }
       }
     },
+    "Night": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noche"
+          }
+        }
+      }
+    },
     "Night theme": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Tema nocturno"
-          }
-        }
-      }
-    },
-    "No %@ chapters": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay capítulos %@"
           }
         }
       }
@@ -5162,6 +6000,26 @@
         }
       }
     },
+    "No access token": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay token de acceso"
+          }
+        }
+      }
+    },
+    "No bookmarked chapters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay capítulos marcados"
+          }
+        }
+      }
+    },
     "No buttons — only the page count shows.": {
       "localizations": {
         "es": {
@@ -5192,6 +6050,26 @@
         }
       }
     },
+    "No chapters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay capítulos"
+          }
+        }
+      }
+    },
+    "No chapters found on the Suwayomi server.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron capítulos en el servidor de Suwayomi."
+          }
+        }
+      }
+    },
     "No chapters found.": {
       "localizations": {
         "es": {
@@ -5212,6 +6090,16 @@
         }
       }
     },
+    "No downloaded chapters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay capítulos descargados"
+          }
+        }
+      }
+    },
     "No downloads": {
       "localizations": {
         "es": {
@@ -5222,12 +6110,32 @@
         }
       }
     },
+    "No extensions match “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna extensión coincide con «%@»."
+          }
+        }
+      }
+    },
     "No history": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "No hay historial"
+          }
+        }
+      }
+    },
+    "No issues found. Database optimized.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron problemas. Base de datos optimizada."
           }
         }
       }
@@ -5268,6 +6176,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hay otras fuentes"
+          }
+        }
+      }
+    },
+    "No pages found for this chapter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron páginas para este capítulo."
+          }
+        }
+      }
+    },
+    "No pages found.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron páginas."
           }
         }
       }
@@ -5382,6 +6310,16 @@
         }
       }
     },
+    "No unread chapters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay capítulos sin leer"
+          }
+        }
+      }
+    },
     "No updates yet": {
       "localizations": {
         "es": {
@@ -5429,6 +6367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No disponible"
+          }
+        }
+      }
+    },
+    "Not connected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No conectado"
           }
         }
       }
@@ -5519,6 +6467,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hay nada para migrar"
+          }
+        }
+      }
+    },
+    "Notifications": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notificaciones"
           }
         }
       }
@@ -5659,6 +6617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desactivado: cada capítulo termina en una página con un botón de Siguiente capítulo"
+          }
+        }
+      }
+    },
+    "Offline": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin conexión"
           }
         }
       }
@@ -5843,6 +6811,17 @@
         }
       }
     },
+    "Orange": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naranja"
+          }
+        }
+      }
+    },
     "Order": {
       "localizations": {
         "es": {
@@ -5903,12 +6882,32 @@
         }
       }
     },
+    "Page %lld of %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Página %lld de %lld"
+          }
+        }
+      }
+    },
     "Page %lld of %lld, %@": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Página %lld de %lld, %@"
+          }
+        }
+      }
+    },
+    "Page copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Página copiada"
           }
         }
       }
@@ -6004,6 +7003,26 @@
         }
       }
     },
+    "Paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa"
+          }
+        }
+      }
+    },
+    "Paused — Low Data Mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa: modo de datos reducidos"
+          }
+        }
+      }
+    },
     "Pick the buttons in the bar at the bottom of the reader.": {
       "localizations": {
         "es": {
@@ -6030,6 +7049,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pellizcar para ampliar"
+          }
+        }
+      }
+    },
+    "Pink": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rosa"
           }
         }
       }
@@ -6084,6 +7114,16 @@
         }
       }
     },
+    "Plugin runtime": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motor de plugins"
+          }
+        }
+      }
+    },
     "Popular": {
       "comment": "Looked up at run time",
       "localizations": {
@@ -6091,6 +7131,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Populares"
+          }
+        }
+      }
+    },
+    "Ported code": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código adaptado"
           }
         }
       }
@@ -6135,12 +7185,42 @@
         }
       }
     },
+    "Previous sentence": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oración anterior"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacidad"
+          }
+        }
+      }
+    },
     "Privacy Policy": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Política de privacidad"
+          }
+        }
+      }
+    },
+    "Progress": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progreso"
           }
         }
       }
@@ -6171,6 +7251,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Leer"
+          }
+        }
+      }
+    },
+    "Read %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leído %@"
           }
         }
       }
@@ -6215,6 +7305,16 @@
         }
       }
     },
+    "Reader": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lector"
+          }
+        }
+      }
+    },
     "Reader Settings": {
       "localizations": {
         "es": {
@@ -6231,6 +7331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reader fixture failed to start"
+          }
+        }
+      }
+    },
+    "Reader fonts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuentes del lector"
           }
         }
       }
@@ -6342,6 +7452,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Actualizar un título como máximo una vez por hora"
+          }
+        }
+      }
+    },
+    "Refreshing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualización"
           }
         }
       }
@@ -6486,6 +7606,16 @@
         }
       }
     },
+    "Repair failed — could not complete the integrity check.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falló la reparación: no se pudo completar la revisión de integridad."
+          }
+        }
+      }
+    },
     "Repairing…": {
       "localizations": {
         "es": {
@@ -6552,6 +7682,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Repositorios"
+          }
+        }
+      }
+    },
+    "Repositories in your backup": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repositorios en tu copia"
           }
         }
       }
@@ -6746,6 +7886,17 @@
         }
       }
     },
+    "Sage": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salvia"
+          }
+        }
+      }
+    },
     "Sample text": {
       "localizations": {
         "es": {
@@ -6782,6 +7933,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar en Fotos"
+          }
+        }
+      }
+    },
+    "Saved to Photos": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardada en Fotos"
           }
         }
       }
@@ -7106,6 +8267,36 @@
         }
       }
     },
+    "Servers": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidores"
+          }
+        }
+      }
+    },
+    "Services": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servicios"
+          }
+        }
+      }
+    },
+    "Set a passcode for this iPhone first (iOS Settings → Face ID & Passcode).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero configura un código para este iPhone (Ajustes de iOS → Face ID y código)."
+          }
+        }
+      }
+    },
     "Settings": {
       "localizations": {
         "es": {
@@ -7172,6 +8363,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shikimori"
+          }
+        }
+      }
+    },
+    "Shikimori: ignored a login callback this app didn't start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shikimori: se ignoró un inicio de sesión que esta app no inició."
+          }
+        }
+      }
+    },
+    "Shikimori: session expired — please log in again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shikimori: la sesión expiró. Vuelve a iniciar sesión."
           }
         }
       }
@@ -7346,6 +8557,17 @@
         }
       }
     },
+    "Sky": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cielo"
+          }
+        }
+      }
+    },
     "Sleep timer": {
       "localizations": {
         "es": {
@@ -7506,6 +8728,16 @@
         }
       }
     },
+    "Start": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
+          }
+        }
+      }
+    },
     "Start Reading": {
       "localizations": {
         "es": {
@@ -7562,6 +8794,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Almacenamiento"
+          }
+        }
+      }
+    },
+    "Support": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soporte"
           }
         }
       }
@@ -7786,6 +9028,17 @@
         }
       }
     },
+    "Teal": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verde azulado"
+          }
+        }
+      }
+    },
     "Terms renamed in every chapter of this novel": {
       "localizations": {
         "es": {
@@ -7812,6 +9065,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texto"
+          }
+        }
+      }
+    },
+    "Text copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto copiado"
           }
         }
       }
@@ -7856,6 +9119,166 @@
         }
       }
     },
+    "That doesn't look like a link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eso no parece un enlace."
+          }
+        }
+      }
+    },
+    "That isn't a valid repository URL.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa no es una URL de repositorio válida."
+          }
+        }
+      }
+    },
+    "That link isn't a Mihon extension repository (index.pb or index.min.json).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese enlace no es un repositorio de extensiones de Mihon (index.pb o index.min.json)."
+          }
+        }
+      }
+    },
+    "The archive is damaged (%@).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo está dañado (%@)."
+          }
+        }
+      }
+    },
+    "The download isn't a plugin (the server sent a web page). Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La descarga no es un plugin (el servidor envió una página web). No se cambió nada."
+          }
+        }
+      }
+    },
+    "The download was empty. Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La descarga llegó vacía. No se cambió nada."
+          }
+        }
+      }
+    },
+    "The downloaded plugin doesn't match its repository (checksum). Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El plugin descargado no coincide con su repositorio (checksum). No se cambió nada."
+          }
+        }
+      }
+    },
+    "The downloaded plugin has an error (%@). Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El plugin descargado tiene un error (%@). No se cambió nada."
+          }
+        }
+      }
+    },
+    "The extension could not be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar la extensión."
+          }
+        }
+      }
+    },
+    "The extension runtime didn't start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El motor de extensiones no arrancó."
+          }
+        }
+      }
+    },
+    "The file isn't there any more. If it was in a linked folder, link it again in Browse → Local.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo ya no está. Si estaba en una carpeta vinculada, vuelve a vincularla en Explorar → Local."
+          }
+        }
+      }
+    },
+    "The licence text is missing from this build.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta el texto de la licencia en esta versión."
+          }
+        }
+      }
+    },
+    "The new source returned no chapters. Nothing was changed — your original entry is untouched. The source may be temporarily blocked or unreachable.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La fuente nueva no devolvió capítulos. No se cambió nada: tu entrada original sigue igual. Puede que la fuente esté bloqueada o fuera de alcance por un rato."
+          }
+        }
+      }
+    },
+    "The page isn't loaded yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La página todavía no cargó"
+          }
+        }
+      }
+    },
+    "The passcodes didn't match. Choose one again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los códigos no coinciden. Elige uno otra vez."
+          }
+        }
+      }
+    },
+    "The plugin couldn't be downloaded (HTTP %lld). Nothing was changed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo descargar el plugin (HTTP %lld). No se cambió nada."
+          }
+        }
+      }
+    },
     "The reader changes to this theme at night and back in the morning. Choosing a theme in the reader at night changes the night theme.": {
       "localizations": {
         "es": {
@@ -7872,6 +9295,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "El erudito se detuvo en la puerta. “Volviste”, dijo el anciano, sin levantar la vista de su té."
+          }
+        }
+      }
+    },
+    "The source returned no chapters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La fuente no devolvió capítulos"
+          }
+        }
+      }
+    },
+    "Theme": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tema"
           }
         }
       }
@@ -7936,6 +9379,76 @@
         }
       }
     },
+    "This 7z archive couldn't be read. It may be damaged, or packed with a method Yomi doesn't read (BZip2 or Deflate) — re-packing it with 7-Zip's default (LZMA2) or as a CBZ works.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer este archivo 7z. Puede estar dañado o comprimido con un método que Yomi no lee (BZip2 o Deflate). Funciona si lo vuelves a comprimir con el método por defecto de 7-Zip (LZMA2) o como CBZ."
+          }
+        }
+      }
+    },
+    "This EPUB couldn't be read (%@).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer este EPUB (%@)."
+          }
+        }
+      }
+    },
+    "This Keiyoushi source isn't installed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta fuente de Keiyoushi no está instalada."
+          }
+        }
+      }
+    },
+    "This archive is password-protected — Yomi can't open it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo está protegido con contraseña: Yomi no puede abrirlo."
+          }
+        }
+      }
+    },
+    "This archive is too large (ZIP64) — Yomi can't open it yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo es demasiado grande (ZIP64): Yomi todavía no puede abrirlo."
+          }
+        }
+      }
+    },
+    "This archive uses an unsupported compression method (%u).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo usa un método de compresión no compatible (%u)."
+          }
+        }
+      }
+    },
+    "This backup has no titles in it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta copia no tiene títulos"
+          }
+        }
+      }
+    },
     "This build doesn't include the on-device runtime, so Mihon extensions can't run here.": {
       "localizations": {
         "es": {
@@ -7946,12 +9459,32 @@
         }
       }
     },
+    "This chapter has no text to read.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este capítulo no tiene texto para leer."
+          }
+        }
+      }
+    },
     "This colour is hard to see on the current theme.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Este color se ve poco con el tema actual."
+          }
+        }
+      }
+    },
+    "This extension is already added.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta extensión ya está agregada."
           }
         }
       }
@@ -7982,6 +9515,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Este feed está vacío."
+          }
+        }
+      }
+    },
+    "This file isn't a ZIP archive.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo no es un ZIP."
+          }
+        }
+      }
+    },
+    "This isn't a Tachimanga backup (.tmb)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta no es una copia de Tachimanga (.tmb)"
           }
         }
       }
@@ -8022,6 +9575,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elimina todos los capítulos descargados de este dispositivo. Los títulos siguen en tu biblioteca."
+          }
+        }
+      }
+    },
+    "This repository is already added.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este repositorio ya está agregado."
+          }
+        }
+      }
+    },
+    "This source returned no chapters.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta fuente no devolvió capítulos."
           }
         }
       }
@@ -8093,6 +9666,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tiempo de lectura"
+          }
+        }
+      }
+    },
+    "Time to read": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hora de leer"
           }
         }
       }
@@ -8187,6 +9770,46 @@
         }
       }
     },
+    "Too many tries. Try again in %lld seconds.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many tries. Try again in %lld second."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many tries. Try again in %lld seconds."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Demasiados intentos. Vuelve a intentarlo en %lld segundo."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Demasiados intentos. Vuelve a intentarlo en %lld segundos."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Toolbar": {
       "localizations": {
         "es": {
@@ -8267,6 +9890,26 @@
         }
       }
     },
+    "Translating…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traduciendo…"
+          }
+        }
+      }
+    },
+    "Translation isn’t available for this language pair.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La traducción no está disponible para este par de idiomas."
+          }
+        }
+      }
+    },
     "Try Again": {
       "localizations": {
         "es": {
@@ -8337,12 +9980,32 @@
         }
       }
     },
+    "Unable to load chapter content. The source may be temporarily unavailable.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el capítulo. Puede que la fuente no esté disponible por un rato."
+          }
+        }
+      }
+    },
     "Unbookmark": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Quitar marcador"
+          }
+        }
+      }
+    },
+    "Under a minute left": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queda menos de un minuto"
           }
         }
       }
@@ -8367,6 +10030,16 @@
         }
       }
     },
+    "Unknown source": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuente desconocida"
+          }
+        }
+      }
+    },
     "Unlink": {
       "localizations": {
         "es": {
@@ -8383,6 +10056,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desbloquear"
+          }
+        }
+      }
+    },
+    "Unlock Yomi": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desbloquear Yomi"
           }
         }
       }
@@ -8427,12 +10110,32 @@
         }
       }
     },
+    "Unrecognized Suwayomi manga id.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID de manga de Suwayomi no reconocido."
+          }
+        }
+      }
+    },
     "Until": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Hasta"
+          }
+        }
+      }
+    },
+    "Up to %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta %@"
           }
         }
       }
@@ -8517,6 +10220,16 @@
         }
       }
     },
+    "Uploading to iCloud…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subiendo a iCloud…"
+          }
+        }
+      }
+    },
     "Use This Match": {
       "localizations": {
         "es": {
@@ -8587,12 +10300,43 @@
         }
       }
     },
+    "Vermilion": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bermellón"
+          }
+        }
+      }
+    },
     "Version": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Versión"
+          }
+        }
+      }
+    },
+    "Version %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión %@"
+          }
+        }
+      }
+    },
+    "Version %@ · Manga": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión %@ · Manga"
           }
         }
       }
@@ -8613,6 +10357,48 @@
           "stringUnit": {
             "state": "translated",
             "value": "Voz"
+          }
+        }
+      }
+    },
+    "Void": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vacío"
+          }
+        }
+      }
+    },
+    "Waiting for Wi-Fi": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando Wi-Fi"
+          }
+        }
+      }
+    },
+    "Waiting for connection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando conexión"
+          }
+        }
+      }
+    },
+    "Warm": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cálido"
           }
         }
       }
@@ -8758,6 +10544,37 @@
         }
       }
     },
+    "Wrong passcode.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código incorrecto."
+          }
+        }
+      }
+    },
+    "Wrong passcode. Try again in a minute.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código incorrecto. Inténtalo de nuevo en un minuto."
+          }
+        }
+      }
+    },
+    "Yellow": {
+      "comment": "Looked up at run time",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amarillo"
+          }
+        }
+      }
+    },
     "Yesterday": {
       "localizations": {
         "es": {
@@ -8794,6 +10611,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yomi también lee tus propios archivos: Explorar → En este iPhone → Archivos locales abre CBZ, CBR, CB7, ZIP y EPUB."
+          }
+        }
+      }
+    },
+    "Yomi couldn't open its iCloud folder. Check that iCloud Drive is on for Yomi in Settings → your name → iCloud.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yomi no pudo abrir su carpeta de iCloud. Revisa que iCloud Drive esté activado para Yomi en Ajustes → tu nombre → iCloud."
           }
         }
       }
@@ -8868,6 +10695,16 @@
         }
       }
     },
+    "You've added everything your repositories offer.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya agregaste todo lo que ofrecen tus repositorios."
+          }
+        }
+      }
+    },
     "Your choice, your responsibility": {
       "localizations": {
         "es": {
@@ -8884,6 +10721,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu biblioteca está vacía"
+          }
+        }
+      }
+    },
+    "Your reading list is waiting.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu lista de lectura te espera."
           }
         }
       }
@@ -8964,6 +10811,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "https://…"
+          }
+        }
+      }
+    },
+    "iCloud": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud"
           }
         }
       }

@@ -38,7 +38,7 @@ nonisolated enum SourceLanguage {
     /// A readable name in the user's language: "en" → "English", "pt-BR" → "Portuguese (Brazil)".
     static func displayName(for raw: String) -> String {
         let cleaned = raw.trimmingCharacters(in: strip)
-        if baseCode(for: cleaned) == "all" { return "Multiple languages" }
+        if baseCode(for: cleaned) == "all" { return String(localized: "Multiple languages") }
         if let name = Locale.current.localizedString(forIdentifier: cleaned), name.lowercased() != cleaned.lowercased() {
             return name.prefix(1).uppercased() + name.dropFirst()
         }

@@ -192,12 +192,12 @@ private struct PasscodeSheet: View {
         case .current:
             let wait = SafeMode.waitRemaining
             if wait > 0 {
-                message = "Too many tries. Try again in \(Int(wait.rounded(.up))) seconds."
+                message = String(localized: "Too many tries. Try again in \(Int(wait.rounded(.up))) seconds.")
                 return
             }
             guard SafeMode.check(digits) else {
                 let after = SafeMode.waitRemaining
-                message = after > 0 ? "Wrong passcode. Try again in a minute." : "Wrong passcode."
+                message = after > 0 ? String(localized: "Wrong passcode. Try again in a minute.") : String(localized: "Wrong passcode.")
                 return
             }
             message = nil
@@ -208,7 +208,7 @@ private struct PasscodeSheet: View {
             step = .confirm
         case .confirm:
             guard digits == firstNew else {
-                message = "The passcodes didn't match. Choose one again."
+                message = String(localized: "The passcodes didn't match. Choose one again.")
                 step = .new
                 return
             }

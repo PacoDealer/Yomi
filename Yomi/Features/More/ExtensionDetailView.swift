@@ -84,14 +84,14 @@ struct ExtensionDetailView: View {
     @ViewBuilder
     private func pluginContent(installed: Extension?, group: PluginCatalogGroup?) -> some View {
         let entry = installed.flatMap { ext in catalogService.entries.first { $0.matches(ext) } } ?? group?.primaryEntry
-        let name = installed?.name ?? group?.name ?? entry?.name ?? "Extension"
+        let name = installed?.name ?? group?.name ?? entry?.name ?? String(localized: "Extension")
         let update = installed.flatMap { catalogService.availableUpdate(for: $0) }
         let isNovel = installed.flatMap { PluginKindCache.isNovel[$0.id] } ?? entry?.knownIsNovel
         let languages = group.map { $0.entries.map(\.language) } ?? [installed?.language ?? entry?.language ?? ""]
 
         header(name: name, iconURL: installed?.iconURL ?? entry?.iconURL.flatMap(URL.init(string:)),
-               line: [installed.map { "Version \($0.version)" } ?? entry.map { "Version \($0.version)" },
-                      isNovel.map { $0 ? "Novels" : "Manga" }].compactMap { $0 }.joined(separator: " · "),
+               line: [installed.map { String(localized: "Version \($0.version)") } ?? entry.map { String(localized: "Version \($0.version)") },
+                      isNovel.map { $0 ? String(localized: "Novels") : String(localized: "Manga") }].compactMap { $0 }.joined(separator: " · "),
                isNSFW: installed?.isNSFW ?? entry?.isNSFW ?? false, isMihonIcon: false)
 
         Section {
@@ -138,7 +138,7 @@ struct ExtensionDetailView: View {
             infoRow("Language", languages.map(SourceLanguage.displayName(for:)).joined(separator: ", "))
             if let entry { infoRow("Repository", PluginCatalogService.repoLabel(from: entry.repoURL)) }
             if let site = entry?.site { infoRow("Website", URL(string: site)?.host() ?? site) }
-            if installed != nil, entry == nil { infoRow("Source", "Added from a link") }
+            if installed != nil, entry == nil { infoRow("Source", String(localized: "Added from a link")) }
         }
 
         if let installed {
@@ -172,7 +172,7 @@ struct ExtensionDetailView: View {
             let homes = Set(info.sources.map(\.homeURL).filter { !$0.isEmpty })
 
             header(name: info.name, iconURL: URL(string: info.iconURL),
-                   line: "Version \(info.versionName) · Manga", isNSFW: info.isNSFW, isMihonIcon: true)
+                   line: String(localized: "Version \(info.versionName) · Manga"), isNSFW: info.isNSFW, isMihonIcon: true)
 
             Section {
                 HStack(spacing: 10) {

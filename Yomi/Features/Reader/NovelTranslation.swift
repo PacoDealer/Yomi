@@ -55,11 +55,11 @@ enum NovelTranslation {
     static func message(for error: Error) -> String {
         if TranslationError.unsupportedLanguagePairing ~= error || TranslationError.unsupportedSourceLanguage ~= error
             || TranslationError.unsupportedTargetLanguage ~= error {
-            return "Translation isn’t available for this language pair."
+            return String(localized: "Translation isn’t available for this language pair.")
         }
         if TranslationError.unableToIdentifyLanguage ~= error {
-            return "Couldn’t tell which language this chapter is in."
+            return String(localized: "Couldn’t tell which language this chapter is in.")
         }
-        return "Couldn’t translate this chapter."
+        return String(localized: "Couldn’t translate this chapter.")
     }
 }

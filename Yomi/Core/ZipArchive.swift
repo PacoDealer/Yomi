@@ -25,11 +25,11 @@ nonisolated struct ZipArchive: Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .notAZip: return "This file isn't a ZIP archive."
-            case .zip64: return "This archive is too large (ZIP64) — Yomi can't open it yet."
-            case .encrypted(let name): return "\"\(name)\" is password-protected."
-            case .unsupportedMethod(let m): return "This archive uses an unsupported compression method (\(m))."
-            case .corrupt(let what): return "The archive is damaged (\(what))."
+            case .notAZip: return String(localized: "This file isn't a ZIP archive.")
+            case .zip64: return String(localized: "This archive is too large (ZIP64) — Yomi can't open it yet.")
+            case .encrypted(let name): return String(localized: "\"\(name)\" is password-protected.")
+            case .unsupportedMethod(let m): return String(localized: "This archive uses an unsupported compression method (\(m)).")
+            case .corrupt(let what): return String(localized: "The archive is damaged (\(what)).")
             }
         }
     }

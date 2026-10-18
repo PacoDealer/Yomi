@@ -99,7 +99,7 @@ final class ListenPlayer {
         var total = 0
         charOffsets = list.map { total += $0.count; return total }
         guard !list.isEmpty else {
-            status = .failed("This chapter has no text to read.")
+            status = .failed(String(localized: "This chapter has no text to read."))
             updateNowPlaying()
             return
         }

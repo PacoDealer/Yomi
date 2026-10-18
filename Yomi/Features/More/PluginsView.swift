@@ -299,7 +299,7 @@ struct PluginsView: View {
     }
 
     /// A section title as an ordinary row, so it scrolls away like the Library's instead of pinning over rows.
-    private func sectionHeader<Trailing: View>(_ title: String,
+    private func sectionHeader<Trailing: View>(_ title: LocalizedStringKey,
                                                @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
@@ -384,12 +384,12 @@ struct PluginsView: View {
     }
 
     private var emptyAvailableMessage: String {
-        if !searchText.isEmpty { return "No extensions match \u{201C}\(searchText)\u{201D}." }
+        if !searchText.isEmpty { return String(localized: "No extensions match \u{201C}\(searchText)\u{201D}.") }
         if let error = catalogService.errorMessage ?? keiyoushi.errorMessage {
-            return "Couldn't load a repository — \(error)"
+            return String(localized: "Couldn't load a repository — \(error)")
         }
-        if !languageFilter.isEmpty { return "Everything in \(SourceLanguage.displayName(for: languageFilter)) is added." }
-        return "You've added everything your repositories offer."
+        if !languageFilter.isEmpty { return String(localized: "Everything in \(SourceLanguage.displayName(for: languageFilter)) is added.") }
+        return String(localized: "You've added everything your repositories offer.")
     }
 
     private var languageMenu: some View {
@@ -402,7 +402,7 @@ struct PluginsView: View {
             }
         } label: {
             HStack(spacing: 3) {
-                Text(languageFilter.isEmpty ? "All Languages" : SourceLanguage.displayName(for: languageFilter))
+                Text(languageFilter.isEmpty ? String(localized: "All Languages") : SourceLanguage.displayName(for: languageFilter))
                 Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
             }
             .font(.subheadline)
@@ -427,7 +427,7 @@ struct PluginsView: View {
         case .installed(let ext):
             let update = catalogService.availableUpdate(for: ext)
             ExtensionRow(name: ext.name, iconURL: ext.iconURL ?? catalogEntry(for: ext)?.iconURL.flatMap(URL.init(string:)),
-                         detail: update.map { "Version \($0.version)" }
+                         detail: update.map { String(localized: "Version \($0.version)") }
                             ?? detail(language: ext.language, isNovel: isNovel(ext), origin: origin),
                          isNSFW: ext.isNSFW) {
                 if let update {
@@ -448,7 +448,7 @@ struct PluginsView: View {
             let update = keiyoushi.availableUpdate(for: installed)
             let langs = Set(installed.info.sources.map(\.lang))
             ExtensionRow(name: installed.info.name, iconURL: URL(string: installed.info.iconURL),
-                         detail: update.map { "Version \($0.versionName)" }
+                         detail: update.map { String(localized: "Version \($0.versionName)") }
                             ?? keiyoushiDetail(installed.info, enabled: Set(installed.enabledSources.map(\.lang)),
                                                origin: origin),
                          isNSFW: installed.info.isNSFW, isMihonIcon: true) {
@@ -499,7 +499,7 @@ struct PluginsView: View {
 
     private func kindSuffix(_ isNovel: Bool?) -> String {
         guard let isNovel else { return "" }
-        return isNovel ? " · Novels" : " · Manga"
+        return " · " + (isNovel ? String(localized: "Novels") : String(localized: "Manga"))
     }
 
     /// "English · Manga", "7 languages · Manga", "2 of 7 languages · Manga".
@@ -899,11 +899,11 @@ struct AddRepoSheet: View {
     /// the first.
     private func add() {
         guard let url = URL(string: trimmed), url.scheme?.hasPrefix("http") == true, url.host != nil else {
-            error = "That doesn't look like a link."
+            error = String(localized: "That doesn't look like a link.")
             return
         }
         guard !settings.pluginCatalogURLs.contains(trimmed), !settings.mihonRepoURLs.contains(trimmed) else {
-            error = "This repository is already added."
+            error = String(localized: "This repository is already added.")
             return
         }
         let path = url.path.lowercased()
@@ -1008,7 +1008,7 @@ private struct InstallFromURLSheet: View {
 
         let nameToCheck = pluginName.trimmingCharacters(in: .whitespaces)
         if extensionManager.installed.contains(where: { $0.id == id || (!nameToCheck.isEmpty && $0.name.lowercased() == nameToCheck.lowercased()) }) {
-            errorMessage = "This extension is already added."
+            errorMessage = String(localized: "This extension is already added.")
             isInstalling = false
             return
         }

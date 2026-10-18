@@ -515,11 +515,11 @@ enum BackupParseError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notGzip:             return "File is not a gzip archive (.tachibk)"
-        case .zlibError(let c):   return "Decompression error (zlib code \(c))"
-        case .truncated:           return "Backup file is incomplete"
-        case .empty:               return "This backup has no titles in it"
-        case .notTachimanga:       return "This isn't a Tachimanga backup (.tmb)"
+        case .notGzip:             return String(localized: "File is not a gzip archive (.tachibk)")
+        case .zlibError(let c):   return String(localized: "Decompression error (zlib code \(c))")
+        case .truncated:           return String(localized: "Backup file is incomplete")
+        case .empty:               return String(localized: "This backup has no titles in it")
+        case .notTachimanga:       return String(localized: "This isn't a Tachimanga backup (.tmb)")
         }
     }
 }

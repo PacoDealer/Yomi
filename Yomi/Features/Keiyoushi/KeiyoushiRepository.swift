@@ -65,11 +65,11 @@ enum KeiyoushiError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .badRepoURL: return "That isn't a valid repository URL."
-        case .notAnIndex: return "That link isn't a Mihon extension repository (index.pb or index.min.json)."
-        case .download(let why): return "Download failed — \(why)"
+        case .badRepoURL: return String(localized: "That isn't a valid repository URL.")
+        case .notAnIndex: return String(localized: "That link isn't a Mihon extension repository (index.pb or index.min.json).")
+        case .download(let why): return String(localized: "Download failed — \(why)")
         case .runtimeUnavailable:
-            return "Keiyoushi extensions need the on-device runtime, which this build doesn't include."
+            return String(localized: "Keiyoushi extensions need the on-device runtime, which this build doesn't include.")
         case .bridge(let why): return why
         }
     }

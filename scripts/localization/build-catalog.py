@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds Yomi/Localizable.xcstrings from what the compiler extracted plus the translation maps here (S180).
+"""Builds Yomi/Localizable.xcstrings (and YomiWidget/Localizable.xcstrings) from what the compiler extracted plus the translation maps here (S180).
 
 The catalog is GENERATED — edit es-*.json / plurals.json and re-run, don't edit the catalog in Xcode.
 
@@ -17,19 +17,22 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 CATALOG = ROOT / "Yomi" / "Localizable.xcstrings"
+WIDGET_CATALOG = ROOT / "YomiWidget" / "Localizable.xcstrings"   # the widget is its own target with its own bundle
 SPEC = re.compile(r"%(?:\d+\$)?(?:lld|ld|d|@|f|\.\d+f|%)")
 
 
 def derived_data():
-    dirs = sorted(glob.glob(str(Path.home() / "Library/Developer/Xcode/DerivedData/Yomi-*")),
+    # Xcode's own DerivedData, or XcodeBuildMCP's (it builds into its workspace folder) — newest wins.
+    dirs = sorted(glob.glob(str(Path.home() / "Library/Developer/Xcode/DerivedData/Yomi-*"))
+                  + glob.glob(str(Path.home() / "Library/Developer/XcodeBuildMCP/workspaces/*/DerivedData/Yomi-*")),
                   key=lambda p: Path(p).stat().st_mtime, reverse=True)
     if not dirs:
         sys.exit("no DerivedData/Yomi-* — build the app first")
     return dirs[0]
 
 
-def extracted_keys():
-    files = glob.glob(derived_data() + "/Build/Intermediates.noindex/Yomi.build/Debug-iphonesimulator/Yomi.build/"
+def extracted_keys(target="Yomi"):
+    files = glob.glob(derived_data() + f"/Build/Intermediates.noindex/Yomi.build/Debug-iphonesimulator/{target}.build/"
                       "Objects-normal/arm64/*.stringsdata")
     keys = {}
     for f in sorted(files):
@@ -48,15 +51,25 @@ def unit(value):
 
 
 def main():
+    es = {}
+    for f in sorted(HERE.glob("es-*.json")):
+        es.update(json.loads(f.read_text()))
+    plurals = json.loads((HERE / "plurals.json").read_text())
     keys = extracted_keys()
     # English strings the code looks up at run time (LocalizedStringKey(label), String.LocalizationValue(name)) —
     # the compiler can't extract them, so they are listed by hand.
     for key in json.loads((HERE / "dynamic.json").read_text()):
         keys.setdefault(key, "Looked up at run time")
-    es = {}
-    for f in sorted(HERE.glob("es-*.json")):
-        es.update(json.loads(f.read_text()))
-    plurals = json.loads((HERE / "plurals.json").read_text())
+    widget_keys = extracted_keys("YomiWidget")
+    if not widget_keys:
+        sys.exit("no YomiWidget .stringsdata — build the Yomi scheme (it builds the widget too)")
+    app_unused = write(CATALOG, keys, es, plurals)
+    widget_unused = write(WIDGET_CATALOG, widget_keys, es, plurals)
+    for k in sorted(app_unused & widget_unused):
+        print("  unused: ", json.dumps(k, ensure_ascii=False))
+
+
+def write(catalog, keys, es, plurals):
 
     problems, missing, strings = [], [], {}
     for key in sorted(keys):
@@ -79,17 +92,16 @@ def main():
             missing.append(key)
         strings[key] = entry
 
-    unused = sorted(set(es) - set(keys)) + sorted(set(plurals) - set(keys))
+    unused = (set(es) - set(keys)) | (set(plurals) - set(keys))
     if problems:
         sys.exit("\n".join(problems))
-    CATALOG.write_text(json.dumps({"sourceLanguage": "en", "strings": strings, "version": "1.0"},
+    catalog.write_text(json.dumps({"sourceLanguage": "en", "strings": strings, "version": "1.0"},
                                   indent=2, ensure_ascii=False, sort_keys=True) + "\n")
-    print(f"{CATALOG.relative_to(ROOT)}: {len(strings)} keys, {len(strings) - len(missing)} in Spanish, "
-          f"{len(missing)} missing, {len(unused)} unused translations")
+    print(f"{catalog.relative_to(ROOT)}: {len(strings)} keys, {len(strings) - len(missing)} in Spanish, "
+          f"{len(missing)} missing")
     for k in missing:
         print("  missing:", json.dumps(k, ensure_ascii=False))
-    for k in unused:
-        print("  unused: ", json.dumps(k, ensure_ascii=False))
+    return unused
 
 
 main()
