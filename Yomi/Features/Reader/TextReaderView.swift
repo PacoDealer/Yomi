@@ -709,18 +709,33 @@ struct TextReaderView: View {
     // MARK: - Translation
 
     /// Queues a chapter that just entered the page; the translation task picks it up.
+    /// A chapter translated before is put back from the saved copy at once, without the Translation session.
     private func requestTranslation(_ id: String) {
         guard translateOn else { return }
-        #if DEBUG
-        // The simulator has no Translation; `-yomiFakeTranslate` upper-cases the text to check the page swap.
-        if ProcessInfo.processInfo.arguments.contains("-yomiFakeTranslate") {
-            Task {
-                guard let blocks = await controller.translationBlocks(id: id) else { return }
-                controller.applyTranslation(id: id, texts: blocks.map { $0.uppercased() })
+        let target = NovelTranslation.target(AppSettings.shared.novelTranslateTarget)
+        Task {
+            if let blocks = await controller.translationBlocks(id: id), !blocks.isEmpty,
+               let texts = await Task.detached(operation: { NovelTranslation.cached(blocks, target: target) }).value {
+                guard translateOn else { return }
+                controller.applyTranslation(id: id, texts: texts)
+                return
             }
-            return
+            #if DEBUG
+            // The simulator has no Translation; `-yomiFakeTranslate` upper-cases the text to check the page swap.
+            if ProcessInfo.processInfo.arguments.contains("-yomiFakeTranslate") {
+                guard let blocks = await controller.translationBlocks(id: id) else { return }
+                let texts = blocks.map { $0.uppercased() }
+                NovelTranslation.store(texts, for: blocks, target: target)
+                controller.applyTranslation(id: id, texts: texts)
+                return
+            }
+            #endif
+            enqueueTranslation(id)
         }
-        #endif
+    }
+
+    private func enqueueTranslation(_ id: String) {
+        guard translateOn else { return }
         if !translateQueue.contains(id) { translateQueue.append(id) }
         if translationConfig == nil {
             translationConfig = .init(source: sourceLanguage.map { Locale.Language(identifier: $0) },
@@ -751,6 +766,8 @@ struct TextReaderView: View {
                 let texts = try await NovelTranslation.translate(blocks, session: session)
                 guard translateOn else { break }
                 controller.applyTranslation(id: id, texts: texts)
+                let target = NovelTranslation.target(AppSettings.shared.novelTranslateTarget)
+                Task.detached { NovelTranslation.store(texts, for: blocks, target: target) }
             } catch {
                 translateQueue = []
                 showTranslateStatus(NovelTranslation.message(for: error))

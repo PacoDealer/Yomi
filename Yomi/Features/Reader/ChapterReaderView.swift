@@ -24,6 +24,7 @@ struct ChapterReaderView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var settings = AppSettings.shared
     @State private var shouldRequestReview = false
@@ -263,6 +264,18 @@ struct ChapterReaderView: View {
             let mangaId = manga.id
             Task.detached(priority: .background) {
                 try? MangaQueries.addReadingSeconds(mangaId: mangaId, seconds: elapsed)
+            }
+        }
+        // S182 (Martin's phone): the exit save above never runs when Yomi is closed from the app switcher or by iOS while
+        // a chapter is open, so reopening it started at page 1. Save the position each time Yomi goes to the background.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .background, !AppSettings.shared.isIncognito, !pages.isEmpty else { return }
+            let elapsed = Int(Date().timeIntervalSince(sessionStart))
+            let progress = Double(currentPage + 1) / Double(pages.count)
+            let cid = activeChapter.id
+            let page = sourcePage(currentPage)
+            Task.detached {
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
             }
         }
         // Pages ahead load before they're reached (S161): on every page change, a new page list, the next chapter's list.

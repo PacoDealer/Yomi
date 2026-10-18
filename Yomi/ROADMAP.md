@@ -43,7 +43,24 @@ The research audit revealed that 800+ sources are already available across four 
   data as TestFlight, not the sim's Development copy. `Personal.xcconfig` picks entitlements per target
   (`$(PERSONAL_ENTITLEMENTS_$(TARGET_NAME))`, widget keeps its own) and no longer defines `YOMI_PERSONAL`. Release
   device build SUCCEEDED, 0 warnings; signed app has CloudKit + Production + App Group, widget has the App Group;
-  profile expires 2027-10-15. Not installed — Martin runs the script.
+  profile expires 2027-10-15. Installed by Martin (`build-personal.sh --release`).
+- **J on the phone (Martin, 2026-10-18):** library intact, sync ON (made the whole app slow during the first upload, then
+  fine), Safe Mode OK, Asura: no black pages, page counter works, a few grey boxes that load fast; backup + extension
+  gear + filters "seem to work". Found: (a) reopening a chapter started at page 1, (b) widget: no cover, title cut,
+  "not well designed", (c) Translate slow, odd wording, and a translated chapter isn't faster the second time.
+- **(a) fixed:** the manga reader saved the page only in `onDisappear`, which never runs when Yomi is killed from the app
+  switcher or by iOS. `ChapterReaderView` now also saves on `scenePhase == .background`. Sim: Tall Test paged 2/20 and
+  webtoon 11/20 → Home → `simctl terminate` → relaunch → opens at 2/20 / 11/20 (DB `lastPageRead` 1 / 10; before the fix
+  nothing was written). The mode picked inside the reader is per session (Settings holds the default) — unchanged.
+- **(b) fixed:** `AsyncImage` never loads in a widget. The app now saves each shown cover as a ≤300 px JPEG in the App
+  Group (`widget-covers/`, `WidgetDataWriter.withSavedCovers`: Kingfisher cache/download, Keiyoushi proxy, custom/local
+  cover files); `WidgetReadingItem.coverFile`. Widget redesigned calm: small = cover top-left + play icon, title across the
+  full width (3 lines); medium = 3 covers; large = a list of 5 ("Continue Reading"). Sim: small widget on the Home Screen
+  shows the cover + title; medium/large unseen.
+- **(c) partly:** translations are saved per (target language, exact chapter text) in `Caches/novel-translations`
+  (400 files max); a saved chapter is put back without the Translation session. Device-unverified (the sim can't
+  translate). Wording = Apple's on-device model, line by line — waiting for Martin's example before changing anything.
+- Reader UI tests 13/13, 0 warnings.
 - NEXT: personal build → J.
 
 ---
