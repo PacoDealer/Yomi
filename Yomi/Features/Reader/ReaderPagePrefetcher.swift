@@ -57,7 +57,8 @@ import Kingfisher
         } else {
             // Each prefetched page's shape is read from the file's header (no decode), so its placeholder already has
             // the page's real height and nothing below it jumps when it appears (S161).
-            let next = ImagePrefetcher(urls: urls, options: Self.options, completionHandler: { skipped, _, completed in
+            let resources = urls.map { KF.ImageResource(downloadURL: $0, cacheKey: PageNames.cacheKey($0.absoluteString)) }
+            let next = ImagePrefetcher(resources: resources, options: Self.options, completionHandler: { skipped, _, completed in
                 Self.learnShapes(of: (skipped + completed).map(\.downloadURL))
             })
             next.maxConcurrentDownloads = 3   // leave room for the page the reader is loading right now
@@ -75,6 +76,33 @@ import Kingfisher
         prefetcher?.stop()
         prefetcher = nil
         wanted = []
+    }
+}
+
+/// Keiyoushi pages are `127.0.0.1:<port>/image/<random token>` — a new address every launch, so anything saved under
+/// it never matched again: shapes (a resumed chapter met one-screen boxes above the saved page that grew as they
+/// loaded — Martin, S182: "glitches for a second" on resume), looks (crop), and Kingfisher's disk cache (every page
+/// downloaded again after each launch). Those pages are named chapter + index instead, and every per-page store uses
+/// the name (S182 shapes; S183 looks + the image cache). Other pages keep their URL.
+@MainActor enum PageNames {
+    private static var names: [String: String] = [:]
+
+    static func name(_ urls: [String], chapterId: String) {
+        if names.count > 5000 { names.removeAll() }
+        for (index, url) in urls.enumerated() where KeiyoushiBridge.isBridgeImage(URL(string: url)) {
+            names[url] = "\(chapterId)#\(index)"
+        }
+    }
+
+    /// The key for `PageShapes` / `PageLooks`.
+    static func key(_ url: String) -> String { names[url] ?? url }
+
+    /// Kingfisher's cache key for a named page; nil = the URL's own (Kingfisher's default).
+    static func cacheKey(_ url: String) -> String? { names[url].map { "keiyoushi-page/\($0)" } }
+
+    /// What Kingfisher loads a page from: its URL, cached under the page's name.
+    static func source(_ url: String) -> Source? {
+        URL(string: url)?.convertToSource(overrideCacheKey: cacheKey(url))
     }
 }
 
@@ -98,19 +126,7 @@ import Kingfisher
         changes.count += 1
     }
 
-    /// Keiyoushi pages are `127.0.0.1:<port>/image/<random token>` — a new address every launch, so a shape saved
-    /// under it never matched again and a resumed chapter met one-screen boxes above the saved page that grew as
-    /// they loaded (Martin, S182: "glitches for a second" on resume). Those pages are kept under chapter + index.
-    private static var names: [String: String] = [:]
-
-    static func name(_ urls: [String], chapterId: String) {
-        if names.count > 5000 { names.removeAll() }
-        for (index, url) in urls.enumerated() where KeiyoushiBridge.isBridgeImage(URL(string: url)) {
-            names[url] = "\(chapterId)#\(index)"
-        }
-    }
-
-    private static func key(_ url: String) -> String { names[url] ?? url }
+    private static func key(_ url: String) -> String { PageNames.key(url) }
 
     /// Bumped whenever a shape is learned: two-page mode re-pairs its pages as their shapes come in (F17).
     static let changes = Changes()
@@ -122,7 +138,7 @@ import Kingfisher
         let cache = ImageCache.default
         let unknown: [(String, String)] = urls.compactMap { url in
             guard aspect(url) == nil, let u = URL(string: url) else { return nil }
-            return (url, u.isFileURL ? u.path : cache.cachePath(forKey: u.cacheKey))
+            return (url, u.isFileURL ? u.path : cache.cachePath(forKey: PageNames.cacheKey(url) ?? u.cacheKey))
         }
         guard !unknown.isEmpty else { return }
         let found = await Task.detached(priority: .utility) { () -> [(String, CGFloat)] in

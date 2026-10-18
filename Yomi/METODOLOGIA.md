@@ -2452,6 +2452,12 @@ previously here was removed during the 2026-08-04 doc restructure.
   `cloud_sync_map.pendingChange`, then verify the cached record holds the field (faster than tapping through screens).
 - Read cfprefsd-backed plists only after terminating the app — the file on disk lags.
 
+## S183 lessons
+
+- **When a key turns out unstable, fix every store keyed by it at once.** S182 re-keyed only the store that showed the
+  symptom (shapes); crop data and the image cache used the same random URL and were found only by listing every
+  consumer. Grep for every place the key is used, not every place the bug was seen.
+
 ## S181 lessons
 
 - **Diff the code against the catalog to find untranslated text.** "Every English-looking literal that isn't a catalog

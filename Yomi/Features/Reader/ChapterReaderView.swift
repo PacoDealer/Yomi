@@ -29,8 +29,8 @@ struct ChapterReaderView: View {
     @State private var settings = AppSettings.shared
     @State private var shouldRequestReview = false
     @State private var currentChapterIndex: Int
-    /// Named for `PageShapes` as they come in: Keiyoushi pages get a new address every launch (S182).
-    @State private var pages: [String] = [] { didSet { PageShapes.name(pages, chapterId: activeChapter.id) } }
+    /// Named for `PageNames` as they come in: Keiyoushi pages get a new address every launch (S182).
+    @State private var pages: [String] = [] { didSet { PageNames.name(pages, chapterId: activeChapter.id) } }
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
     @State private var readerMode: ReaderMode
@@ -47,7 +47,7 @@ struct ChapterReaderView: View {
     /// Non-error banner (page menu: "Saved to Photos", "Page copied").
     @State private var infoMessage: String? = nil
     @State private var nextPreload: (chapter: Chapter, pages: [String], sources: [Int]?)? = nil {
-        didSet { if let nextPreload { PageShapes.name(nextPreload.pages, chapterId: nextPreload.chapter.id) } }
+        didSet { if let nextPreload { PageNames.name(nextPreload.pages, chapterId: nextPreload.chapter.id) } }
     }
     /// Source page of each entry in `pages` when a downloaded chapter has tall pages stored as parts (D12); nil = the
     /// same index. Saved progress (`lastPageRead`) is always in source pages.
@@ -885,7 +885,7 @@ private struct MangaPageView: View {
                 if loadFailed {
                     PageRetryButton { attempt = 0; loadFailed = false }
                 } else {
-                    KFImage(URL(string: url))
+                    KFImage(source: PageNames.source(url))
                         .readerPage()
                         .placeholder {
                             ProgressView()
@@ -1977,7 +1977,7 @@ private struct StripPageImage: View {
     }
 
     private func load() async {
-        guard let source = URL(string: url) else { failed = true; return }
+        guard let source = PageNames.source(url) else { failed = true; return }
         do {
             let result = try await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions)
             var image = result.image

@@ -24,7 +24,10 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S182 — 2026-10-18)
+## Current state (S183 — 2026-10-18)
+- **S183 (sim):** resume device-verified. Keiyoushi pages named `chapterId#index` in `PageNames` (ReaderPagePrefetcher.swift)
+  for shapes, looks AND Kingfisher's cache (`PageNames.source(url)` — load reader pages through it, never `KFImage(url)`).
+  Keiyoushi path phone-unverified; not installed.
 - **S182:** CloudKit schema deployed (S167 fields); personal build = real entitlements, Production CloudKit; J started on
   the phone. Fixed: manga reader saves the page on background too (kill from app switcher lost it); widget covers are
   JPEGs the app saves in the App Group (`widget-covers/`; AsyncImage never loads in widgets) + calm widget redesign;

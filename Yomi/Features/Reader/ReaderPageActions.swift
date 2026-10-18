@@ -149,7 +149,7 @@ enum ReaderPageActions {
     static let toast = Notification.Name("ReaderPageActions.toast")
 
     static func image(for url: String) async -> UIImage? {
-        guard let source = URL(string: url) else { return nil }
+        guard let source = PageNames.source(url) else { return nil }
         return try? await KingfisherManager.shared.retrieveImage(with: source, options: KFImage.readerPageOptions).image
     }
 

@@ -21,6 +21,23 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S183 — Keiyoushi pages: crop + image cache survive a relaunch (2026-10-18, simulator)
+
+- Martin (phone): **resume works** after the S182 fix — device-verified.
+- The leftover from that fix: `PageLooks` (crop + background) and Kingfisher's disk cache were still keyed by the
+  Keiyoushi page URL (`127.0.0.1:<port>/image/<random UUID>`, new every launch), so after each launch every Asura
+  (Keiyoushi) page was downloaded again and re-measured.
+- **Fix:** the chapter + index names moved out of `PageShapes` into `PageNames` (`ReaderPagePrefetcher.swift`), used by
+  every per-page store: `PageShapes` + `PageLooks` key by `PageNames.key`; Kingfisher loads go through
+  `PageNames.source(url)` = the page's URL with cache key `keiyoushi-page/<chapterId>#<index>` (paged `KFImage`, strip
+  `StripPageImage.load`, page menu `ReaderPageActions.image`, prefetcher `ImagePrefetcher(resources:)`, and
+  `PageShapes.learn`'s disk-cache path). Pages that aren't from the bridge keep their URL as the key (no change).
+- Known trade-off: if a source changes a chapter's pages, a cached Keiyoushi page can be the old image until Kingfisher's
+  disk cache expires it (7 days). Same assumption `PageShapes` already made in S182.
+- Sim: build 0 warnings, ReaderUITests 13/13, PerfUITests 3/3. **Keiyoushi path unverified** (no JVM in the sim):
+  on the phone, open an Asura chapter, kill Yomi, reopen offline-ish (or watch it) — pages above the saved one should
+  appear at once without re-downloading. Not on the phone yet (needs `build-personal.sh --release`).
+
 ## S182 — CloudKit: new S167 fields into the Development schema (2026-10-18, simulator)
 
 - Only S167 (`fc3d3c0`) changed the synced fields since the S152 deploy: `Manga.excludedScanlators` (STRING LIST),
