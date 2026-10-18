@@ -139,6 +139,19 @@ Store rules live (guideline 3.1.1 in-app purchase / tips, 3.2.1 / 3.2.2 on donat
 rules) — tips for the developer's own app likely must be In-App Purchase (consumable "tip jar"), external donation
 links (Ko-fi, GitHub Sponsors) may be refused. Keep it calm: no nagging, no locked features, one quiet row.
 
+**Rules read live S183 (2026-10-18, developer.apple.com/app-store/review/guidelines, page date not shown):**
+- 3.1.1: "Apps may use in-app purchase currencies to enable customers to 'tip' the developer" → a **tip jar of
+  consumable In-App Purchases** is the allowed path everywhere.
+- 3.1.1(a) / 3.1.3: outside the **United States storefront**, apps "may not include buttons, external links, or other
+  calls to action that direct customers to purchasing mechanisms other than in-app purchase". The US storefront is
+  exempt. So a Ko-fi / GitHub Sponsors link would be US-only (a storefront check) — not worth it; Martin is in Argentina.
+- 3.2.1(vi) / 3.2.2(iv) are about charities and nonprofits, not a developer's own app — they don't apply.
+- **Proposed shape (not built, Martin decides):** More → About → one "Support Yomi" row → a sheet with 3 consumable tips
+  (e.g. small / medium / large, StoreKit 2 `Product.products(for:)` + `purchase()`), a thank-you line, nothing unlocked,
+  never shown unprompted. Needs from Martin: **Paid Apps Agreement + banking/tax in App Store Connect**, the 3 product
+  ids + prices, the wording. Testable before that with a local `.storekit` configuration file. Privacy label: purchases
+  are handled by Apple (no new data collected by Yomi).
+
 ---
 
 ## S181 — I: Spanish tail (2026-10-18, simulator)
