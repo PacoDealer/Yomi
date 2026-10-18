@@ -351,9 +351,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
     private func checkKeiyoushiUpdates(for manga: Manga, settings: RefreshSettings) async -> UpdateRunSummary.Outcome {
         let sourceId = KeiyoushiMapping.mihonSourceId(manga.sourceId)
         guard KeiyoushiRepository.shared.installedExtension(forSourceId: sourceId) != nil else {
-            return .failed("Extension not installed")
+            return .failed(String(localized: "Extension not installed"))
         }
-        guard KeiyoushiJVMHost.isAvailable else { return .failed("Keiyoushi needs the iPhone build") }
+        guard KeiyoushiJVMHost.isAvailable else { return .failed(String(localized: "Keiyoushi needs the iPhone build")) }
 
         // L3a (S171): covers and details. A failure here is not the check failing — the chapters still decide that.
         var refreshed = manga
@@ -368,12 +368,12 @@ private struct NovelReaderDest: Identifiable, Hashable {
             items = try await KeiyoushiBridge.shared.chapters(sourceId: sourceId, mangaURL: manga.path)
         } catch {
             let message = error.localizedDescription
-            return .failed(message.hasPrefix("CLOUDFLARE:") ? "Cloudflare — open the title once to verify" : message)
+            return .failed(message.hasPrefix("CLOUDFLARE:") ? String(localized: "Cloudflare — open the title once to verify") : message)
         }
         let mangaId = manga.id
         let mangaTitle = manga.title
         let remote = KeiyoushiMapping.chapters(from: items, mangaId: mangaId, sourceId: sourceId, mangaTitle: mangaTitle)
-        guard !remote.isEmpty else { return .failed("The source returned no chapters") }
+        guard !remote.isEmpty else { return .failed(String(localized: "The source returned no chapters")) }
         let uploadDates = KeiyoushiMapping.uploadDates(from: items, mangaId: mangaId)
 
         let newChapters = await Task.detached(priority: .utility) {
@@ -397,7 +397,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let mangaId   = manga.id
 
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
-            return .failed("Extension not installed")
+            return .failed(String(localized: "Extension not installed"))
         }
 
         let bridge = await ExtensionManager.shared.loadBridge(for: ext)
@@ -408,7 +408,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         // A plugin swallows its own JS exceptions and returns an empty list on failure; a library title always
         // has at least one chapter upstream, so empty means the fetch failed (Cloudflare, rate limit, network).
-        guard !remoteChapters.isEmpty else { return .failed("The source returned no chapters") }
+        guard !remoteChapters.isEmpty else { return .failed(String(localized: "The source returned no chapters")) }
 
         let newChapters = await Task.detached(priority: .utility) {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
@@ -437,7 +437,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let novelId   = novel.id
 
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == sourceId }) else {
-            return .failed("Extension not installed")
+            return .failed(String(localized: "Extension not installed"))
         }
 
         let bridge = await ExtensionManager.shared.loadBridge(for: ext)
@@ -446,7 +446,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }.value
 
         // Same reasoning as the manga path: no chapters back for a library title means the fetch failed.
-        guard let source, !source.chapters.isEmpty else { return .failed("The source returned no chapters") }
+        guard let source, !source.chapters.isEmpty else { return .failed(String(localized: "The source returned no chapters")) }
 
         let refreshed = settings.refreshMetadata ? Self.applying(source, to: novel) : nil
         let localChapters = await Task.detached(priority: .utility) {

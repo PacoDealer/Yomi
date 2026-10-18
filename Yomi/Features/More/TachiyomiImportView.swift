@@ -37,7 +37,7 @@ struct TachiyomiImportView: View {
     private func sourceName(_ id: String) -> String {
         if let name = report.sourceNames[id] { return name }
         if let source = keiyoushi.available.lazy.flatMap(\.sources).first(where: { $0.id == id }) { return source.name }
-        return "Unknown source"
+        return String(localized: "Unknown source")
     }
 
     private func state(_ id: String) -> SourceState {
@@ -240,7 +240,7 @@ struct TachiyomiImportView: View {
         do {
             try await keiyoushi.install(ext, langs: needed.isEmpty ? nil : needed.sorted())
         } catch {
-            errorText = "Couldn't add \(ext.name): \(error.localizedDescription)"
+            errorText = String(localized: "Couldn't add \(ext.name): \(error.localizedDescription)")
         }
     }
 }

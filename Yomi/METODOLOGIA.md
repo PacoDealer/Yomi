@@ -2440,6 +2440,16 @@ previously here was removed during the 2026-08-04 doc restructure.
   the app's file, not a copy.
 
 
+## S181 lessons
+
+- **Diff the code against the catalog to find untranslated text.** "Every English-looking literal that isn't a catalog
+  key" found the whole tail in one pass; the single biggest leak (the calm section header taking `String`) had looked
+  translated in S180 only because the screens checked happened to use other headers.
+- **A ternary mixing a literal and a `String` is a `String`.** `Text(x ? "All Languages" : name)` never localizes the
+  literal even though the same key exists in the catalog — wrap the literal.
+- **An app extension needs its own catalog and `SWIFT_EMIT_LOC_STRINGS`;** without the setting the target emits no
+  `.stringsdata` and nothing tells you.
+
 ## S180 lessons
 
 - **A "has more" loop is only as good as the field it reads.** Asura's API never sent `meta`, so `has_more` was always

@@ -52,7 +52,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             let verifier = codeVerifier
         else { return }
         guard verifyAuthState(url: url, requireEcho: true) else {
-            errorMessage = "MyAnimeList: ignored a login callback this app didn't start."
+            errorMessage = String(localized: "MyAnimeList: ignored a login callback this app didn't start.")
             return
         }
         errorMessage = nil   // #110: a stale error from an earlier attempt stayed up forever
@@ -88,7 +88,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
         guard let access = json?["access_token"] as? String else {
             throw NSError(
                 domain: "MAL", code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "No access token"]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "No access token")]
             )
         }
         accessToken  = access
@@ -120,7 +120,7 @@ private let baseURL     = "https://api.myanimelist.net/v2"
             return true
         case .rejected:
             logout()
-            errorMessage = "MyAnimeList: session expired — please log in again."
+            errorMessage = String(localized: "MyAnimeList: session expired — please log in again.")
             return false
         case .failed:
             return false

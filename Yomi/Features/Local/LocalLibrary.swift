@@ -416,8 +416,8 @@ nonisolated enum LocalLibrary {
         case notFound, notAnEpub(String)
         var errorDescription: String? {
             switch self {
-            case .notFound: return "The file isn't there any more. If it was in a linked folder, link it again in Browse → Local."
-            case .notAnEpub(let why): return "This EPUB couldn't be read (\(why))."
+            case .notFound: return String(localized: "The file isn't there any more. If it was in a linked folder, link it again in Browse → Local.")
+            case .notAnEpub(let why): return String(localized: "This EPUB couldn't be read (\(why)).")
             }
         }
     }

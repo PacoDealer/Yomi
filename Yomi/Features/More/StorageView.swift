@@ -139,7 +139,7 @@ struct StorageView: View {
         // here before entering Task.detached, matching the ExtensionManager.shared precedent.
         let manager = DatabaseManager.shared
         let result = await Task.detached(priority: .userInitiated) {
-            (try? manager.repair()) ?? "Repair failed — could not complete the integrity check."
+            (try? manager.repair()) ?? String(localized: "Repair failed — could not complete the integrity check.")
         }.value
         isRepairing = false
         repairResult = result

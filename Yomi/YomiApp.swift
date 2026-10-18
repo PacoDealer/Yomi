@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         application.shortcutItems = [
             UIApplicationShortcutItem(
                 type: "com.yomi.continueReading",
-                localizedTitle: "Continue Reading",
+                localizedTitle: String(localized: "Continue Reading"),
                 localizedSubtitle: nil,
                 icon: UIApplicationShortcutIcon(systemImageName: "book.fill")
             ),

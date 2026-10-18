@@ -111,7 +111,7 @@ struct CategoryView: View {
 
     private func itemCount(_ id: String) -> String {
         let n = itemCounts[id] ?? 0
-        return n == 0 ? "Empty" : "\(n)"
+        return n == 0 ? String(localized: "Empty") : "\(n)"
     }
 
     // MARK: - Load

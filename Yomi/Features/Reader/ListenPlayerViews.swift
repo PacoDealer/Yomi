@@ -210,7 +210,7 @@ struct ListenPlayerView: View {
     private var timeLeft: String {
         let minutes = Int((player.secondsLeft / 60).rounded(.up))
         guard !player.sentences.isEmpty else { return "" }
-        return minutes <= 1 ? "Under a minute left" : "About \(minutes) min left"
+        return minutes <= 1 ? String(localized: "Under a minute left") : String(localized: "About \(minutes) min left")
     }
 
     private var controls: some View {
@@ -229,7 +229,7 @@ struct ListenPlayerView: View {
         .foregroundStyle(.primary)
     }
 
-    private func controlButton(_ symbol: String, _ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+    private func controlButton(_ symbol: String, _ label: LocalizedStringKey, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 20))

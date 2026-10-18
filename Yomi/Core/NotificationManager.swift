@@ -58,11 +58,11 @@ final class NotificationManager {
         cancelReadingReminder()
 
         let content = UNMutableNotificationContent()
-        content.title = "Time to read"
+        content.title = String(localized: "Time to read")
         if let title = lastReadTitle, !shouldHideTitles {
-            content.body = "Continue \(title)?"
+            content.body = String(localized: "Continue \(title)?")
         } else {
-            content.body = "Your reading list is waiting."
+            content.body = String(localized: "Your reading list is waiting.")
         }
         content.sound = .default
 

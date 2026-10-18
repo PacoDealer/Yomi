@@ -130,7 +130,7 @@ struct LocalSourceView: View {
                 try LocalLibrary.linkFolder(folder)
                 linkedName = folder.lastPathComponent
             } catch {
-                report = "Couldn't link that folder: \(error.localizedDescription)"
+                report = String(localized: "Couldn't link that folder: \(error.localizedDescription)")
                 return
             }
             await rescan(announce: true)

@@ -140,7 +140,7 @@ struct SettingsView: View {
                 NavigationLink {
                     SafeModeView()
                 } label: {
-                    valueLabel("Safe Mode", !settings.safeMode ? "Off" : SafeMode.isLocked ? "Locked" : "On")
+                    valueLabel("Safe Mode", !settings.safeMode ? String(localized: "Off") : SafeMode.isLocked ? String(localized: "Locked") : String(localized: "On"))
                 }
                 .accessibilityIdentifier("safeModeLink")
             } header: { CalmSectionHeader("Privacy") }
@@ -202,7 +202,7 @@ struct SettingsView: View {
             let context = LAContext()
             var error: NSError?
             guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-                appLockError = "Set a passcode for this iPhone first (iOS Settings → Face ID & Passcode)."
+                appLockError = String(localized: "Set a passcode for this iPhone first (iOS Settings → Face ID & Passcode).")
                 return
             }
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Turn on App Lock") { ok, _ in

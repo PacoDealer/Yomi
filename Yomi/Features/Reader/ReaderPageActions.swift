@@ -156,7 +156,7 @@ enum ReaderPageActions {
     static func saveToPhotos(_ image: UIImage) async {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
-            say("Allow Yomi to add photos in Settings to save pages")
+            say(String(localized: "Allow Yomi to add photos in Settings to save pages"))
             return
         }
         do {
@@ -164,9 +164,9 @@ enum ReaderPageActions {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            say("Saved to Photos")
+            say(String(localized: "Saved to Photos"))
         } catch {
-            say("Couldn't save the page")
+            say(String(localized: "Couldn't save the page"))
         }
     }
 
@@ -203,7 +203,7 @@ private struct ReaderPageMenu: ViewModifier {
                     Task {
                         guard let image = await ReaderPageActions.image(for: url) else { failed(); return }
                         UIPasteboard.general.image = image
-                        ReaderPageActions.say("Page copied")
+                        ReaderPageActions.say(String(localized: "Page copied"))
                     }
                 }
                 Button("Text on Page") {
@@ -220,7 +220,7 @@ private struct ReaderPageMenu: ViewModifier {
             .pageTextSheet($textImage)
     }
 
-    private func failed() { ReaderPageActions.say("The page isn't loaded yet") }
+    private func failed() { ReaderPageActions.say(String(localized: "The page isn't loaded yet")) }
 }
 
 struct ActivityView: UIViewControllerRepresentable {

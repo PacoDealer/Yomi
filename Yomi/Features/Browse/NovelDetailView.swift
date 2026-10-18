@@ -119,12 +119,12 @@ struct NovelDetailView: View {
 
     private var resumeButtonTitle: String {
         // "Continue" while chapters load, so the label doesn't flash "Start" → "Chapter 25".
-        if chapters.isEmpty { return "Continue" }
-        guard hasStartedReading, let ch = resumeChapter else { return "Start" }
+        if chapters.isEmpty { return String(localized: "Continue") }
+        guard hasStartedReading, let ch = resumeChapter else { return String(localized: "Start") }
         if let num = ch.chapterNumber {
             return Notation.chapter(num)
         }
-        return "Continue"
+        return String(localized: "Continue")
     }
 
     private var sourceName: String? {

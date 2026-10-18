@@ -64,7 +64,7 @@ enum SourceStatus {
             }
             if let name = importedNames[keiyoushiId] { return name }
         }
-        return "Unknown source"
+        return String(localized: "Unknown source")
     }
 }
 
@@ -457,7 +457,7 @@ struct MigrationReviewView: View {
                     Text(item.old.title)
                         .foregroundStyle(canvas.textPrimary)
                         .lineLimit(1)
-                    Text(item.oldLatest.map { "Up to \(Notation.chapter($0))" } ?? sourceName)
+                    Text(item.oldLatest.map { String(localized: "Up to \(Notation.chapter($0))") } ?? sourceName)
                         .font(.footnote)
                         .foregroundStyle(canvas.textSecondary)
                 }
@@ -623,7 +623,7 @@ struct MigrateSourcePickerView: View {
         } message: {
             if let target = chosen {
                 Text(onPick == nil
-                     ? "Read chapters, status, and categories carry over to \"\(target.manga.title)\" on \(target.target.name). The old entry leaves the Library; nothing is deleted."
+                     ? String(localized: "Read chapters, status, and categories carry over to \"\(target.manga.title)\" on \(target.target.name). The old entry leaves the Library; nothing is deleted.")
                      : "\"\(target.manga.title)\" on \(target.target.name).")
             }
         }

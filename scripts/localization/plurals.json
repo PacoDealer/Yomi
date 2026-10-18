@@ -1,232 +1,242 @@
 {
-"%lld chapters": {
-"en": {
-"one": "%lld chapter",
-"other": "%lld chapters"
-},
-"es": {
-"one": "%lld capítulo",
-"other": "%lld capítulos"
-}
-},
-"%@ · %lld chapters": {
-"en": {
-"one": "%@ · %lld chapter",
-"other": "%@ · %lld chapters"
-},
-"es": {
-"one": "%@ · %lld capítulo",
-"other": "%@ · %lld capítulos"
-}
-},
-"%@ — %@ · %lld chapters": {
-"en": {
-"one": "%@ — %@ · %lld chapter",
-"other": "%@ — %@ · %lld chapters"
-},
-"es": {
-"one": "%@ — %@ · %lld capítulo",
-"other": "%@ — %@ · %lld capítulos"
-}
-},
-"%lld chapters from the new source.": {
-"en": {
-"one": "%lld chapter from the new source.",
-"other": "%lld chapters from the new source."
-},
-"es": {
-"one": "%lld capítulo de la nueva fuente.",
-"other": "%lld capítulos de la nueva fuente."
-}
-},
-"%lld extensions": {
-"en": {
-"one": "%lld extension",
-"other": "%lld extensions"
-},
-"es": {
-"one": "%lld extensión",
-"other": "%lld extensiones"
-}
-},
-"%lld new chapters": {
-"en": {
-"one": "%lld new chapter",
-"other": "%lld new chapters"
-},
-"es": {
-"one": "%lld capítulo nuevo",
-"other": "%lld capítulos nuevos"
-}
-},
-"%lld new chapters available": {
-"en": {
-"one": "%lld new chapter available",
-"other": "%lld new chapters available"
-},
-"es": {
-"one": "%lld capítulo nuevo disponible",
-"other": "%lld capítulos nuevos disponibles"
-}
-},
-"%lld new chapters found": {
-"en": {
-"one": "%lld new chapter found",
-"other": "%lld new chapters found"
-},
-"es": {
-"one": "Se encontró %lld capítulo nuevo",
-"other": "Se encontraron %lld capítulos nuevos"
-}
-},
-"%lld read chapters carried over.": {
-"en": {
-"one": "%lld read chapter carried over.",
-"other": "%lld read chapters carried over."
-},
-"es": {
-"one": "Se pasó %lld capítulo leído.",
-"other": "Se pasaron %lld capítulos leídos."
-}
-},
-"%lld titles": {
-"en": {
-"one": "%lld title",
-"other": "%lld titles"
-},
-"es": {
-"one": "%lld título",
-"other": "%lld títulos"
-}
-},
-"%lld titles imported": {
-"en": {
-"one": "%lld title imported",
-"other": "%lld titles imported"
-},
-"es": {
-"one": "%lld título importado",
-"other": "%lld títulos importados"
-}
-},
-"%lld selected": {
-"en": {
-"one": "%lld selected",
-"other": "%lld selected"
-},
-"es": {
-"one": "%lld seleccionado",
-"other": "%lld seleccionados"
-}
-},
-"%lld chosen": {
-"en": {
-"one": "%lld chosen",
-"other": "%lld chosen"
-},
-"es": {
-"one": "%lld elegido",
-"other": "%lld elegidos"
-}
-},
-"%lld minutes": {
-"en": {
-"one": "%lld minute",
-"other": "%lld minutes"
-},
-"es": {
-"one": "%lld minuto",
-"other": "%lld minutos"
-}
-},
-"Add All %lld Extensions": {
-"en": {
-"one": "Add %lld Extension",
-"other": "Add All %lld Extensions"
-},
-"es": {
-"one": "Agregar %lld extensión",
-"other": "Agregar las %lld extensiones"
-}
-},
-"Added %lld chapters to a title you already have.": {
-"en": {
-"one": "Added %lld chapter to a title you already have.",
-"other": "Added %lld chapters to a title you already have."
-},
-"es": {
-"one": "Se agregó %lld capítulo a un título que ya tienes.",
-"other": "Se agregaron %lld capítulos a un título que ya tienes."
-}
-},
-"Checked %lld titles · %@": {
-"en": {
-"one": "Checked %lld title · %@",
-"other": "Checked %lld titles · %@"
-},
-"es": {
-"one": "%lld título revisado · %@",
-"other": "%lld títulos revisados · %@"
-}
-},
-"Copied %lld titles": {
-"en": {
-"one": "Copied %lld title",
-"other": "Copied %lld titles"
-},
-"es": {
-"one": "Se copió %lld título",
-"other": "Se copiaron %lld títulos"
-}
-},
-"Migrated %lld titles": {
-"en": {
-"one": "Migrated %lld title",
-"other": "Migrated %lld titles"
-},
-"es": {
-"one": "Se migró %lld título",
-"other": "Se migraron %lld títulos"
-}
-},
-"Imported %lld items.": {
-"en": {
-"one": "Imported %lld item.",
-"other": "Imported %lld items."
-},
-"es": {
-"one": "Se importó %lld elemento.",
-"other": "Se importaron %lld elementos."
-}
-},
-"Migrate %lld Titles": {
-"en": {
-"one": "Migrate %lld Title",
-"other": "Migrate %lld Titles"
-},
-"es": {
-"one": "Migrar %lld título",
-"other": "Migrar %lld títulos"
-}
-},
-"Move %lld titles?": {
-"en": {
-"one": "Move %lld title?",
-"other": "Move %lld titles?"
-},
-"es": {
-"one": "¿Mover %lld título?",
-"other": "¿Mover %lld títulos?"
-}
-},
-"Searching %lld sources…": {
-"en": {
-"one": "Searching %lld source…",
-"other": "Searching %lld sources…"
-},
-"es": {
-"one": "Buscando en %lld fuente…",
-"other": "Buscando en %lld fuentes…"
-}
-}
+  "%lld chapters": {
+    "en": {
+      "one": "%lld chapter",
+      "other": "%lld chapters"
+    },
+    "es": {
+      "one": "%lld capítulo",
+      "other": "%lld capítulos"
+    }
+  },
+  "%@ · %lld chapters": {
+    "en": {
+      "one": "%@ · %lld chapter",
+      "other": "%@ · %lld chapters"
+    },
+    "es": {
+      "one": "%@ · %lld capítulo",
+      "other": "%@ · %lld capítulos"
+    }
+  },
+  "%@ — %@ · %lld chapters": {
+    "en": {
+      "one": "%@ — %@ · %lld chapter",
+      "other": "%@ — %@ · %lld chapters"
+    },
+    "es": {
+      "one": "%@ — %@ · %lld capítulo",
+      "other": "%@ — %@ · %lld capítulos"
+    }
+  },
+  "%lld chapters from the new source.": {
+    "en": {
+      "one": "%lld chapter from the new source.",
+      "other": "%lld chapters from the new source."
+    },
+    "es": {
+      "one": "%lld capítulo de la nueva fuente.",
+      "other": "%lld capítulos de la nueva fuente."
+    }
+  },
+  "%lld extensions": {
+    "en": {
+      "one": "%lld extension",
+      "other": "%lld extensions"
+    },
+    "es": {
+      "one": "%lld extensión",
+      "other": "%lld extensiones"
+    }
+  },
+  "%lld new chapters": {
+    "en": {
+      "one": "%lld new chapter",
+      "other": "%lld new chapters"
+    },
+    "es": {
+      "one": "%lld capítulo nuevo",
+      "other": "%lld capítulos nuevos"
+    }
+  },
+  "%lld new chapters available": {
+    "en": {
+      "one": "%lld new chapter available",
+      "other": "%lld new chapters available"
+    },
+    "es": {
+      "one": "%lld capítulo nuevo disponible",
+      "other": "%lld capítulos nuevos disponibles"
+    }
+  },
+  "%lld new chapters found": {
+    "en": {
+      "one": "%lld new chapter found",
+      "other": "%lld new chapters found"
+    },
+    "es": {
+      "one": "Se encontró %lld capítulo nuevo",
+      "other": "Se encontraron %lld capítulos nuevos"
+    }
+  },
+  "%lld read chapters carried over.": {
+    "en": {
+      "one": "%lld read chapter carried over.",
+      "other": "%lld read chapters carried over."
+    },
+    "es": {
+      "one": "Se pasó %lld capítulo leído.",
+      "other": "Se pasaron %lld capítulos leídos."
+    }
+  },
+  "%lld titles": {
+    "en": {
+      "one": "%lld title",
+      "other": "%lld titles"
+    },
+    "es": {
+      "one": "%lld título",
+      "other": "%lld títulos"
+    }
+  },
+  "%lld titles imported": {
+    "en": {
+      "one": "%lld title imported",
+      "other": "%lld titles imported"
+    },
+    "es": {
+      "one": "%lld título importado",
+      "other": "%lld títulos importados"
+    }
+  },
+  "%lld selected": {
+    "en": {
+      "one": "%lld selected",
+      "other": "%lld selected"
+    },
+    "es": {
+      "one": "%lld seleccionado",
+      "other": "%lld seleccionados"
+    }
+  },
+  "%lld chosen": {
+    "en": {
+      "one": "%lld chosen",
+      "other": "%lld chosen"
+    },
+    "es": {
+      "one": "%lld elegido",
+      "other": "%lld elegidos"
+    }
+  },
+  "%lld minutes": {
+    "en": {
+      "one": "%lld minute",
+      "other": "%lld minutes"
+    },
+    "es": {
+      "one": "%lld minuto",
+      "other": "%lld minutos"
+    }
+  },
+  "Add All %lld Extensions": {
+    "en": {
+      "one": "Add %lld Extension",
+      "other": "Add All %lld Extensions"
+    },
+    "es": {
+      "one": "Agregar %lld extensión",
+      "other": "Agregar las %lld extensiones"
+    }
+  },
+  "Added %lld chapters to a title you already have.": {
+    "en": {
+      "one": "Added %lld chapter to a title you already have.",
+      "other": "Added %lld chapters to a title you already have."
+    },
+    "es": {
+      "one": "Se agregó %lld capítulo a un título que ya tienes.",
+      "other": "Se agregaron %lld capítulos a un título que ya tienes."
+    }
+  },
+  "Checked %lld titles · %@": {
+    "en": {
+      "one": "Checked %lld title · %@",
+      "other": "Checked %lld titles · %@"
+    },
+    "es": {
+      "one": "%lld título revisado · %@",
+      "other": "%lld títulos revisados · %@"
+    }
+  },
+  "Copied %lld titles": {
+    "en": {
+      "one": "Copied %lld title",
+      "other": "Copied %lld titles"
+    },
+    "es": {
+      "one": "Se copió %lld título",
+      "other": "Se copiaron %lld títulos"
+    }
+  },
+  "Migrated %lld titles": {
+    "en": {
+      "one": "Migrated %lld title",
+      "other": "Migrated %lld titles"
+    },
+    "es": {
+      "one": "Se migró %lld título",
+      "other": "Se migraron %lld títulos"
+    }
+  },
+  "Imported %lld items.": {
+    "en": {
+      "one": "Imported %lld item.",
+      "other": "Imported %lld items."
+    },
+    "es": {
+      "one": "Se importó %lld elemento.",
+      "other": "Se importaron %lld elementos."
+    }
+  },
+  "Migrate %lld Titles": {
+    "en": {
+      "one": "Migrate %lld Title",
+      "other": "Migrate %lld Titles"
+    },
+    "es": {
+      "one": "Migrar %lld título",
+      "other": "Migrar %lld títulos"
+    }
+  },
+  "Move %lld titles?": {
+    "en": {
+      "one": "Move %lld title?",
+      "other": "Move %lld titles?"
+    },
+    "es": {
+      "one": "¿Mover %lld título?",
+      "other": "¿Mover %lld títulos?"
+    }
+  },
+  "Searching %lld sources…": {
+    "en": {
+      "one": "Searching %lld source…",
+      "other": "Searching %lld sources…"
+    },
+    "es": {
+      "one": "Buscando en %lld fuente…",
+      "other": "Buscando en %lld fuentes…"
+    }
+  },
+  "Too many tries. Try again in %lld seconds.": {
+    "en": {
+      "one": "Too many tries. Try again in %lld second.",
+      "other": "Too many tries. Try again in %lld seconds."
+    },
+    "es": {
+      "one": "Demasiados intentos. Vuelve a intentarlo en %lld segundo.",
+      "other": "Demasiados intentos. Vuelve a intentarlo en %lld segundos."
+    }
+  }
 }

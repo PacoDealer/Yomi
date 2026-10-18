@@ -445,9 +445,9 @@ final class DatabaseManager {
             try db.execute(sql: "VACUUM")
         }
         if issues == ["ok"] {
-            return "No issues found. Database optimized."
+            return String(localized: "No issues found. Database optimized.")
         }
-        return "Issues found and left as-is (repair doesn't rewrite data):\n" + issues.joined(separator: "\n")
+        return String(localized: "Issues found and left as-is (repair doesn't rewrite data):\n") + issues.joined(separator: "\n")
     }
 }
 

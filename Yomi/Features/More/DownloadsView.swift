@@ -100,7 +100,7 @@ struct DownloadsView: View {
     private var isHeldBack: Bool { dm.isWaitingForNetwork || ndm.isWaitingForNetwork }
     /// "Queued" normally; the real reason when the network setting is holding downloads back.
     private var queuedNote: String { isHeldBack ? (network.waitReason ?? "Queued") : "Queued" }
-    private var mangaQueuedNote: String { dm.isPaused ? "Paused" : queuedNote }
+    private var mangaQueuedNote: String { dm.isPaused ? String(localized: "Paused") : queuedNote }
 
     private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
     private var hasMangaQueue: Bool { dm.activeChapter != nil || !dm.queue.isEmpty }

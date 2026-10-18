@@ -55,7 +55,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             let code = components.queryItems?.first(where: { $0.name == "code" })?.value
         else { return }
         guard verifyAuthState(url: url, requireEcho: true) else {
-            errorMessage = "Shikimori: ignored a login callback this app didn't start."
+            errorMessage = String(localized: "Shikimori: ignored a login callback this app didn't start.")
             return
         }
         errorMessage = nil   // #110: a stale error from an earlier attempt stayed up forever
@@ -89,7 +89,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
         yomiLogNetwork(request, response: response, data: data)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let access = json?["access_token"] as? String else {
-            throw NSError(domain: "Shikimori", code: 0, userInfo: [NSLocalizedDescriptionKey: "No access token"])
+            throw NSError(domain: "Shikimori", code: 0, userInfo: [NSLocalizedDescriptionKey: String(localized: "No access token")])
         }
         accessToken  = access
         refreshToken = json?["refresh_token"] as? String
@@ -122,7 +122,7 @@ private let userAgent    = "Yomi/1.0 (iOS manga reader)"
             return true
         case .rejected:
             logout()
-            errorMessage = "Shikimori: session expired — please log in again."
+            errorMessage = String(localized: "Shikimori: session expired — please log in again.")
             return false
         case .failed:
             return false

@@ -1182,7 +1182,7 @@ struct SourceBrowseView: View {
                 .appendingPathComponent("Extensions", isDirectory: true)
                 .appendingPathComponent("\(ext.id).js")
             guard let newBridge = JSBridge(scriptURL: url) else {
-                errorMessage = "Failed to load source plugin."
+                errorMessage = String(localized: "Failed to load source plugin.")
                 isLoading = false
                 return
             }

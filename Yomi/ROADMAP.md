@@ -21,6 +21,36 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S181 — I: Spanish tail (2026-10-18, simulator)
+
+Martin asleep; told me to keep going on the roadmap without asking. Deploy, CloudKit and phone checks need him, so this
+session did the part of "rest of the Spanish tail" I can do alone.
+
+- **Found the tail with a scan, not by hunting screens:** every English-looking Swift literal that is NOT a catalog key
+  (438 candidates → ~200 real UI strings; the rest were font/licence names, HTTP headers, sample preview data).
+- **Biggest leak: `CalmSectionHeader` / `Section(calm:)` took `String`** — every calm section title (Settings,
+  Trackers, Licences, Backup, Safe Mode, reader toolbar, …) was English in S180. Now `LocalizedStringKey`, like the
+  other shared components. Same for the Extensions screen's `sectionHeader` (Instaladas / Disponibles) and the
+  listen player's `controlButton`.
+- **String-built text → `String(localized:)`:** toasts and alerts (reader, page actions, migrate, library), errors
+  (`errorDescription` of ZIP/CBR/7z, EPUB, plugin download, Keiyoushi repo/bridge, backup parser, migration), tracker
+  login errors, Safe Mode passcode messages, download wait reasons, reading-reminder notification, Updates failure
+  reasons, resume button (Start / Continue), novel theme name + contrast warning, translation errors, widget fallback
+  line. "No %@ chapters" (English filter word inside) → one key per filter. "Too many tries… %lld seconds" plural.
+- **Names shown from data:** novel themes (built-ins localized at `NovelTheme(token)`, id stays English = stored),
+  app theme + icon labels and accent names via `dynamic.json`, OCR languages via `Locale.localizedString`.
+- **Widget is localized now:** `YomiWidget/Localizable.xcstrings` (4 keys), widget target got
+  `SWIFT_EMIT_LOC_STRINGS = YES`; `build-catalog.py` writes both catalogs and also finds XcodeBuildMCP's DerivedData.
+- Catalog 835 → **1016 keys, all Spanish** (`scripts/localization/es-7.json`). Kept English on purpose: diagnostic log,
+  bug-report mail body, NSError domains, background task names, source data (genres, chapter names, "Episode n").
+- Sim (`-AppleLanguages (es)`): Ajustes headers (Leyendo / Biblioteca / …), Apariencia (theme/icon/accent labels),
+  Extensiones (Instaladas / Disponibles / "Inglés · Novelas") Spanish. Widget gallery and notifications unseen.
+- **Still English:** App Store listing in Spanish; anything a plugin/server sends as an error message.
+- NEXT (needs Martin): deploy plugins (`firebase deploy --only hosting:plugins`) → CloudKit schema deploy → personal
+  build → J (phone check: Spanish incl. widget, Safe Mode, perf `--device`, #203/#209, Translate this novel).
+
+---
+
 ## S180 — I: #194 + #69 plugin fixes, Spanish (2026-10-18, simulator + live sites)
 
 Martin picked all three of the rest of I.

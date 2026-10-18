@@ -12,11 +12,11 @@ nonisolated enum PluginScript {
         case http(Int), empty, notJavaScript, syntax(String), checksum
         var errorDescription: String? {
             switch self {
-            case .http(let code): "The plugin couldn't be downloaded (HTTP \(code)). Nothing was changed."
-            case .empty: "The download was empty. Nothing was changed."
-            case .notJavaScript: "The download isn't a plugin (the server sent a web page). Nothing was changed."
-            case .syntax(let detail): "The downloaded plugin has an error (\(detail)). Nothing was changed."
-            case .checksum: "The downloaded plugin doesn't match its repository (checksum). Nothing was changed."
+            case .http(let code): String(localized: "The plugin couldn't be downloaded (HTTP \(code)). Nothing was changed.")
+            case .empty: String(localized: "The download was empty. Nothing was changed.")
+            case .notJavaScript: String(localized: "The download isn't a plugin (the server sent a web page). Nothing was changed.")
+            case .syntax(let detail): String(localized: "The downloaded plugin has an error (\(detail)). Nothing was changed.")
+            case .checksum: String(localized: "The downloaded plugin doesn't match its repository (checksum). Nothing was changed.")
             }
         }
     }

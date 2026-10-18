@@ -23,6 +23,13 @@ nonisolated enum PageTextRecognizer {
         ("ru-RU", "Russian"), ("vi-VT", "Vietnamese"), ("th-TH", "Thai"), ("id-ID", "Indonesian"),
     ]
 
+    /// The language's name in the iPhone's language ("Japonés" in Spanish); the English name is the fallback.
+    static func displayName(_ language: (code: String, name: String)) -> String {
+        if language.code == "auto" { return String(localized: "Automatic") }
+        let base = language.code.hasPrefix("zh") ? language.code : String(language.code.prefix(2))
+        return Locale.current.localizedString(forIdentifier: base)?.localizedCapitalized ?? language.name
+    }
+
     struct Line {
         let text: String
         let rect: CGRect   // pixels, origin top-left

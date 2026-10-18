@@ -346,7 +346,7 @@ final class LibraryViewModel {
                 coverURLString: $0.cover,
                 // Falls back to the old literal only when nothing has been read yet — which for a
                 // lastReadAt-sorted list means a title whose read state predates chapter records.
-                lastChapter: names[$0.id] ?? "Continue reading"
+                lastChapter: names[$0.id] ?? String(localized: "Continue reading")
             )
         }
         WidgetDataWriter.write(merged)

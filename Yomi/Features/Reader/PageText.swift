@@ -63,7 +63,7 @@ struct PageTextSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Picker("Language", selection: $settings.pageTextLanguage) {
-                            ForEach(PageTextRecognizer.languages, id: \.code) { Text($0.name).tag($0.code) }
+                            ForEach(PageTextRecognizer.languages, id: \.code) { Text(PageTextRecognizer.displayName($0)).tag($0.code) }
                         }
                     } label: {
                         Label("Language", systemImage: "globe")
@@ -77,7 +77,7 @@ struct PageTextSheet: View {
                     Button {
                         UIPasteboard.general.string = allText
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        ReaderPageActions.say("Text copied")
+                        ReaderPageActions.say(String(localized: "Text copied"))
                         dismiss()
                     } label: { Label("Copy All", systemImage: "doc.on.doc") }
                     .disabled(allText.isEmpty)

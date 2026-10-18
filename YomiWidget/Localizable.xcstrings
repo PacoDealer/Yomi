@@ -1,0 +1,46 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Continue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        }
+      }
+    },
+    "Continue Reading": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir leyendo"
+          }
+        }
+      }
+    },
+    "Open Yomi to start reading": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Yomi para empezar a leer"
+          }
+        }
+      }
+    },
+    "Pick up where you left off in Yomi.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retoma donde lo dejaste en Yomi."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

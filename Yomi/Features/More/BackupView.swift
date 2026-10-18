@@ -157,9 +157,9 @@ struct BackupView: View {
     private var fileSection: some View {
         Section {
             if backupManager.isExporting {
-                busyRow("Exporting…")
+                busyRow(String(localized: "Exporting…"))
             } else if backupManager.isImporting {
-                busyRow("Importing…")
+                busyRow(String(localized: "Importing…"))
             } else {
                 Menu {
                     Button { export { await backupManager.exportBackup() } } label: {
@@ -195,7 +195,7 @@ struct BackupView: View {
     private var localSection: some View {
         Section {
             if backupManager.isSavingLocalBackup {
-                busyRow("Backing up…")
+                busyRow(String(localized: "Backing up…"))
             } else {
                 actionRow("Back Up Now") {
                     Task {
@@ -260,9 +260,9 @@ struct BackupView: View {
             } else {
                 switch backupManager.iCloudStatus {
                 case .uploading:
-                    busyRow("Uploading to iCloud…")
+                    busyRow(String(localized: "Uploading to iCloud…"))
                 case .downloading:
-                    busyRow("Downloading from iCloud…")
+                    busyRow(String(localized: "Downloading from iCloud…"))
                 default:
                     // The error sits above the actions — it used to replace them, so one failure hid "Back Up Now".
                     if case .error(let msg) = backupManager.iCloudStatus {

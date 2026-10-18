@@ -76,13 +76,13 @@ struct AppLockView: View {
         let context = LAContext()
         var policyError: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &policyError) else {
-            errorMessage = "Authentication not available on this device."
+            errorMessage = String(localized: "Authentication not available on this device.")
             isAuthenticating = false
             return
         }
         context.evaluatePolicy(
             .deviceOwnerAuthentication,
-            localizedReason: "Unlock Yomi"
+            localizedReason: String(localized: "Unlock Yomi")
         ) { success, error in
             DispatchQueue.main.async {
                 isAuthenticating = false

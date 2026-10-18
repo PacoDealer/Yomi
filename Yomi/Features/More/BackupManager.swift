@@ -17,7 +17,7 @@ enum ICloudSyncStatus: Equatable {
 /// 515) the build signed without the iCloud Documents service. Was a bare "The file doesn't exist."
 struct ICloudFolderError: LocalizedError {
     var errorDescription: String? {
-        "Yomi couldn't open its iCloud folder. Check that iCloud Drive is on for Yomi in Settings → your name → iCloud."
+        String(localized: "Yomi couldn't open its iCloud folder. Check that iCloud Drive is on for Yomi in Settings → your name → iCloud.")
     }
 }
 
@@ -573,7 +573,7 @@ struct ICloudFolderError: LocalizedError {
         else {
             throw NSError(
                 domain: "Yomi", code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Invalid backup file"]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Invalid backup file")]
             )
         }
 
