@@ -140,7 +140,7 @@ struct LocalSourceView: View {
         let imported = await Task.detached(priority: .userInitiated) { LocalLibrary.importItems(urls) }.value
         await rescan(announce: false)
         var lines: [String] = []
-        if !imported.imported.isEmpty { lines.append("Imported \(imported.imported.count) item\(imported.imported.count == 1 ? "" : "s").") }
+        if !imported.imported.isEmpty { lines.append(String(localized: "Imported \(imported.imported.count) items.")) }
         lines += imported.skipped
         report = lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
@@ -153,8 +153,8 @@ struct LocalSourceView: View {
         isScanning = false
         if announce {
             var lines = [result.newTitles + result.newChapters == 0
-                         ? "Nothing new."
-                         : "\(result.newTitles) new title\(result.newTitles == 1 ? "" : "s"), \(result.newChapters) new chapter\(result.newChapters == 1 ? "" : "s")."]
+                         ? String(localized: "Nothing new.")
+                         : String(localized: "\(result.newTitles) new titles, \(result.newChapters) new chapters.")]
             lines += result.skipped
             report = lines.joined(separator: "\n")
         }

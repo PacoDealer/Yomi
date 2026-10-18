@@ -217,7 +217,7 @@ struct NovelDetailView: View {
                 let source = SourceStatus.sourceName(entry.novel.sourceId)
                 let count = entry.chapterCount
                 return count == 0 ? "\(entry.novel.title) — \(source)"
-                                  : "\(entry.novel.title) — \(source) · \(count) chapter\(count == 1 ? "" : "s")"
+                                  : String(localized: "\(entry.novel.title) — \(source) · \(count) chapters")
             }.joined(separator: "\n"))
         }
         .navigationDestination(item: $chapterForNav) { ch in

@@ -12,7 +12,7 @@ nonisolated enum Notation {
 
     /// "Chapter 42" / "Chapter 42.5". No thousands separator: in Spanish, chapter 1175 read "Chapter 1.175" (S144).
     static func chapter(_ number: Double) -> String {
-        "Chapter \(number.formatted(.number.grouping(.never).precision(.fractionLength(0...1))))"
+        String(localized: "Chapter \(number.formatted(.number.grouping(.never).precision(.fractionLength(0...1))))")
     }
 
     /// A source's chapter name for display: bare "Ch. 31" / "31" / "chapter 31" become "Chapter 31"; real
@@ -50,7 +50,7 @@ nonisolated enum Notation {
 
     /// "Chapter 42 · read to 68%" — in-progress chapter, for History rows.
     static func chapterReadTo(chapter: Double, fraction: Double) -> String {
-        "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))"
+        String(localized: "\(Notation.chapter(chapter)) · read to \(Notation.progress(fraction))")
     }
 
     // MARK: - Progress
@@ -101,9 +101,16 @@ nonisolated enum Notation {
 
     // MARK: - Status
 
-    /// "Ongoing" — capitalized status word.
+    /// "Ongoing" — capitalized status word; the usual words are translated, anything else a source sends is shown as is.
     static func status(_ raw: String) -> String {
-        raw.prefix(1).uppercased() + raw.dropFirst().lowercased()
+        switch raw.lowercased() {
+        case "ongoing": String(localized: "Ongoing")
+        case "completed": String(localized: "Completed")
+        case "hiatus", "on hiatus": String(localized: "On hiatus")
+        case "cancelled", "canceled": String(localized: "Cancelled")
+        case "unknown": String(localized: "Unknown")
+        default: raw.prefix(1).uppercased() + raw.dropFirst().lowercased()
+        }
     }
 
     // MARK: - History timestamp (adaptive)
@@ -139,20 +146,23 @@ nonisolated enum Notation {
 
     // MARK: - Date group label (History / Updates section headers)
 
-    static let dateGroupOrder = ["Today", "Yesterday", "This week", "This month", "Earlier"]
+    /// Localized — grouping keys and headers are the same strings, so both come from here.
+    static let dateGroupOrder = [String(localized: "Today"), String(localized: "Yesterday"),
+                                 String(localized: "This week"), String(localized: "This month"),
+                                 String(localized: "Earlier")]
 
     /// "Today" / "Yesterday" / "This week" / "This month" / "Earlier" bucket label.
     static func dateGroupLabel(for date: Date?, calendar: Calendar = .current, now: Date = Date()) -> String {
-        guard let date else { return "Earlier" }
-        if calendar.isDateInToday(date) { return "Today" }
-        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        guard let date else { return dateGroupOrder[4] }
+        if calendar.isDateInToday(date) { return dateGroupOrder[0] }
+        if calendar.isDateInYesterday(date) { return dateGroupOrder[1] }
         let days = calendar.dateComponents(
             [.day],
             from: calendar.startOfDay(for: date),
             to: calendar.startOfDay(for: now)
         ).day ?? 0
-        if days < 7  { return "This week" }
-        if days < 30 { return "This month" }
-        return "Earlier"
+        if days < 7  { return dateGroupOrder[2] }
+        if days < 30 { return dateGroupOrder[3] }
+        return dateGroupOrder[4]
     }
 }

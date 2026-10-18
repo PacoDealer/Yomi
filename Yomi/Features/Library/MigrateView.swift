@@ -137,7 +137,7 @@ struct MigrateView: View {
                     Text(group.name)
                         .foregroundStyle(canvas.textPrimary)
                         .lineLimit(1)
-                    Text("\(group.titles.count) title\(group.titles.count == 1 ? "" : "s")"
+                    Text("\(group.titles.count) titles"
                          + (groups.filter { $0.name == group.name }.count > 1 ? " · \(SourceStatus.kindLabel(group.id))" : ""))
                         .font(.footnote)
                         .foregroundStyle(canvas.textSecondary)
@@ -211,7 +211,7 @@ struct MigrateTitlesView: View {
                 Button {
                     showFlow = true
                 } label: {
-                    Text("Migrate \(selected.count) Title\(selected.count == 1 ? "" : "s")")
+                    Text("Migrate \(selected.count) Titles")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                 }
@@ -326,7 +326,7 @@ struct MigrateTargetView: View {
             }
         }
         .background(canvas.bg.ignoresSafeArea())
-        .navigationTitle("Migrate \(titles.count) Title\(titles.count == 1 ? "" : "s")")
+        .navigationTitle("Migrate \(titles.count) Titles")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -386,7 +386,7 @@ struct MigrationReviewView: View {
         .safeAreaInset(edge: .bottom) {
             if model.summary == nil {
                 Button { confirm = true } label: {
-                    Text(model.readyCount == 0 ? "Migrate" : "Migrate \(model.readyCount) Title\(model.readyCount == 1 ? "" : "s")")
+                    Text(model.readyCount == 0 ? "Migrate" : "Migrate \(model.readyCount) Titles")
                         .font(.headline).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
@@ -397,7 +397,7 @@ struct MigrationReviewView: View {
             }
         }
         .confirmationDialog(
-            "Move \(model.readyCount) title\(model.readyCount == 1 ? "" : "s")?",
+            "Move \(model.readyCount) titles?",
             isPresented: $confirm, titleVisibility: .visible
         ) {
             Button("Migrate") { Task { await model.migrateReady() } }
@@ -500,9 +500,9 @@ struct MigrationReviewView: View {
 
     private func status(_ item: MassMigration.Item, target: MigrationTarget, chapters: [Chapter]) -> String {
         if let error = item.error { return error }
-        if item.migrated { return "Migrated · \(target.name)" }
-        let latest = chapters.compactMap(\.chapterNumber).max().map { " · up to \(Notation.chapter($0))" } ?? ""
-        return "\(target.name) · \(chapters.count) chapter\(chapters.count == 1 ? "" : "s")\(latest)"
+        if item.migrated { return String(localized: "Migrated · \(target.name)") }
+        let latest = chapters.compactMap(\.chapterNumber).max().map { String(localized: " · up to \(Notation.chapter($0))") } ?? ""
+        return String(localized: "\(target.name) · \(chapters.count) chapters") + latest
     }
 
     private func summaryView(_ summary: MassMigration.Summary) -> some View {
@@ -512,10 +512,10 @@ struct MigrationReviewView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.accentColor)
-            Text("\(model.options.keepOld ? "Copied" : "Migrated") \(summary.migrated) title\(summary.migrated == 1 ? "" : "s")")
+            Text(model.options.keepOld ? "Copied \(summary.migrated) titles" : "Migrated \(summary.migrated) titles")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(canvas.textPrimary)
-            Text("\(summary.readChapters) read chapter\(summary.readChapters == 1 ? "" : "s") carried over.")
+            Text("\(summary.readChapters) read chapters carried over.")
                 .font(.footnote)
                 .foregroundStyle(canvas.textSecondary)
             if left > 0, !model.options.keepOld {
@@ -585,7 +585,7 @@ struct MigrateSourcePickerView: View {
             } else if isSearching && sections.isEmpty {
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("Searching \(pendingCount) source\(pendingCount == 1 ? "" : "s")…")
+                    Text("Searching \(pendingCount) sources…")
                         .font(.footnote)
                         .foregroundStyle(canvas.textSecondary)
                 }
@@ -717,13 +717,13 @@ struct MigrateSourcePickerView: View {
                 .foregroundStyle(canvas.textPrimary)
             // Always state the new source's real chapter count — a migration that "succeeded"
             // with far fewer chapters than expected is the user's only signal something is off.
-            Text("\(result.newChapterCount) chapter\(result.newChapterCount == 1 ? "" : "s") from the new source.")
+            Text("\(result.newChapterCount) chapters from the new source.")
                 .font(.footnote)
                 .foregroundStyle(canvas.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Text(result.oldReadChapters > 0
-                 ? "\(result.readChapters) chapter\(result.readChapters == 1 ? "" : "s") marked read (you had read \(result.oldReadChapters))."
+                 ? "Chapters marked read: \(result.readChapters) (you had read \(result.oldReadChapters))."
                  : "No prior reading progress to carry over.")
                 .font(.footnote)
                 .foregroundStyle(canvas.textSecondary)

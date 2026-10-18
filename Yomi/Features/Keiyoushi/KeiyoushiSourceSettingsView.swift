@@ -27,7 +27,7 @@ struct KeiyoushiSourceSettingsView: View {
                 }
             } else if let loadError {
                 YomiEmptyState(systemImage: "exclamationmark.triangle", title: "Couldn't load the settings",
-                               message: loadError, actionLabel: "Try again", actionIcon: "arrow.clockwise") {
+                               message: "\(loadError)", actionLabel: "Try again", actionIcon: "arrow.clockwise") {
                     Task { await load() }
                 }
             } else {

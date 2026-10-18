@@ -100,7 +100,7 @@ struct TachiyomiImportView: View {
     private var summarySection: some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(report.titleCount) title\(report.titleCount == 1 ? "" : "s") imported")
+                Text("\(report.titleCount) titles imported")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(canvas.textPrimary)
                 Text(summaryLine)
@@ -170,7 +170,7 @@ struct TachiyomiImportView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.name)
                             .foregroundStyle(canvas.textPrimary)
-                        Text("\(row.titles) title\(row.titles == 1 ? "" : "s")")
+                        Text("\(row.titles) titles")
                             .font(.footnote)
                             .foregroundStyle(canvas.textSecondary)
                     }
@@ -198,7 +198,7 @@ struct TachiyomiImportView: View {
         }
     }
 
-    private func pill(_ title: String, busyKey: String, action: @escaping () async -> Void) -> some View {
+    private func pill(_ title: LocalizedStringKey, busyKey: String, action: @escaping () async -> Void) -> some View {
         Group {
             if busy.contains(busyKey) {
                 ProgressView()

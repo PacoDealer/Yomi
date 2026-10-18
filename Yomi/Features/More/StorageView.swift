@@ -10,10 +10,10 @@ import Kingfisher
 
 private struct StorageRow: Identifiable {
     let id: String
-    let label: String
+    let label: LocalizedStringKey
     let bytes: Int64
     let barOpacity: Double
-    let subtitle: String?
+    let subtitle: LocalizedStringKey?
 }
 
 struct StorageView: View {

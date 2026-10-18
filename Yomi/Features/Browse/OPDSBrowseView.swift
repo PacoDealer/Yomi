@@ -29,7 +29,7 @@ struct OPDSBrowseView: View {
                 YomiEmptyState(
                     systemImage: "exclamationmark.triangle",
                     title: "Failed to load",
-                    message: error
+                    message: "\(error)"
                 )
             } else if feed != nil {
                 feedView(allEntries)

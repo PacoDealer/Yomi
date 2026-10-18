@@ -66,8 +66,8 @@ struct ContentView: View {
                     let scan = LocalLibrary.scan()
                     if !imported.imported.isEmpty {
                         return scan.newTitles > 0
-                            ? "Added to your Library — find it in Browse → Local Files too."
-                            : "Added \(scan.newChapters) chapter\(scan.newChapters == 1 ? "" : "s") to a title you already have."
+                            ? String(localized: "Added to your Library — find it in Browse → Local Files too.")
+                            : String(localized: "Added \(scan.newChapters) chapters to a title you already have.")
                     }
                     return imported.skipped.joined(separator: "\n")
                 }.value

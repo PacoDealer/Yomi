@@ -20,12 +20,12 @@ enum ReadingStatus: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .none:       return "Not set"
-        case .planToRead: return "Plan to read"
-        case .reading:    return "Reading"
-        case .onHold:     return "On hold"
-        case .completed:  return "Completed"
-        case .dropped:    return "Dropped"
+        case .none:       return String(localized: "Not set")
+        case .planToRead: return String(localized: "Plan to read")
+        case .reading:    return String(localized: "Reading")
+        case .onHold:     return String(localized: "On hold")
+        case .completed:  return String(localized: "Completed")
+        case .dropped:    return String(localized: "Dropped")
         }
     }
 

@@ -336,7 +336,7 @@ struct DownloadsView: View {
     }
 
     private func chapterCount(_ n: Int) -> String {
-        "\(n) chapter\(n == 1 ? "" : "s")"
+        String(localized: "\(n) chapters")
     }
 }
 

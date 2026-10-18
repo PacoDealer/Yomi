@@ -83,7 +83,7 @@ struct InsightsView: View {
 
     // MARK: - Pieces
 
-    private func stat(num: String, label: String) -> some View {
+    private func stat(num: String, label: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(num)
                 .font(.system(.largeTitle, design: .rounded).weight(.semibold))
@@ -129,7 +129,7 @@ struct InsightsView: View {
         }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(.title3.bold())
             .foregroundStyle(canvas.textPrimary)

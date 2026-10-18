@@ -46,7 +46,7 @@ struct MoreView: View {
 /// Accent icon · label · optional grey trailing text · chevron. Shared by More and About.
 private struct MoreRow<Destination: View>: View {
     let icon: String
-    let label: String
+    let label: LocalizedStringKey
     var trailing: String? = nil
     @ViewBuilder let destination: () -> Destination
 
@@ -64,7 +64,7 @@ private struct MoreRow<Destination: View>: View {
 
 private struct MoreRowLabel: View {
     let icon: String?
-    let label: String
+    let label: LocalizedStringKey
     var trailing: String? = nil
     var labelColor: Color? = nil
 
@@ -149,7 +149,7 @@ private struct AboutView: View {
         return parts.string ?? "mailto:yomiappreader@gmail.com"
     }
 
-    private func linkRow(_ label: String, icon: String, url: String) -> some View {
+    private func linkRow(_ label: LocalizedStringKey, icon: String, url: String) -> some View {
         Button {
             if let u = URL(string: url) { openURL(u) }
         } label: {

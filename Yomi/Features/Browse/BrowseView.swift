@@ -76,7 +76,7 @@ struct BrowseView: View {
                 } label: {
                     VStack(spacing: 8) {
                         HStack(spacing: 5) {
-                            Text(item.rawValue)
+                            Text(LocalizedStringKey(item.rawValue))
                                 .font(.subheadline.weight(.semibold))
                             if item == .extensions && updateCount > 0 {
                                 Text("\(updateCount)")
@@ -191,7 +191,7 @@ struct BrowseView: View {
     }
 
     /// "Manga      5" — the Library's Apple Music-style section title (S138/S140).
-    private func sectionTitle(_ title: String, count: Int? = nil) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey, count: Int? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .font(.title2.bold())
@@ -208,7 +208,7 @@ struct BrowseView: View {
         .padding(.bottom, 4)
     }
 
-    private func sourceSection(_ title: String, _ items: [BrowseSourceItem], count: Int? = nil) -> some View {
+    private func sourceSection(_ title: LocalizedStringKey, _ items: [BrowseSourceItem], count: Int? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle(title, count: count)
 
@@ -238,7 +238,7 @@ struct BrowseView: View {
                 SourceBrowseView(ext: ext)
             } label: {
                 SourceRow(name: ext.name, iconURL: ext.iconURL,
-                          subtitle: "\(SourceLanguage.displayName(for: ext.language)) · \(isNovel ? "Novels" : "Manga")\(origin)",
+                          subtitle: "\(SourceLanguage.displayName(for: ext.language)) · \(isNovel ? String(localized: "Novels") : String(localized: "Manga"))\(origin)",
                           isNSFW: ext.isNSFW)
             }
             .buttonStyle(.plain)
@@ -772,7 +772,7 @@ private struct GlobalSearchView: View {
             } else if pendingCount > 0 && sections.isEmpty {
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("Searching \(pendingCount) source\(pendingCount == 1 ? "" : "s")…")
+                    Text("Searching \(pendingCount) sources…")
                         .font(YomiTokens.Font.mono(12))
                         .foregroundStyle(canvas.textSecondary)
                 }
@@ -997,7 +997,7 @@ struct SourceBrowseView: View {
                 YomiEmptyState(
                     systemImage: "exclamationmark.triangle",
                     title: "Failed to load",
-                    message: error
+                    message: "\(error)"
                 )
             } else if isContentEmpty && searchText.isEmpty {
                 YomiEmptyState(
@@ -1053,7 +1053,7 @@ struct SourceBrowseView: View {
             if supportsLatest {
                 Picker("Feed", selection: $selectedFeed) {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                        Text(LocalizedStringKey(tab.rawValue)).tag(tab)
                     }
                 }
                 .pickerStyle(.segmented)

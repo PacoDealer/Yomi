@@ -1,0 +1,8 @@
+{
+"Tight": "Ajustado", "Normal": "Normal", "Airy": "Amplio", "Narrow": "Angosto", "Wide": "Ancho", "Loose": "Suelto",
+"Line spacing": "Interlineado", "Paragraph spacing": "Espacio entre párrafos", "Letter spacing": "Espacio entre letras",
+"Margins": "Márgenes", "Pages": "Páginas",
+"Ongoing": "En curso", "Completed": "Finalizado", "On hiatus": "En pausa", "Cancelled": "Cancelado", "Unknown": "Desconocido",
+"Today": "Hoy", "Yesterday": "Ayer", "This week": "Esta semana", "This month": "Este mes", "Earlier": "Antes",
+"Chapter %@": "Capítulo %@", "%@ · read to %@": "%@ · leído hasta %@"
+}

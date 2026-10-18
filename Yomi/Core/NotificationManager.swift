@@ -94,7 +94,7 @@ final class NotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = shouldHideTitles ? "Yomi" : mangaTitle
-        content.body  = "\(newCount) new chapter\(newCount == 1 ? "" : "s") available"
+        content.body  = String(localized: "\(newCount) new chapters available")
         content.sound = .default
         if let id = mediaId {
             content.userInfo = ["mediaId": id, "mediaType": mediaType]

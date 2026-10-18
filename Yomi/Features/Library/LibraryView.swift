@@ -32,8 +32,8 @@ struct LibraryView: View {
     /// "Sort" for All; "Sort · Favourites" when the category shown keeps its own sort (S170).
     private var sortTitle: String {
         guard let id = viewModel.selectedCategoryId,
-              let name = viewModel.categories.first(where: { $0.id == id })?.name else { return "Sort" }
-        return "Sort · \(name)"
+              let name = viewModel.categories.first(where: { $0.id == id })?.name else { return String(localized: "Sort") }
+        return String(localized: "Sort · \(name)")
     }
 
     /// Sources → each one cycles show only → hide → all (S170).
@@ -78,7 +78,7 @@ struct LibraryView: View {
                         YomiEmptyState(
                             systemImage: "exclamationmark.triangle",
                             title: "Couldn't load your library",
-                            message: error,
+                            message: "\(error)",
                             actionLabel: "Try again",
                             actionIcon: "arrow.clockwise"
                         ) {
@@ -423,7 +423,7 @@ struct LibraryView: View {
                                     Button {
                                         viewModel.sortOrder = order
                                     } label: {
-                                        Label(order.rawValue, systemImage: order.systemImage)
+                                        Label(LocalizedStringKey(order.rawValue), systemImage: order.systemImage)
                                         if viewModel.sortOrder == order {
                                             Image(systemName: "checkmark")
                                         }
@@ -616,7 +616,7 @@ struct LibraryView: View {
                     .id("tab_all")
                     ForEach(viewModel.categories) { category in
                         LibraryTab(
-                            label: category.name,
+                            label: "\(category.name)",
                             count: settings.showCategoryItemCounts ? viewModel.categoryItemCounts[category.id] ?? 0 : nil,
                             isSelected: viewModel.selectedCategoryId == category.id
                         ) {
@@ -687,7 +687,7 @@ struct LibraryView: View {
 
 /// "Novels      2" — Apple Music-style section title (S138, RESEARCH §26).
 private struct LibrarySectionHeader: View {
-    let title: String
+    let title: LocalizedStringKey
     var count: Int? = nil
     @Environment(\.yomiCanvas) private var canvas
 
@@ -714,7 +714,7 @@ private struct LibrarySectionHeader: View {
 
 /// Category chip: filled with the label colour when selected, quiet grey otherwise.
 private struct LibraryTab: View {
-    let label: String
+    let label: LocalizedStringKey
     var count: Int? = nil
     let isSelected: Bool
     let action: () -> Void

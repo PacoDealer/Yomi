@@ -280,7 +280,7 @@ struct ExtensionDetailView: View {
         .padding(.top, 8)
     }
 
-    private func infoRow(_ title: String, _ value: String) -> some View {
+    private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
         LabeledContent(title) {
             Text(value).foregroundStyle(canvas.textSecondary).multilineTextAlignment(.trailing)
         }
