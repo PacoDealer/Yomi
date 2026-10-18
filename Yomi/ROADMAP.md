@@ -38,8 +38,12 @@ The research audit revealed that 800+ sources are already available across four 
 - **Martin:** CloudKit Console → `iCloud.pacodealer.Yomi` → Deploy Schema Changes → diff must list those three fields
   → Deploy. **DEPLOYED by Martin 2026-10-18.** Placeholder group then deleted in the sim DB + synced (cached record no
   longer holds it).
-- `build-personal.sh` still signs with EMPTY entitlements + `YOMI_PERSONAL` (no sync, widget shows its placeholder),
-  although the team is paid now — matters for J's widget check.
+- **Personal build switched to real entitlements** (Martin's call): `Config/Personal.entitlements` = `Yomi.entitlements`
+  + `com.apple.developer.icloud-container-environment = Production` (Apple doc read), so the phone syncs with the same
+  data as TestFlight, not the sim's Development copy. `Personal.xcconfig` picks entitlements per target
+  (`$(PERSONAL_ENTITLEMENTS_$(TARGET_NAME))`, widget keeps its own) and no longer defines `YOMI_PERSONAL`. Release
+  device build SUCCEEDED, 0 warnings; signed app has CloudKit + Production + App Group, widget has the App Group;
+  profile expires 2027-10-15. Not installed — Martin runs the script.
 - NEXT: personal build → J.
 
 ---

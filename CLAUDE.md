@@ -169,7 +169,9 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
   filters an extension fetches from its site (Asura genres) don't load (zstd JNI). Parity list: `TACHIMANGA_PARITY.md`.
   Open: #206 double back button from Library search, per-extension settings screen unseen on a device
   (built + Mac-verified; `KeiyoushiSourceSettingsView`). NEXT in ROADMAP S156.
-- Phone has the S166 Release build `98af933` (paid team): profile expires **2027-10-15**. `scripts/build-personal.sh` still uses the empty entitlements (no iCloud/widget data).
+- Phone has the S166 Release build `98af933` (paid team): profile expires **2027-10-15**. **S182:** `build-personal.sh` now signs
+  with the REAL entitlements (`Config/Personal.entitlements` = app's + `icloud-container-environment = Production`; widget
+  keeps its own); `YOMI_PERSONAL` is no longer defined → sync + widget data work on the phone, against Production.
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
@@ -224,7 +226,7 @@ values (MAL required to compile; AniList/Shikimori/Bangumi may stay empty).
 ## Build
 ```bash
 xcodebuild -scheme Yomi -destination 'platform=iOS Simulator,id=F31CC190-186D-4598-9ED8-225821907550' build
-scripts/build-personal.sh --release   # Martin's iPhone (free team; read the printed profile expiry)
+scripts/build-personal.sh --release   # Martin's iPhone (paid team, real entitlements, CloudKit Production)
 ```
 
 ## Key paths

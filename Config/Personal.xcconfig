@@ -1,14 +1,16 @@
-// Personal build: Yomi signed by Martin's FREE Personal Team so it can run on his iPhone before the paid Apple
-// Developer Program. A free team cannot sign push, iCloud/CloudKit or App Groups (verified S124: its profiles
-// "don't match the entitlements file's value for com.apple.security.application-groups"), so this build uses an
-// EMPTY Personal.entitlements and compiles with YOMI_PERSONAL, which turns CloudKit sync off (CloudSyncManager).
-// Without the App Group the widget gets no shared data and shows its placeholder (WidgetDataWriter guards nil).
+// Personal build: Yomi installed straight on Martin's iPhone (development-signed, paid team since S151).
+// S182: real entitlements — iCloud/CloudKit sync, iCloud backup, App Group (widget data), push. The app target uses
+// Config/Personal.entitlements = Yomi/Yomi.entitlements + `icloud-container-environment = Production`, so the phone
+// syncs with the SAME CloudKit data as TestFlight/App Store builds (a development-signed build would otherwise use the
+// Development environment, which holds the simulator's test copy). Widget keeps its own entitlements.
+// YOMI_PERSONAL is no longer defined (it turned CloudKit off for the old free team).
 // The on-device Keiyoushi runtime has no simulator slice, so everything Keiyoushi is tested with this build.
 // Usage: scripts/build-personal.sh   (passes this file with -xcconfig, overriding every target)
 DEVELOPMENT_TEAM = F9R33MN82P
 CODE_SIGN_STYLE = Automatic
-CODE_SIGN_ENTITLEMENTS = Config/Personal.entitlements
-SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) YOMI_PERSONAL
+PERSONAL_ENTITLEMENTS_Yomi = Config/Personal.entitlements
+PERSONAL_ENTITLEMENTS_YomiWidget = YomiWidget/YomiWidget.entitlements
+CODE_SIGN_ENTITLEMENTS = $(PERSONAL_ENTITLEMENTS_$(TARGET_NAME))
 
 // On-device Keiyoushi (S124): embed the OpenJDK runtime + extension bridge (scripts/keiyoushi/embed-runtime.sh).
 // The embed phase reads Vendor/Keiyoushi outside Xcode's declared inputs, so script sandboxing is off here.

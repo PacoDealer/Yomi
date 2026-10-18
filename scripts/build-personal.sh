@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds Yomi signed by the free Personal Team (Config/Personal.xcconfig) and installs it on Martin's iPhone 17.
-# Needed because the on-device Keiyoushi runtime has no simulator slice. Free-team builds expire after 7 days.
+# Builds Yomi development-signed by the paid team (Config/Personal.xcconfig: real entitlements, CloudKit Production —
+# S182) and installs it on Martin's iPhone 17. Needed because the on-device Keiyoushi runtime has no simulator slice.
 # Pass --launch to also start it and stream its console (the phone must be unlocked).
 # Pass --release for an optimized build (use it for performance measurements — Debug SwiftUI is much slower).
 set -euo pipefail
