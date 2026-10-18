@@ -21,6 +21,26 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S182 — CloudKit: new S167 fields into the Development schema (2026-10-18, simulator)
+
+- Only S167 (`fc3d3c0`) changed the synced fields since the S152 deploy: `Manga.excludedScanlators` (STRING LIST),
+  `MangaChapterState.isBookmarked`, `NovelChapterState.isBookmarked` (INT64). `Novel.genres` is already in Production
+  (S156 console read).
+- Sim iPhone 17 Pro 26.3 (F31CC190, still signed in to Martin's iCloud), Debug build (development environment). Sync was
+  OFF since S153. Wrote the values straight into the sim DB (backup: `build/S182-sim-yomi-before.db`) and set
+  `cloud_sync_map.pendingChange = 'save'`: hidden group **"S182 schema test"** on The Ruler Of Darkness (Keiyoushi; no
+  chapter has that group, so nothing is hidden), bookmark on Absolute Regression (id 2127) chapter 159702, bookmark on
+  A Regressor's Tale of Cultivation ch-0, plus the 3 novels with genres. Turned sync ON (XcodeBuildMCP tap on the row
+  `e34` worked; tapping the switch itself did nothing, also not with the simulator `control` tap).
+- **Saved, all three:** pending marks cleared, and each record's cached copy holds the new field (`excludedScanlators`
+  with "S182 schema test"; `isBookmarked` on both chapter states). Development saves auto-create fields, so they now
+  exist in the Development schema.
+- **Martin:** CloudKit Console → `iCloud.pacodealer.Yomi` → Deploy Schema Changes → diff must list those three fields
+  → Deploy. Then the placeholder group can go (detail screen of The Ruler Of Darkness → hidden groups).
+- NEXT: Martin deploys → personal build → J.
+
+---
+
 ## S181 — I: Spanish tail (2026-10-18, simulator)
 
 Martin asleep; told me to keep going on the roadmap without asking. Deploy, CloudKit and phone checks need him, so this
