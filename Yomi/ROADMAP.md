@@ -88,6 +88,14 @@ REPLACES Martin's Yomi — with the default signing it would have synced against
   result has no launch metric; sim records it). Open: find why (iOS build 24A94232 / Xcode metrics on device) or gate
   launch with an os_signpost instead.
 - NEXT: personal build → J.
+- **Launch gate on the phone (S182, later):** the device log shows `IDESchemeActionSDKRecord: operatingSystemBuild =
+  24A94232, error = invalidDigitCount(94232)` before every launch — Xcode 27.1 can't parse the phone's OS build. Hitch
+  and memory metrics still record with the same error, so it's a likely cause, not a proven one. Workaround:
+  `testReaderLaunch` also measures `XCTClockMetric` (wall clock of `launch()`, incl. XCTest's terminate + idle wait);
+  gate `Clock Monotonic Time` ≤ 6 s everywhere, the real launch gate is now `simulatorOnly`. Sim: launch 1.43 s, clock
+  3.48 s. `perf-gates.sh --result` now tells device runs from the result's device id (it used to treat every
+  `--result` as a simulator run and skip the hitch gates). Clock on the phone UNMEASURED — next `--device` run (it
+  replaces Martin's install → reinstall with `build-personal.sh --release` after).
 
 ---
 

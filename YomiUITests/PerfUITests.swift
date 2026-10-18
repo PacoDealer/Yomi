@@ -65,8 +65,11 @@ final class PerfUITests: XCTestCase {
     // MARK: Launch
 
     /// Cold launch straight into the novel reader (fixture), until the app answers touches.
+    /// On Martin's iPhone the launch metric records nothing (S182 — Xcode 27.1 can't parse the OS build `24A94232`),
+    /// so the wall clock of `launch()` is the device gate: it also counts XCTest's terminate + idle wait, a regression
+    /// signal rather than the real launch time.
     func testReaderLaunch() {
-        measure(metrics: [XCTApplicationLaunchMetric(waitUntilResponsive: true)], options: options) {
+        measure(metrics: [XCTApplicationLaunchMetric(waitUntilResponsive: true), XCTClockMetric()], options: options) {
             let app = XCUIApplication()
             app.launchArguments = ["-yomiReaderFixture"]
             app.launch()
