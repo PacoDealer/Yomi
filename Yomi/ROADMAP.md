@@ -43,6 +43,22 @@ The research audit revealed that 800+ sources are already available across four 
   `ReaderPagedViews.swift`, `ReaderScrollViews.swift`, `ReaderOverlayView.swift` (sorted-line checksum of old vs new is
   identical apart from `PageRetryButton` losing `private`). Build 0 warnings, ReaderUITests 13/13, PerfUITests 3/3.
 - **#203 / #209 closed** on Martin's J round 2 + the on-phone perf run (KNOWN_ISSUES).
+- **Spanish, code side complete:** fresh sim build → `build-catalog.py`: app 1016/1016, widget 3/3 in Spanish;
+  `find-unlocalized.py` leftovers are font names, HTTP headers, sample data, and three accessibility labels that ARE in
+  the catalog (checked). Only Martin's on-phone look is left.
+- Health check: chapter recognition 103, fetch interval 54, reader pages 26/26, term replace, plugin trust 14, page text
+  — all pass.
+- Phone: has the first S183 build (`94cee39`, cache fix). The split build could not be installed (phone away,
+  "unavailable"); it is a pure move, nothing to check there.
+
+**FOR MARTIN (S183 check-list, phone):**
+1. Asura (Keiyoushi) chapter → read a few pages → kill Yomi from the app switcher → reopen the chapter: pages above
+   the saved one appear at once (no spinners, no re-download); with crop borders on, no margin flash.
+2. Spanish: iPhone Settings → Apps → Yomi → Language → Español; glance at Library, a title, the reader menus, More,
+   and the widget; tell me any English left.
+3. Decide when you want them: trackers (AniList client id, ROADMAP S170 decision 3), two-device sync test, tip jar
+   (needs Paid Apps Agreement; plan in BACKLOG — Support / donate).
+4. Optional: run `scripts/build-personal.sh --release` with the phone unlocked to get the latest build (`3b2b23e`+).
 
 ## S182 — CloudKit: new S167 fields into the Development schema (2026-10-18, simulator)
 
