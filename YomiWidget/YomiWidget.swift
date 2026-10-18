@@ -10,6 +10,17 @@ struct ReadingItem: Codable {
     let lastChapter: String
     /// Cover saved by the app in the App Group's `widget-covers` folder (S182) — a widget can't download images.
     let coverFile: String?
+    /// "manga" or "novel" (S182); nil in data written by older app versions → the tap just opens Yomi.
+    var kind: String? = nil
+
+    /// Opens this title in Yomi (`ContentView.onOpenURL` → the same path as a tapped notification).
+    var openURL: URL? {
+        guard let kind else { return nil }
+        var c = URLComponents()
+        c.scheme = "yomi"; c.host = "open"
+        c.queryItems = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "type", value: kind)]
+        return c.url
+    }
 }
 
 // MARK: - Timeline Entry
@@ -117,6 +128,7 @@ struct ContinueReadingWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
+        .widgetURL(item.openURL)
     }
 
     // MARK: Medium — up to 3 covers side by side
@@ -124,17 +136,19 @@ struct ContinueReadingWidgetView: View {
     private func mediumView(_ items: [ReadingItem]) -> some View {
         HStack(alignment: .top, spacing: 12) {
             ForEach(items, id: \.id) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    cover(item, height: 84)
-                    Text(item.title)
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(2)
-                    Text(item.lastChapter)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                titleLink(item) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        cover(item, height: 84)
+                        Text(item.title)
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(2)
+                        Text(item.lastChapter)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             ForEach(items.count..<3, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
         }
@@ -148,23 +162,35 @@ struct ContinueReadingWidgetView: View {
             Text("Continue Reading")
                 .font(.subheadline.weight(.semibold))
             ForEach(items, id: \.id) { item in
-                HStack(spacing: 12) {
-                    cover(item, height: 56)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(2)
-                        Text(item.lastChapter)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                titleLink(item) {
+                    HStack(spacing: 12) {
+                        cover(item, height: 56)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(2)
+                            Text(item.lastChapter)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(16)
+    }
+
+    /// Medium and large show several titles: each one is its own link (`widgetURL` is one per widget).
+    @ViewBuilder
+    private func titleLink(_ item: ReadingItem, @ViewBuilder content: () -> some View) -> some View {
+        if let url = item.openURL {
+            Link(destination: url, label: content)
+        } else {
+            content()
+        }
     }
 
     // MARK: Cover

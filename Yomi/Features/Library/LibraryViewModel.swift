@@ -346,7 +346,8 @@ final class LibraryViewModel {
                 coverURLString: $0.cover,
                 // Falls back to the old literal only when nothing has been read yet — which for a
                 // lastReadAt-sorted list means a title whose read state predates chapter records.
-                lastChapter: names[$0.id] ?? String(localized: "Continue reading")
+                lastChapter: names[$0.id] ?? String(localized: "Continue reading"),
+                kind: novelIds.contains($0.id) ? "novel" : "manga"
             )
         }
         // Custom and Local Files covers are files, not links (S182: the widget showed none for them).
