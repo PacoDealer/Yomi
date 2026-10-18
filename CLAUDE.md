@@ -27,7 +27,8 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 ## Current state (S183 — 2026-10-18)
 - **S183 (sim):** resume device-verified. Keiyoushi pages named `chapterId#index` in `PageNames` (ReaderPagePrefetcher.swift)
   for shapes, looks AND Kingfisher's cache (`PageNames.source(url)` — load reader pages through it, never `KFImage(url)`).
-  Keiyoushi path phone-unverified; not installed.
+  Keiyoushi path phone-unverified (personal Release installed). #106 done: reader split into ChapterReaderView +
+  ReaderPagedViews / ReaderScrollViews / ReaderOverlayView.swift.
 - **S182:** CloudKit schema deployed (S167 fields); personal build = real entitlements, Production CloudKit; J started on
   the phone. Fixed: manga reader saves the page on background too (kill from app switcher lost it); widget covers are
   JPEGs the app saves in the App Group (`widget-covers/`; AsyncImage never loads in widgets) + calm widget redesign;
@@ -251,7 +252,7 @@ Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
 Yomi/Features/Keiyoushi/                  # JVM host, repository (index.pb), bridge, browse
 Yomi/Features/More/PluginsView.swift      # Browse → Extensions tab + RepositoriesView, AddRepoSheet
 Yomi/Features/Browse/BrowseView.swift     # Sources · Extensions · Migrate
-Yomi/Features/Reader/NovelReaderWeb.swift, ReaderFonts.swift, ChapterReaderView.swift
+Yomi/Features/Reader/NovelReaderWeb.swift, ReaderFonts.swift, ChapterReaderView.swift (+ ReaderPagedViews/ReaderScrollViews/ReaderOverlayView)
 Yomi/Features/Browse/NovelDetailView.swift, Yomi/Features/Library/MangaDetailView.swift
 scripts/build-js-libs.mjs, build-reader-fonts.sh, keiyoushi/, perf/
 ```

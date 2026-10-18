@@ -38,6 +38,12 @@ The research audit revealed that 800+ sources are already available across four 
   on the phone, open an Asura chapter, kill Yomi, reopen offline-ish (or watch it) — pages above the saved one should
   appear at once without re-downloading. Not on the phone yet (needs `build-personal.sh --release`).
 
+### S183 (same day, Martin at dinner — autonomous)
+- **#106 done:** `ChapterReaderView.swift` (2,021 lines) split by pure moves into `ChapterReaderView.swift` (751),
+  `ReaderPagedViews.swift`, `ReaderScrollViews.swift`, `ReaderOverlayView.swift` (sorted-line checksum of old vs new is
+  identical apart from `PageRetryButton` losing `private`). Build 0 warnings, ReaderUITests 13/13, PerfUITests 3/3.
+- **#203 / #209 closed** on Martin's J round 2 + the on-phone perf run (KNOWN_ISSUES).
+
 ## S182 — CloudKit: new S167 fields into the Development schema (2026-10-18, simulator)
 
 - Only S167 (`fc3d3c0`) changed the synced fields since the S152 deploy: `Manga.excludedScanlators` (STRING LIST),
