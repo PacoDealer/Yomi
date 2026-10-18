@@ -36,8 +36,11 @@ The research audit revealed that 800+ sources are already available across four 
   with "S182 schema test"; `isBookmarked` on both chapter states). Development saves auto-create fields, so they now
   exist in the Development schema.
 - **Martin:** CloudKit Console → `iCloud.pacodealer.Yomi` → Deploy Schema Changes → diff must list those three fields
-  → Deploy. Then the placeholder group can go (detail screen of The Ruler Of Darkness → hidden groups).
-- NEXT: Martin deploys → personal build → J.
+  → Deploy. **DEPLOYED by Martin 2026-10-18.** Placeholder group then deleted in the sim DB + synced (cached record no
+  longer holds it).
+- `build-personal.sh` still signs with EMPTY entitlements + `YOMI_PERSONAL` (no sync, widget shows its placeholder),
+  although the team is paid now — matters for J's widget check.
+- NEXT: personal build → J.
 
 ---
 
