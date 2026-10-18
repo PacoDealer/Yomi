@@ -59,8 +59,24 @@ The research audit revealed that 800+ sources are already available across four 
   shows the cover + title; medium/large unseen.
 - **(c) partly:** translations are saved per (target language, exact chapter text) in `Caches/novel-translations`
   (400 files max); a saved chapter is put back without the Translation session. Device-unverified (the sim can't
-  translate). Wording = Apple's on-device model, line by line — waiting for Martin's example before changing anything.
+  translate). Wording = Apple's on-device model, line by line.
+- **Translate TAKEN OUT (Martin: "leave it to the backlog so we can actually improve it").** `NovelTranslation.isAvailable
+  = false` hides the Reading-tab toggle and ignores saved per-novel choices (`novelTranslateIds` kept); the code, the
+  cache and the strings stay. Sim: Reading tab shows Layout / Infinite scroll / Swipe / Show menu / Replacements only.
 - Reader UI tests 13/13, 0 warnings.
+
+### BACKLOG — Translate, done properly (S182)
+Martin's phone, S177 version: slow (a whole chapter through Apple's on-device model before anything shows), wording
+"kinda weird", nothing kept between visits (cache added S182, unverified). Read-aloud reads the original. To look at:
+1. **Context:** today every LINE is a separate request, so names/pronouns/tone drift. Send whole paragraphs (or a few
+   at a time) and measure on real WeTried chapters; ask Martin for the lines that read wrong + the language pair first.
+2. **Speed:** show the first screen translated first (paragraphs in view → rest in the background), keep the original
+   visible meanwhile; reuse the S182 cache; translate the next chapter ahead like page preload.
+3. **Names:** protect character/place names with Term Replacements (S177) before translating, or a per-novel glossary.
+4. **Engine:** Apple Translation only (free, on device, no key). Compare quality vs alternatives before committing —
+   any server engine needs a key/cost and sends text off the phone (privacy label).
+5. Read-aloud on the translated text; keep italics/links.
+Turn back on = `NovelTranslation.isAvailable = true` + device check.
 - NEXT: personal build → J.
 
 ---

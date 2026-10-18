@@ -82,7 +82,7 @@ struct TextReaderView: View {
         self.chapters = chapters
         self.startIndex = min(max(startIndex, 0), max(chapters.count - 1, 0))
         _currentChapterIndex = State(initialValue: self.startIndex)
-        _translateOn = State(initialValue: AppSettings.shared.novelTranslateIds.contains(novel.id))
+        _translateOn = State(initialValue: NovelTranslation.isAvailable && AppSettings.shared.novelTranslateIds.contains(novel.id))
     }
 
     // MARK: - Computed
@@ -1382,11 +1382,13 @@ extension TextReaderOverlayView {
                                        selection: $settings.novelMenuTaps,
                                        accessibilityName: "Show menu with")
             }
+            if NovelTranslation.isAvailable {
             Toggle(isOn: $translateOn) {
                 Text("Translate this novel").font(.subheadline)
             }
             .accessibilityHint("Translates each chapter on this iPhone with Apple's Translation")
-            if translateOn {
+            }
+            if NovelTranslation.isAvailable && translateOn {
                 HStack {
                     Text("Into").font(.subheadline)
                     Spacer()

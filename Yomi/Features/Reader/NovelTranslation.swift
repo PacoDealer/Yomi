@@ -10,6 +10,10 @@ import Translation
 // inside a block (italics, links) is not kept in the translation.
 
 enum NovelTranslation {
+    /// S182: OFF — Martin took Translate out until it's improved (BACKLOG in ROADMAP S182: slow, odd wording line by
+    /// line). Hides the Reading-tab toggle and ignores saved per-novel choices; `novelTranslateIds` is kept as is.
+    static let isAvailable = false
+
     /// Lines per `translations(from:)` call.
     private static let batchSize = 120
 
