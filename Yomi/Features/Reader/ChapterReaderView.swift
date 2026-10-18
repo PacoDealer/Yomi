@@ -29,7 +29,8 @@ struct ChapterReaderView: View {
     @State private var settings = AppSettings.shared
     @State private var shouldRequestReview = false
     @State private var currentChapterIndex: Int
-    @State private var pages: [String] = []
+    /// Named for `PageShapes` as they come in: Keiyoushi pages get a new address every launch (S182).
+    @State private var pages: [String] = [] { didSet { PageShapes.name(pages, chapterId: activeChapter.id) } }
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
     @State private var readerMode: ReaderMode
@@ -45,7 +46,9 @@ struct ChapterReaderView: View {
     @State private var toastMessage: String? = nil
     /// Non-error banner (page menu: "Saved to Photos", "Page copied").
     @State private var infoMessage: String? = nil
-    @State private var nextPreload: (chapter: Chapter, pages: [String], sources: [Int]?)? = nil
+    @State private var nextPreload: (chapter: Chapter, pages: [String], sources: [Int]?)? = nil {
+        didSet { if let nextPreload { PageShapes.name(nextPreload.pages, chapterId: nextPreload.chapter.id) } }
+    }
     /// Source page of each entry in `pages` when a downloaded chapter has tall pages stored as parts (D12); nil = the
     /// same index. Saved progress (`lastPageRead`) is always in source pages.
     @State private var pageSources: [Int]? = nil
@@ -269,6 +272,7 @@ struct ChapterReaderView: View {
         // S182 (Martin's phone): the exit save above never runs when Yomi is closed from the app switcher or by iOS while
         // a chapter is open, so reopening it started at page 1. Save the position each time Yomi goes to the background.
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { PageShapes.save(); PageLooks.save() }   // S182: a kill skips onDisappear
             guard phase == .background, !AppSettings.shared.isIncognito, !pages.isEmpty else { return }
             let elapsed = Int(Date().timeIntervalSince(sessionStart))
             let progress = Double(currentPage + 1) / Double(pages.count)

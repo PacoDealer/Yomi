@@ -13,6 +13,8 @@ struct WidgetReadingItem: Codable {
     let lastChapter: String
     /// File name of the cover saved in the App Group's `widget-covers` folder (S182), nil = none.
     var coverFile: String? = nil
+    /// "manga" or "novel" — the widget's tap link opens that title (S182); nil in data written before.
+    var kind: String? = nil
 }
 
 // MARK: - WidgetDataWriter

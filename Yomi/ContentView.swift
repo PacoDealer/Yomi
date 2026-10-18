@@ -59,6 +59,7 @@ struct ContentView: View {
         .environment(\.yomiCanvas, palette)
         .background(palette.bg.ignoresSafeArea())
         .onOpenURL { url in
+            if url.scheme == "yomi", url.host == "open" { openTitle(from: url); return }
             guard url.isFileURL else { TrackerManager.route(url: url); return }
             Task {
                 let report = await Task.detached(priority: .userInitiated) { () -> String in
@@ -79,6 +80,19 @@ struct ContentView: View {
             Button("OK") { openedFileReport = nil }
         } message: {
             Text(openedFileReport ?? "")
+        }
+    }
+
+    /// `yomi://open?id=…&type=manga|novel` from a Continue Reading widget title (S182) — same route as a tapped
+    /// update notification (`AppDelegate`).
+    private func openTitle(from url: URL) {
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        guard let id = query.first(where: { $0.name == "id" })?.value, !id.isEmpty else { return }
+        router.selectedTab = AppRouter.tabLibrary
+        if query.first(where: { $0.name == "type" })?.value == "novel" {
+            router.pendingOpenNovelId = id
+        } else {
+            router.pendingOpenMangaId = id
         }
     }
 

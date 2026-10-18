@@ -96,6 +96,21 @@ REPLACES Martin's Yomi — with the default signing it would have synced against
   3.48 s. `perf-gates.sh --result` now tells device runs from the result's device id (it used to treat every
   `--result` as a simulator run and skip the hitch gates). Clock on the phone UNMEASURED — next `--device` run (it
   replaces Martin's install → reinstall with `build-personal.sh --release` after).
+- **J round 2 (Martin, phone, 2026-10-18 ~13:00):** resume ✅, widget covers/titles ✅ all sizes, fast Asura scrolling
+  "pretty fast, not a big deal", iCloud backup ✅ (8 backups listed), sync ON. Two findings, both fixed:
+  - **Widget tap only opened the app** (medium/large should open the tapped title). Now `yomi://open?id=…&type=manga|novel`:
+    small = `widgetURL`, medium/large = a `Link` per title; `WidgetReadingItem.kind` (nil in old data → opens Yomi);
+    `ContentView.openTitle` → `appRouter.pendingOpen…Id`, the update-notification path. Sim: `simctl openurl` →
+    Absolute Regression detail; App Group data has `kind` (novel tagged novel). Widget tap itself unseen.
+  - **Resume "glitches for a second"** (pages above loading). Cause: Keiyoushi page URLs are
+    `127.0.0.1:<port>/image/<random UUID>` (server `MihonImageProxy.register`), new every launch → `PageShapes` (keyed
+    by URL) never matched after a relaunch, so every page above the saved one was a one-screen box that grew; and shapes
+    were only saved in `onDisappear` (a kill skips it). Fix: `PageShapes.name(pages, chapterId:)` keys bridge pages as
+    `chapterId#index` (`didSet` on `pages` / `nextPreload`); shapes + looks saved on `.background`. Sim can't run
+    Keiyoushi → device check: resume an Asura (Keiyoushi) chapter after a kill. Not fixed: `PageLooks` (crop) and the
+    Kingfisher disk cache are still keyed by the random URL → Keiyoushi pages re-download after every launch.
+  - Perf `--device` twice: "Timed out while enabling automation mode" — phone screen locked; needs it awake + unlocked.
+  - ReaderUITests 13/13, 0 warnings. Personal Release reinstalled on the phone (has both fixes).
 
 ---
 

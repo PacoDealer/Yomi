@@ -87,15 +87,30 @@ import Kingfisher
     private static var store: [String: CGFloat]?
     private static var dirty = false
 
-    static func aspect(_ url: String) -> CGFloat? { loaded()[url] }
+    static func aspect(_ url: String) -> CGFloat? { loaded()[key(url)] }
 
     static func remember(_ url: String, _ aspect: CGFloat) {
-        guard loaded()[url] != aspect else { return }
+        let key = key(url)
+        guard loaded()[key] != aspect else { return }
         if (store?.count ?? 0) > 5000 { store?.removeAll() }
-        store?[url] = aspect   // in place: no copy of the whole table per page
+        store?[key] = aspect   // in place: no copy of the whole table per page
         dirty = true
         changes.count += 1
     }
+
+    /// Keiyoushi pages are `127.0.0.1:<port>/image/<random token>` — a new address every launch, so a shape saved
+    /// under it never matched again and a resumed chapter met one-screen boxes above the saved page that grew as
+    /// they loaded (Martin, S182: "glitches for a second" on resume). Those pages are kept under chapter + index.
+    private static var names: [String: String] = [:]
+
+    static func name(_ urls: [String], chapterId: String) {
+        if names.count > 5000 { names.removeAll() }
+        for (index, url) in urls.enumerated() where KeiyoushiBridge.isBridgeImage(URL(string: url)) {
+            names[url] = "\(chapterId)#\(index)"
+        }
+    }
+
+    private static func key(_ url: String) -> String { names[url] ?? url }
 
     /// Bumped whenever a shape is learned: two-page mode re-pairs its pages as their shapes come in (F17).
     static let changes = Changes()
