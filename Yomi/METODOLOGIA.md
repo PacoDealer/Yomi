@@ -2440,6 +2440,18 @@ previously here was removed during the 2026-08-04 doc restructure.
   the app's file, not a copy.
 
 
+## S182 lessons
+- **State saved only in `onDisappear` is lost when the app is killed** (app switcher, jetsam): nothing runs. Anything the
+  user expects back (reader position) also saves on `scenePhase == .background`. Test = Home → `simctl terminate` → relaunch.
+- **Widgets can't load images while drawing** — `AsyncImage` there shows the placeholder forever. The app must write the
+  image into the App Group first; a widget only reads files.
+- **A device test run REPLACES the installed app** with the test build and its signing. With default signing that meant
+  Debug entitlements = CloudKit Development for Martin's real library. Device tests sign like the personal build
+  (`Personal.xcconfig`); DEBUG-only fixtures force Debug; reinstall the personal build afterwards.
+- **Fields reach the CloudKit schema only through a non-nil save** — write the values directly in the sim DB + mark
+  `cloud_sync_map.pendingChange`, then verify the cached record holds the field (faster than tapping through screens).
+- Read cfprefsd-backed plists only after terminating the app — the file on disk lags.
+
 ## S181 lessons
 
 - **Diff the code against the catalog to find untranslated text.** "Every English-looking literal that isn't a catalog
