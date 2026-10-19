@@ -353,7 +353,7 @@ struct ICloudFolderError: LocalizedError {
                 .appendingPathComponent("YomiBackup_restore.json")
             try data.write(to: tmp)
             await importBackup(from: tmp)
-            iCloudStatus = errorMessage == nil ? .success : .error(errorMessage ?? "Unknown error")
+            iCloudStatus = errorMessage == nil ? .success : .error(errorMessage ?? String(localized: "Unknown error"))
         } catch {
             iCloudStatus = .error(error.localizedDescription)
         }

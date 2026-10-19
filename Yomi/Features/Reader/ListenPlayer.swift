@@ -312,7 +312,7 @@ final class ListenPlayer {
             let list = await fetchSentences(for: target)
             guard generation == self.loadGeneration, self.isActive else { return }
             guard let list else {
-                self.status = .failed("Couldn't load \(Notation.plainText(target.name)).")
+                self.status = .failed(String(localized: "Couldn't load \(Notation.plainText(target.name))."))
                 self.updateNowPlaying()
                 return
             }

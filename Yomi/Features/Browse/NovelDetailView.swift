@@ -1406,7 +1406,7 @@ private struct NovelChapterRow: View {
     /// "Reading · 40%" while in progress, else the source's release time.
     private var detail: String? {
         if let pct = chapter.lastScrollPercent, pct > 0.02, !chapter.isRead {
-            return "Reading · \(Notation.progress(min(pct, 1)))"
+            return String(localized: "Reading · \(Notation.progress(min(pct, 1)))")
         }
         return chapter.releaseTime
     }

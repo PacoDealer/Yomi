@@ -2455,6 +2455,16 @@
         }
       }
     },
+    "Choose a 4-digit passcode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un código de 4 dígitos"
+          }
+        }
+      }
+    },
     "Clear": {
       "localizations": {
         "es": {
@@ -2956,6 +2966,16 @@
         }
       }
     },
+    "Could not load any catalog. Check your repository URLs.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar ningún catálogo. Revisa las URL de tus repositorios."
+          }
+        }
+      }
+    },
     "Could not reach the Suwayomi server — %@": {
       "localizations": {
         "es": {
@@ -2992,6 +3012,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo cargar %@"
+          }
+        }
+      }
+    },
+    "Couldn't load %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar %@."
           }
         }
       }
@@ -3794,6 +3824,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fin del capítulo"
+          }
+        }
+      }
+    },
+    "Enter it again": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingrésalo otra vez"
+          }
+        }
+      }
+    },
+    "Enter the Safe Mode passcode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingresa el código del Modo seguro"
           }
         }
       }
@@ -6501,6 +6551,16 @@
         }
       }
     },
+    "Novel · %@ · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novela · %@ · %@"
+          }
+        }
+      }
+    },
     "Novels": {
       "localizations": {
         "es": {
@@ -7023,6 +7083,16 @@
         }
       }
     },
+    "Paused — less than 200 MB free on this iPhone": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa: quedan menos de 200 MB libres en este iPhone"
+          }
+        }
+      }
+    },
     "Pick the buttons in the bar at the bottom of the reader.": {
       "localizations": {
         "es": {
@@ -7245,6 +7315,16 @@
         }
       }
     },
+    "Queued · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cola · %@"
+          }
+        }
+      }
+    },
     "Read": {
       "localizations": {
         "es": {
@@ -7432,6 +7512,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Leyendo la página…"
+          }
+        }
+      }
+    },
+    "Reading · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leyendo · %@"
           }
         }
       }
@@ -9209,6 +9299,16 @@
         }
       }
     },
+    "The extension failed (HTTP %lld).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La extensión falló (HTTP %lld)."
+          }
+        }
+      }
+    },
     "The extension runtime didn't start.": {
       "localizations": {
         "es": {
@@ -9940,6 +10040,16 @@
         }
       }
     },
+    "Turn on App Lock": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar el bloqueo de la app"
+          }
+        }
+      }
+    },
     "Turning Safe Mode off or showing mixed sources asks for the passcode.": {
       "localizations": {
         "es": {
@@ -10026,6 +10136,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desconocido"
+          }
+        }
+      }
+    },
+    "Unknown error": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error desconocido"
           }
         }
       }

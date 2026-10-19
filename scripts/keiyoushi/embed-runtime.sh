@@ -1,6 +1,6 @@
 #!/bin/bash
 # Xcode build phase (Yomi target): embeds the on-device Keiyoushi runtime into the app — only for device builds
-# that opt in with YOMI_EMBED_KEIYOUSHI=YES (Config/Personal.xcconfig). Every other build (simulator, CI, the
+# that opt in with YOMI_EMBED_KEIYOUSHI=YES (Config/Personal.xcconfig, Config/TestFlight.xcconfig). Every other build (simulator, CI, the
 # normal Release config) skips it, and Yomi then reports Keiyoushi as unavailable at runtime instead of failing.
 # The framework is loaded with dlopen (never linked), because OpenJDK Mobile has no simulator slice.
 set -euo pipefail
@@ -17,5 +17,7 @@ APP="${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
 mkdir -p "$APP/Frameworks" "$APP/Keiyoushi"
 rsync -a --delete "$SRC/OpenJDKRuntime.framework" "$APP/Frameworks/"
 cp "$SRC/MExtensionServer.jar" "$SRC/java-logging-shim.jar" "$APP/Keiyoushi/"
+# The framework is its own executable bundle, so it needs its own privacy manifest (S184).
+cp "${SRCROOT}/scripts/keiyoushi/OpenJDKRuntime-PrivacyInfo.xcprivacy" "$APP/Frameworks/OpenJDKRuntime.framework/PrivacyInfo.xcprivacy"
 codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$APP/Frameworks/OpenJDKRuntime.framework"
 echo "Embedded Keiyoushi runtime into $APP"
