@@ -182,8 +182,11 @@ struct LibraryView: View {
                                                     Divider()
                                                     Button(role: .destructive) {
                                                         let m = manga
-                                                        Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
-                                                        Task { await viewModel.loadLibrary() }
+                                                        // Write first, then reload — a separate reload task could read before the removal landed (S184).
+                                                        Task {
+                                                            _ = await Task.detached { try? MangaQueries.toggleLibrary(manga: m) }.value
+                                                            await viewModel.loadLibrary()
+                                                        }
                                                     } label: {
                                                         Label("Remove from Library", systemImage: "trash")
                                                     }
@@ -221,8 +224,11 @@ struct LibraryView: View {
                                                 },
                                                 onRemoveFromLibrary: {
                                                     let m = manga
-                                                    Task.detached { try? MangaQueries.toggleLibrary(manga: m) }
-                                                    Task { await viewModel.loadLibrary() }
+                                                    // Write first, then reload — a separate reload task could read before the removal landed (S184).
+                                                    Task {
+                                                        _ = await Task.detached { try? MangaQueries.toggleLibrary(manga: m) }.value
+                                                        await viewModel.loadLibrary()
+                                                    }
                                                 }
                                             )
                                         }
@@ -287,10 +293,12 @@ struct LibraryView: View {
                                                     }
                                                     Divider()
                                                     Button(role: .destructive) {
-                                                        var updated = novel
-                                                        updated.inLibrary = false
-                                                        Task.detached { try? NovelQueries.upsert(updated) }
-                                                        Task { await viewModel.loadLibrary() }
+                                                        let n = novel
+                                                        // Write first (only the inLibrary column), then reload (S184).
+                                                        Task {
+                                                            _ = await Task.detached { try? NovelQueries.setInLibrary(n, false) }.value
+                                                            await viewModel.loadLibrary()
+                                                        }
                                                     } label: {
                                                         Label("Remove from Library", systemImage: "trash")
                                                     }
@@ -329,10 +337,12 @@ struct LibraryView: View {
                                                         Task.detached { try? NovelQueries.updateReadingStatus(novelId: id, status: status) }
                                                     },
                                                     onRemoveFromLibrary: {
-                                                        var updated = novel
-                                                        updated.inLibrary = false
-                                                        Task.detached { try? NovelQueries.upsert(updated) }
-                                                        Task { await viewModel.loadLibrary() }
+                                                        let n = novel
+                                                        // Write first (only the inLibrary column), then reload (S184).
+                                                        Task {
+                                                            _ = await Task.detached { try? NovelQueries.setInLibrary(n, false) }.value
+                                                            await viewModel.loadLibrary()
+                                                        }
                                                     }
                                                 )
                                             }

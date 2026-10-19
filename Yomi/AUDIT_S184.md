@@ -26,6 +26,10 @@ Verified = I ran it or read it tonight. Phone: nothing installed or checked (it 
 | 11 | **Firebase folder (live plugins + website) had no version control** — only hand-made backup copies | One bad edit to a live plugin can't be undone | Local git repo, first commit = today's live state. **No remote** (nothing published) | `git log` |
 | 12 | **Doc drift** | Docs are what the next session trusts | CLAUDE.md 268 → 150 lines (its own limit is ~200; old block archived verbatim in HISTORY.md); `rules/grdb.md` said next migration `v29_` (it's `v31_`); App Store checklist said "Support URL ❌" (live since S154) and "privacy manifest: UserDefaults only"; "phone on iOS 18.6.2" note; strategic table (Keiyoushi "S41 Suwayomi", "15 plugins", OPDS "not yet"); README import steps (old button name, no Tachimanga, no CBR/CB7); `embed-runtime.sh` comment said Personal only | Fixed | Read back |
 
+| 13 | **Novel reader ran JavaScript from chapter HTML.** Chapters are set with `innerHTML` (stops `<script>`), but inline handlers like `<img onerror=…>` still ran and could post the reader's own messages (mark a chapter complete, load the next) | A hostile or hacked site could mark chapters read or loop loads | Content-Security-Policy with a per-page nonce: only the reader's script runs; Swift's `evaluateJavaScript` is unaffected | macOS WKWebView experiment: with CSP the handler is blocked and the reader script + evaluateJavaScript work; **control without CSP: handler ran**. ReaderUITests (see ROADMAP) |
+| 14 | **"Remove from Library" race** (all 4 places: manga/novel × grid/list): the removal ran in a detached task while a separate task reloaded the library at once, so the reload could read before the write and the title stayed on screen; novels were saved whole-row (`upsert`, against the project's GRDB rule) | Title "comes back" until the next reload; stale whole-row write | Write first, then reload; novels use the column-only `NovelQueries.setInLibrary` | Build 0 warnings; scan found no other site with the pattern |
+| 15 | Doc drift in TACHIMANGA_PARITY: OCR (S173), pinned sources / source filter / per-category sort (S170 G) still listed as missing | — | Struck + S184 re-check of Tachimanga v5.1/v5.2 preview (new there: "Delete Download" toolbar action — Yomi lacks it; Comick tracker) | Changelog read live |
+
 Health checks that **passed** tonight: simulator + Release device builds 0 warnings; ReaderUITests 13/13 (before the
 fixes; final re-run in ROADMAP S184); all 7 suites; CI; git history has no secrets (`AppSecrets.swift` never committed,
 no hard-coded client ids, no Google keys); live privacy + support pages accurate; Pulse logs only in Debug; Info.plist
@@ -136,6 +140,20 @@ range (gate 18); declined/under 18 → stays off. New entitlement + small UI cha
    (all ROADMAP checklist).
 
 ---
+
+### G. Catalog plugins, live tonight (plugin code run in Node with the app's cheerio shim; MangaDex skipped per rule)
+- **Work end to end** (list → details → chapter): **Asura Scans** (20 → 32 pages), **WeTried** (889 ch), **NovelFire**
+  (3,219 ch), **NovelBin** (1,039 ch).
+- **Behind bot protection** (403 Cloudflare, or BoxNovel's JS "Redirecting…" page): AquaManga's list, BabelNovel,
+  BoxNovel, FreeWebNovel, NovelFull, NovelHall, ReadWN, Royal Road, Scribble Hub — plain HTTP can't judge them; the
+  app's Cloudflare WebView may get through. Worth one in-app pass (Browse → each source) before listing them anywhere.
+- **Unreachable from this network:** LightNovelPub (`lightnovelpub.vip`) and MTLNovel — DNS resolves, connection fails
+  (could be this network; memory notes campus/airport blocks). If dead, retire them from `index.json`.
+
+### H. TestFlight crash + hang reports
+Xcode's MCP can read App Store Connect crash/hang data for builds 493–515 (`GetTopCrashIssues`), but it asks you to
+approve the agent in Xcode first (it refused overnight). Worth a look when you're at the Mac: open the project in
+Xcode and say "check TestFlight crashes".
 
 ## 3. Competitors, checked tonight
 - **Madomi** (App Store, Mihon sources, translation) remains the closest App Store rival (S122/S159 research).

@@ -23,12 +23,12 @@ full). Each feature was checked by grepping Yomi's source (not this file's older
 keyword is strong evidence, not proof. Supersedes older rows below where they disagree.
 
 **Missing in Yomi (code search found nothing):**
-- Reader: ~~chapter bookmarks~~ (S167); ~~press-and-hold scroll~~ (S168); ~~crop white/black borders~~ (S169); copy
-  text from a page / OCR (v4.17); ~~manga reader background colour~~ (S169); ~~double page "separate first
+- Reader: ~~chapter bookmarks~~ (S167); ~~press-and-hold scroll~~ (S168); ~~crop white/black borders~~ (S169); ~~copy
+  text from a page / OCR (v4.17)~~ (S173); ~~manga reader background colour~~ (S169); ~~double page "separate first
   page" + wide-page detection + invert~~ (S169, S172); ~~pinch-zoom off, strict scale, scroll indicator~~ (S172; strict
   scale = Yomi's zoom was already 1×–4× with no bounce); ~~custom reader toolbar~~ (v5.1 + v5.2 quick actions, S172).
-- Library: pinned sources + reorder (v2.2, v4.1); source filter include/exclude (v4.15, v5.0); tracker filters
-  (v5.0); per-category sort (v4.1); saved filter settings (v4.3).
+- Library: ~~pinned sources~~ (S170 G; reorder not done) (v2.2, v4.1); ~~source filter include/exclude (v4.15, v5.0)~~
+  (S170 G); tracker filters (v5.0); ~~per-category sort (v4.1)~~ (S170 G); saved filter settings (v4.3).
 - Updates/downloads: ~~refresh metadata + covers during updates (v4.18); auto-refresh on opening a detail screen, once
   an hour (v3.4)~~ (S171 L3a; Yomi's own manga plugins have no details call); ~~Retry All failed downloads (v4.8); low-storage warning (v4.14)~~ (S162).
 - Extensions: ~~extension details page (v2.1); open a source's website without installing it (v4.14)~~ (S171 L3b —
@@ -36,6 +36,12 @@ keyword is strong evidence, not proof. Supersedes older rows below where they di
 - Trackers: MangaUpdates, MangaBaka, enhanced Komga/Kavita/Suwayomi, tracker → local progress sync, refresh, bulk
   add tracking (v4.20, v5.0). Yomi trackers find a title by name — no stored per-title link.
 - Local source (CBZ etc.) — S148 part C.
+
+**S184 re-check (2026-10-19):** newest entries are Stable v5.1 (Oct 8) and Preview v5.2 build520 (Oct 14). v5.2:
+iPhone Duo support, Comick tracker, toolbar quick actions "Mark Previous Chapter as Read" (Yomi ✅ `markPreviousRead`,
+S172) and "Delete Download" (❌ not in `ReaderToolbar`), confirmation before deleting local manga (Yomi's Remove from
+Library keeps the files — n/a). v5.1 "history loads more as you scroll": Yomi's History is per title and loads all
+(169 titles = no need). Struck above: OCR (S173), pinned sources, source filter, per-category sort (S170 G).
 
 **Present in Yomi:** incognito, app lock, secure screen, notes, custom cover, random entry, chapter search, range +
 invert select, download next N, delete after reading, scanlator filter + one-per-chapter, auto webtoon by tags, page
