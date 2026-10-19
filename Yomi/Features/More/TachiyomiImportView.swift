@@ -226,7 +226,7 @@ struct TachiyomiImportView: View {
             do {
                 try await keiyoushi.addRepository(folder)
             } catch {
-                errorText = "Couldn't add \(PluginCatalogService.repoLabel(from: url)): \(error.localizedDescription)"
+                errorText = String(localized: "Couldn't add \(PluginCatalogService.repoLabel(from: url)): \(error.localizedDescription)")
             }
         }
     }

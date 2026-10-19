@@ -127,9 +127,9 @@ private struct PasscodeSheet: View {
 
     private var prompt: String {
         switch step {
-        case .current: "Enter the Safe Mode passcode"
-        case .new: "Choose a 4-digit passcode"
-        case .confirm: "Enter it again"
+        case .current: String(localized: "Enter the Safe Mode passcode")
+        case .new: String(localized: "Choose a 4-digit passcode")
+        case .confirm: String(localized: "Enter it again")
         }
     }
 

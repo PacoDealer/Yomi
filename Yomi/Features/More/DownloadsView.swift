@@ -281,7 +281,7 @@ struct DownloadsView: View {
                                 title: group.novel.title,
                                 coverURL: group.novel.coverURL,
                                 customCoverPath: group.novel.resolvedCustomCoverPath,
-                                note: "Novel · \(chapterCount(group.chapterCount)) · \(formatBytes(group.byteSize))"
+                                note: String(localized: "Novel · \(chapterCount(group.chapterCount)) · \(formatBytes(group.byteSize))")
                             )
                         }
                         .swipeToDelete { Task { await vm.deleteAll(for: group.novel) } }

@@ -371,7 +371,7 @@ final class KeiyoushiBridge {
                 if err?.code == 403 || http?.statusCode == 403, let homeURL {
                     throw KeiyoushiError.bridge("CLOUDFLARE:\(homeURL)")
                 }
-                throw KeiyoushiError.bridge(err?.error ?? "The extension failed (HTTP \(http?.statusCode ?? 0)).")
+                throw KeiyoushiError.bridge(err?.error ?? String(localized: "The extension failed (HTTP \(http?.statusCode ?? 0))."))
             }
         }
         throw KeiyoushiError.bridge(String(localized: "The extension could not be loaded."))

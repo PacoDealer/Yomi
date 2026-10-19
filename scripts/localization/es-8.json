@@ -1,0 +1,14 @@
+{
+  "Paused — less than 200 MB free on this iPhone": "En pausa: quedan menos de 200 MB libres en este iPhone",
+  "Could not load any catalog. Check your repository URLs.": "No se pudo cargar ningún catálogo. Revisa las URL de tus repositorios.",
+  "Enter the Safe Mode passcode": "Ingresa el código del Modo seguro",
+  "Choose a 4-digit passcode": "Elige un código de 4 dígitos",
+  "Enter it again": "Ingrésalo otra vez",
+  "Turn on App Lock": "Activar el bloqueo de la app",
+  "Reading · %@": "Leyendo · %@",
+  "Novel · %@ · %@": "Novela · %@ · %@",
+  "Queued · %@": "En cola · %@",
+  "Unknown error": "Error desconocido",
+  "The extension failed (HTTP %lld).": "La extensión falló (HTTP %lld).",
+  "Couldn't load %@.": "No se pudo cargar %@."
+}

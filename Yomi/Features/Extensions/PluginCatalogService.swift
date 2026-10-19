@@ -227,7 +227,7 @@ private nonisolated struct Lenient<T: Decodable>: Decodable {
             lastFetchedAt = Date()
             isLoading = false
             if merged.isEmpty {
-                errorMessage = "Could not load any catalog. Check your repository URLs."
+                errorMessage = String(localized: "Could not load any catalog. Check your repository URLs.")
             }
             ExtensionManager.shared.relinkOrphanedTitles(catalog: merged)
         }

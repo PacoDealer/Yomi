@@ -85,7 +85,7 @@ import Network
     /// Download managers call this on enqueue.
     func noteQueued() {
         guard let reason = waitReason else { return }
-        queuedNotice = "Queued · \(reason.prefix(1).lowercased() + reason.dropFirst())"
+        queuedNotice = String(localized: "Queued · \(reason.prefix(1).lowercased() + reason.dropFirst())")
     }
 
     func allowCellularForCurrentQueue() {

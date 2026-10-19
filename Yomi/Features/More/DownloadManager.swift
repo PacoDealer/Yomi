@@ -273,7 +273,7 @@ import SwiftUI
 
     private func pauseForLowStorage() {
         isPaused = true
-        pauseMessage = "Paused — less than 200 MB free on this iPhone"
+        pauseMessage = String(localized: "Paused — less than 200 MB free on this iPhone")
         YomiHaptics.error()
     }
 

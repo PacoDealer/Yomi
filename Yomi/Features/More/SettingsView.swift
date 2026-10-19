@@ -205,7 +205,7 @@ struct SettingsView: View {
                 appLockError = String(localized: "Set a passcode for this iPhone first (iOS Settings → Face ID & Passcode).")
                 return
             }
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Turn on App Lock") { ok, _ in
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String(localized: "Turn on App Lock")) { ok, _ in
                 DispatchQueue.main.async { if ok { settings.appLockEnabled = true } }
             }
         })
