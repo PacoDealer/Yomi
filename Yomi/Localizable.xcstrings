@@ -8407,6 +8407,16 @@
         }
       }
     },
+    "Share Database": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir base de datos"
+          }
+        }
+      }
+    },
     "Share or save": {
       "localizations": {
         "es": {
@@ -10745,6 +10755,16 @@
         }
       }
     },
+    "Yomi couldn't open your library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yomi no pudo abrir tu biblioteca"
+          }
+        }
+      }
+    },
     "Yomi doesn't check what a repository contains. Only add repositories you trust and sources you're allowed to use.": {
       "localizations": {
         "es": {
@@ -10841,6 +10861,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu biblioteca está vacía"
+          }
+        }
+      }
+    },
+    "Your library is still on this iPhone — nothing was deleted. Share the database so the problem can be fixed, or try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu biblioteca sigue en este iPhone: no se borró nada. Comparte la base de datos para que se pueda arreglar el problema, o vuelve a intentarlo."
           }
         }
       }
