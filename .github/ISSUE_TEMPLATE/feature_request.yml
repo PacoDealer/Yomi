@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest something Yomi could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe what you're trying to do and why — the need matters more than the exact solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+      description: Optional. If another app does it well, say which and how.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before posting
+      options:
+        - label: I searched the open and closed issues and this hasn't been asked yet.
+          required: true
+        - label: This is not a request to add a specific site or source.
+          required: true

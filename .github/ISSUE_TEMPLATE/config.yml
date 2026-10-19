@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help and questions
+    url: https://yomi-reader.web.app/support
+    about: How Yomi works, common questions, and how to reach the developer.

@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Yomi doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Yomi ships with no sources: problems with a **site's content** (missing chapters,
+        a site that changed or is down) belong to whoever publishes that extension, not here — unless Yomi itself is
+        handling it wrong (it works in the publisher's own app but not in Yomi).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+      placeholder: "1. Open …\n2. Tap …\n3. …"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in Yomi?
+      options:
+        - Library
+        - Manga reader
+        - Novel reader / read aloud
+        - Browse / extensions / repositories
+        - Updates / downloads
+        - Backup / import / sync
+        - Local files (CBZ, CBR, CB7, EPUB)
+        - Widget
+        - Settings / other
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Kind of source (if any)
+      options:
+        - Not about a source
+        - Yomi catalog plugin
+        - LNReader plugin
+        - Keiyoushi (Mihon) extension
+        - Local file
+        - OPDS / Suwayomi server
+  - type: input
+    id: version
+    attributes:
+      label: Yomi version
+      description: More → About (e.g. 1.0 (515))
+    validations:
+      required: true
+  - type: input
+    id: ios
+    attributes:
+      label: iPhone model and iOS version
+      placeholder: iPhone 17, iOS 26.3
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or a screen recording
+      description: Optional, but often the fastest way to show it. Please hide anything private.
