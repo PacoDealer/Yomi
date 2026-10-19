@@ -1,0 +1,23 @@
+# Runs the macOS-compiled test suites (scripts/test-all.sh) on every push to main and on pull requests (S184).
+# The app itself isn't built here: it needs the gitignored AppSecrets.swift and the staged Keiyoushi runtime.
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  suites:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swiftc --version
+      - name: Test suites
+        run: scripts/test-all.sh
