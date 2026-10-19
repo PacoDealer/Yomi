@@ -13,7 +13,7 @@ Yomi/
 │   ├── Category.swift       # Library categories
 │   └── Extension.swift      # Installed JS plugin — Identifiable, Codable, Hashable
 ├── Database/
-│   ├── DatabaseManager.swift        # GRDB setup, migrations, FetchableRecord conformances; module-level appDatabase var
+│   ├── DatabaseManager.swift        # GRDB setup, migrations (DB copied to Application Support/yomi-before-migration.db first, S184), FetchableRecord conformances; module-level appDatabase var
 │   └── Queries/
 │       ├── MangaQueries.swift       # CRUD manga: fetchAll, fetchOne, fetchLibrary, fetchLibraryByLastUpdated, fetchRecentlyRead, insert, update, upsert, touchLastRead, touchLastUpdated, updateReadingStatus, delete
 │       ├── ChapterQueries.swift     # CRUD chapter: fetchAll(ASC NULLS LAST), fetchOne, fetchUnreadCountsByManga (single GROUP BY), insertAllIgnoringConflicts (INSERT OR IGNORE — safe bulk persist), insert, upsert, upsertAll, markRead, markAllRead, updateProgress (saves lastPageRead), addReadingTime, setRead(chapterId:mangaId:isRead:) [touches manga.lastReadAt when isRead, S96], delete, deleteAll

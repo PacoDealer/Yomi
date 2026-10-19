@@ -8,16 +8,40 @@ The research audit revealed that 800+ sources are already available across four 
 
 | Ecosystem | Format | Sources available | Yomi status |
 |-----------|--------|-------------------|-------------|
-| Yomi Firebase | Format A | 15 | ✅ Live |
+| Yomi Firebase | Format A | 16 | ✅ Live (index.json 1.1.0, S181) |
 | LNReader | Format B | **500+ novels** | ✅ Native, needs UX/docs |
-| Paperback | Format C | ~100 manga | ⚠️ Partial shim |
+| Paperback | Format C | ~100 manga | ⚠️ Partial shim (answered S143: possible, not now) |
 | Mangayomi | Format D (Dart) | 195+ manga+novel | ❌ Dart extensions — cannot run in JSC |
-| keiyoushi/Suwayomi | Backend | Hundreds manga | ✅ S41 integrated |
-| Kavita/Komga | OPDS | User's local library | ❌ Not yet |
+| keiyoushi (Mihon) | On-device JVM | Hundreds manga | ✅ Runs on the phone since S124 (Suwayomi server still supported) |
+| Kavita/Komga | OPDS | User's local library | ✅ OPDS source |
 
 **No architecture rebuild needed.** JSBridge already handles multi-format detection. Format D (Mangayomi) was attempted but Mangayomi extensions are all Dart (`.dart` files, `sourceCodeLanguage: 0`) — cannot execute in JSC. Catalog parser for Mangayomi index.json format remains in PluginCatalogService for metadata display.
 
 **Novel support remains Yomi's exclusive differentiator.** Zero other iOS App Store apps support light novels with a plugin system. LNReader (Android, 500+ sources) has no iOS equivalent except Yomi.
+
+---
+
+## S184 — overnight audit: privacy manifests, docs inside the app, Spanish leaks, CI, GitHub (2026-10-18/19, sim + Release device build, Martin asleep)
+
+Martin: audit everything, check the roadmap for gaps, research what we didn't consider (incl. GitHub organisation,
+branch protection, donations, whether the catalog can be public under Apple's rules); don't ask. **Full report:
+`Yomi/AUDIT_S184.md`** (what was fixed, decisions in order, ready-to-run GitHub commands, README draft).
+
+- **Fixed + verified:** privacy manifests (App Group `1C8F.1`, widget + `OpenJDKRuntime.framework` manifests, DiskSpace
+  `E174.1` — #212); internal docs + `AppSecrets.swift.template` + unused Space fonts no longer copied into the app (#213,
+  build 515 has them); 13 Spanish leaks (#214, 1028/1028 keys); DB copied before pending migrations (#215 safety net,
+  sim-verified by rolling back to v29); `scripts/test-all.sh`, `scripts/check-bundle-docs.py`, GitHub Actions **Tests**
+  (green on GitHub), issue forms; Firebase folder = local git repo (no remote); doc drift (CLAUDE.md 268 → 150 lines,
+  old block in HISTORY.md; `rules/grdb.md` v29 → v31; checklist rows; strategic table; README import steps).
+- **Found, not done (need Martin):** public repo holds 6 scraper sources + a catalog index + the repository URL table
+  while Keiyoushi's repos got a DMCA notice in March 2026 (AUDIT §2 A); next TestFlight build to replace 515 (§2 B);
+  GitHub settings (§2 C); donations = GitHub Sponsors outside the app (Argentina supported, 0 %) + IAP tip jar inside
+  (§2 D); Declared Age Range API for 4.7.5 (§2 E); migration-failure screen, Kingfisher 8.9 → 8.14, SwiftLint config,
+  big files (§2 F).
+- Builds: sim + Release device 0 warnings; suites 7/7; UI tests in the final run below.
+
+**FOR MARTIN (morning):** read `Yomi/AUDIT_S184.md` §2 — A (repo/catalog) is the one that matters; then the S183
+phone check-list below still stands.
 
 ---
 
@@ -4377,7 +4401,7 @@ These items must ALL be complete before submitting to App Store Connect:
 
 | Item | Status | Notes |
 |------|--------|-------|
-| PrivacyInfo.xcprivacy | ✅ Done S22 | NSPrivacyAccessedAPICategoryUserDefaults reason CA92.1. |
+| PrivacyInfo.xcprivacy | ✅ Re-done S184 | App: UserDefaults CA92.1 + 1C8F.1 (App Group), FileTimestamp C617.1 + 3B52.1, DiskSpace E174.1. Widget has its own (UserDefaults). `OpenJDKRuntime.framework` gets one from `embed-runtime.sh` (FileTimestamp, DiskSpace, SystemBootTime — `nm -u` S184). Kingfisher/GRDB/PLzmaSDK ship theirs. Builds ≤ 515 lacked the widget + JVM manifests. |
 | Privacy policy URL | ✅ Done S25 | yomi-plugins.web.app/privacy — linked from Settings → About. |
 | App icon | ✅ Done S87 | "Y." monogram, Ink default + Paper alternate, wired into Xcode (`ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS`). |
 | Zero .js in binary | ✅ Done S19 | Confirmed — plugins on Firebase CDN only. |
@@ -4386,7 +4410,7 @@ These items must ALL be complete before submitting to App Store Connect:
 | Age rating: 18+ | ❌ Pending | 2026 system uses 4/9/13/16/18+ (replaces old 17+). App enables NSFW content via user-installed plugins. Must declare in App Store Connect — this is an App Store Connect step, not a code change; every doc mention of the rating itself already says 18+ as of S100. |
 | App description | ❌ Missing | Frame as "extensible reader — user-installed JS plugins". No source names. |
 | Screenshots | ❌ Missing | iOS 26 simulator. Neutral content only (no recognizable piracy sources). Design + functional work both complete since S96 — nothing code-side is blocking this anymore. |
-| Support URL | ❌ Missing | GitHub repo or a simple landing page is sufficient. |
+| Support URL | ✅ Live (S154/S184 check) | https://yomi-reader.web.app/support (privacy: /privacy, home: /). |
 | French encryption declaration | ❌ Pending (S151) | Yomi's embedded OpenJDK does its own TLS = "industry standard algorithm, not provided within the Apple operating system" (Apple help: Export compliance documentation for encryption, read 2026-10-11). Needed ONLY for App Store distribution in France; uploaded in App Store Connect → App Information → App Encryption Documentation, Apple reviews in ~2 business days, then a key goes in Info.plist. NOT yet researched: the French (ANSSI) side — the form and any waiting period. Martin wants to do it if it isn't hard; until done, leave France out of availability. Not needed for TestFlight. |
 | App Store name | ✅ S151 | "Yomi" is taken → listing name **"Yomi Manga and Novels Reader"** (28 chars). Home-screen name stays Yomi. |
 | ATS review notes (`NSAllowsArbitraryLoads`) | ❌ Pending | Blanket exception (S89, for self-hosted Suwayomi/OPDS over HTTP) has no per-domain scoping — target hosts aren't known in advance, so scoping isn't feasible. Not a code change: add an App Store Connect review-note at submission explaining the self-hosted-server feature. Revisit scoping only if reviewers push back. |
@@ -4404,8 +4428,7 @@ Yomi is App Store compliant via the extension model:
 
 **Deployment target: iOS 26.2** — no plan to lower to iOS 18.
 
-The physical development device (Martin's iPhone, iOS 18.6.2) cannot run
-the app until updating to iOS 26. The app depends on iOS 26-exclusive APIs:
+(S184: Martin's iPhone 17 runs iOS 26 — the old iOS 18.6.2 note is gone.) The app depends on iOS 26-exclusive APIs:
 `Tab()`, `ContentUnavailableView`, `.refreshable`, `.searchable`, `.ascNullsLast`.
 
 If iOS 18 support is required in the future → branch `compat/ios18`, never on main.

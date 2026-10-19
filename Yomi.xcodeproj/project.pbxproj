@@ -92,6 +92,7 @@
 				"design/icons/Y-outlined.svg",
 				APP_STORE_LISTING.md,
 				ARQUITECTURA.md,
+				AUDIT_S184.md,
 				CLOUDKIT_SYNC_DESIGN.md,
 				Config/AppSecrets.swift.template,
 				"design/Fonts/SpaceGrotesk-Variable.ttf",

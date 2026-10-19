@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs every macOS-compiled test suite in scripts/*-tests (S184). Yomi has no unit-test target: each suite compiles the
+# Runs every macOS-compiled test suite in scripts/*-tests + check-bundle-docs.py (S184). Yomi has no unit-test target: each suite compiles the
 # pure-Foundation file(s) it tests with swiftc and runs them. UI tests (YomiUITests) are separate — see CLAUDE.md.
 # Usage: scripts/test-all.sh            exit code = number of failed suites
 cd "$(dirname "$0")"
@@ -16,6 +16,11 @@ for run in */run.sh; do
     failed+=("$suite")
   fi
 done
+if out=$(python3 check-bundle-docs.py 2>&1); then
+  printf "PASS  %-28s %s\n" "check-bundle-docs" "$out"
+else
+  printf "FAIL  %-28s\n" "check-bundle-docs"; echo "$out" | sed 's/^/      /'; failed+=("check-bundle-docs")
+fi
 echo
 if (( ${#failed[@]} )); then echo "${#failed[@]} suite(s) failed: ${failed[*]}"; else echo "All suites passed."; fi
 exit ${#failed[@]}

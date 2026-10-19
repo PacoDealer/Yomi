@@ -2482,3 +2482,17 @@ previously here was removed during the 2026-08-04 doc restructure.
   shared component's param to `LocalizedStringKey` and letting the build list the dynamic callers was faster and safer
   than hunting call sites. Validate format specifiers per translation — a Spanish plural that added `%@`s would have read
   the wrong arguments.
+
+## S184 lessons
+- **Look inside the product, not only the source.** Listing the built `.app` (`ls Yomi.app`) found 10 internal docs and
+  three unused fonts shipped since the S79 design work — nothing in the code or docs hinted at it. A synchronized Xcode
+  folder ships EVERYTHING not in `membershipExceptions`; `scripts/check-bundle-docs.py` now guards it.
+- **Privacy manifests are per executable, and reasons have exact meanings.** Read the reason text (Apple's docs JSON:
+  `developer.apple.com/tutorials/data/documentation/bundleresources/...json`, the HTML page is empty to fetchers) and
+  check each bundle with `nm -u` for the covered symbols — a framework we embed (the JVM) needs its own manifest.
+- **A leak finder has to look where the leaks are.** The S181 finder skipped every `case .x: "…"` line and any text with a
+  digit or "·" — exactly where the remaining Spanish leaks were. After writing a checker, seed it with a known bad case.
+- **Make the safety net before the cure.** Copying the DB before migrations (one function, sim-verified by rolling a
+  migration back) protects the library today; the nicer recovery screen can wait for Martin.
+- **Audit claims against today's world, not the doc's.** "Support URL ❌", "next migration v29", "phone on iOS 18.6.2",
+  "Keiyoushi via Suwayomi" were all true once. Each was one `curl`/`grep` away from being corrected.

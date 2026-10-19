@@ -1,6 +1,6 @@
 # Yomi — iOS Manga & Novel Reader
 
-A clean, fast manga, manhwa, manhua and light novel reader for iOS. It reads your own files (CBZ, ZIP, EPUB) and can be extended with repositories you add by link.
+A clean, fast manga, manhwa, manhua and light novel reader for iOS. It reads your own files (CBZ, CBR, CB7, ZIP, EPUB) and can be extended with repositories you add by link.
 
 ---
 
@@ -10,7 +10,7 @@ Yomi is a reader. It comes with **no sources and no content**. You can read your
 (lists of extensions published by other projects) by pasting their link.
 
 ### Read your own files
-**Browse → On This iPhone → Local Files** — import CBZ, ZIP or EPUB files, or link a folder from the Files app.
+**Browse → On This iPhone → Local Files** — import CBZ, CBR, CB7, ZIP or EPUB files, or link a folder from the Files app.
 
 ### Add a repository
 1. Copy a repository link (see the list below, or the project that publishes it)
@@ -34,11 +34,11 @@ add and for using sources you are allowed to use.
 
 ---
 
-## Migrate from Tachiyomi / Mihon
+## Migrate from Mihon, Tachiyomi or Tachimanga
 
-1. In Mihon: **More → Backup → Create backup** → save the `.tachibk` file
-2. In Yomi: **More → Backup → Import from Tachiyomi / Mihon**
-3. Select the file — library and read history are imported automatically
+1. In Mihon / Tachiyomi: **More → Backup → Create backup** (a `.tachibk` file). In Tachimanga: export a `.tmb` backup.
+2. In Yomi: **More → Backup → Import Backup** and pick the file
+3. Library, categories, read history and repositories are merged in — nothing already in Yomi is replaced
 
 ---
 
