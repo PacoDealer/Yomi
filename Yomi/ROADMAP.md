@@ -44,7 +44,7 @@ help — not private. Decisions and what was done:
   the **pesos** CBU; Ko-fi via PayPal — Stripe isn't offered to Argentina on Ko-fi, and PayPal AR withdraws only to a
   pesos account, dollar accounts get reversed); `.github/FUNDING.yml` = `github: PacoDealer`, `ko_fi: pacodealer`.
   No donation links inside the app or its App Store metadata (3.1.1(a): only the US storefront allows them) — in-app
-  = IAP tip jar later (Paid Apps Agreement, Small Business Program). Liberapay/BMC/Open Collective considered, not added.
+  = IAP tip jar later (Paid Apps Agreement, Small Business Program). Liberapay/BMC/Open Collective considered, not added (RESEARCH §29).
 - **E — Declared Age Range (4.7.5):** after build 600, **must be in before App Store submission**.
 - **F1 — failure screen (done, #215):** `Yomi/Database/DatabaseFailureView.swift`; `DatabaseManager.open()` keeps the
   error instead of `fatalError`; YomiApp shows the screen, `startDatabaseServices()` runs only once the DB is open;

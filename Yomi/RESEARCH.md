@@ -2383,3 +2383,39 @@ Sources: github.com/k2-fsa/sherpa-onnx (CMakeLists.txt, build-ios.sh, cmake/espe
 hexgrad/Kokoro-82M, kyutai/pocket-tts, FluidInference/kokoro-82m-coreml, FluidInference/pocket-tts-coreml,
 supertone-oss-archive/supertonic-3 · GitHub API licence fields (espeak-ng GPL-3.0, piper1-gpl GPL-3.0) ·
 developer.apple.com/forums/thread/804648 · WWDC20 10022.
+
+## §29 Donations from Argentina — GitHub Sponsors, Ko-fi, alternatives, App Store rules (S186, 2026-10-19)
+
+Set up: GitHub Sponsors + Ko-fi (`.github/FUNDING.yml`: `github: PacoDealer`, `ko_fi: pacodealer`).
+
+**GitHub Sponsors (Stripe).** GitHub lists Argentina as a supported region. Stripe's payout form for Argentina takes
+only a **22-digit CBU** (no currency choice; the 13-digit "número de cuenta" is rejected). Stripe's cross-border payouts
+go to connected accounts "in their local currencies", so ARS: use the **pesos** account's CBU. GitHub doesn't publish
+the currency it pays Argentine maintainers in — inferred from Stripe's general rule; confirm on the first payout.
+
+**Ko-fi.** Only two processors: PayPal and Stripe. Stripe needs the creator's own Stripe account, which can't be
+opened from Argentina (the GitHub Sponsors Stripe setup doesn't carry over — it's GitHub's Connect account). So
+**PayPal only**. PayPal Argentina withdraws only to a **pesos** bank account ("withdrawals to local dollar accounts
+will be reversed"), charges a transfer fee, and converts at PayPal's rate. Ko-fi's own fee is 0–5 %.
+
+**Alternatives considered, not added:**
+| Platform | Argentina | Verdict |
+| --- | --- | --- |
+| Liberapay | PayPal only ("barely supported", no Stripe) | Same rails as Ko-fi, nothing new |
+| Buy Me a Coffee | Couldn't confirm payouts to Argentina | Duplicates Ko-fi |
+| Open Collective | Payouts via PayPal or Wise; fiscal-host fee | Only worth it with several contributors and shared expenses |
+| In-app tip jar (IAP) | Works everywhere | **Do later** — the only in-app option Apple allows |
+
+**App Store rules (checked live 2026-10-19).** 3.1.1: tips to the developer go through in-app purchase. 3.1.1(a):
+outside the **US storefront**, the app and its metadata may not include buttons, links or calls to action to non-IAP
+payment. So: **no Ko-fi / Sponsors links in the app or the App Store listing**; the GitHub README/repo is fine.
+3.2.1(vi) nonprofit fundraising doesn't apply (Yomi isn't an approved nonprofit). The app had no such links (grep, S186).
+
+Sources: [Stripe cross-border payouts](https://docs.stripe.com/connect/cross-border-payouts) ·
+[Stripe bank account formats](https://docs.stripe.com/connect/payouts-bank-accounts) ·
+[GitHub Sponsors regions](https://docs.github.com/en/sponsors/getting-started-with-github-sponsors/about-github-sponsors) ·
+[Ko-fi payment methods](https://help.ko-fi.com/hc/en-us/articles/24482435253661-What-payment-methods-are-available-on-Ko-fi) ·
+[PayPal AR withdrawals](https://www.paypal.com/ar/cshelp/article/how-do-i-withdraw-money-from-paypal-to-my-bank-account-HELP394?locale.x=en_AR) ·
+[Liberapay countries](https://liberapay.com/about/global) ·
+[Open Collective expenses](https://docs.opencollective.com/help/expenses-and-getting-paid/expenses) ·
+[App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
