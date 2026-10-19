@@ -351,18 +351,24 @@ enum NovelReaderScript {
         // Only a plain language tag goes into the attribute ("multi" and anything odd are left out).
         let langAttr = lang.flatMap { $0.range(of: #"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"#, options: .regularExpression) != nil
                                       && $0 != "multi" ? " lang=\"\($0)\"" : nil } ?? ""
+        // Chapter HTML is scraped from third-party sites and set with innerHTML: <script> tags don't run there, but
+        // inline handlers (<img onerror=…>) would, and could post the reader's messages (mark complete, load next).
+        // Only the script carrying this nonce may run; evaluateJavaScript from Swift isn't subject to the CSP (S184,
+        // checked in a macOS WKWebView: reader script runs, onerror blocked; without the CSP it ran).
+        let nonce = UUID().uuidString
         return """
         <!DOCTYPE html>
         <html\(langAttr)>
         <head>
         <meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="script-src 'nonce-\(nonce)'; object-src 'none'; base-uri 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
         <style id="yomi-base">\(baseCSS)</style>
         <style id="yomi-style">\(css)</style>
         </head>
         <body>
         <main id="yomi-chapters"></main>
-        <script>\(source)</script>
+        <script nonce="\(nonce)">\(source)</script>
         </body>
         </html>
         """
