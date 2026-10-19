@@ -21,6 +21,40 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S185 — Martin's audit decisions + migration-failure screen (2026-10-19, simulator + GitHub)
+
+Martin read the S184 audit and decided §2 in one sitting. He wants Yomi **open source** so anyone can build on it and
+help — not private. Decisions and what was done:
+
+- **A — open source without the risky parts (done):** licence = **MPL-2.0** (`LICENSE` = Mozilla's text, `NOTICE` lists
+  the exceptions: Mihon ports Apache-2.0, the M-Extension-Server patch, bundled third-party). Scrapers + catalog moved
+  to the **Firebase folder's own git only** (`Firebase/tools/plugins-src`, `build-plugins.mjs`, `catalog-hashes.py`,
+  older repo copies in `tools/archive-from-ios-repo-S185/`; predeploy hook repointed) — commit `43b302b` there.
+  Removed from the iOS repo AND its history (`git filter-repo --prune-empty never`, so the commit count = build
+  number is unchanged): `scripts/plugins-src/`, `scripts/catalog-output/`, 16 `Yomi/Resources/<site>.js`. Backups
+  before the rewrite: `~/Desktop/Projects/Yomi/repo-backups/` (mirror + bundle). Force-pushed; 0 forks existed.
+  README: repository *formats* instead of the link table; licence section. GitHub now detects MPL-2.0. The Yomi
+  Catalog itself still serves from Firebase (app unchanged). Old README text with the links stays in history (public
+  URLs only, not code).
+- **B — TestFlight:** build next (this session archives, upload only on Martin's go).
+- **C — GitHub settings (done):** description/homepage/topics, ruleset "Protect main" (no deletion, no force-push —
+  **a future history rewrite must disable it first**), secret scanning + push protection, vulnerability alerts, stale
+  branch `worktree-agency-agents-docs` deleted (its draft PR #1 was already closed).
+- **D — donations:** GitHub Sponsors **and** Ko-fi. Martin creates both accounts; then add `.github/FUNDING.yml`
+  (`github: PacoDealer`, `ko_fi: <name>`). In-app IAP tip jar later (Paid Apps Agreement, Small Business Program).
+- **E — Declared Age Range (4.7.5):** after build 600, **must be in before App Store submission**.
+- **F1 — failure screen (done, #215):** `Yomi/Database/DatabaseFailureView.swift`; `DatabaseManager.open()` keeps the
+  error instead of `fatalError`; YomiApp shows the screen, `startDatabaseServices()` runs only once the DB is open;
+  scene phase, background refresh and CloudKit push return early while it isn't. DEBUG `-yomiFailMigrationOnce`.
+  Sim: screen, pre-migration copy made, failed migration not recorded, Share = 2 files (167 MB), Try Again → Library
+  162 titles. Spanish 1031/1031 (`es-9.json`). test-all 7/7 + guard, ReaderUITests 13/13, build 0 warnings.
+- **F2 — Kingfisher 8.14:** after build 600, with a phone check. F3–F5 (SwiftLint, big files, listing) unchanged.
+
+**NEXT:** TestFlight upload on Martin's go → Declared Age Range → Kingfisher → "How to write a Yomi extension" doc +
+example plugin for a legal site (the open-source ask) → FUNDING.yml when the accounts exist.
+
+---
+
 ## S184 — overnight audit: privacy manifests, docs inside the app, Spanish leaks, CI, GitHub (2026-10-18/19, sim + Release device build, Martin asleep)
 
 Martin: audit everything, check the roadmap for gaps, research what we didn't consider (incl. GitHub organisation,

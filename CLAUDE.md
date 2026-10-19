@@ -24,8 +24,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S184 — 2026-10-19)
+## Current state (S185 — 2026-10-19)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S185 (Martin's audit decisions, ROADMAP S185):** Yomi is open source under **MPL-2.0** (`LICENSE` + `NOTICE`);
+  scrapers/catalog/plugin build tools live ONLY in the Firebase git (`Firebase/tools/`) and were erased from this
+  repo's history — **never commit site plugins here again**. GitHub ruleset blocks force-push/deletion of `main`.
+  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: TestFlight, Declared Age Range (before App
+  Store), Kingfisher 8.14, extension-writing guide, FUNDING.yml (Sponsors + Ko-fi, Martin makes the accounts).
 - **S184 (overnight audit, report `Yomi/AUDIT_S184.md`):** privacy manifests fixed (App Group reason `1C8F.1`, widget +
   `OpenJDKRuntime.framework` manifests, DiskSpace `E174.1`); internal docs + unused Space fonts no longer copied into the
   app (target membership exceptions — **any new .md under `Yomi/` must be excluded too**); 13 Spanish leaks fixed (1028
@@ -38,7 +43,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
 - **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
-  (Paid Apps Agreement), App Store listing/screenshots (`Yomi/APP_STORE_LISTING.md`), the S184 audit decisions.
+  (Paid Apps Agreement), App Store listing/screenshots (`Yomi/APP_STORE_LISTING.md`), Sponsors + Ko-fi accounts.
 - **Translate is OFF** (`NovelTranslation.isAvailable = false`, backlog ROADMAP S182).
 
 ### Rules that come from past sessions
@@ -141,8 +146,9 @@ scripts/build-js-libs.mjs, build-reader-fonts.sh, keiyoushi/, perf/
 ```
 
 ## Plugins on Firebase
-Plugin sources live only in `~/Desktop/Projects/Yomi/Firebase/public/` — a LOCAL git repo since S184 (no remote):
-commit there after every plugin or site change.
+Built plugins live in `~/Desktop/Projects/Yomi/Firebase/public/`, TypeScript sources + `build-plugins.mjs` +
+`catalog-hashes.py` in `Firebase/tools/` (S185) — a LOCAL git repo (no remote), never in the public iOS repo: commit
+there after every plugin or site change.
 Deploy: `cd ~/Desktop/Projects/Yomi/Firebase && firebase deploy --only hosting:plugins` (S154: second target `site` = support/privacy pages in `site/`, host `yomi-reader`).
 
 ## Session close

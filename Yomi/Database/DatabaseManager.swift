@@ -20,6 +20,34 @@ final class DatabaseManager {
 
     // MARK: - Setup
 
+    /// Why the library couldn't be opened at launch — nil once it is open. YomiApp shows `DatabaseFailureView` instead
+    /// of the app while it is set (S185; before, a failed open or migration was a `fatalError` at every launch).
+    private(set) var openError: Error?
+
+    /// Opens the library; on failure keeps the error and leaves `appDatabase` nil instead of stopping Yomi.
+    @discardableResult
+    func open() -> Bool {
+        do {
+            try setup()
+            openError = nil
+            return true
+        } catch {
+            appDatabase = nil
+            openError = error
+            print("Failed to open or migrate the Yomi database: \(error)")
+            return false
+        }
+    }
+
+    /// The files the failure screen shares: the library and, when there is one, the copy taken before migrating.
+    func filesForSupport() -> [URL] {
+        let fm = FileManager.default
+        let library = fm.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("yomi.db")
+        let copy = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("yomi-before-migration.db")
+        return [library, copy].compactMap { $0 }.filter { fm.fileExists(atPath: $0.path) }
+    }
+
     /// Opens (or creates) yomi.db in the user's Documents directory and runs migrations.
     func setup() throws {
         let fileURL = try FileManager.default
@@ -29,6 +57,12 @@ final class DatabaseManager {
         appDatabase = try DatabaseQueue(path: fileURL.path)
         try migrate(appDatabase)
     }
+
+    #if DEBUG
+    /// `-yomiFailMigrationOnce`: the first open in this process registers a migration that throws, so the failure
+    /// screen and its Try Again can be checked in the simulator (the failed migration isn't recorded — no lasting effect).
+    private var simulatedFailureUsed = false
+    #endif
 
     // MARK: - Migrations
 
@@ -426,11 +460,19 @@ final class DatabaseManager {
             try db.create(index: "term_replacement_novel", on: "term_replacement", columns: ["novelId"])
         }
 
+        #if DEBUG
+        if CommandLine.arguments.contains("-yomiFailMigrationOnce") && !simulatedFailureUsed {
+            simulatedFailureUsed = true
+            migrator.registerMigration("zz_debug_simulated_failure") { _ in
+                throw DatabaseError(message: "Simulated migration failure (-yomiFailMigrationOnce)")
+            }
+        }
+        #endif
         snapshotBeforeMigrating(db, migrator)
         try migrator.migrate(db)
     }
 
-    /// A failed migration stops Yomi at launch (YomiApp's `fatalError`), so before pending migrations run on an
+    /// A failed migration keeps Yomi on `DatabaseFailureView` (S185), so before pending migrations run on an
     /// existing library, the database is copied as it was to Application Support/`yomi-before-migration.db` (one
     /// file, replaced each time) — the data can then be recovered from the device. Never blocks the launch (S184).
     private func snapshotBeforeMigrating(_ db: DatabaseQueue, _ migrator: DatabaseMigrator) {

@@ -19,6 +19,8 @@ func scheduleBackgroundRefresh() {
 /// update check the Updates tab's manual refresh/pull-to-refresh runs (`UpdatesViewModel.refresh()`)
 /// — background auto-download (if enabled) is wired inside that same code path, not here.
 func handleBackgroundRefresh(_ task: BGAppRefreshTask) {
+    // The library couldn't be opened at launch (DatabaseFailureView) — nothing to refresh.
+    guard appDatabase != nil else { return task.setTaskCompleted(success: false) }
     if AppSettings.shared.backgroundAutoRefreshEnabled {
         scheduleBackgroundRefresh()
     }
@@ -90,6 +92,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard appDatabase != nil else { return completionHandler(.failed) }
         Task {
             await CloudSyncManager.shared.handleRemoteNotification()
             completionHandler(.newData)
@@ -162,21 +165,16 @@ struct YomiApp: App {
     }
     @Environment(\.scenePhase) private var scenePhase
 
+    /// False while the library couldn't be opened — every *Queries call force-unwraps `appDatabase`, so nothing that
+    /// reads it may start until it is (S185: `DatabaseFailureView` replaces the old launch `fatalError`).
+    @State private var databaseOpen: Bool
+
     init() {
-        do {
-            try DatabaseManager.shared.setup()
-        } catch {
-            // appDatabase stays nil on failure, and every *Queries call site force-unwraps it —
-            // fail loudly here, at the real point of failure, instead of downstream with no context.
-            fatalError("Failed to open or migrate the Yomi database: \(error)")
-        }
+        let opened = DatabaseManager.shared.open()
+        _databaseOpen = State(initialValue: opened)
         // Start watching the network now, so the first download already knows whether it's on Wi-Fi.
         _ = NetworkMonitor.shared
-        #if DEBUG
-        ExtensionManager.shared.seedBundledPlugins()
-        LNReaderHarness.startIfRequested()
-        KeiyoushiPageProbe.startIfRequested()
-        #endif
+        if opened { Self.startDatabaseServices() }
         // Covers and reader pages on Cloudflare-protected sources (e.g. AquaManga) 403 without this.
         // Two separate things are both required, not just the UA:
         // 1. cf_clearance is bound to the UA that solved the challenge — CFBypassView copies it into
@@ -205,7 +203,15 @@ struct YomiApp: App {
         kfSessionConfig.httpShouldSetCookies = true
         kfSessionConfig.httpCookieAcceptPolicy = .always
         KingfisherManager.shared.downloader.sessionConfiguration = kfSessionConfig
+    }
 
+    /// Everything at launch that reads the library — run once it is open (at launch, or after Try Again).
+    private static func startDatabaseServices() {
+        #if DEBUG
+        ExtensionManager.shared.seedBundledPlugins()
+        LNReaderHarness.startIfRequested()
+        KeiyoushiPageProbe.startIfRequested()
+        #endif
         // Re-start the sync engine on cold launch if the user already turned it on in a prior
         // session — AppSettings' didSet only fires on an in-session toggle flip, not on load.
         if AppSettings.shared.cloudSyncEnabled {
@@ -215,11 +221,21 @@ struct YomiApp: App {
 
     var body: some Scene {
         WindowGroup {
-            rootView
+            Group {
+                if databaseOpen {
+                    rootView
+                } else {
+                    DatabaseFailureView(error: DatabaseManager.shared.openError) {
+                        guard DatabaseManager.shared.open() else { return }
+                        Self.startDatabaseServices()
+                        databaseOpen = true
+                    }
+                }
+            }
                 .preferredColorScheme(settings.colorScheme)
                 .tint(Color(hex: settings.accentColor))
                 .fullScreenCover(isPresented: Binding(
-                    get: { isLocked || showOnboarding },
+                    get: { databaseOpen && (isLocked || showOnboarding) },
                     set: { isPresented in
                         if !isPresented {
                             isLocked = false
@@ -245,6 +261,7 @@ struct YomiApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
+            guard databaseOpen else { return }
             if phase == .active {
                 Task { await KeiyoushiBridge.shared.resumeIfPaused() }
                 Task { await NotificationManager.shared.checkAuthorizationStatus() }
