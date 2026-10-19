@@ -426,7 +426,27 @@ final class DatabaseManager {
             try db.create(index: "term_replacement_novel", on: "term_replacement", columns: ["novelId"])
         }
 
+        snapshotBeforeMigrating(db, migrator)
         try migrator.migrate(db)
+    }
+
+    /// A failed migration stops Yomi at launch (YomiApp's `fatalError`), so before pending migrations run on an
+    /// existing library, the database is copied as it was to Application Support/`yomi-before-migration.db` (one
+    /// file, replaced each time) — the data can then be recovered from the device. Never blocks the launch (S184).
+    private func snapshotBeforeMigrating(_ db: DatabaseQueue, _ migrator: DatabaseMigrator) {
+        do {
+            let pending: Bool = try db.read { db in
+                try !migrator.completedMigrations(db).isEmpty && !migrator.hasCompletedMigrations(db)
+            }
+            guard pending else { return }
+            let folder = try FileManager.default
+                .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let copyURL = folder.appendingPathComponent("yomi-before-migration.db")
+            try? FileManager.default.removeItem(at: copyURL)
+            try db.backup(to: DatabaseQueue(path: copyURL.path))
+        } catch {
+            print("Pre-migration copy failed: \(error)")
+        }
     }
 
     // MARK: - Repair

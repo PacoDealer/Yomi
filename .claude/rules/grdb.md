@@ -7,7 +7,7 @@ paths:
 
 # GRDB / database rules
 
-- Next migration prefix: `v29_` (`v28_` = excluded_scanlator + isBookmarked, S167; `v27_` = smart-update schedule, S166). Migrations are keyed by full
+- Next migration prefix: `v31_` (`v30_` = term_replacement, S177; `v29_` = lastCheckedAt, S171; `v28_` = excluded_scanlator + isBookmarked, S167). Migrations are keyed by full
   string name; keep the numeric prefix unique and ascending (#55 is the one historical duplicate).
 - Every `*Queries` static method is `nonisolated`. Use `_ = try appDatabase.write { … }` to silence the
   unused result. `appDatabase.read` from MainActor needs `try await`.
