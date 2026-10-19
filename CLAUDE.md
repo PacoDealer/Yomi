@@ -29,7 +29,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - **S185 (Martin's audit decisions, ROADMAP S185):** Yomi is open source under **MPL-2.0** (`LICENSE` + `NOTICE`);
   scrapers/catalog/plugin build tools live ONLY in the Firebase git (`Firebase/tools/`) and were erased from this
   repo's history — **never commit site plugins here again**. GitHub ruleset blocks force-push/deletion of `main`.
-  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: TestFlight, Declared Age Range (before App
+  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: Declared Age Range (before App
   Store), Kingfisher 8.14, extension-writing guide, FUNDING.yml (Sponsors + Ko-fi, Martin makes the accounts).
 - **S184 (overnight audit, report `Yomi/AUDIT_S184.md`):** privacy manifests fixed (App Group reason `1C8F.1`, widget +
   `OpenJDKRuntime.framework` manifests, DiskSpace `E174.1`); internal docs + unused Space fonts no longer copied into the
@@ -38,8 +38,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   GitHub Actions `Tests` workflow; issue forms; novel reader CSP (nonce — **new reader scripts need the nonce**,
   inline handlers never run); Library remove = write then reload. Firebase folder now has a LOCAL git repo (no remote).
 - **Phone:** personal Release `94cee39` (S183 cache fix); `scripts/build-personal.sh --release` with the phone unlocked
-  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 515
-  (Friends group) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
+  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 602
+  (`c26c96c`, uploaded S185 — needs encryption answer + Friends group) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
 - **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar

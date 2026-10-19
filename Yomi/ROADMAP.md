@@ -36,7 +36,7 @@ help — not private. Decisions and what was done:
   README: repository *formats* instead of the link table; licence section. GitHub now detects MPL-2.0. The Yomi
   Catalog itself still serves from Firebase (app unchanged). Old README text with the links stays in history (public
   URLs only, not code).
-- **B — TestFlight:** build next (this session archives, upload only on Martin's go).
+- **B — TestFlight (done):** build **602** (`c26c96c`) uploaded 2026-10-19 09:06 on Martin's go — "Upload succeeded", signatures verified, bundle guard + 3 privacy manifests + codesign checked in the archive. Harmless warning: no dSYM for `OpenJDKRuntime.framework` (symbols only). Martin still answers the encryption question and adds it to Friends in App Store Connect.
 - **C — GitHub settings (done):** description/homepage/topics, ruleset "Protect main" (no deletion, no force-push —
   **a future history rewrite must disable it first**), secret scanning + push protection, vulnerability alerts, stale
   branch `worktree-agency-agents-docs` deleted (its draft PR #1 was already closed).
@@ -50,7 +50,7 @@ help — not private. Decisions and what was done:
   162 titles. Spanish 1031/1031 (`es-9.json`). test-all 7/7 + guard, ReaderUITests 13/13, build 0 warnings.
 - **F2 — Kingfisher 8.14:** after build 600, with a phone check. F3–F5 (SwiftLint, big files, listing) unchanged.
 
-**NEXT:** TestFlight upload on Martin's go → Declared Age Range → Kingfisher → "How to write a Yomi extension" doc +
+**NEXT:** Declared Age Range → Kingfisher → "How to write a Yomi extension" doc +
 example plugin for a legal site (the open-source ask) → FUNDING.yml when the accounts exist.
 
 ---
