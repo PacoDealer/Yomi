@@ -136,10 +136,8 @@ YomiWidget/                          # Widget extension target (bundle ID: pacod
 └── ROADMAP.md
 
 scripts/
-├── build-plugins.mjs               # Node.js ESM esbuild bundler: reads plugins-src/*.ts → IIFE JS → Yomi/Resources/ + Firebase public/; generates index.json
-├── plugins-src/                    # LNReader v2.x TypeScript plugin sources (place .ts files here; built by build-plugins.mjs)
-└── catalog-output/
-    └── index.json                  # Seeded catalog (7 plugins) for Firebase Hosting deployment reference
+└── (S185: the Yomi Catalog's plugin sources, build-plugins.mjs and catalog-hashes.py live in the Firebase folder's
+     own git, `Firebase/tools/` — not in this public repo)
 
 ## Architecture layers
 ┌─────────────────────────────────────────┐
@@ -769,7 +767,7 @@ Map methods: `getHomePageSections` → `getMangaList`, `getSearchResults` → `s
 
 ### LNReader sources available today (no new code needed)
 LightNovelPub, WuxiaWorld, FreeWebNovel, NovelBin, ReadLightNovel, WebNovelPub.
-Write `.ts` plugin in `scripts/plugins-src/`, build with `build-plugins.mjs`, deploy to Firebase.
+Write `.ts` plugin in `Firebase/tools/plugins-src/`, build with `Firebase/tools/build-plugins.mjs`, deploy to Firebase.
 Constraint: JavaScriptCore has no event loop. Only microtask-chain Promises work (no setTimeout/setInterval).
 Covers 95%+ of LNReader sources. Sources using `crypto` module need a `require('crypto')` shim (CommonCrypto bridge).
 

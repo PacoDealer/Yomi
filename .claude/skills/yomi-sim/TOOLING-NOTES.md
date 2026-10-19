@@ -193,7 +193,7 @@ Yomi/Features/Onboarding/OnboardingView.swift
 Yomi/Resources/                                # JS plugins (test-source.js only; production on Firebase)
 Yomi/design/design_handoff_yomi/YOMI Screens.dc.html  # PRIMARY DESIGN REFERENCE — 16 screens, HTML+CSS, all tokens/themes inline
 Yomi/design/Fonts/                             # SpaceGrotesk-Variable.ttf, SpaceMono-Regular.ttf, SpaceMono-Bold.ttf, YomiFonts.plist
-scripts/build-plugins.mjs                      # esbuild bundler for TS plugins
+../Firebase/tools/build-plugins.mjs            # esbuild bundler for TS plugins (moved S185)
 ```
 
 ## Build command

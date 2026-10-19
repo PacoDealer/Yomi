@@ -1,0 +1,16 @@
+Yomi
+Copyright (c) 2026 Martin Gamberg
+
+Yomi is licensed under the Mozilla Public License 2.0 (see LICENSE), except for the parts below, which keep
+their own licences:
+
+- Code ported from Mihon (https://github.com/mihonapp/mihon), Apache License 2.0 — the Mihon licence is in
+  scripts/third-party-licences/ported/mihon-LICENSE.txt, and each ported file names its origin.
+- scripts/keiyoushi-poc/patches/m-extension-server-yomi.patch — changes to M-Extension-Server
+  (https://github.com/kodjodevf/M-Extension-Server), Mozilla Public License 2.0.
+- Third-party software that Yomi bundles or downloads when it is built (OpenJDK, M-Extension-Server, Kingfisher,
+  GRDB, cheerio, dayjs, core-js, the reader fonts and others) remains under its own licence; the texts are in
+  Yomi/Resources/Licenses/ and scripts/third-party-licences/.
+
+Yomi ships no sources and no content. Extensions and repositories that users add are run by their own projects
+and are not part of this repository or covered by this licence.
