@@ -13,24 +13,21 @@ Yomi is a reader. It comes with **no sources and no content**. You can read your
 **Browse → On This iPhone → Local Files** — import CBZ, CBR, CB7, ZIP or EPUB files, or link a folder from the Files app.
 
 ### Add a repository
-1. Copy a repository link (see the list below, or the project that publishes it)
+1. Copy a repository link from the project that publishes it
 2. In Yomi: **Browse → Extensions → Add Repository** (or **⋯ → Add Repository**) — paste the link → **Add**
 3. Every extension in that repository appears under **Available** — tap **Add** on the ones you want
 4. Open **Browse → Sources** and pick a source
 5. Updates show up under **Updates**; swipe left on an extension to delete it
 6. Manage repositories in **⋯ → Repositories** or **More → Settings → Repositories** (swipe left to remove one)
 
-### Repositories that work with Yomi
+### Repository formats Yomi reads
 
-Yomi reads three repository formats. These are the public ones it is tested with — they are run by their own
-projects (the first one by this project), not shipped inside the app. You are responsible for the repositories you
-add and for using sources you are allowed to use.
+- **Yomi** JSON catalogs (`index.json` listing JavaScript plugins)
+- **LNReader** plugin lists (light novels)
+- **Mihon / Tachiyomi** extension repositories (`index.min.json` / `index.pb`) — the extensions run on the phone
 
-| Repository | What it has | Link to paste |
-|---|---|---|
-| Yomi Catalog | A small set of manga + novel plugins | `https://yomi-plugins.web.app/index.json` |
-| LNReader plugins | Light novel sources, many languages | `https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json` |
-| Keiyoushi | Mihon-format manga extensions (they run on the phone) | `https://github.com/keiyoushi/extensions/raw/repo/index.pb` |
+Repositories are run by their own projects and are not part of Yomi. You are responsible for the repositories you add
+and for using sources you are allowed to use.
 
 ---
 
@@ -52,4 +49,6 @@ add and for using sources you are allowed to use.
 
 ## License
 
-All rights reserved — see [LICENSE](LICENSE). The code is public to be read, not reused.
+Yomi is open source under the [Mozilla Public License 2.0](LICENSE): you can use, study and build on it, including
+in your own projects; changes to Yomi's own files stay open under the same licence. Some parts keep their own
+licences — see [NOTICE](NOTICE).
