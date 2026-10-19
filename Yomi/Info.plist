@@ -77,12 +77,6 @@
 	<string>Saves a reader page you choose to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to set custom cover images for manga and novels.</string>
-	<key>UIAppFonts</key>
-	<array>
-		<string>SpaceGrotesk-Variable.ttf</string>
-		<string>SpaceMono-Regular.ttf</string>
-		<string>SpaceMono-Bold.ttf</string>
-	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
