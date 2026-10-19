@@ -40,8 +40,11 @@ help — not private. Decisions and what was done:
 - **C — GitHub settings (done):** description/homepage/topics, ruleset "Protect main" (no deletion, no force-push —
   **a future history rewrite must disable it first**), secret scanning + push protection, vulnerability alerts, stale
   branch `worktree-agency-agents-docs` deleted (its draft PR #1 was already closed).
-- **D — donations:** GitHub Sponsors **and** Ko-fi. Martin creates both accounts; then add `.github/FUNDING.yml`
-  (`github: PacoDealer`, `ko_fi: <name>`). In-app IAP tip jar later (Paid Apps Agreement, Small Business Program).
+- **D — donations:** GitHub Sponsors **and** Ko-fi. **Done S186:** both accounts exist (Sponsors payouts via Stripe to
+  the **pesos** CBU; Ko-fi via PayPal — Stripe isn't offered to Argentina on Ko-fi, and PayPal AR withdraws only to a
+  pesos account, dollar accounts get reversed); `.github/FUNDING.yml` = `github: PacoDealer`, `ko_fi: pacodealer`.
+  No donation links inside the app or its App Store metadata (3.1.1(a): only the US storefront allows them) — in-app
+  = IAP tip jar later (Paid Apps Agreement, Small Business Program). Liberapay/BMC/Open Collective considered, not added.
 - **E — Declared Age Range (4.7.5):** after build 600, **must be in before App Store submission**.
 - **F1 — failure screen (done, #215):** `Yomi/Database/DatabaseFailureView.swift`; `DatabaseManager.open()` keeps the
   error instead of `fatalError`; YomiApp shows the screen, `startDatabaseServices()` runs only once the DB is open;
@@ -51,7 +54,7 @@ help — not private. Decisions and what was done:
 - **F2 — Kingfisher 8.14:** after build 600, with a phone check. F3–F5 (SwiftLint, big files, listing) unchanged.
 
 **NEXT:** Declared Age Range → Kingfisher → "How to write a Yomi extension" doc +
-example plugin for a legal site (the open-source ask) → FUNDING.yml when the accounts exist.
+example plugin for a legal site (the open-source ask) (FUNDING.yml done S186).
 
 ---
 
