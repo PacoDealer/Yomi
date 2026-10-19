@@ -38,7 +38,13 @@ branch protection, donations, whether the catalog can be public under Apple's ru
   GitHub settings (§2 C); donations = GitHub Sponsors outside the app (Argentina supported, 0 %) + IAP tip jar inside
   (§2 D); Declared Age Range API for 4.7.5 (§2 E); migration-failure screen, Kingfisher 8.9 → 8.14, SwiftLint config,
   big files (§2 F).
-- Builds: sim + Release device 0 warnings; suites 7/7; UI tests in the final run below.
+- **Later the same night:** novel reader Content-Security-Policy (chapter HTML can't run inline handlers — #216;
+  macOS WKWebView experiment + control) and Library "Remove from Library" write-then-reload race (#217, sim: title gone
+  at once, restored after). Live plugin smoke test: Asura, WeTried, NovelFire, NovelBin work end to end; 9 sit behind
+  bot protection (needs an in-app pass); LightNovelPub + MTLNovel unreachable from this network (AUDIT §2 G).
+  TACHIMANGA_PARITY drift struck + v5.2 preview checked.
+- **Tests:** sim + Release device builds 0 warnings; `scripts/test-all.sh` 7/7 + bundle guard; CI green; ReaderUITests
+  13/13 + PerfUITests 3/3 after the manifest/bundle/Spanish fixes, ReaderUITests 13/13 again on the CSP + race build.
 
 **FOR MARTIN (morning):** read `Yomi/AUDIT_S184.md` §2 — A (repo/catalog) is the one that matters; then the S183
 phone check-list below still stands.

@@ -30,7 +30,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   `OpenJDKRuntime.framework` manifests, DiskSpace `E174.1`); internal docs + unused Space fonts no longer copied into the
   app (target membership exceptions — **any new .md under `Yomi/` must be excluded too**); 13 Spanish leaks fixed (1028
   keys); DB copied to Application Support/`yomi-before-migration.db` before pending migrations; `scripts/test-all.sh` +
-  GitHub Actions `Tests` workflow; issue forms. Firebase folder now has a LOCAL git repo (no remote).
+  GitHub Actions `Tests` workflow; issue forms; novel reader CSP (nonce — **new reader scripts need the nonce**,
+  inline handlers never run); Library remove = write then reload. Firebase folder now has a LOCAL git repo (no remote).
 - **Phone:** personal Release `94cee39` (S183 cache fix); `scripts/build-personal.sh --release` with the phone unlocked
   installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 515
   (Friends group) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs

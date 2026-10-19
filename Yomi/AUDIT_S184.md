@@ -30,8 +30,8 @@ Verified = I ran it or read it tonight. Phone: nothing installed or checked (it 
 | 14 | **"Remove from Library" race** (all 4 places: manga/novel × grid/list): the removal ran in a detached task while a separate task reloaded the library at once, so the reload could read before the write and the title stayed on screen; novels were saved whole-row (`upsert`, against the project's GRDB rule) | Title "comes back" until the next reload; stale whole-row write | Write first, then reload; novels use the column-only `NovelQueries.setInLibrary` | Build 0 warnings; scan found no other site with the pattern |
 | 15 | Doc drift in TACHIMANGA_PARITY: OCR (S173), pinned sources / source filter / per-category sort (S170 G) still listed as missing | — | Struck + S184 re-check of Tachimanga v5.1/v5.2 preview (new there: "Delete Download" toolbar action — Yomi lacks it; Comick tracker) | Changelog read live |
 
-Health checks that **passed** tonight: simulator + Release device builds 0 warnings; ReaderUITests 13/13 (before the
-fixes; final re-run in ROADMAP S184); all 7 suites; CI; git history has no secrets (`AppSecrets.swift` never committed,
+Health checks that **passed** tonight: simulator + Release device builds 0 warnings; ReaderUITests 13/13 +
+PerfUITests 3/3, and ReaderUITests 13/13 again on the final (CSP) build; all 7 suites; CI; git history has no secrets (`AppSecrets.swift` never committed,
 no hard-coded client ids, no Google keys); live privacy + support pages accurate; Pulse logs only in Debug; Info.plist
 matches the features (BG refresh id, `yomi://`, CBZ/CBR/CB7/EPUB types, usage strings).
 
