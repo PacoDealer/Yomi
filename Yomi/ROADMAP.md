@@ -21,6 +21,37 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S187 — Declared Age Range gate on the 18+ switch (2026-10-20, simulator only)
+
+AUDIT_S184 §2 E / guideline 4.7.5 ("an age restriction mechanism based on verified or declared age"). API read from
+the iOS 27.1 SDK's `DeclaredAgeRange.swiftinterface` (not recall): `@Environment(\.requestAgeRange)` →
+`requestAgeRange(ageGates: 18)` → `.sharing(range)` / `.declinedSharing`, throws `notAvailable`, `invalidAccount`,
+`declinedOnboarding`, `network`, `invalidRequest`.
+
+- **`Yomi/Core/AgeGate.swift`** (new): `AgeGate.outcome(lowerBound:)` — only a lower bound ≥ 18 is adult; `request()`
+  maps errors to `.unavailable`. `AdultExtensionsToggle` replaces the bare Toggle in `RepositoriesView`: ON asks the
+  system; adult → on; under 18 → alert "18+ extensions are for adults"; declined → alert "Your age range wasn't
+  shared"; unavailable → confirmation "Are you 18 or older?" (self-declaration, still "declared age"). OFF never asks.
+  Safe Mode still disables the switch. Existing `showNSFW = true` is kept (no App Store users yet).
+- **Entitlement** `com.apple.developer.declared-age-range` added to `Yomi.entitlements` + `Yomi-Release.entitlements`.
+  **Not yet signed for the phone** — the App ID needs the capability; automatic signing should add it on the next
+  `build-personal.sh --release` / archive. If signing fails, enable "Declared Age Range" on the App ID in the portal.
+- DEBUG `-yomiAgeRange adult|under|declined|unavailable` answers without the system sheet.
+- Spanish: `scripts/localization/es-10.json` (7 keys) → 1037/1037. Old footer key "Off hides extensions…" now unused.
+- **Verified (sim):** real API in the simulator → `familycircled` → `notAvailable` (no Apple Account) → self-declaration
+  dialog → "I'm 18 or Older" → switch on, `showNSFW = true` in prefs; drag off → false with no request; `-yomiAgeRange
+  under` → alert, switch stays off. Build 0 warnings, test-all all pass. **Not verified:** the real system age sheet
+  (needs a device with an Apple Account), `adult`/`declined` paths on screen (same code as above, one line each).
+- Sim tip: XcodeBuildMCP `tap` and the iOS Simulator `control` tap both miss this SwiftUI switch — a short
+  `touch_path` drag across the knob toggles it.
+- Still open from S154's list: guideline 1.2's "turned on via your website" wording for mature content — Martin kept
+  the in-app switch (S154); the age gate is the 4.7.5 part only.
+
+**NEXT:** phone check of the age sheet (with the next personal/TestFlight build) → Kingfisher 8.14 → "How to write a
+Yomi extension" doc + example plugin for a legal site.
+
+---
+
 ## S185 — Martin's audit decisions + migration-failure screen (2026-10-19, simulator + GitHub)
 
 Martin read the S184 audit and decided §2 in one sitting. He wants Yomi **open source** so anyone can build on it and
@@ -45,7 +76,7 @@ help — not private. Decisions and what was done:
   pesos account, dollar accounts get reversed); `.github/FUNDING.yml` = `github: PacoDealer`, `ko_fi: pacodealer`.
   No donation links inside the app or its App Store metadata (3.1.1(a): only the US storefront allows them) — in-app
   = IAP tip jar later (Paid Apps Agreement, Small Business Program). Liberapay/BMC/Open Collective considered, not added (RESEARCH §29).
-- **E — Declared Age Range (4.7.5):** after build 600, **must be in before App Store submission**.
+- **E — Declared Age Range (4.7.5):** **done S187** (`Core/AgeGate.swift`), sim-verified; device check pending.
 - **F1 — failure screen (done, #215):** `Yomi/Database/DatabaseFailureView.swift`; `DatabaseManager.open()` keeps the
   error instead of `fatalError`; YomiApp shows the screen, `startDatabaseServices()` runs only once the DB is open;
   scene phase, background refresh and CloudKit push return early while it isn't. DEBUG `-yomiFailMigrationOnce`.

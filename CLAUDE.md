@@ -24,13 +24,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S185 — 2026-10-19)
+## Current state (S187 — 2026-10-20)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S187:** the 18+ switch is age-gated (`Core/AgeGate.swift`, Declared Age Range, entitlement in both files; fallback =
+  self-declaration when the service is unavailable). Sim-verified; real system sheet + signing with the new entitlement
+  unchecked on the phone. DEBUG `-yomiAgeRange adult|under|declined|unavailable`.
 - **S185 (Martin's audit decisions, ROADMAP S185):** Yomi is open source under **MPL-2.0** (`LICENSE` + `NOTICE`);
   scrapers/catalog/plugin build tools live ONLY in the Firebase git (`Firebase/tools/`) and were erased from this
   repo's history — **never commit site plugins here again**. GitHub ruleset blocks force-push/deletion of `main`.
-  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: Declared Age Range (before App
-  Store), Kingfisher 8.14, extension-writing guide, FUNDING.yml (Sponsors + Ko-fi, Martin makes the accounts).
+  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: Kingfisher 8.14, extension-writing guide
+  (FUNDING.yml done S186).
 - **S184 (overnight audit, report `Yomi/AUDIT_S184.md`):** privacy manifests fixed (App Group reason `1C8F.1`, widget +
   `OpenJDKRuntime.framework` manifests, DiskSpace `E174.1`); internal docs + unused Space fonts no longer copied into the
   app (target membership exceptions — **any new .md under `Yomi/` must be excluded too**); 13 Spanish leaks fixed (1028
@@ -62,7 +65,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - **Design = "calm" (RESEARCH §26):** SF Pro, system neutrals, colour from covers, one accent, **no list separators**,
   `CalmList` + `Section(calm:)`, delete = swipe → red trash. Theme `canvas` Automatic/Ink/Midnight/Paper/Sepia.
 - **Extensions:** fresh installs have NO repositories and Yomi suggests none (5.2.2); the 18+ switch lives ONLY in
-  `RepositoriesView` (off by default). Any number of Mihon repositories (`index.pb` / `index.min.json`).
+  `RepositoriesView` (off by default, `AdultExtensionsToggle` — turning it on goes through `AgeGate`). Any number of Mihon repositories (`index.pb` / `index.min.json`).
 - **Backup screen:** ONE Import (json/.tachibk/.tmb) + ONE Export menu — never two `.fileImporter`s on a view.
 - **Licences:** `LicensesView` texts from `scripts/build-licenses.sh` (re-run after dependency changes). `PageBorders.swift`
   is MPL-2.0 — if the repo ever goes private, host it publicly first. Mihon ports are Apache-2.0 (ChapterRecognition,

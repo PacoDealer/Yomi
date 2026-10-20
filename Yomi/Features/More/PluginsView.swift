@@ -786,13 +786,9 @@ struct RepositoriesView: View {
             }
 
             // The only place this switch lives (S154): off by default, the user has to come here to turn it on.
+            // Turning it on goes through the age gate (S187, `Core/AgeGate.swift`).
             Section(calm: "Content") {
-                Toggle(isOn: $settings.showNSFW) {
-                    Text("Show 18+ extensions")
-                    Text(settings.safeMode ? "Safe Mode is on, so 18+ extensions stay hidden."
-                                           : "Off hides extensions their repository marks as 18+.")
-                }
-                .disabled(settings.safeMode)
+                AdultExtensionsToggle()
             }
         }
         .navigationTitle("Repositories")

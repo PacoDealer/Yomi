@@ -2496,3 +2496,13 @@ previously here was removed during the 2026-08-04 doc restructure.
   migration back) protects the library today; the nicer recovery screen can wait for Martin.
 - **Audit claims against today's world, not the doc's.** "Support URL ❌", "next migration v29", "phone on iOS 18.6.2",
   "Keiyoushi via Suwayomi" were all true once. Each was one `curl`/`grep` away from being corrected.
+
+## S187 lessons
+- **Read the SDK, not the docs page.** apple-docs returned the overview without signatures; the SDK's
+  `.swiftinterface` (`find $(xcrun --sdk iphoneos --show-sdk-path) -name '*.swiftinterface'`) gave every case, error
+  and availability in one command — including iOS 26.2–26.5 renames the docs page didn't show.
+- **When a tap "does nothing", log the first line of the handler before suspecting the logic.** Three taps on the switch
+  never reached the setter (both tap tools miss it); a `touch_path` drag did. `print` to a captured log is buffered —
+  use `NSLog` + `simctl spawn … log show` for live diagnostics, then remove them.
+- **The snapshot can be stale right after a dialog closes.** UI snapshot said the switch was off while prefs and a real
+  screenshot said on — check the data or a screenshot before calling it a bug.
