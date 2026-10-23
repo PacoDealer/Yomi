@@ -74,7 +74,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - **Trackers** without a client id are hidden (`MangaTracker.isConfigured`; only MAL is set).
 - **App is iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`).
 - **Perf gates:** `scripts/perf-gates.sh` (`--device <id>` needs the phone unlocked; it REPLACES Martin's install →
-  reinstall with `build-personal.sh --release`). UI tests: ReaderUITests 13/13 (#193, #196 flaky — re-run alone) + PerfUITests 3/3.
+  reinstall with `build-personal.sh --release`). UI tests: ReaderUITests 13/13 + PerfUITests 3/3 (#193/#196 were the App Store rating sheet — fixed S188).
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).

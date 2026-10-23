@@ -2516,3 +2516,7 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **The sim app container moves on reinstall** (`build_run_sim`): re-resolve it with `simctl get_app_container` before
   every sqlite check; a stale path gives "unable to open database".
 - **zsh doesn't split `$var` into words** — `set -- $pair` needs `${=pair}`; a silent no-op test looked like a code bug.
+- **A flaky UI test: read the failure's UI hierarchy before blaming timing.** `xcresulttool export attachments
+  --test-id …` gives "App UI hierarchy" text; #193/#196 were a system sheet (App Store rating) from a counter that
+  persists across test runs, not slow code. Any app state that persists in the sim (prefs counters, first-run flags)
+  makes a test depend on how many times the suite has run.

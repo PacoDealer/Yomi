@@ -33,6 +33,15 @@ releases views while a download is in flight. Minimum toolchain is now Xcode 26 
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
+### S188 part 4 — flaky UI tests #193/#196 fixed (simulator)
+
+Both run ×10 alone: #196 failed 1/10 ("second Next left chapter 2 on screen"), #193 10/10. The failed run's UI
+hierarchy (`xcresulttool export attachments`) showed the App Store rating sheet: `recordChapterRead()` asks at 10/50/200
+read chapters and the count lives in the sim's prefs across every test run (228 tonight). DEBUG-only guard in
+`AppSettings.recordChapterRead()` for `-yomiReaderFixture` (AppSettings is shared with the widget, which has no
+`ReaderFixture`). Proof: counter 47 → both tests ×10 → 20/20, counter still 47. CLAUDE.md's "flaky — re-run alone" note
+removed. Real users are unaffected (same thresholds).
+
 ### S188 part 3 — Kingfisher 8.14 measured (simulator, `scripts/perf-gates.sh`, same Mac, nothing else running)
 
 | Kingfisher | Launch (first frame) | Launch wall clock | Long-strip memory peak |
@@ -71,7 +80,7 @@ If a task is blocked or turns risky, write why and move to the next — never st
    chapter number (`ChapterRecognition`) and move path/id + keep read state, instead of adding a second copy. Pure
    logic → unit tests with a fake old/new list (Madara slug+memo case, duplicates, decimals, a genuinely new chapter).
    No live Aqua test — mark "unit-tested only, needs Aqua back".
-3. **Flaky UI tests #193/#196.** Run each 10× alone; find the timing cause; fix the wait (not a sleep) if found.
+3. **DONE S188 part 4: Flaky UI tests #193/#196.** Run each 10× alone; find the timing cause; fix the wait (not a sleep) if found.
 4. **"How to write a Yomi extension" guide** (`docs/EXTENSIONS.md` at repo root, NOT under `Yomi/` — or exclude it from
    the bundle; run `check-bundle-docs.py`). Formats A/B, the JSBridge API actually exposed (read `JSBridge.swift`, not
    memory), the fake-cheerio limits, how to test locally, how to host an `index.json`. Example plugin = a legal

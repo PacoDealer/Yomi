@@ -163,6 +163,11 @@ import Observation
 
     /// Call after each chapter is marked read. Returns true when a review prompt threshold is hit.
     func recordChapterRead() -> Bool {
+        #if DEBUG
+        // UI tests (#193/#196, S188): the count lives in the simulator's prefs and grows with every test run, so at 50
+        // and 200 the App Store rating sheet popped up mid-test and swallowed its swipes and taps.
+        if ProcessInfo.processInfo.arguments.contains("-yomiReaderFixture") { return false }
+        #endif
         chaptersReadCount += 1
         return [10, 50, 200].contains(chaptersReadCount)
     }
