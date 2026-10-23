@@ -948,6 +948,12 @@ struct SourceBrowseView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var searchText = ""
+    /// #218 (S188): what the source's own search returned for `submittedQuery` (nil = not searched). Typing still
+    /// filters the loaded titles instantly; pressing Search asks the source, which finds titles not loaded yet.
+    @State private var searchedMangas: [Manga]? = nil
+    @State private var searchedNovels: [Novel]? = nil
+    @State private var submittedQuery = ""
+    @State private var isSearchingSource = false
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var hasMoreContent = true
@@ -971,12 +977,14 @@ struct SourceBrowseView: View {
     // MARK: Filtered Content
 
     private var filteredMangas: [Manga] {
+        if !searchText.isEmpty, let searchedMangas { return searchedMangas.filter { !SafeMode.hidesGenres($0.genres) } }
         let shown = mangas.filter { !SafeMode.hidesGenres($0.genres) }
         guard !searchText.isEmpty else { return shown }
         return shown.filter { $0.title.localizedStandardContains(searchText) }
     }
 
     private var filteredNovels: [Novel] {
+        if !searchText.isEmpty, let searchedNovels { return searchedNovels.filter { !SafeMode.hidesGenres($0.genres) } }
         let shown = novels.filter { !SafeMode.hidesGenres($0.genres) }
         guard !searchText.isEmpty else { return shown }
         return shown.filter { $0.title.localizedStandardContains(searchText) }
@@ -1009,6 +1017,9 @@ struct SourceBrowseView: View {
                 ) {
                     Task { await loadWithBypass() }
                 }
+            } else if isSearchingSource && isContentEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if isContentEmpty {
                 ContentUnavailableView.search(text: searchText)
             } else {
@@ -1049,6 +1060,14 @@ struct SourceBrowseView: View {
         .navigationTitle(ext.name)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search \(ext.name)")
+        .onSubmit(of: .search) { Task { await searchSource() } }
+        .onChange(of: searchText) { _, text in
+            // A result list belongs to the query that produced it.
+            if text.trimmingCharacters(in: .whitespaces) != submittedQuery {
+                searchedMangas = nil
+                searchedNovels = nil
+            }
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
             if supportsLatest {
                 Picker("Feed", selection: $selectedFeed) {
@@ -1234,6 +1253,37 @@ struct SourceBrowseView: View {
         }
 
         isLoading = false
+    }
+
+    // MARK: Search the Source (#218)
+
+    private func searchSource() async {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty, let b = bridge else { return }
+        submittedQuery = query
+        isSearchingSource = true
+        defer { isSearchingSource = false }
+        let sourceId = ext.id
+        let novelSource = isNovelSource
+        if novelSource {
+            let items = await Task.detached(priority: .userInitiated) { b.searchNovels(query: query, page: 1) }.value
+            guard submittedQuery == query else { return }
+            searchedNovels = items.map { Self.novel(from: $0, sourceId: sourceId) }
+        } else {
+            let items = await Task.detached(priority: .userInitiated) {
+                b.searchManga(query: query, page: 1, sourceId: sourceId)
+            }.value
+            guard submittedQuery == query else { return }
+            searchedMangas = items
+        }
+    }
+
+    private static func novel(from item: NovelItem, sourceId: String) -> Novel {
+        Novel(id: "\(sourceId)_\(item.path)", path: item.path, sourceId: sourceId,
+              title: item.name, coverURL: URL(string: item.cover ?? ""),
+              summary: nil, author: nil, status: "unknown", genres: [],
+              inLibrary: false, lastReadAt: nil, lastUpdatedAt: nil,
+              readingSeconds: 0, readingStatus: .none, notes: nil)
     }
 
     // MARK: Load More

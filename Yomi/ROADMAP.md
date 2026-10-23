@@ -33,6 +33,14 @@ releases views while a download is in flight. Minimum toolchain is now Xcode 26 
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
+### S188 part 6 — #218 per-source search asks the source (simulator)
+
+`SourceBrowseView` (JS plugins) only filtered the titles already loaded; Keiyoushi/Suwayomi screens already searched on
+submit. Now Search (return key) runs `searchManga`/`searchNovels` page 1; typing keeps the instant local filter. Verified
+on Wikisource ("Declaration of Independence": none while typing → 18+ after Search) and Asura Scans JS ("Omniscient" →
+Omniscient Reader's Viewpoint). Only page 1 of results — a long result list would need paging. 📱 Martin: try a search
+inside NovelFire / WeTried.
+
 ### S188 part 5 — extension guide + Wikisource example plugin (simulator + live API)
 
 `docs/EXTENSIONS.md` (linked from README) + `docs/example-plugin/` (`wikisource.js`, `index.json`, `test.mjs`). Source
