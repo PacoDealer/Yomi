@@ -1,0 +1,15 @@
+[
+  {
+    "id": "org.wikisource.example",
+    "name": "Wikisource (example)",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Public-domain and freely licensed books from en.wikisource.org — the example plugin from Yomi's extension guide.",
+    "iconURL": "https://en.wikisource.org/static/favicon/wikisource.ico",
+    "fileURL": "https://raw.githubusercontent.com/PacoDealer/Yomi/main/docs/example-plugin/wikisource.js",
+    "isNSFW": false,
+    "kind": "novel",
+    "sha256": "4595b3f6b5bea6c62ef3d2b6a49bc439369f846082c57939258fb0cd57d7ad59",
+    "site": "https://en.wikisource.org"
+  }
+]
