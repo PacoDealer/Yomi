@@ -32,7 +32,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - **S185 (Martin's audit decisions, ROADMAP S185):** Yomi is open source under **MPL-2.0** (`LICENSE` + `NOTICE`);
   scrapers/catalog/plugin build tools live ONLY in the Firebase git (`Firebase/tools/`) and were erased from this
   repo's history — **never commit site plugins here again**. GitHub ruleset blocks force-push/deletion of `main`.
-  Migration failure → `DatabaseFailureView` (no more `fatalError`). Next: Kingfisher 8.14, extension-writing guide
+  Migration failure → `DatabaseFailureView` (no more `fatalError`). Kingfisher 8.14 done S188. Next: S188 plan tasks 2–6, extension-writing guide
   (FUNDING.yml done S186).
 - **S184 (overnight audit, report `Yomi/AUDIT_S184.md`):** privacy manifests fixed (App Group reason `1C8F.1`, widget +
   `OpenJDKRuntime.framework` manifests, DiskSpace `E174.1`); internal docs + unused Space fonts no longer copied into the

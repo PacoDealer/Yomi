@@ -21,6 +21,53 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S188 — Kingfisher 8.14 (2026-10-23, 20-minute slot before university, simulator only)
+
+The overnight run below never started (Martin forgot to leave it running). In a 20-minute slot: **Kingfisher
+8.9.0 → 8.14.0** (`Package.resolved` pin; the project range stays `upToNextMajor` from 8.0.0). Release notes 8.10–8.14
+read via `gh release view`, nothing breaking. Changes that matter to Yomi: 8.14 shows memory-cached images in the
+first render pass (`loadMemoryCacheSynchronously`, default ON → fewer placeholder flashes / scroll jumps in the
+reader), 8.14 retain-cycle fix in `ImagePrefetcher`, 8.11 avoids full-size data copies on big downloads, 8.12
+releases views while a download is in flight. Minimum toolchain is now Xcode 26 / Swift 6.2 (we're past that).
+**Verified:** sim build 0 warnings, `test-all.sh` all pass, ReaderUITests (see result line below). **Not done:**
+the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
+don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
+
+## S188 plan — tasks 2–6 still open (written 2026-10-22; was meant to run overnight)
+
+Martin is asleep: **simulator + Mac only**. Never: TestFlight upload, `build-personal.sh` / phone install, `firebase
+deploy`, App Store Connect, force-push, anything that needs his password or a click. Sim = iPhone 17 Pro `F31CC190`
+(set XcodeBuildMCP defaults first; they drift). Ask the host for keep-awake at the start. Each task: build with 0
+warnings → `scripts/test-all.sh` green → Spanish leak check (`find-unlocalized.py`) → one commit → ROADMAP note.
+If a task is blocked or turns risky, write why and move to the next — never stall waiting for him.
+
+1. **DONE S188 (bump only; footprint check still open): Kingfisher 8.0 → latest 8.x (8.14?).** Check the real latest tag on GitHub first (not recall). Read its release
+   notes between our resolved version and the target; bump the package; build; test-all; sim check of the long-strip
+   reader with the 20 tall test pages (`Documents/Local/Tall Test`, S160 method: `footprint -v` peak before/after)
+   and an Asura JS chapter (Absolute Regression, id 2127). Look at `backgroundDecode` (S122 stutter note) — only turn
+   it on if the before/after numbers say so.
+2. **#208 fix without Aqua (stability).** When a refresh returns chapters whose ids are all new, match old rows by
+   chapter number (`ChapterRecognition`) and move path/id + keep read state, instead of adding a second copy. Pure
+   logic → unit tests with a fake old/new list (Madara slug+memo case, duplicates, decimals, a genuinely new chapter).
+   No live Aqua test — mark "unit-tested only, needs Aqua back".
+3. **Flaky UI tests #193/#196.** Run each 10× alone; find the timing cause; fix the wait (not a sleep) if found.
+4. **"How to write a Yomi extension" guide** (`docs/EXTENSIONS.md` at repo root, NOT under `Yomi/` — or exclude it from
+   the bundle; run `check-bundle-docs.py`). Formats A/B, the JSBridge API actually exposed (read `JSBridge.swift`, not
+   memory), the fake-cheerio limits, how to test locally, how to host an `index.json`. Example plugin = a legal
+   public-domain source only (see the morning question), kept in `docs/example-plugin/`, never a scraper of a
+   piracy site (S185 rule).
+5. **If time is left — audit pass, report only:** grep for new `withAnimation`, `KFImage(url`, `fatalError`,
+   unfiltered title lists (SafeMode), String text without `String(localized:)`. Fix only the mechanical ones; list
+   the rest.
+6. **Morning report** at the top of this section: what's done, commit hashes, what was verified how, what was NOT
+   verified (phone, real age sheet, Aqua), and the decisions waiting for Martin. Update CLAUDE.md "Current state"
+   + memory.
+
+Still for Martin (not tonight): phone check of the age sheet + S183 list with the next build, trackers, two-device
+sync, App Store listing/screenshots, tip jar.
+
+---
+
 ## S187 — Declared Age Range gate on the 18+ switch (2026-10-20, simulator only)
 
 AUDIT_S184 §2 E / guideline 4.7.5 ("an age restriction mechanism based on verified or declared age"). API read from
