@@ -33,6 +33,13 @@ releases views while a download is in flight. Minimum toolchain is now Xcode 26 
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
+### S188 part 2 — #208 duplicate chapters fixed (2026-10-23 evening, simulator)
+
+See KNOWN_ISSUES #208. First version ran AFTER the insert and matched nothing on the sim (the new rows were already
+"saved") — the 14 pure-logic checks passed anyway; only the end-to-end sim run caught it. Redone as a rename of the
+saved row BEFORE the insert. Also found: Mangayomi plugins store the list INDEX as `chapterNumber`
+(`JSBridge.getChapterList`), so the carry-over reads numbers from names only. Lesson → METODOLOGIA.
+
 ## S188 plan — tasks 2–6 still open (written 2026-10-22; was meant to run overnight)
 
 Martin is asleep: **simulator + Mac only**. Never: TestFlight upload, `build-personal.sh` / phone install, `firebase
@@ -46,7 +53,7 @@ If a task is blocked or turns risky, write why and move to the next — never st
    reader with the 20 tall test pages (`Documents/Local/Tall Test`, S160 method: `footprint -v` peak before/after)
    and an Asura JS chapter (Absolute Regression, id 2127). Look at `backgroundDecode` (S122 stutter note) — only turn
    it on if the before/after numbers say so.
-2. **#208 fix without Aqua (stability).** When a refresh returns chapters whose ids are all new, match old rows by
+2. **DONE S188 part 2: #208 fix without Aqua (stability).** When a refresh returns chapters whose ids are all new, match old rows by
    chapter number (`ChapterRecognition`) and move path/id + keep read state, instead of adding a second copy. Pure
    logic → unit tests with a fake old/new list (Madara slug+memo case, duplicates, decimals, a genuinely new chapter).
    No live Aqua test — mark "unit-tested only, needs Aqua back".

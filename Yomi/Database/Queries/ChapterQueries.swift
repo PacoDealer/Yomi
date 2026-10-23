@@ -166,6 +166,47 @@ enum ChapterQueries {
         }
     }
 
+    /// #208 (S188): call with the source's whole list (`remote`) BEFORE inserting it. A saved chapter the source no
+    /// longer lists and a new chapter with the same number (`ChapterCarryOver`) are the same chapter: the saved row
+    /// is renamed in place to the new id, path and name, so read state, progress, bookmark and `fetchedAt` stay on it
+    /// and the insert that follows skips it (INSERT OR IGNORE). Numbers are read from the chapter NAMES
+    /// (`ChapterRecognition`, no source number): Mangayomi plugins store list positions as numbers, and a stored
+    /// number from an older rule set could be wrong. Returns the new ids that were moves — not news.
+    nonisolated static func carryOverMovedChapters(mangaId: String, remote: [Chapter]) throws -> Set<String> {
+        guard !remote.isEmpty else { return [] }
+        let moves: [ChapterCarryOver.Move] = try appDatabase.write { db in
+            let title = try String.fetchOne(db, sql: "SELECT title FROM manga WHERE id = ?", arguments: [mangaId]) ?? ""
+            func number(_ name: String) -> Double? {
+                ChapterRecognition.number(mangaTitle: title, chapterName: name, sourceNumber: nil)
+            }
+            let local = try Row.fetchAll(db, sql: """
+                SELECT id, name, scanlator, isDownloaded FROM chapter WHERE mangaId = ?
+                """, arguments: [mangaId]).map {
+                ChapterCarryOver.Item(id: $0["id"], number: number($0["name"]), scanlator: $0["scanlator"],
+                                      isDownloaded: $0["isDownloaded"])
+            }
+            let remoteItems = remote.map {
+                ChapterCarryOver.Item(id: $0.id, number: number($0.name), scanlator: $0.scanlator)
+            }
+            let byId = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let moves = ChapterCarryOver.moves(local: local, remote: remoteItems)
+            for move in moves {
+                guard let fresh = byId[move.newId] else { continue }
+                try db.execute(sql: """
+                    UPDATE chapter SET id = ?, path = ?, name = ?, chapterNumber = COALESCE(?, chapterNumber),
+                        scanlator = COALESCE(?, scanlator)
+                    WHERE id = ? AND mangaId = ?
+                        AND NOT EXISTS (SELECT 1 FROM chapter WHERE id = ? AND mangaId = ?)
+                    """, arguments: [move.newId, fresh.path, fresh.name, fresh.chapterNumber, fresh.scanlator,
+                                     move.oldId, mangaId, move.newId, mangaId])
+            }
+            return moves
+        }
+        guard !moves.isEmpty else { return [] }
+        markCloudDirtyBatch(.mangaChapterState, keys: moves.map { "\(mangaId)|\($0.newId)" })
+        return Set(moves.map(\.newId))
+    }
+
     /// Inserts a manga and its chapters in a single transaction (INSERT OR IGNORE).
     /// The manga INSERT OR IGNORE ensures the FK constraint is satisfied even when
     /// the manga is not yet in the library (browsing without adding to library).

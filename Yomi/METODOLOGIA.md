@@ -2506,3 +2506,13 @@ previously here was removed during the 2026-08-04 doc restructure.
   use `NSLog` + `simctl spawn … log show` for live diagnostics, then remove them.
 - **The snapshot can be stale right after a dialog closes.** UI snapshot said the switch was off while prefs and a real
   screenshot said on — check the data or a screenshot before calling it a bug.
+
+## S188 lessons
+- **Pure-logic tests can't see ordering bugs.** The #208 matcher passed 14 checks + 6 mutations, then did nothing in the
+  app: it read the saved chapters AFTER the refresh had inserted the new ones, so nothing looked new. A database fix
+  needs one end-to-end run on seeded data (rename ids in the sim DB, refresh, diff the state) before it is "done".
+- **A field's name is not its meaning.** Mangayomi plugins fill `chapterNumber` with the list index. Before matching
+  on a stored value, grep every place that writes it.
+- **The sim app container moves on reinstall** (`build_run_sim`): re-resolve it with `simctl get_app_container` before
+  every sqlite check; a stale path gives "unable to open database".
+- **zsh doesn't split `$var` into words** — `set -- $pair` needs `${=pair}`; a silent no-op test looked like a code bug.

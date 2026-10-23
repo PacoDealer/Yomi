@@ -1434,6 +1434,7 @@ struct MangaDetailView: View {
         // Manga INSERT OR IGNORE is a no-op for library manga; creates a browse-only row otherwise.
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
+            _ = try? ChapterQueries.carryOverMovedChapters(mangaId: mangaSnapshot.id, remote: loadedChapters) // #208 — before the insert
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: loadedChapters)
         }.value
 
@@ -1546,6 +1547,7 @@ struct MangaDetailView: View {
 
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
+            _ = try? ChapterQueries.carryOverMovedChapters(mangaId: mangaSnapshot.id, remote: fetched) // #208 — before the insert
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
             try? MangaQueries.updateSourceMetadata(mangaSnapshot)
         }.value
@@ -1647,6 +1649,7 @@ struct MangaDetailView: View {
 
         let mangaSnapshot = manga
         await Task.detached(priority: .userInitiated) {
+            _ = try? ChapterQueries.carryOverMovedChapters(mangaId: mangaSnapshot.id, remote: fetched) // #208 — before the insert
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
             try? ChapterQueries.refreshPaths(fetched)
             try? UpdateScheduleQueries.setUploadDates(uploadDates)

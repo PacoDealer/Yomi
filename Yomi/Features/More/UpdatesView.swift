@@ -379,10 +379,13 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let newChapters = await Task.detached(priority: .utility) {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
             let localIds = Set(local.map(\.id))
-            let new = remote.filter { !localIds.contains($0.id) }
             try? ChapterQueries.refreshPaths(remote.filter { localIds.contains($0.id) })
             if settings.refreshMetadata { try? MangaQueries.updateSourceMetadata(manga) }
-            let found = !new.isEmpty && Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga)
+            // #208: chapters that only changed URL take over the saved rows first — they are not news.
+            let moved = (try? ChapterQueries.carryOverMovedChapters(mangaId: mangaId, remote: remote)) ?? []
+            let new = remote.filter { !localIds.contains($0.id) && !moved.contains($0.id) }
+            let found = !new.isEmpty
+                && Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga)
             try? UpdateScheduleQueries.setUploadDates(uploadDates)
             try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
             return new
@@ -413,7 +416,9 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let newChapters = await Task.detached(priority: .utility) {
             let local = (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
             let localIds = Set(local.map(\.id))
-            let new = remoteChapters.filter { !localIds.contains($0.id) }
+            // #208: chapters that only changed URL take over the saved rows first — they are not news.
+            let moved = (try? ChapterQueries.carryOverMovedChapters(mangaId: mangaId, remote: remoteChapters)) ?? []
+            let new = remoteChapters.filter { !localIds.contains($0.id) && !moved.contains($0.id) }
             let found = !new.isEmpty
                 && Self.saveNew(new, remoteCount: remoteChapters.count, localCount: local.count, manga: manga)
             // L3a (S171): only Mangayomi plugins return details here — Yomi's own manga plugins have no details call.
