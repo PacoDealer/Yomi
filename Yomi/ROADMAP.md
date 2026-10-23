@@ -29,7 +29,7 @@ read via `gh release view`, nothing breaking. Changes that matter to Yomi: 8.14 
 first render pass (`loadMemoryCacheSynchronously`, default ON → fewer placeholder flashes / scroll jumps in the
 reader), 8.14 retain-cycle fix in `ImagePrefetcher`, 8.11 avoids full-size data copies on big downloads, 8.12
 releases views while a download is in flight. Minimum toolchain is now Xcode 26 / Swift 6.2 (we're past that).
-**Verified:** sim build 0 warnings, `test-all.sh` all pass, ReaderUITests (see result line below). **Not done:**
+**Verified:** sim build 0 warnings, `test-all.sh` all pass, ReaderUITests 13/13 passed (179 s). **Not done:**
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
