@@ -21,6 +21,33 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S188 — REPORT (2026-10-23, Kingfisher before university + the full plan in the evening; simulator + Mac only)
+
+**Done, each committed + pushed** (`73d0674`…`8475dc5`, details in the parts below):
+1. Kingfisher 8.9.0 → 8.14.0 — build 0 warnings, test-all, ReaderUITests 13/13, perf gates 8.14 vs 8.9 identical
+   within noise (93–96 MB strip peak, launch 2.15 s on both).
+2. **#208** — a refresh that changes chapter URLs no longer duplicates chapters; read state, page, bookmark move to the
+   new chapter (`Core/ChapterCarryOver.swift`, numbers from names, strict one-to-one). Unit tests + seeded sim run.
+3. **#193/#196** flaky reader UI tests — cause: the App Store rating sheet (review counter persisted across test runs).
+   Fixed under the UI-test fixture only; 20/20 after.
+4. **`docs/EXTENSIONS.md`** + **Wikisource example plugin** (`docs/example-plugin/`), linked from README. Live repository
+   link: `https://raw.githubusercontent.com/PacoDealer/Yomi/main/docs/example-plugin/index.json`.
+   Gutenberg/Standard Ebooks ruled out by their own terms (see part 5).
+5. **#218** — searching inside a JS-plugin source now asks the source (was: only filtered loaded titles).
+6. **#219** — `book.open` isn't an SF Symbol (reading-status icon was blank) → `book`.
+7. Audit pass: no bare `withAnimation`, no `AsyncImage`/`.tabItem`/`Text + Text`, no reader page loaded with
+   `KFImage(url)`, no `AppSettings.shared` read inside `Task.detached`, all 121 symbol names exist, no new Spanish leaks
+   (316 = same as before tonight).
+
+**Not verified (needs the phone):** Kingfisher 8.14 feel + hitches (`perf-gates.sh --device`), #208 against real Aqua
+(site down), per-source search in NovelFire/WeTried, the real Declared Age Range sheet (S187). No TestFlight upload, no
+phone install, no Firebase deploy.
+
+**For Martin:** (a) the next phone build carries all of this — say when to `build-personal.sh --release` or upload a
+TestFlight build; (b) the example plugin's repository link above is public now — add it on the phone to try it, or
+tell me to change the example; (c) sim leftovers: a `http://localhost:8765/index.json` repository is still added in
+the simulator (harmless, fails to refresh).
+
 ## S188 — Kingfisher 8.14 (2026-10-23, 20-minute slot before university, simulator only)
 
 The overnight run below never started (Martin forgot to leave it running). In a 20-minute slot: **Kingfisher

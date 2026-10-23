@@ -24,8 +24,13 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S187 — 2026-10-20)
+## Current state (S188 — 2026-10-23)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S188 (ROADMAP S188 REPORT):** Kingfisher 8.14; #208 chapter carry-over on refresh (`Core/ChapterCarryOver.swift`,
+  `ChapterQueries.carryOverMovedChapters` — call BEFORE inserting a source's list); #193/#196 were the App Store rating
+  sheet (no review count under `-yomiReaderFixture`); per-source search asks the plugin (#218); extension guide
+  `docs/EXTENSIONS.md` + Wikisource example in `docs/example-plugin/` (`node docs/example-plugin/test.mjs`). Novel chapter
+  ids are POSITION-based (`NovelDetailView`: `novelId-ch-index`). All sim-only.
 - **S187:** the 18+ switch is age-gated (`Core/AgeGate.swift`, Declared Age Range, entitlement in both files; fallback =
   self-declaration when the service is unavailable). Sim-verified; real system sheet + signing with the new entitlement
   unchecked on the phone. DEBUG `-yomiAgeRange adult|under|declined|unavailable`.
