@@ -33,6 +33,20 @@ releases views while a download is in flight. Minimum toolchain is now Xcode 26 
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
+### S188 part 3 — Kingfisher 8.14 measured (simulator, `scripts/perf-gates.sh`, same Mac, nothing else running)
+
+| Kingfisher | Launch (first frame) | Launch wall clock | Long-strip memory peak |
+|---|---|---|---|
+| 8.14.0 run 1 | 2.173 s | 4.202 s | 96.0 MB |
+| 8.9.0 (temporarily re-pinned) | 2.147 s | 4.196 s | 92.6 MB |
+| 8.14.0 run 2 | 2.145 s | 4.171 s | 93.0 MB |
+
+No difference beyond run-to-run noise (±3 MB). Launch is ~2.15 s on both versions vs 1.41 s at S179 — the drift is the
+environment (Mac/sim state), not Kingfisher; still under the 2.5 s gate, worth a look if it keeps rising.
+`backgroundDecode` NOT turned on: the simulator records no hitches, so there is no number to justify it — a device
+perf run (`perf-gates.sh --device`) is the place to decide. 8.14's first-frame memory-cache load is the change most
+likely to be felt (fewer placeholder flashes) and can only be judged on the phone.
+
 ### S188 part 2 — #208 duplicate chapters fixed (2026-10-23 evening, simulator)
 
 See KNOWN_ISSUES #208. First version ran AFTER the insert and matched nothing on the sim (the new rows were already
@@ -48,7 +62,7 @@ deploy`, App Store Connect, force-push, anything that needs his password or a cl
 warnings → `scripts/test-all.sh` green → Spanish leak check (`find-unlocalized.py`) → one commit → ROADMAP note.
 If a task is blocked or turns risky, write why and move to the next — never stall waiting for him.
 
-1. **DONE S188 (bump only; footprint check still open): Kingfisher 8.0 → latest 8.x (8.14?).** Check the real latest tag on GitHub first (not recall). Read its release
+1. **DONE S188 (bump + perf gates, part 3): Kingfisher 8.0 → latest 8.x (8.14?).** Check the real latest tag on GitHub first (not recall). Read its release
    notes between our resolved version and the target; bump the package; build; test-all; sim check of the long-strip
    reader with the 20 tall test pages (`Documents/Local/Tall Test`, S160 method: `footprint -v` peak before/after)
    and an Asura JS chapter (Absolute Regression, id 2127). Look at `backgroundDecode` (S122 stutter note) — only turn
