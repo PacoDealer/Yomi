@@ -33,6 +33,26 @@ releases views while a download is in flight. Minimum toolchain is now Xcode 26 
 the S160 `footprint` memory before/after with the tall test pages, Asura chapter by hand, device. Licence texts
 don't name versions, so `build-licenses.sh` wasn't needed. Next: tasks 2–6 of the plan below are still open.
 
+### S188 part 5 — extension guide + Wikisource example plugin (simulator + live API)
+
+`docs/EXTENSIONS.md` (linked from README) + `docs/example-plugin/` (`wikisource.js`, `index.json`, `test.mjs`). Source
+choice: Martin asked for "Project Gutenberg / Standard Ebooks style" — checked live: gutenberg.org's robot policy says
+the site is for human users only and blocks automated access; Standard Ebooks keeps all but its New Releases feed for
+patrons and sets bot-ban links. **Wikisource** (MediaWiki Action API, made for programs; PD / CC BY-SA texts) is the same
+kind of library without those problems. Plugin = Format B: Category:Novels A–Z (Popular) / newest-added (Latest, via
+`options.showLatestNovels`), `list=search`, `pageimages` covers, chapters = subpage links in page order minus container
+pages, chapter HTML without header/footer + a source link; descriptive User-Agent per Wikimedia policy.
+**Verified:** `node docs/example-plugin/test.mjs` 11/11 against the live API with Yomi's own cheerio bundle; real
+JavaScriptCore on the Mac (a small swiftc harness) — parseNovel 0.8 s; in the sim end to end through a localhost
+repository: Add Repository → Install (sha256 checked) → Update 1.0.0→1.0.1 → Browse (covers) → detail "Jane Austen ·
+Completed · 61 chapters" → reader shows chapter 1. Found + fixed on the way: the volume check matched "Volume 1 ·
+Chapter 1" and fetched all 61 chapters (27 s → 0.8 s); summary was raw CSS from an inline `<style>`.
+Guide claims checked against the code — corrected 4 before commit: novel chapters are keyed by POSITION
+(`NovelDetailView`: `"\(novelId)-ch-\(index)"`), not path; no Cloudflare-cookie sharing claim; no `btoa`; Format A
+chapter numbers come from the plugin, not the names.
+Also found: **#218** per-source search only filters loaded titles (OPEN); **#219** `book.open` isn't an SF Symbol
+(fixed; all 121 symbol-like literals checked, it was the only one).
+
 ### S188 part 4 — flaky UI tests #193/#196 fixed (simulator)
 
 Both run ×10 alone: #196 failed 1/10 ("second Next left chapter 2 on screen"), #193 10/10. The failed run's UI
@@ -81,7 +101,7 @@ If a task is blocked or turns risky, write why and move to the next — never st
    logic → unit tests with a fake old/new list (Madara slug+memo case, duplicates, decimals, a genuinely new chapter).
    No live Aqua test — mark "unit-tested only, needs Aqua back".
 3. **DONE S188 part 4: Flaky UI tests #193/#196.** Run each 10× alone; find the timing cause; fix the wait (not a sleep) if found.
-4. **"How to write a Yomi extension" guide** (`docs/EXTENSIONS.md` at repo root, NOT under `Yomi/` — or exclude it from
+4. **DONE S188 part 5: "How to write a Yomi extension" guide** (`docs/EXTENSIONS.md` at repo root, NOT under `Yomi/` — or exclude it from
    the bundle; run `check-bundle-docs.py`). Formats A/B, the JSBridge API actually exposed (read `JSBridge.swift`, not
    memory), the fake-cheerio limits, how to test locally, how to host an `index.json`. Example plugin = a legal
    public-domain source only (see the morning question), kept in `docs/example-plugin/`, never a scraper of a

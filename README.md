@@ -29,6 +29,9 @@ Yomi is a reader. It comes with **no sources and no content**. You can read your
 Repositories are run by their own projects and are not part of Yomi. You are responsible for the repositories you add
 and for using sources you are allowed to use.
 
+**Writing your own plugin:** see [docs/EXTENSIONS.md](docs/EXTENSIONS.md) — the plugin format, how to host a
+repository, how to test, and a complete example for Wikisource's public-domain library.
+
 ---
 
 ## Migrate from Mihon, Tachiyomi or Tachimanga

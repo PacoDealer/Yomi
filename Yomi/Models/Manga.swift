@@ -33,7 +33,7 @@ enum ReadingStatus: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .none:       return "circle.dotted"
         case .planToRead: return "bookmark"
-        case .reading:    return "book.open"
+        case .reading:    return "book" // "book.open" isn't an SF Symbol (#219)
         case .onHold:     return "pause.circle"
         case .completed:  return "checkmark.circle"
         case .dropped:    return "xmark.circle"
