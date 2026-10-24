@@ -202,8 +202,8 @@ struct YomiApp: App {
                 request.setValue(value, forHTTPHeaderField: name)
             }
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
-            // Keiyoushi pages: the bridge comes back on a new port after the app was in the background (S144).
-            return KeiyoushiBridge.pointAtLivePort(request)
+            // Keiyoushi pages: the bridge's token (S191), and its new port after the app was in the background (S144).
+            return KeiyoushiBridge.bridgeImageRequest(request)
         }
         KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
         // Kingfisher's memory cache defaults to a quarter of the RAM (2 GB on an iPhone 17) and counts decoded

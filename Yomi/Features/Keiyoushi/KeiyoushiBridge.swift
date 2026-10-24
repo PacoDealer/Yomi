@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import Kingfisher
+import Security
 import Synchronization
 
 // MARK: - Bridge response models (M-Extension-Server's JManga / JChapter / JPage)
@@ -158,6 +159,22 @@ final class KeiyoushiBridge {
     private var starting: Task<Int, Error>?
     private var everStarted = false
 
+    // MARK: Lock (S191)
+
+    /// Every request to the bridge must carry this header with `token`, or the bridge answers 401. Loopback is open
+    /// to every app on the phone and to web pages in our web views (the Cloudflare screen), and `/dalvik` runs any
+    /// APK it is sent — the token is what keeps them out. Plugins can't reach 127.0.0.1 at all (`PluginNetworkPolicy`).
+    nonisolated static let tokenHeader = "X-Yomi-Bridge-Token"
+
+    /// 256 random bits, new each launch — the JVM lives exactly as long as the process, so the server holds the
+    /// same token across pause/resume. Never logged or stored.
+    nonisolated static let token: String = {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }()
+
     // MARK: Page images across a pause (S144)
 
     /// The port the bridge serves on right now (nil while paused), readable from any thread — Kingfisher's
@@ -170,16 +187,21 @@ final class KeiyoushiBridge {
         return url.host == "127.0.0.1" && url.path.hasPrefix("/image/")
     }
 
-    /// Image ids outlive a pause but the port doesn't (verified on device S144: a chapter's 20 page ids all loaded
-    /// after the restart once moved to the new port). Pages keep the URL they were listed with — so Kingfisher's
-    /// cache keys stay put — and every request is pointed at the live port here.
-    nonisolated static func pointAtLivePort(_ request: URLRequest) -> URLRequest {
-        guard isBridgeImage(request.url), let live = livePort.withLock({ $0 }), request.url?.port != live,
-              let url = request.url, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return request }
-        c.port = live
-        var moved = request
-        moved.url = c.url ?? url
-        return moved
+    /// Prepares a request for a page or cover the bridge serves; any other request comes back unchanged.
+    /// - Adds the bridge token (S191).
+    /// - Image ids outlive a pause but the port doesn't (verified on device S144: a chapter's 20 page ids all loaded
+    ///   after the restart once moved to the new port). Pages keep the URL they were listed with — so Kingfisher's
+    ///   cache keys stay put — and every request is pointed at the live port here.
+    nonisolated static func bridgeImageRequest(_ request: URLRequest) -> URLRequest {
+        guard isBridgeImage(request.url), let url = request.url else { return request }
+        var prepared = request
+        prepared.setValue(token, forHTTPHeaderField: tokenHeader)
+        if let live = livePort.withLock({ $0 }), url.port != live,
+           var c = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            c.port = live
+            prepared.url = c.url ?? url
+        }
+        return prepared
     }
 
     /// Back in the foreground: serve again right away if Keiyoushi was in use, so an open chapter's remaining pages
@@ -198,7 +220,7 @@ final class KeiyoushiBridge {
         guard KeiyoushiJVMHost.isAvailable else { throw KeiyoushiError.runtimeUnavailable }
         let task = Task<Int, Error> {
             try await withCheckedThrowingContinuation { cont in
-                KeiyoushiJVMHost.shared.start { port, error in
+                KeiyoushiJVMHost.shared.start(withToken: Self.token) { port, error in
                     if port > 0 {
                         cont.resume(returning: port)
                     } else {
@@ -347,6 +369,7 @@ final class KeiyoushiBridge {
             // Zero is an interpreter and the first call converts the extension — allow a slow first response.
             request.timeoutInterval = 180
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(Self.token, forHTTPHeaderField: Self.tokenHeader)
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
             if let homeURL, let site = URL(string: homeURL),
                let cookies = HTTPCookieStorage.shared.cookies(for: site), !cookies.isEmpty {
@@ -566,12 +589,13 @@ nonisolated final class KeiyoushiCovers: @unchecked Sendable {
         }
     }
 
-    /// A plain `URLSession` request for a page or cover, with the headers Kingfisher's request modifier adds.
+    /// A plain `URLSession` request for a page or cover, with the headers Kingfisher's request modifier adds
+    /// (including the bridge token and live port for pages the bridge serves).
     func request(for url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         for (name, value) in headers(for: url) { request.setValue(value, forHTTPHeaderField: name) }
         request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
-        return request
+        return KeiyoushiBridge.bridgeImageRequest(request)
     }
 
     /// Covers saved before S134 point at the bridge's proxy (`http://127.0.0.1:<port>/image/<token>`), which dies

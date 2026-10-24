@@ -296,6 +296,115 @@ index 0000000..964bc3d
 +        return response.newBuilder().body(wrapped).build()
 +    }
 +}
+diff --git a/server/src/main/kotlin/mextensionserver/EmbeddedBridge.kt b/server/src/main/kotlin/mextensionserver/EmbeddedBridge.kt
+index 4ffd257..1ed33e1 100644
+--- a/server/src/main/kotlin/mextensionserver/EmbeddedBridge.kt
++++ b/server/src/main/kotlin/mextensionserver/EmbeddedBridge.kt
+@@ -8,6 +8,9 @@ import mextensionserver.controller.MExtensionServerController
+  * stopped and restarted without recreating the JVM.
+  */
+ object EmbeddedBridge {
++    /** Shortest token [start] accepts: 32 hex characters = 128 random bits. */
++    const val MIN_TOKEN_LENGTH = 32
++
+     private val lock = Any()
+     private var controller: MExtensionServerController? = null
+ 
+@@ -15,16 +18,40 @@ object EmbeddedBridge {
+     fun start(
+         port: Int,
+         appDir: String?,
++    ): Int = startServer(port, appDir, null)
++
++    /**
++     * Like [start], but every request must carry `X-Yomi-Bridge-Token: <authToken>` or it gets 401 (Yomi).
++     * Loopback is reachable by every app on the device and by web pages in the host's web views, so the token
++     * is what keeps them from posting an APK to `/dalvik`. Pass the same token on every start in one process.
++     */
++    @JvmStatic
++    fun start(
++        port: Int,
++        appDir: String?,
++        authToken: String,
++    ): Int {
++        require(authToken.length >= MIN_TOKEN_LENGTH) { "bridge token too short" }
++        return startServer(port, appDir, authToken)
++    }
++
++    private fun startServer(
++        port: Int,
++        appDir: String?,
++        authToken: String?,
+     ): Int =
+         synchronized(lock) {
+             controller
+                 ?.takeIf(MExtensionServerController::isRunning)
+-                ?.getPort()
+-                ?.let { return@synchronized it }
++                ?.let {
++                    it.authToken = authToken
++                    return@synchronized it.getPort()
++                }
+ 
+             initApplication(appDir)
+             MExtensionServerController("127.0.0.1")
+                 .also {
++                    it.authToken = authToken
+                     it.start(port)
+                     controller = it
+                 }.getPort()
+diff --git a/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt b/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt
+index 89b7a3d..05634fa 100644
+--- a/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt
++++ b/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt
+@@ -6,6 +6,7 @@ import mextensionserver.impl.MExtensionServerLoader
+ import mextensionserver.impl.MihonImageProxy
+ import mextensionserver.impl.MihonVideoProxy
+ import java.io.IOException
++import java.security.MessageDigest
+ 
+ class MExtensionServerController(
+     private val bindHost: String? = null,
+@@ -13,6 +14,10 @@ class MExtensionServerController(
+     private val logger = KotlinLogging.logger {}
+     private var server: WebServer? = null
+ 
++    /** When set, every request must send it in [AUTH_HEADER] (see `EmbeddedBridge.start`). */
++    @Volatile
++    var authToken: String? = null
++
+     fun start(port: Int) {
+         try {
+             server = WebServer(port)
+@@ -47,10 +52,28 @@ class MExtensionServerController(
+ 
+     fun getPort(): Int = server?.listeningPort ?: 0
+ 
++    private fun isAuthorized(session: NanoHTTPD.IHTTPSession): Boolean {
++        val expected = authToken ?: return true
++        // NanoHTTPD lower-cases header names. Constant-time compare, so the token can't be guessed byte by byte.
++        val sent = session.headers[AUTH_HEADER.lowercase()] ?: return false
++        return MessageDigest.isEqual(sent.toByteArray(Charsets.UTF_8), expected.toByteArray(Charsets.UTF_8))
++    }
++
++    companion object {
++        const val AUTH_HEADER = "X-Yomi-Bridge-Token"
++    }
++
+     private inner class WebServer(
+         port: Int,
+     ) : NanoHTTPD(bindHost, port) {
+         override fun serve(session: IHTTPSession): Response =
++            if (!isAuthorized(session)) {
++                newFixedLengthResponse(Response.Status.UNAUTHORIZED, MIME_PLAINTEXT, "Unauthorized")
++            } else {
++                route(session)
++            }
++
++        private fun route(session: IHTTPSession): Response =
+             when (session.uri) {
+                 "/dalvik" -> DalvikHandler().serve(session)
+                 "/youtube/resolve" -> YouTubeHandler().serve(session)
 diff --git a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
 index c9c373a..98ed5c8 100644
 --- a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
@@ -387,3 +496,61 @@ index a919a82..a9a29fa 100644
  )
  
  data class JAnime(
+diff --git a/server/src/test/kotlin/mextensionserver/EmbeddedBridgeTest.kt b/server/src/test/kotlin/mextensionserver/EmbeddedBridgeTest.kt
+index 70fe740..f5c4a73 100644
+--- a/server/src/test/kotlin/mextensionserver/EmbeddedBridgeTest.kt
++++ b/server/src/test/kotlin/mextensionserver/EmbeddedBridgeTest.kt
+@@ -7,6 +7,7 @@ import kotlin.io.path.deleteRecursively
+ import kotlin.test.AfterTest
+ import kotlin.test.Test
+ import kotlin.test.assertEquals
++import kotlin.test.assertFailsWith
+ import kotlin.test.assertFalse
+ import kotlin.test.assertTrue
+ 
+@@ -49,4 +50,45 @@ class EmbeddedBridgeTest {
+             appDir.deleteRecursively()
+         }
+     }
++
++    private fun status(
++        port: Int,
++        path: String,
++        token: String?,
++    ): Int {
++        val connection = URI("http://127.0.0.1:$port$path").toURL().openConnection() as HttpURLConnection
++        try {
++            token?.let { connection.setRequestProperty("X-Yomi-Bridge-Token", it) }
++            return connection.responseCode
++        } finally {
++            connection.disconnect()
++        }
++    }
++
++    @Test
++    fun `token start refuses requests without the token`() {
++        val appDir = Files.createTempDirectory("mextension-embedded-token-test")
++        val token = "0123456789abcdef".repeat(4)
++        try {
++            assertFailsWith<IllegalArgumentException> { EmbeddedBridge.start(0, appDir.toString(), "short") }
++            assertFalse(EmbeddedBridge.isRunning())
++
++            val port = EmbeddedBridge.start(0, appDir.toString(), token)
++            assertEquals(401, status(port, "/", null))
++            assertEquals(401, status(port, "/dalvik", null))
++            assertEquals(401, status(port, "/stop", null))
++            assertEquals(401, status(port, "/image/anything", null))
++            assertEquals(401, status(port, "/", token.dropLast(1) + "X"))
++            assertEquals(200, status(port, "/", token))
++            assertTrue(EmbeddedBridge.isRunning()) // the refused /stop did nothing
++
++            // Still locked after a pause/resume cycle (the iOS background path).
++            EmbeddedBridge.pause()
++            assertEquals(port, EmbeddedBridge.start(port, appDir.toString(), token))
++            assertEquals(401, status(port, "/capabilities", null))
++            assertEquals(200, status(port, "/capabilities", token))
++        } finally {
++            appDir.deleteRecursively()
++        }
++    }
+ }

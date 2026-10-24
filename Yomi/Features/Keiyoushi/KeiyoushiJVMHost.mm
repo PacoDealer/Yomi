@@ -153,18 +153,26 @@ static NSString *takeException(JNIEnv *env) {
     return env;
 }
 
-- (void)startWithCompletion:(void (^)(NSInteger, NSString *))completion {
+- (void)startWithToken:(NSString *)token completion:(void (^)(NSInteger, NSString *))completion {
+    NSString *tokenCopy = [token copy];
     [self enqueue:^(JNIEnv *env) {
         NSInteger port = 0;
         NSString *error = self->_createError;
         if (env) {
             jclass cls = env->FindClass("mextensionserver/EmbeddedBridge");
-            jmethodID start = cls ? env->GetStaticMethodID(cls, "start", "(ILjava/lang/String;)I") : nullptr;
-            if ((error = takeException(env)) == nil && start) {
+            // start(port, appDir, token) — our server patch (S191). Never fall back to the unlocked 2-argument start.
+            jmethodID start = cls ? env->GetStaticMethodID(cls, "start", "(ILjava/lang/String;Ljava/lang/String;)I")
+                                  : nullptr;
+            if ((error = takeException(env)) == nil && !start) {
+                error = @"The Keiyoushi runtime is out of date (no locked start).";
+            }
+            if (error == nil && start) {
                 NSString *dir = ensureDir([appSupportDir() stringByAppendingPathComponent:@"Keiyoushi/bridge"]);
                 jstring jdir = env->NewStringUTF(dir.UTF8String);
+                jstring jtoken = env->NewStringUTF(tokenCopy.UTF8String);
                 NSTimeInterval t0 = [NSProcessInfo processInfo].systemUptime;
-                port = env->CallStaticIntMethod(cls, start, 0, jdir);
+                port = env->CallStaticIntMethod(cls, start, 0, jdir, jtoken);
+                env->DeleteLocalRef(jtoken);
                 env->DeleteLocalRef(jdir);
                 if ((error = takeException(env))) port = 0;
                 NSLog(@"[Keiyoushi] EmbeddedBridge.start -> port %ld in %.0f ms", (long)port,
