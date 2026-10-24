@@ -26,12 +26,15 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Current state (S190 — 2026-10-24)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S191 (ROADMAP S191, KNOWN_ISSUES #238):** Keiyoushi bridge LOCKED — per-launch 256-bit token
+  (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
+  without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device
+  COMPILE only — not yet run on the phone. Open: CloudKit session (S189 #4–#6), JS cookie jar / time limit.
 - **S190 (ROADMAP S190, KNOWN_ISSUES #220–#237):** S189 audit list + verified leads fixed: tracker count never lowers,
   novel jump resumes, restore MERGES (`Core/ProgressRules.swift`, tested by `scripts/progress-rules-tests`), one-snapshot
   export, truncated .tachibk refused, additive reading time (`updateProgress(addingSeconds:)`), same-origin plugin
   updates, `PluginNetworkPolicy` (SOURCE.fetch http(s) only, no loopback; safe plugin ids), **Remove keeps downloads**,
-  baseline updates silent, concurrency guards. Open: Keiyoushi bridge token, CloudKit session (S189 #4–#6), JS cookie
-  jar / time limit. Sim-only; nothing on the phone.
+  baseline updates silent, concurrency guards. Sim-only; nothing on the phone. Build 621 = S190, on TestFlight.
 - **S189 (audit, report `~/Desktop/Projects/Yomi/reports/S189-audit.md`):** 26 confirmed findings (3 fixed then, the
   rest S190). Build 615 uploaded.
 - **S188 (ROADMAP S188 REPORT):** Kingfisher 8.14; #208 chapter carry-over on refresh (`Core/ChapterCarryOver.swift`,
@@ -72,7 +75,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - **Motion (S178):** `withMotion`, `.motion`, `Motion.slide/pop` — never bare `withAnimation`.
 - **Reader pages:** load through `PageNames.source(url)` (Keiyoushi pages keyed `chapterId#index`; bridge URLs change
   every launch), never `KFImage(url)`. Pages > 4096 px tall are drawn as strips or they render BLACK (#190). Keiyoushi
-  bridge returns on a NEW port after background (`KeiyoushiBridge.pointAtLivePort`, `PageRetry`).
+  bridge returns on a NEW port after background (`KeiyoushiBridge.bridgeImageRequest`, `PageRetry`). Every bridge
+  request needs the token header (S191): add it through `bridgeImageRequest` / `KeiyoushiCovers.request(for:)`, never a bare URLSession call.
 - **Reading state:** ONE Continue rule — `ResumeReading.chapter(in:)`. Chapter numbers parsed by `Core/ChapterRecognition.swift`
   (Mihon port); Yomi assumes ascending order everywhere. `scrollPosition(id:)` ignores code-driven scrolling (`StripScroller.isDriving`).
 - **Design = "calm" (RESEARCH §26):** SF Pro, system neutrals, colour from covers, one accent, **no list separators**,

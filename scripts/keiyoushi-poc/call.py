@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Drive M-Extension-Server's POST /dalvik the way Yomi will: the first call sends the APK, later calls reuse
 the server-issued handle. Walks popular -> search -> details -> chapters -> pages -> first image, timing each."""
-import base64, json, sys, time, urllib.request, urllib.error
+import base64, json, os, sys, time, urllib.request, urllib.error
 
 PORT = 18765
 # The bridge copies the caller's User-Agent onto extension requests; Yomi will send its WKWebView UA.
 UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 "
       "(KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1")
 _handles = {}
+# run-server.sh writes a fresh token per start; the bridge refuses any request without it (S191).
+_WORK = os.environ.get("KEIYOUSHI_POC_WORK", os.path.expanduser("~/Desktop/Projects/Yomi/Tools/keiyoushi-poc"))
+TOKEN = open(os.path.join(_WORK, "bridge.token")).read().strip()
 NEWEST = "--newest" in sys.argv
 
 def call(apk, method, **kw):
@@ -17,7 +20,8 @@ def call(apk, method, **kw):
     else:
         body["data"] = base64.b64encode(open(apk, "rb").read()).decode()
     req = urllib.request.Request(f"http://127.0.0.1:{PORT}/dalvik", json.dumps(body).encode(),
-                                 {"Content-Type": "application/json", "User-Agent": UA})
+                                 {"Content-Type": "application/json", "User-Agent": UA,
+                                  "X-Yomi-Bridge-Token": TOKEN})
     t = time.time()
     try:
         with urllib.request.urlopen(req, timeout=300) as r:
@@ -69,8 +73,11 @@ def run(apk, query):
             if url.startswith("/"):
                 url = f"http://127.0.0.1:{PORT}{url}"
             t = time.time()
+            headers = {"User-Agent": UA}
+            if url.startswith("http://127.0.0.1:"):
+                headers["X-Yomi-Bridge-Token"] = TOKEN   # proxied page: served by the bridge itself
             try:
-                with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=120) as r:
+                with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=120) as r:
                     data = r.read()
                     print(f"{'first image':<22} {int((time.time()-t)*1000):>6} ms  {len(data)} bytes  {r.headers.get('Content-Type')}  magic={data[:12]!r}")
             except Exception as e:

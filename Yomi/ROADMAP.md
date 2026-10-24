@@ -21,6 +21,30 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S191 — Keiyoushi bridge token (2026-10-24, Mac + simulator + device compile; nothing on the phone)
+
+S189 audit #8. Build 621 (S190) is on TestFlight with Martin's encryption answer done.
+
+- **What:** Yomi makes a 256-bit token once per launch (`KeiyoushiBridge.token`, `SecRandomCopyBytes`) and starts the
+  server with `EmbeddedBridge.start(port, appDir, token)` (new in our M-Extension-Server patch; tokens < 32 chars
+  refused). Every route — `/dalvik`, `/image/`, `/video/`, `/stop`, `/`, `/capabilities` — answers 401 without
+  `X-Yomi-Bridge-Token` (`MessageDigest.isEqual`). The token survives pause/resume (same process, same token).
+- **Fail closed:** `KeiyoushiJVMHost startWithToken:` only looks up the 3-argument start; an old jar is an error, never
+  an unlocked server.
+- **Clients:** `/dalvik` calls set the header; `bridgeImageRequest` (was `pointAtLivePort`) adds it to bridge image
+  requests in Kingfisher's modifier and now also in `KeiyoushiCovers.request(for:)` (downloads), which also gained the
+  live-port fix. The prefetcher already merges Kingfisher's default options by hand, so it gets the modifier.
+- **Mac harness:** `run-server.sh` makes a fresh token into `$WORK/bridge.token` (0600), `Launcher.java` passes it,
+  `call.py` sends it.
+- **Verified:** `EmbeddedBridgeTest` 2/2 (and fails when the check is disabled); Mac bridge: no token / wrong token /
+  web-style text/plain POST → 401, with token → 200; Asura popular → search → details → 346 chapters → pages → image;
+  image proxy 401 without, 200 with; patch applies cleanly at the pinned commit; sim build + device build (Personal,
+  runtime embedded) 0 warnings; test-all 10/10.
+- **Not verified:** a run on the phone (the runtime has no simulator slice). Check: Browse Asura, open a chapter,
+  background + resume mid-chapter, download a chapter.
+- **Tip:** a device build with `-derivedDataPath` inside `~/Desktop` fails at codesign ("resource fork, Finder
+  information, or similar detritus") — use `~/Library/Developer/Xcode/DerivedData`.
+
 ## S190 — S189 audit fixes + the unverified leads checked (2026-10-24, simulator + Mac only; nothing on the phone)
 
 Martin: "continue, use the session wisely". Took the S189 ranked list, then ran 3 read-only verification agents

@@ -14,8 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// True when this build embeds the runtime (device + personal build).
 @property (class, readonly) BOOL isAvailable;
 /// Creates the VM on first use, then (re)starts the bridge; an already-running bridge just returns its port.
+/// `token` locks the bridge: every request must send it as `X-Yomi-Bridge-Token` (S191). Pass the same token on
+/// every start in one process. A runtime too old to take a token fails to start instead of serving unlocked.
 /// Completion runs on the main queue with port 0 and an error message on failure.
-- (void)startWithCompletion:(void (^)(NSInteger port, NSString *_Nullable error))completion;
+- (void)startWithToken:(NSString *)token completion:(void (^)(NSInteger port, NSString *_Nullable error))completion;
 /// Stops serving but keeps loaded extensions (the app is going to the background).
 - (void)pauseBridge;
 @end

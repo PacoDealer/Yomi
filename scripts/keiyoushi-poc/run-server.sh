@@ -8,13 +8,16 @@ cd "$WORK"
 SERVER_JAR=$(ls M-Extension-Server/server/build/MExtensionServer-*.jar | head -1)
 
 pkill -f "Launcher 18765" 2>/dev/null || true
+# Like Yomi: a fresh random token per start; call.py reads it from here (S191).
+TOKEN=$(openssl rand -hex 32)
+( umask 077; printf %s "$TOKEN" > "$WORK/bridge.token" )
 for _ in $(seq 1 20); do lsof -i :18765 -sTCP:LISTEN >/dev/null 2>&1 || break; sleep 0.5; done
 
 jre-base/bin/java -Xint -XX:+UseSerialGC -Xms128m -Xmx512m -Xss8m \
   -Xbootclasspath/a:harness/java-logging-shim.jar \
   -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true -Dfile.encoding=UTF-8 \
   -Djava.io.tmpdir="$WORK/tmp" -Duser.home="$WORK/appdir" \
-  -cp "harness:$SERVER_JAR" Launcher 18765 "$WORK/appdir" > server.log 2>&1 &
+  -cp "harness:$SERVER_JAR" Launcher 18765 "$WORK/appdir" "$TOKEN" > server.log 2>&1 &
 
 for _ in $(seq 1 60); do grep -q BRIDGE_READY server.log 2>/dev/null && break; sleep 1; done
 grep BRIDGE_READY server.log || { tail -20 server.log; exit 1; }
