@@ -21,7 +21,25 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## S191 — Keiyoushi bridge token (2026-10-24, Mac + simulator + device compile; nothing on the phone)
+## S191 — Keiyoushi bridge token + CloudKit fixes (2026-10-24, Mac + simulator + device compile; nothing on the phone)
+
+### Part 2 — CloudKit (S189 audit #4–#6; #7 was S190; #12 left open as KNOWN_ISSUES #242)
+- **#4 → #239:** novel chapter state now carries the chapter's `path` and is matched by it; v31 adds
+  `pending_novel_chapter_state.path` + `idx_novel_chapter_path`; one-time re-send so existing iCloud records gain a path.
+- **#5 → #240:** fetched records written in one detached transaction (savepoint per record); sent-record caching batched.
+- **#6 → #241:** sign-in / account switch re-sends the library; foreground `resume()` starts sync that never started.
+- **Verified (sim):** `-yomiSyncSelfTest` (new `Yomi/Sync/CloudSyncSelfTest.swift`, DEBUG): path beats a colliding
+  id, path-less records still apply by id, stash lands on the right path and empties, 3,000 records applied with the
+  main actor never blocked (12 ms gap = idle; the old per-record shape: 2.1 s). Build 0 warnings, test-all 10/10.
+- **Not verified:** a real CloudKit round trip — the simulator is no longer signed in to iCloud (sync engine never
+  starts there), and account changes need a real device.
+- **Martin — before the next TestFlight build (or novel chapter saves are refused in Production until done):**
+  1. [CloudKit Console](https://icloud.developer.apple.com) → `iCloud.pacodealer.Yomi` → **Development** → Schema →
+     Record Types → `NovelChapterState` → add field **`path`**, type **String** → Save.
+  2. Deploy Schema Changes → the diff must list only `NovelChapterState.path` → Deploy.
+  (Refused saves are not lost: they wait in "N items could not sync" and are sent again after the deploy, #204.)
+
+### Part 1 — Keiyoushi bridge token
 
 S189 audit #8. Build 621 (S190) is on TestFlight with Martin's encryption answer done.
 

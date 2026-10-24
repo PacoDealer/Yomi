@@ -104,6 +104,8 @@ at all (only touched ones do), and the ones that do are ~5 scalar fields.
   zone is required for `CKSyncEngine`'s atomic batch semantics anyway, and it keeps the design
   forward-compatible if Yomi ever wants a *second* zone for something unrelated (it won't need
   `CKShare`/multi-user sharing — this is single-user, multi-device only).
+- **S191:** `NovelChapterState` also carries the chapter's `path`, and the receiver matches on it — novel chapter ids
+  are list positions and differ between devices (KNOWN_ISSUES #239). Manga chapter ids are content-derived, no path needed.
 - **Record types**: `Manga`, `Novel`, `MangaChapterState`, `NovelChapterState`, `Category`,
   `MangaCategoryLink`, `NovelCategoryLink`. One type per GRDB table being synced, kept 1:1 for
   simplicity — no reason to get clever here.

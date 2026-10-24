@@ -2532,3 +2532,15 @@ previously here was removed during the 2026-08-04 doc restructure.
   save now adds only the seconds since the previous save, and the clock restarts on every save and on `.active`.
 - **SQLite string LIKE with a typographic apostrophe** (`Regressor’s`) doesn't match `'Regressor%s'` typed with `'` —
   match on ids or a `%` wildcard instead when seeding the sim DB.
+
+### S191 lessons
+- **Measure a "doesn't block the main thread" claim against an idle baseline AND the old shape, in the same run.** The
+  first self-test run "failed" with a 433 ms main-actor gap — launch work, not the batch. Waiting 5 s and timing idle /
+  new / old side by side gave 12 / 12 / 2148 ms, which is the number worth reporting.
+- **A mutation run proves a security test tests something.** The bridge-token test passed; disabling the check made
+  it fail — only then is "401 without the token" verified rather than assumed.
+- **Clearing caches "to be safe" can be the bug.** Wiping CloudKit change tags on sign-in would have made a
+  same-account sign-in lose offline edits to "server wins"; the existing `.unknownItem` path already handles a
+  different account. Re-read the conflict path before adding a reset.
+- **Adding a CloudKit field is a Martin step**: Production refuses saves with a field it hasn't deployed. If the sim
+  isn't signed in to iCloud, the field can't be created by a Development save — he adds it in the Console.

@@ -18,18 +18,21 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#237), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#242), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S190 — 2026-10-24)
+## Current state (S191 — 2026-10-24)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
 - **S191 (ROADMAP S191, KNOWN_ISSUES #238):** Keiyoushi bridge LOCKED — per-launch 256-bit token
   (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
   without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device
-  COMPILE only — not yet run on the phone. Open: CloudKit session (S189 #4–#6), JS cookie jar / time limit.
+  COMPILE only — not yet run on the phone. CloudKit (#239–#241): novel chapter state matched by PATH (record field
+  `path`, **Martin must deploy it to Production before the next TestFlight**), batched off-main apply, account
+  sign-in/switch re-sends, foreground `resume()`. `-yomiSyncSelfTest` (sim) checks it. Open: #242 (conflict timestamps),
+  JS cookie jar / time limit.
 - **S190 (ROADMAP S190, KNOWN_ISSUES #220–#237):** S189 audit list + verified leads fixed: tracker count never lowers,
   novel jump resumes, restore MERGES (`Core/ProgressRules.swift`, tested by `scripts/progress-rules-tests`), one-snapshot
   export, truncated .tachibk refused, additive reading time (`updateProgress(addingSeconds:)`), same-origin plugin
@@ -61,7 +64,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   (`ccb98a0`, S190, uploaded 2026-10-24 — needs encryption answer + Friends group; 615 left unanswered on purpose, expires on its own) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
-- **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
+- **Open (Martin):** deploy `NovelChapterState.path` to CloudKit Production (ROADMAP S191) before the next TestFlight, S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
   (Paid Apps Agreement), App Store listing/screenshots (`Yomi/APP_STORE_LISTING.md`), Sponsors + Ko-fi accounts.
 - **Translate is OFF** (`NovelTranslation.isAvailable = false`, backlog ROADMAP S182).
 
@@ -95,7 +98,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v31_`** (v30 = `term_replacement`, S177).
+- Next GRDB migration prefix: **`v32_`** (v31 = `novel_sync_path`, S191).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -153,7 +156,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (paid team, real entitle
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v31_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v32_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
