@@ -139,6 +139,7 @@ struct InsightsView: View {
     // MARK: - Load
 
     private func loadStats() async {
+        let safe = SafeMode.filter   // Safe Mode hides titles from "Most read" too (S190)
         let result = await Task.detached(priority: .userInitiated) { () -> (
             Set<String>, Int, Int, Int,
             [(title: String, seconds: Int, coverURL: URL?, customCoverPath: String?)],
@@ -172,8 +173,8 @@ struct InsightsView: View {
             let readCount = allMangaChapters.filter { $0.isRead }.count + allNovelChapters.filter { $0.isRead }.count
 
             // --- Titles started ---
-            let allManga = (try? MangaQueries.fetchAll()) ?? []
-            let allNovels = (try? NovelQueries.fetchAll()) ?? []
+            let allManga = ((try? MangaQueries.fetchAll()) ?? []).filter(safe.allows)
+            let allNovels = ((try? NovelQueries.fetchAll()) ?? []).filter(safe.allows)
             let chaptersByManga = Dictionary(grouping: allMangaChapters, by: \.mangaId)
             let chaptersByNovel = Dictionary(grouping: allNovelChapters, by: \.novelId)
 

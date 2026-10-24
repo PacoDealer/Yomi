@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Kingfisher
 import BackgroundTasks
+import os
 
 // MARK: - Background refresh
 
@@ -24,12 +25,23 @@ func handleBackgroundRefresh(_ task: BGAppRefreshTask) {
     if AppSettings.shared.backgroundAutoRefreshEnabled {
         scheduleBackgroundRefresh()
     }
+    // iOS must hear "completed" exactly once, and right away when time runs out (S189 audit): the refresh used to
+    // keep going past the deadline, and an app that overruns gets fewer background runs.
+    let done = OSAllocatedUnfairLock(initialState: false)
+    let complete: @Sendable (Bool) -> Void = { success in
+        let first = done.withLock { finished in
+            defer { finished = true }
+            return !finished
+        }
+        if first { task.setTaskCompleted(success: success) }
+    }
     let refreshTask = Task {
         await UpdatesViewModel.shared.refresh(includeKeiyoushi: false)
-        task.setTaskCompleted(success: true)
+        complete(!Task.isCancelled)
     }
     task.expirationHandler = {
         refreshTask.cancel()
+        complete(false)
     }
 }
 
@@ -276,6 +288,7 @@ struct YomiApp: App {
                 KeiyoushiBridge.shared.pause()
                 if settings.appLockEnabled { isLocked = true }
                 if settings.backgroundAutoRefreshEnabled { scheduleBackgroundRefresh() }
+                Task { await LibraryViewModel.refreshWidget() }
                 if settings.iCloudAutoBackup {
                     Task { await BackupManager.shared.uploadToICloud() }
                 }

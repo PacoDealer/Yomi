@@ -80,7 +80,9 @@ nonisolated enum TachiyomiBackupParser {
         data.withUnsafeBytes { (src: UnsafeRawBufferPointer) in
             stream.next_in  = UnsafeMutablePointer(mutating: src.baseAddress!.assumingMemoryBound(to: UInt8.self))
             stream.avail_in = uInt(data.count)
-            while status == Z_OK, stream.avail_in > 0 {
+            // Until the stream ends: zlib can hold output after the last input byte is read, so "no input left"
+            // isn't the end. Out of input before the end = Z_BUF_ERROR = truncated.
+            while status == Z_OK {
                 chunk.withUnsafeMutableBytes { (dst: UnsafeMutableRawBufferPointer) in
                     stream.next_out  = dst.baseAddress!.assumingMemoryBound(to: UInt8.self)
                     stream.avail_out = uInt(chunkSize)
@@ -93,9 +95,10 @@ nonisolated enum TachiyomiBackupParser {
             }
         }
 
-        guard status == Z_STREAM_END || status == Z_OK else {
-            throw BackupParseError.zlibError(status)
-        }
+        // Only a stream that reached its end is whole: a file cut off mid-way leaves zlib at Z_OK with no input
+        // left, and used to import the first titles and report success (S190).
+        if status == Z_OK || status == Z_BUF_ERROR { throw BackupParseError.truncated }
+        guard status == Z_STREAM_END else { throw BackupParseError.zlibError(status) }
         return output
     }
 
@@ -107,11 +110,13 @@ nonisolated enum TachiyomiBackupParser {
         let reader = ProtoReader(data)
 
         while reader.hasNext {
-            guard let (field, wire) = try? reader.readTag() else { break }
+            // A top-level tag or length that runs past the end means the file is cut off: say so instead of
+            // importing part of it (S190). A title that doesn't parse inside a whole record is still skipped.
+            guard let (field, wire) = try? reader.readTag() else { throw BackupParseError.truncated }
             switch (field, wire) {
             case (1, 2):
-                if let mangaData = try? reader.readLengthDelimited(),
-                   let parsed = parseManga(mangaData),
+                guard let mangaData = try? reader.readLengthDelimited() else { throw BackupParseError.truncated }
+                if let parsed = parseManga(mangaData),
                    seenMangaIds.insert(parsed.manga.id).inserted {
                     result.mangas.append(parsed.manga)
                     result.chapters.append(contentsOf: parsed.chapters)

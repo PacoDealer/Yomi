@@ -124,6 +124,11 @@ final class ExtensionManager {
     /// Downloads the JS file from sourceListURL and registers the extension. The download is checked before it
     /// replaces anything (`PluginScript.validate`, #151/#152); the replaced script is kept as the previous version.
     func install(_ ext: Extension, sha256: String? = nil) async {
+        // The id names the file on disk (S189 audit): refuse one that could point outside the plugins folder.
+        guard PluginNetworkPolicy.isSafePluginId(ext.id) else {
+            await MainActor.run { errorMessage = String(localized: "This extension has an invalid id and can't be installed.") }
+            return
+        }
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -149,7 +154,7 @@ final class ExtensionManager {
             // happens to share a display name with a catalog entry — see finding #83.
             for stale in installed
             where stale.name.lowercased() == ext.name.lowercased()
-                && stale.id != ext.id
+                && stale.id != ext.id && PluginNetworkPolicy.isSafePluginId(stale.id)
                 && stale.sourceListURL.host == ext.sourceListURL.host {
                 try? FileManager.default.removeItem(
                     at: extensionsDirectory.appendingPathComponent("\(stale.id).js"))

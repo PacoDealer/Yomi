@@ -3,5 +3,5 @@
 set -e
 cd "$(dirname "$0")"
 out="${TMPDIR:-/tmp}/yomi-plugin-trust-tests"
-swiftc -O -o "$out" ../../Yomi/Features/Extensions/PluginScript.swift main.swift
+swiftc -O -o "$out" ../../Yomi/Features/Extensions/PluginScript.swift ../../Yomi/Features/Extensions/PluginNetworkPolicy.swift main.swift
 "$out" "$@"

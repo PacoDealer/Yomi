@@ -252,31 +252,39 @@ struct ICloudFolderError: LocalizedError {
         }
     }
 
+    private nonisolated struct Snapshot: @unchecked Sendable {
+        var mangas: [Manga] = [], chapters: [Chapter] = [], novels: [Novel] = [], novelChapters: [NovelChapter] = []
+        var novelCatPairs: [[String: String]] = [], mangaCatPairs: [[String: String]] = []
+        var categories: [Category] = [], termReplacements: [[String: Any]] = []
+        var excludedScanlators: [String: [String]] = [:]
+    }
+
     private func buildBackupData() async throws -> Data {
-        let mangas         = try MangaQueries.fetchAll()
-        let chapters       = try await appDatabase.read { try Chapter.fetchAll($0) }
-        let novels         = try NovelQueries.fetchAll()
-        let novelChapters  = try await appDatabase.read { try NovelChapter.fetchAll($0) }
-        let novelCatPairs  = try await appDatabase.read { db -> [[String: String]] in
-            try Row.fetchAll(db, sql: "SELECT novelId, categoryId FROM novel_category").map {
+        // ONE read transaction (S190): eight separate reads could catch a delete half-way, and a chapter whose manga
+        // was gone failed the foreign key on restore.
+        let snap = try await appDatabase.read { db -> Snapshot in
+            var s = Snapshot()
+            s.mangas = try Manga.fetchAll(db)
+            s.chapters = try Chapter.fetchAll(db)
+            s.novels = try Novel.fetchAll(db)
+            s.novelChapters = try NovelChapter.fetchAll(db)
+            s.novelCatPairs = try Row.fetchAll(db, sql: "SELECT novelId, categoryId FROM novel_category").map {
                 ["novelId": $0["novelId"], "categoryId": $0["categoryId"]]
             }
-        }
-        let mangaCatPairs  = try await appDatabase.read { db -> [[String: String]] in
-            try Row.fetchAll(db, sql: "SELECT mangaId, categoryId FROM manga_category").map {
+            s.mangaCatPairs = try Row.fetchAll(db, sql: "SELECT mangaId, categoryId FROM manga_category").map {
                 ["mangaId": $0["mangaId"], "categoryId": $0["categoryId"]]
             }
-        }
-        let categories = try CategoryQueries.fetchAll()
-        let termReplacements = try TermReplacementQueries.exportRows()
-        // Hidden scanlation groups per manga (v28).
-        let excludedScanlators = try await appDatabase.read { db -> [String: [String]] in
-            var map: [String: [String]] = [:]
+            s.categories = try Category.order(Column("sort").asc, Column("name").asc).fetchAll(db)
+            s.termReplacements = try TermReplacementQueries.exportRows(db)
+            // Hidden scanlation groups per manga (v28).
             for row in try Row.fetchAll(db, sql: "SELECT mangaId, scanlator FROM excluded_scanlator ORDER BY scanlator") {
-                map[row["mangaId"] as String, default: []].append(row["scanlator"] as String)
+                s.excludedScanlators[row["mangaId"] as String, default: []].append(row["scanlator"] as String)
             }
-            return map
+            return s
         }
+        let (mangas, chapters, novels, novelChapters) = (snap.mangas, snap.chapters, snap.novels, snap.novelChapters)
+        let (novelCatPairs, mangaCatPairs, categories) = (snap.novelCatPairs, snap.mangaCatPairs, snap.categories)
+        let (termReplacements, excludedScanlators) = (snap.termReplacements, snap.excludedScanlators)
 
         // Encoding + serializing a whole library is pure CPU work and used to run on MainActor,
         // freezing "Export Backup"/"Upload to iCloud" for a large library (Known Issue #139).
@@ -479,8 +487,25 @@ struct ICloudFolderError: LocalizedError {
             }.value
 
             _ = try await appDatabase.write { db in
-                for manga in decoded.mangas { try manga.save(db) }
-                for chapter in decoded.chapters { try chapter.save(db) }
+                for manga in decoded.mangas {
+                    if let local = try Manga.fetchOne(db, key: manga.id) {
+                        try Manga.mergedForRestore(backup: manga, local: local).update(db)
+                    } else {
+                        try manga.insert(db)
+                    }
+                }
+                // Merge with the chapter already on this phone instead of overwriting it (S189 audit #1): a whole-row
+                // save cleared `isDownloaded` on every chapter (files left as orphans) and could put progress back.
+                for chapter in decoded.chapters {
+                    // A chapter whose manga is in neither the backup nor the library (an export taken mid-delete)
+                    // failed the foreign key and rolled back the WHOLE restore (S190). Skip it instead.
+                    guard try Manga.exists(db, key: chapter.mangaId) else { continue }
+                    if let local = try Chapter.fetchOne(db, key: chapter.id) {
+                        try Chapter.mergedForRestore(backup: chapter, local: local).update(db)
+                    } else {
+                        try chapter.insert(db, onConflict: .ignore)
+                    }
+                }
                 // `isBookmarked` isn't part of a whole-row save (v28) — set it here. A restore only adds bookmarks.
                 for chapter in decoded.chapters where chapter.isBookmarked {
                     try db.execute(sql: "UPDATE chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
@@ -503,10 +528,18 @@ struct ICloudFolderError: LocalizedError {
                 }
 
                 // Novels (v2 backup)
-                for novel in decoded.novels { try novel.save(db) }
+                for novel in decoded.novels {
+                    if let local = try Novel.fetchOne(db, key: novel.id) {
+                        try Novel.mergedForRestore(backup: novel, local: local).update(db)
+                    } else {
+                        try novel.insert(db)
+                    }
+                }
                 // INSERT OR IGNORE, matching NovelQueries.insertAllIgnoringConflicts — never
                 // overwrites existing read/progress state for a chapter already present locally.
-                for chapter in decoded.novelChapters { try chapter.insert(db, onConflict: .ignore) }
+                for chapter in decoded.novelChapters where try Novel.exists(db, key: chapter.novelId) {
+                    try chapter.insert(db, onConflict: .ignore)
+                }
                 for chapter in decoded.novelChapters where chapter.isBookmarked {
                     try db.execute(sql: "UPDATE novel_chapter SET isBookmarked = 1 WHERE id = ?", arguments: [chapter.id])
                 }
@@ -517,15 +550,21 @@ struct ICloudFolderError: LocalizedError {
                 for pair in decoded.novelCatPairs {
                     guard let novelId = pair["novelId"], let catId = pair["categoryId"] else { continue }
                     try db.execute(
-                        sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
-                        arguments: [novelId, catId]
+                        sql: """
+                            INSERT OR IGNORE INTO novel_category (novelId, categoryId) SELECT ?, ?
+                            WHERE EXISTS (SELECT 1 FROM novel WHERE id = ?) AND EXISTS (SELECT 1 FROM category WHERE id = ?)
+                            """,
+                        arguments: [novelId, catId, novelId, catId]
                     )
                 }
                 for pair in decoded.mangaCatPairs {
                     guard let mangaId = pair["mangaId"], let catId = pair["categoryId"] else { continue }
                     try db.execute(
-                        sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
-                        arguments: [mangaId, catId]
+                        sql: """
+                            INSERT OR IGNORE INTO manga_category (mangaId, categoryId) SELECT ?, ?
+                            WHERE EXISTS (SELECT 1 FROM manga WHERE id = ?) AND EXISTS (SELECT 1 FROM category WHERE id = ?)
+                            """,
+                        arguments: [mangaId, catId, mangaId, catId]
                     )
                 }
             }

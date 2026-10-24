@@ -225,7 +225,8 @@ enum NovelQueries {
         try appDatabase.read { db in
             try NovelChapter
                 .filter(Column("novelId") == novelId)
-                .order(Column("chapterNumber").asc)
+                // NULLs last, like the manga query: SQLite puts them first, so an unnumbered extra came before ch. 1.
+                .order(Column("chapterNumber").ascNullsLast)
                 .fetchAll(db)
         }
     }
@@ -384,6 +385,17 @@ enum NovelQueries {
                 ) WHERE rn = 1
                 """, arguments: StatementArguments(novelIds))
             return Dictionary(uniqueKeysWithValues: rows.map { (($0["novelId"] as String), ($0["name"] as String)) })
+        }
+    }
+
+    /// Saved scroll position of one chapter, read fresh (the reader's chapter list is a snapshot from when it opened).
+    /// nil when the chapter is read or was never scrolled — those open at the top.
+    nonisolated static func resumePercent(chapterId: String) -> Double? {
+        try? appDatabase.read { db in
+            try Double.fetchOne(db, sql: """
+                SELECT lastScrollPercent FROM novel_chapter
+                WHERE id = ? AND isRead = 0 AND lastScrollPercent > 0 AND lastScrollPercent < 0.98
+                """, arguments: [chapterId])
         }
     }
 

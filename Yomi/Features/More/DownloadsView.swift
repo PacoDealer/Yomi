@@ -35,10 +35,11 @@ import Kingfisher
     func load() async {
         isLoading = true
         let manager = DownloadManager.shared
+        let safe = SafeMode.filter   // Safe Mode applies to every title list (S190)
         let result = await Task.detached(priority: .userInitiated) { () -> [MangaDownloadGroup] in
             let chapters = (try? DownloadQueries.fetchAllDownloaded()) ?? []
             let mangaIds = Array(Set(chapters.map { $0.mangaId }))
-            let mangas = mangaIds.compactMap { try? MangaQueries.fetchOne(id: $0) }
+            let mangas = mangaIds.compactMap { try? MangaQueries.fetchOne(id: $0) }.filter(safe.allows)
             return mangas.map { manga in
                 let count = chapters.filter { $0.mangaId == manga.id }.count
                 let size = manager.directorySize(mangaId: manga.id)
@@ -57,7 +58,7 @@ import Kingfisher
                     readingSeconds: 0, readingStatus: .none, notes: nil
                 )
                 return NovelDownloadGroup(novel: novel, chapterCount: g.chapterCount, byteSize: g.byteSize)
-            }.sorted { $0.novel.title < $1.novel.title }
+            }.filter { safe.allows($0.novel) }.sorted { $0.novel.title < $1.novel.title }
         }.value
         novelGroups = novelResult
         isLoading = false
@@ -99,7 +100,7 @@ struct DownloadsView: View {
     private var network: NetworkMonitor { NetworkMonitor.shared }
     private var isHeldBack: Bool { dm.isWaitingForNetwork || ndm.isWaitingForNetwork }
     /// "Queued" normally; the real reason when the network setting is holding downloads back.
-    private var queuedNote: String { isHeldBack ? (network.waitReason ?? "Queued") : "Queued" }
+    private var queuedNote: String { isHeldBack ? (network.waitReason ?? String(localized: "Queued")) : String(localized: "Queued") }
     private var mangaQueuedNote: String { dm.isPaused ? String(localized: "Paused") : queuedNote }
 
     private var hasDownloading: Bool { dm.isRunning || !dm.queue.isEmpty || !ndm.batches.isEmpty }
@@ -133,6 +134,7 @@ struct DownloadsView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
+                            .accessibilityLabel("More")
                     }
                 }
             }

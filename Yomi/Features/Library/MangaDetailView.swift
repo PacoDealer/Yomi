@@ -478,6 +478,7 @@ struct MangaDetailView: View {
         HStack(spacing: 10) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
+                    .accessibilityLabel("Back")
                     .font(.system(size: 15, weight: .semibold))
             }
             .glassChip()
@@ -496,6 +497,7 @@ struct MangaDetailView: View {
                 Task { await heartTapped() }
             } label: {
                 Image(systemName: manga.inLibrary ? "heart.fill" : "heart")
+                    .accessibilityLabel(manga.inLibrary ? Text("Remove from Library") : Text("Add to Library"))
                     .foregroundStyle(manga.inLibrary ? Color.accentColor : .primary)
             }
             .glassChip()
@@ -570,6 +572,7 @@ struct MangaDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
+                    .accessibilityLabel("More")
             }
             .glassChip()
         }
@@ -1308,16 +1311,8 @@ struct MangaDetailView: View {
                     try? CategoryQueries.assign(mangaId: mangaId, categoryId: defaultCatId)
                 }
             }
-            // Clean up downloaded chapters when removing from library
-            if !manga.inLibrary {
-                let mangaId = manga.id
-                Task.detached {
-                    let dir = FileManager.default
-                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        .appendingPathComponent("Downloads/\(mangaId)")
-                    try? FileManager.default.removeItem(at: dir)
-                }
-            }
+            // Removing keeps downloaded chapters (S190): deleting the folder here left them flagged as downloaded,
+            // and the other Remove paths keep them. The Downloads screen deletes them.
         } catch {
             print("toggleLibrary error: \(error)")
             toastMessage = String(localized: "Couldn't update library")
@@ -1408,9 +1403,8 @@ struct MangaDetailView: View {
             return
         }
         let (loadedChapters, mangayomiMeta) = await Task.detached(priority: .userInitiated) {
-            let chapters = loadedBridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
-            let meta = loadedBridge?.lastMangayomiMeta
-            return (chapters, meta)
+            let result = loadedBridge?.getChapterListWithMeta(mangaPath: mangaPath, mangaId: mangaId)
+            return (result?.chapters ?? [], result?.meta)
         }.value
 
         // Apply Mangayomi detail metadata (synopsis, cover, status) if missing

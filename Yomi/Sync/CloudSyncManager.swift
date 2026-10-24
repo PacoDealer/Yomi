@@ -806,7 +806,7 @@ private extension CloudSyncManager {
                         arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked]
                     )
                 } else if isRead {
-                    try Manga.filter(Column("id") == mangaId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+                    try Self.bumpLastRead(table: "manga", id: mangaId, readAt: readAt, db: db)
                 }
             }
 
@@ -841,7 +841,7 @@ private extension CloudSyncManager {
                         arguments: [novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked]
                     )
                 } else if isRead {
-                    try Novel.filter(Column("id") == novelId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+                    try Self.bumpLastRead(table: "novel", id: novelId, readAt: readAt, db: db)
                 }
             }
 
@@ -922,6 +922,14 @@ private extension CloudSyncManager {
 
 extension CloudSyncManager {
 
+    /// A read chapter arrived from another device: move the title's `lastReadAt` up to WHEN it was read there, never
+    /// back and never to "now" — stamping now put every synced title at the top of History/Continue (S189 audit #7).
+    nonisolated static func bumpLastRead(table: String, id: String, readAt: Date?, db: Database) throws {
+        guard let readAt else { return }
+        try db.execute(sql: "UPDATE \(table) SET lastReadAt = ? WHERE id = ? AND (lastReadAt IS NULL OR lastReadAt < ?)",
+                       arguments: [readAt, id, readAt])
+    }
+
     nonisolated static func applyPendingChapterStates(_ chapters: [Chapter], db: Database) throws {
         for chapter in chapters {
             guard let row = try Row.fetchOne(
@@ -943,7 +951,7 @@ extension CloudSyncManager {
                 arguments: [chapter.mangaId, chapter.id]
             )
             if isRead {
-                try Manga.filter(Column("id") == chapter.mangaId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+                try bumpLastRead(table: "manga", id: chapter.mangaId, readAt: row["readAt"] as Date?, db: db)
             }
         }
     }
@@ -969,7 +977,7 @@ extension CloudSyncManager {
                 arguments: [chapter.novelId, chapter.id]
             )
             if isRead {
-                try Novel.filter(Column("id") == chapter.novelId).updateAll(db, [Column("lastReadAt").set(to: Date())])
+                try bumpLastRead(table: "novel", id: chapter.novelId, readAt: row["readAt"] as Date?, db: db)
             }
         }
     }

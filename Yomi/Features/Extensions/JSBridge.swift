@@ -57,7 +57,18 @@ final class JSBridge {
 
     // Set by getChapterList() for Mangayomi plugins — detail metadata extracted
     // from the same getDetail() call so MangaDetailView can update synopsis/cover/status.
-    nonisolated(unsafe) var lastMangayomiMeta: (summary: String?, status: String?, coverURL: URL?)? = nil
+    // Read only through `getChapterListWithMeta`, under the same lock hold: read after the call returned, it could
+    // already be another title's (a background refresh and a detail page on one source) — S190 concurrency review.
+    nonisolated(unsafe) private var lastMangayomiMeta: (summary: String?, status: String?, coverURL: URL?)? = nil
+
+    /// The chapter list plus, for Mangayomi plugins, the title's summary/status/cover from the same getDetail call.
+    nonisolated func getChapterListWithMeta(mangaPath: String, mangaId: String)
+        -> (chapters: [Chapter], meta: (summary: String?, status: String?, coverURL: URL?)?) {
+        callLock.lock(); defer { callLock.unlock() }
+        lastMangayomiMeta = nil
+        let chapters = getChapterList(mangaPath: mangaPath, mangaId: mangaId)
+        return (chapters, lastMangayomiMeta)
+    }
 
     // MARK: - Init
 
@@ -855,7 +866,7 @@ final class JSBridge {
         /// redirects (Madara plugins compare it to the requested host to spot captcha redirects) and headers.
         func perform(_ urlString: String, _ method: String, _ body: String?, _ headersJSON: String?)
             -> (body: String, status: Int, url: String, headers: [String: String]) {
-            guard let url = URL(string: urlString) else { return ("", 0, urlString, [:]) }
+            guard let url = URL(string: urlString), PluginNetworkPolicy.allows(url) else { return ("", 0, urlString, [:]) }
             var request = URLRequest(url: url, timeoutInterval: jsBridgeRequestTimeout)
             // Default headers — prevents Cloudflare/CDN blocks
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")

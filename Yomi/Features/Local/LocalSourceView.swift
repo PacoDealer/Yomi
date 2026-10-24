@@ -161,12 +161,13 @@ struct LocalSourceView: View {
     }
 
     private func load() async {
+        let safe = SafeMode.filter
         let (m, n) = await Task.detached(priority: .userInitiated) {
             ((try? MangaQueries.fetchAll()) ?? [], (try? NovelQueries.fetchAll()) ?? [])
         }.value
-        manga = m.filter { LocalLibrary.isLocalSourceId($0.sourceId) }
+        manga = m.filter { LocalLibrary.isLocalSourceId($0.sourceId) && safe.allows($0) }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        novels = n.filter { LocalLibrary.isLocalSourceId($0.sourceId) }
+        novels = n.filter { LocalLibrary.isLocalSourceId($0.sourceId) && safe.allows($0) }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 }

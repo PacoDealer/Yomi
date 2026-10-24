@@ -31,9 +31,34 @@ expect("html without doctype", "<html><head></head></html>", fails: true)
 expect("throws at run time is still fine (syntax only)", "throw new Error('x');", fails: false)
 expect("bundled IIFE", "(function(){var a=1;globalThis.plugin={id:'x'};})();", fails: false)
 
-print(failures == 0 ? "OK \(checks) checks" : "FAILED \(failures) of \(checks)")
 
 // Every real plugin must pass: Yomi's catalog (Firebase/public) and whatever the simulator has installed (LNReader…).
+// S190: PluginNetworkPolicy — what SOURCE.fetch may reach, which plugin ids may name a file.
+func policy(_ cond: Bool, _ what: String) { checks += 1; if !cond { failures += 1; print("✗ policy: \(what)") } }
+for ok in ["https://wetried.com/x", "http://example.org", "https://192.168.1.5:4567/api"] {
+    policy(PluginNetworkPolicy.allows(URL(string: ok)!), "allows \(ok)")
+}
+for bad in ["file:///var/mobile/x.db", "http://127.0.0.1:8080/dalvik", "http://localhost:1/", "http://[::1]:9/",
+            "data:text/plain,hi", "ftp://x.org/a", "http://169.254.169.254/", "http://0.0.0.0:80/", "http://a.localhost/"] {
+    policy(!PluginNetworkPolicy.allows(URL(string: bad)!), "refuses \(bad)")
+}
+for ok in ["com.yomi.novelfire", "novelupdates", "FWN.com", "Novel Bin", "12345", "a-b_c"] {
+    policy(PluginNetworkPolicy.isSafePluginId(ok), "id \(ok)")
+}
+for bad in ["", "../evil", "../../Library/x", "a/b", ".hidden", "..", "a\\b", "c:x", "a\u{0}b"] {
+    policy(!PluginNetworkPolicy.isSafePluginId(bad), "refuses id \(bad.debugDescription)")
+}
+
+func u(_ s: String) -> URL { URL(string: s)! }
+policy(PluginNetworkPolicy.sameOrigin(u("https://yomi-plugins.web.app/a.js"), u("https://yomi-plugins.web.app/b/c.js")), "same host")
+policy(!PluginNetworkPolicy.sameOrigin(u("https://evil.example/a.js"), u("https://yomi-plugins.web.app/a.js")), "other host")
+policy(PluginNetworkPolicy.sameOrigin(u("https://raw.githubusercontent.com/LNReader/plugins/x.js"),
+                                      u("https://raw.githubusercontent.com/lnreader/plugins/y.js")), "same GitHub owner")
+policy(!PluginNetworkPolicy.sameOrigin(u("https://raw.githubusercontent.com/evil/plugins/x.js"),
+                                       u("https://raw.githubusercontent.com/LNReader/plugins/x.js")), "other GitHub owner")
+policy(!PluginNetworkPolicy.sameOrigin(u("https://cdn.jsdelivr.net/gh/evil/r@1/x.js"),
+                                       u("https://cdn.jsdelivr.net/gh/good/r@1/x.js")), "other jsDelivr owner")
+print(failures == 0 ? "OK \(checks) checks" : "FAILED \(failures) of \(checks)")
 let roots = CommandLine.arguments.dropFirst().map { URL(fileURLWithPath: $0) }
 var real = 0
 for root in roots {

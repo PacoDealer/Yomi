@@ -172,6 +172,8 @@ final class LibraryViewModel {
             let mangaIds = (try? CategoryQueries.mangaIds(inCategory: catId)) ?? []
             let novelIds = (try? CategoryQueries.novelIds(inCategory: catId)) ?? []
             await MainActor.run {
+                // Another category was picked while this one loaded: its own load applies, not this (S190).
+                guard self.selectedCategoryId == catId else { return }
                 self.filteredIds = Set(mangaIds)
                 self.filteredNovelIds = Set(novelIds)
                 self.rebuildDisplayed()
@@ -304,11 +306,22 @@ final class LibraryViewModel {
         unreadCounts = result.2
         novelUnreadCounts = result.3
         if let err = result.4 { errorMessage = err }
-        await writeWidgetData()
+        await Self.writeWidgetData(mangas: mangas, novels: novels)
         isLoading = false
     }
 
-    private func writeWidgetData() async {
+    /// The widget from the database, without the Library tab (S190, S189 audit): reading from History, Updates or
+    /// Browse and leaving Yomi left the widget on old titles until the Library tab next loaded. Called on background.
+    static func refreshWidget() async {
+        let safe = SafeMode.filter
+        let (m, n) = await Task.detached(priority: .utility) {
+            (((try? MangaQueries.fetchLibrary()) ?? []).filter(safe.allows),
+             ((try? NovelQueries.fetchLibrary()) ?? []).filter(safe.allows))
+        }.value
+        await writeWidgetData(mangas: m, novels: n)
+    }
+
+    private static func writeWidgetData(mangas: [Manga], novels: [Novel]) async {
         // Widgets render on the Home Screen / Lock Screen Today View with no authentication —
         // never expose reading history there while the user has App Lock or Secure Screen on.
         guard !AppSettings.shared.appLockEnabled, !AppSettings.shared.secureScreenEnabled else {

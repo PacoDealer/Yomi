@@ -410,6 +410,7 @@ struct NovelDetailView: View {
         HStack(spacing: 10) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
+                    .accessibilityLabel("Back")
                     .font(.system(size: 15, weight: .semibold))
             }
             .glassChip()
@@ -428,6 +429,7 @@ struct NovelDetailView: View {
                 Task { await heartTapped() }
             } label: {
                 Image(systemName: isInLibrary ? "heart.fill" : "heart")
+                    .accessibilityLabel(isInLibrary ? Text("Remove from Library") : Text("Add to Library"))
                     .foregroundStyle(isInLibrary ? Color.accentColor : .primary)
             }
             .glassChip()
@@ -500,6 +502,7 @@ struct NovelDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
+                    .accessibilityLabel("More")
             }
             .glassChip()
         }
