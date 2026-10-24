@@ -419,7 +419,7 @@ final class KeiyoushiRepository {
             default: try r.skip(wireType: w)
             }
         }
-        guard !pkg.isEmpty, !apk.isEmpty, !sources.isEmpty else { return nil }
+        guard Self.isValidPackageName(pkg), !apk.isEmpty, !sources.isEmpty else { return nil }
         return KeiyoushiExtension(name: name, packageName: pkg, versionName: versionName, versionCode: versionCode,
                                   apkURL: apk, iconURL: icon, contentWarning: warning, sources: sources)
     }
@@ -437,6 +437,13 @@ final class KeiyoushiRepository {
         let sources: [Source]?
     }
 
+    /// The package name becomes a file name (`<pkg>.apk`) — only a Java package name is accepted, so a hostile index
+    /// can't write outside the APK folder with `../` (S189 audit).
+    nonisolated static func isValidPackageName(_ pkg: String) -> Bool {
+        !pkg.isEmpty && pkg.count <= 255 && !pkg.hasPrefix(".")
+            && pkg.unicodeScalars.allSatisfy { ($0.isASCII && (CharacterSet.alphanumerics.contains($0))) || $0 == "." || $0 == "_" }
+    }
+
     /// The classic Tachiyomi/Mihon repository index: an array of extensions whose APK and icon live next to it in
     /// `apk/<file>` and `icon/<package>.png` (format checked live against Suwayomi's and Kavita's repositories).
     nonisolated private static func decodeJSONIndex(_ data: Data, repoURL: String) throws
@@ -446,7 +453,7 @@ final class KeiyoushiRepository {
         }
         let base = URL(string: repoURL)?.deletingLastPathComponent()
         let extensions: [KeiyoushiExtension] = entries.compactMap { e in
-            guard let base, let sources = e.sources, !sources.isEmpty else { return nil }
+            guard let base, Self.isValidPackageName(e.pkg), let sources = e.sources, !sources.isEmpty else { return nil }
             return KeiyoushiExtension(
                 name: e.name.replacingOccurrences(of: "Tachiyomi: ", with: ""),
                 packageName: e.pkg, versionName: e.version, versionCode: e.code,
