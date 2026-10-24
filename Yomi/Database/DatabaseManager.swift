@@ -538,6 +538,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         readingStatus   = ReadingStatus(rawValue: row["readingStatus"] ?? "none") ?? .none
         customCoverPath = row["customCoverPath"]
         notes           = row["notes"]
+        trackingTitle   = row["trackingTitle"]   // v26; was never read or written before S189 (Migrate's Tracking did nothing)
     }
 
     nonisolated func encode(to container: inout PersistenceContainer) throws {
@@ -560,6 +561,7 @@ extension Manga: FetchableRecord, PersistableRecord {
         container["readingStatus"]   = readingStatus.rawValue
         container["customCoverPath"] = customCoverPath
         container["notes"]           = notes
+        container["trackingTitle"]   = trackingTitle
     }
 }
 
