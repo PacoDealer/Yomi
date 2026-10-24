@@ -21,6 +21,21 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S189 — overnight multi-agent audit (2026-10-24, simulator + Mac only; cut short by the usage limit)
+
+**Build 615 (`0715b3a`) uploaded to TestFlight OK** (02:33). It needs Martin: the encryption answer + the Friends group.
+Warning only: no dSYM for `OpenJDKRuntime.framework`. Audit: 9 code areas, each finding re-checked by an agent that tried
+to disprove it → **26 confirmed**. About 25 unverified, and concurrency + all research never finished (usage limit).
+Full report: `~/Desktop/Projects/Yomi/reports/S189-audit.md` (outside the repo: it lists open security issues).
+**Fixed + pushed:** `131a8b3` crafted protobuf length trapped the app (.tachibk/index.pb) + Keiyoushi packageName path
+traversal; `e9d17c5` `manga.trackingTitle` was never read/written by the GRDB codec (Migrate → Tracking did nothing);
+`9b15bbe` manga reader Next/Prev/list resume the saved page + a stale first load can't land on a newer chapter.
+Verified: sim build 0 warnings, test-all green, ReaderUITests 13/13. Not on the phone.
+**Top open (report §ranked):** JSON restore clears isDownloaded; tracker auto-update can LOWER MAL progress; novel
+Prev/list jump opens at 0 % and autosaves over the saved position; CloudKit novel state keyed by device-local chapter id
+(#187 is NOT harmless for sync); sync applies on main; Keiyoushi loopback bridge unauthenticated + no APK integrity /
+cross-repo updates.
+
 ## S188 — REPORT (2026-10-23, Kingfisher before university + the full plan in the evening; simulator + Mac only)
 
 **Done, each committed + pushed** (`73d0674`…`8475dc5`, details in the parts below):
@@ -40,8 +55,8 @@ The research audit revealed that 800+ sources are already available across four 
    (316 = same as before tonight).
 
 **Not verified (needs the phone):** Kingfisher 8.14 feel + hitches (`perf-gates.sh --device`), #208 against real Aqua
-(site down), per-source search in NovelFire/WeTried, the real Declared Age Range sheet (S187). No TestFlight upload, no
-phone install, no Firebase deploy.
+(site down), per-source search in NovelFire/WeTried, the real Declared Age Range sheet (S187). No phone install, no Firebase deploy.
+**Build 615 (`0715b3a`) uploaded to TestFlight after the session (S189 confirmed) — needs encryption answer + Friends group by Martin.**
 
 **For Martin:** (a) the next phone build carries all of this — say when to `build-personal.sh --release` or upload a
 TestFlight build; (b) the example plugin's repository link above is public now — add it on the phone to try it, or

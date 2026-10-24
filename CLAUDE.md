@@ -24,8 +24,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S188 — 2026-10-23)
+## Current state (S189 — 2026-10-24)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S189 (audit, report `~/Desktop/Projects/Yomi/reports/S189-audit.md`):** 26 confirmed findings, 3 fixed
+  (protobuf length trap + Keiyoushi packageName validation, `trackingTitle` codec, manga reader resume on chapter change).
+  Ranked open list in the report: restore clears downloads, tracker progress can go down, novel jump loses position,
+  CloudKit novel state keyed by local id, Keiyoushi bridge unauthenticated. ~25 findings + research unverified (limit).
 - **S188 (ROADMAP S188 REPORT):** Kingfisher 8.14; #208 chapter carry-over on refresh (`Core/ChapterCarryOver.swift`,
   `ChapterQueries.carryOverMovedChapters` — call BEFORE inserting a source's list); #193/#196 were the App Store rating
   sheet (no review count under `-yomiReaderFixture`); per-source search asks the plugin (#218); extension guide
@@ -46,8 +50,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   GitHub Actions `Tests` workflow; issue forms; novel reader CSP (nonce — **new reader scripts need the nonce**,
   inline handlers never run); Library remove = write then reload. Firebase folder now has a LOCAL git repo (no remote).
 - **Phone:** personal Release `94cee39` (S183 cache fix); `scripts/build-personal.sh --release` with the phone unlocked
-  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 602
-  (`c26c96c`, uploaded S185 — needs encryption answer + Friends group) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
+  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 615
+  (`0715b3a`, uploaded 2026-10-24 — needs encryption answer + Friends group) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
 - **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
