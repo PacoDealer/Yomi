@@ -42,7 +42,20 @@ Martin: "Don't upload yet. Work on the JS cookie jar / time limit next." No Test
 - **Tell Martin:** after this update each source may run its Cloudflare check once more, and Website logins have to
   be redone — old cookies aren't moved into the new per-source stores (moving them all would undo the isolation).
 - **NEXT:** TestFlight build with S190–S192 (ask), phone check (Keiyoushi token, two-device sync, a Cloudflare source),
-  #242, plain-http plugin code.
+  plain-http plugin code.
+
+### Part 2 — CloudKit chapter-state conflicts by time (#242; Martin chose the exact-time field over iCloud's save time)
+- v32 `stateChangedAt` on `chapter`/`novel_chapter`/both stashes + triggers that stamp every real state change.
+  Records send it; received state applies only if at least as new (`ChapterStateConflict`), else the local state is
+  kept and re-sent. Same path for fetches and `.serverRecordChanged`. Reading time never lowered.
+- Found + fixed on the way: #244 (novel stash replay onto the wrong chapter when the position id was taken).
+- **Verified:** build 0 warnings (Yomi + YomiWidget), test-all 11/11, progress-rules-tests 23 (rule mutant caught),
+  trigger checked in plain sqlite3, sim `-yomiSyncSelfTest` 22/22. **Not verified:** real CloudKit (sim not signed in).
+- **Martin — before the next TestFlight build** (else chapter-state saves are refused in Production and wait, #204):
+  1. [CloudKit Console](https://icloud.developer.apple.com) → `iCloud.pacodealer.Yomi` → **Development** → Schema →
+     Record Types → `MangaChapterState` → add field **`stateChangedAt`**, type **Date/Time** → Save.
+  2. Same for **`NovelChapterState`**.
+  3. Deploy Schema Changes → the diff must list only those two fields → Deploy.
 
 ## S191 — Keiyoushi bridge token + CloudKit fixes (2026-10-24, Mac + simulator + device compile; nothing on the phone)
 

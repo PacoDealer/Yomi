@@ -7,7 +7,7 @@ paths:
 
 # GRDB / database rules
 
-- Next migration prefix: `v32_` (`v31_` = novel_sync_path, S191; `v30_` = term_replacement, S177; `v29_` = lastCheckedAt, S171; `v28_` = excluded_scanlator + isBookmarked, S167). Migrations are keyed by full
+- Next migration prefix: `v33_` (`v32_` = chapter_state_changed_at + triggers, S192; `v31_` = novel_sync_path, S191; `v30_` = term_replacement, S177; `v29_` = lastCheckedAt, S171; `v28_` = excluded_scanlator + isBookmarked, S167). Migrations are keyed by full
   string name; keep the numeric prefix unique and ascending (#55 is the one historical duplicate).
 - Every `*Queries` static method is `nonisolated`. Use `_ = try appDatabase.write { … }` to silence the
   unused result. `appDatabase.read` from MainActor needs `try await`.
@@ -24,3 +24,6 @@ paths:
   saves, but every place that rebuilds a chapter from the SOURCE and copies saved state field by field
   (`MangaDetailView` merges, `refreshChapterStates`) must copy it too — S167 found bookmarks vanishing that way.
 - Ids are content-derived (chapter path, plugin list id) — the same title gets the same id on every device.
+- Chapter reading state has `stateChangedAt`, stamped by TRIGGERS (v32) on real changes — never set it by hand except
+  in CloudSyncManager's apply (which overwrites the trigger's "now" with the record's time). A new synced chapter-state
+  column must be added to the trigger's column list (new migration: drop + recreate the trigger).

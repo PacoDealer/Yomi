@@ -560,13 +560,14 @@ extension CloudSyncManager: CKSyncEngineDelegate {
             for (recordID, error) in event.failedRecordDeletes {
                 noteFailedChange(recordID: recordID, isDelete: true, error: error)
             }
-            var serverWins: [CKRecord] = []
+            var serverWins: [CKRecord] = []   // server copies to apply (or out-date, for chapter state)
             for failedSave in event.failedRecordSaves {
                 let recordID = failedSave.record.recordID
                 switch failedSave.error.code {
                 case .serverRecordChanged:
-                    // v1 conflict policy: last write wins, server's committed value is authoritative —
-                    // no custom per-field merge. See Yomi/CLOUDKIT_SYNC_DESIGN.md's conflict-policy note.
+                    // The server copy is applied like a fetched one: for chapter state the NEWER change wins (#242,
+                    // `ChapterStateConflict`) — if it's this device's, applyRemoteBatch sends it again over the server
+                    // record's change tag. Titles and categories: server wins, as before.
                     if let serverRecord = failedSave.error.serverRecord { serverWins.append(serverRecord) }
                 case .zoneNotFound:
                     syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
@@ -648,6 +649,7 @@ private extension CloudSyncManager {
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2, let chapter = try? ChapterQueries.fetchOne(id: parts[1]) else { return nil }
             populate(base, mangaId: parts[0], from: chapter)
+            base["stateChangedAt"] = stateChangedAt(table: "chapter", id: chapter.id)
         case .novelChapterState:
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return nil }
@@ -656,6 +658,7 @@ private extension CloudSyncManager {
             // chapter here (position ids, #4) — never send this chapter's state under it.
             if let syncedPath = base["path"] as? String, syncedPath != chapter.path { return nil }
             populate(base, novelId: parts[0], from: chapter)
+            base["stateChangedAt"] = stateChangedAt(table: "novel_chapter", id: chapter.id)
         case .mangaCategoryLink:
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return nil }
@@ -668,6 +671,15 @@ private extension CloudSyncManager {
             base["categoryId"] = parts[1]
         }
         return base
+    }
+
+    /// When this chapter's state last changed here (#242), for the record. 0 (1970) = not known — every real change
+    /// beats it, so a re-sent library (first enable, new account) never overrides another device's newer reads.
+    nonisolated static func stateChangedAt(table: String, id: String) -> Date {
+        let stamp = (try? appDatabase.read { db in
+            try Double.fetchOne(db, sql: "SELECT stateChangedAt FROM \(table) WHERE id = ?", arguments: [id])
+        }) ?? nil
+        return Date(timeIntervalSince1970: stamp ?? 0)
     }
 
     nonisolated static func populate(_ record: CKRecord, from manga: Manga) {
@@ -756,10 +768,15 @@ extension CloudSyncManager {
         guard !records.isEmpty || !deletions.isEmpty else { return }
         let box = UncheckedRecords(records: records, deletions: deletions)
         await Task.detached(priority: .utility) {
+            var keptLocal: [(type: CloudRecordType, key: String)] = []
             _ = try? appDatabase.write { db in
+                keptLocal = []   // a retried write transaction starts over
                 for record in box.records {
                     do {
-                        try db.inSavepoint { try applyRemote(record: record, db: db); return .commit }
+                        try db.inSavepoint {
+                            if let kept = try applyRemote(record: record, db: db) { keptLocal.append(kept) }
+                            return .commit
+                        }
                     } catch {
                         NSLog("CloudSync: could not apply %@: %@", record.recordID.recordName, "\(error)")
                     }
@@ -768,6 +785,9 @@ extension CloudSyncManager {
                     try? db.inSavepoint { try applyRemoteDeletion(recordID: recordID, db: db); return .commit }
                 }
             }
+            // This device's newer state was kept (#242): send it again. After a refused save (`.serverRecordChanged`)
+            // the engine has forgotten the change, and the cached server record now carries the right change tag.
+            for kept in keptLocal { markCloudDirty(kept.type, key: kept.key) }
         }.value
     }
 
@@ -777,8 +797,10 @@ extension CloudSyncManager {
         let deletions: [CKRecord.ID]
     }
 
-    nonisolated static func applyRemote(record: CKRecord, db: Database) throws {
-        guard let type = CloudRecordType(ckRecordType: record.recordType) else { return }
+    /// Returns the LOCAL chapter-state key to send again when this device's state was newer and kept (#242).
+    @discardableResult
+    nonisolated static func applyRemote(record: CKRecord, db: Database) throws -> (type: CloudRecordType, key: String)? {
+        guard let type = CloudRecordType(ckRecordType: record.recordType) else { return nil }
         try rememberMapping(recordName: record.recordID.recordName, type: type, key: mapKey(for: type, record: record), db: db)
         // Keep the server's change tag: a later local edit sent without it comes back as a conflict, and the
         // server copy then overwrites the edit (#205).
@@ -786,7 +808,7 @@ extension CloudSyncManager {
 
         switch type {
         case .manga:
-            guard let id = record["localId"] as? String else { return }
+            guard let id = record["localId"] as? String else { return nil }
             var manga = try Manga.fetchOne(db, key: id) ?? Manga(
                 id: id,
                 path: record["path"] as? String ?? "",
@@ -814,7 +836,7 @@ extension CloudSyncManager {
                                                          mangaId: id, db: db)
 
         case .novel:
-            guard let id = record["localId"] as? String else { return }
+            guard let id = record["localId"] as? String else { return nil }
             var novel = try Novel.fetchOne(db, key: id) ?? Novel(
                 id: id,
                 path: record["path"] as? String ?? "",
@@ -841,7 +863,7 @@ extension CloudSyncManager {
 
         case .category:
             guard let id = record["localId"] as? String,
-                  let name = record["name"] as? String else { return }
+                  let name = record["name"] as? String else { return nil }
             let sort = Int(record["sort"] as? Int64 ?? 0)
             try db.execute(
                 sql: "INSERT INTO category (id, name, sort) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, sort = excluded.sort",
@@ -850,89 +872,131 @@ extension CloudSyncManager {
 
         case .mangaChapterState:
             guard let mangaId = record["mangaId"] as? String,
-                  let chapterId = record["chapterId"] as? String else { return }
+                  let chapterId = record["chapterId"] as? String else { return nil }
             let isRead = record["isRead"] as? Bool ?? false
             let progress = record["progress"] as? Double ?? 0
             let lastPageRead = Int(record["lastPageRead"] as? Int64 ?? 0)
             let readAt = record["readAt"] as? Date
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             let isBookmarked = record["isBookmarked"] as? Bool ?? false
+            let remoteAt = remoteChangedAt(record)
+            let local = try Row.fetchOne(db, sql: "SELECT stateChangedAt FROM chapter WHERE id = ? AND mangaId = ?",
+                                         arguments: [chapterId, mangaId])
+            if let local, !ChapterStateConflict.remoteWins(localChangedAt: local["stateChangedAt"], remoteChangedAt: remoteAt) {
+                // This device changed it later (#242): keep it, only never lower the reading time.
+                try db.execute(sql: "UPDATE chapter SET readingSeconds = MAX(readingSeconds, ?) WHERE id = ? AND mangaId = ?",
+                               arguments: [readingSeconds, chapterId, mangaId])
+                return (.mangaChapterState, "\(mangaId)|\(chapterId)")
+            }
             try db.execute(
                 sql: """
-                    UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?,
-                        isBookmarked = ?
+                    UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?,
+                        readingSeconds = MAX(readingSeconds, ?), isBookmarked = ?
                     WHERE id = ? AND mangaId = ?
                     """,
                 arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, chapterId, mangaId]
             )
-            if db.changesCount == 0 {
+            if local != nil {
+                // The trigger just stamped "now"; the state is the record's, so is its time.
+                try db.execute(sql: "UPDATE chapter SET stateChangedAt = ? WHERE id = ? AND mangaId = ?",
+                               arguments: [remoteAt?.timeIntervalSince1970, chapterId, mangaId])
+            } else {
                 // The chapter isn't locally cached yet (its detail page has never been opened on
                 // this device) — a real upsert isn't possible, the sync payload has no title/url/
                 // chapterNumber to construct a valid chapter row with. CKSyncEngine won't redeliver
                 // this change once acknowledged, so stash it and replay once the chapter row
                 // actually gets inserted (see ChapterQueries.insertAllIgnoringConflicts /
                 // insertMangaAndChapters). Fixes code-review finding #41.
+                // A newer stash is never replaced by an older record (#242).
                 try db.execute(
                     sql: """
-                        INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, stateChangedAt)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(mangaId, chapterId) DO UPDATE SET
                             isRead = excluded.isRead, progress = excluded.progress, lastPageRead = excluded.lastPageRead,
-                            readAt = excluded.readAt, readingSeconds = excluded.readingSeconds, isBookmarked = excluded.isBookmarked
+                            readAt = excluded.readAt, readingSeconds = MAX(readingSeconds, excluded.readingSeconds),
+                            isBookmarked = excluded.isBookmarked, stateChangedAt = excluded.stateChangedAt
+                        WHERE stateChangedAt IS NULL OR excluded.stateChangedAt >= stateChangedAt
                         """,
-                    arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked]
+                    arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked,
+                                remoteAt?.timeIntervalSince1970]
                 )
-            } else if isRead {
+            }
+            if local != nil, isRead {
                 try bumpLastRead(table: "manga", id: mangaId, readAt: readAt, db: db)
             }
 
         case .novelChapterState:
             guard let novelId = record["novelId"] as? String,
-                  let chapterId = record["chapterId"] as? String else { return }
+                  let chapterId = record["chapterId"] as? String else { return nil }
             let isRead = record["isRead"] as? Bool ?? false
             let readAt = record["readAt"] as? Date
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             let lastScrollPercent = record["lastScrollPercent"] as? Double
             let isBookmarked = record["isBookmarked"] as? Bool ?? false
+            let remoteAt = remoteChangedAt(record)
             // Matched by PATH when the record has one (S191, #4): the sender's id is a list position on ITS device
             // and can name a different chapter here. Records from before S191 have no path — by id, as before.
             let path = record["path"] as? String
             let target = path.map { ("novelId = ? AND path = ?", StatementArguments([novelId, $0])) }
                 ?? ("novelId = ? AND id = ?", StatementArguments([novelId, chapterId]))
+            let local = try Row.fetchOne(db, sql: "SELECT id, stateChangedAt FROM novel_chapter WHERE \(target.0) LIMIT 1",
+                                         arguments: target.1)
+            if let local, !ChapterStateConflict.remoteWins(localChangedAt: local["stateChangedAt"], remoteChangedAt: remoteAt) {
+                // This device changed it later (#242): keep it, never lower the reading time, and send THIS device's
+                // record for the chapter (its own id — the sender's may name another chapter here).
+                let localId: String = local["id"]
+                try db.execute(sql: "UPDATE novel_chapter SET readingSeconds = MAX(readingSeconds, ?) WHERE id = ?",
+                               arguments: [readingSeconds, localId])
+                return (.novelChapterState, "\(novelId)|\(localId)")
+            }
             try db.execute(
-                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ? WHERE \(target.0)",
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = MAX(readingSeconds, ?), lastScrollPercent = ?, isBookmarked = ? WHERE \(target.0)",
                 arguments: [isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked] + target.1
             )
-            if db.changesCount == 0 {
+            if local != nil {
+                try db.execute(sql: "UPDATE novel_chapter SET stateChangedAt = ? WHERE \(target.0)",
+                               arguments: [remoteAt?.timeIntervalSince1970] + target.1)
+            } else {
                 // Same reasoning as .mangaChapterState above — stash and replay once
                 // NovelQueries.insertAllIgnoringConflicts brings the chapter row in (by path when known).
                 try db.execute(
                     sql: """
-                        INSERT INTO pending_novel_chapter_state (novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO pending_novel_chapter_state (novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked, stateChangedAt)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(novelId, chapterId) DO UPDATE SET
                             path = excluded.path, isRead = excluded.isRead, readAt = excluded.readAt,
-                            readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent,
-                            isBookmarked = excluded.isBookmarked
+                            readingSeconds = MAX(readingSeconds, excluded.readingSeconds),
+                            lastScrollPercent = excluded.lastScrollPercent, isBookmarked = excluded.isBookmarked,
+                            stateChangedAt = excluded.stateChangedAt
+                        WHERE stateChangedAt IS NULL OR excluded.stateChangedAt >= stateChangedAt
                         """,
-                    arguments: [novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked]
+                    arguments: [novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked,
+                                remoteAt?.timeIntervalSince1970]
                 )
-            } else if isRead {
+            }
+            if local != nil, isRead {
                 try bumpLastRead(table: "novel", id: novelId, readAt: readAt, db: db)
             }
 
         case .mangaCategoryLink:
             guard let mangaId = record["mangaId"] as? String,
-                  let categoryId = record["categoryId"] as? String else { return }
+                  let categoryId = record["categoryId"] as? String else { return nil }
             try db.execute(sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
                            arguments: [mangaId, categoryId])
 
         case .novelCategoryLink:
             guard let novelId = record["novelId"] as? String,
-                  let categoryId = record["categoryId"] as? String else { return }
+                  let categoryId = record["categoryId"] as? String else { return nil }
             try db.execute(sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
                            arguments: [novelId, categoryId])
         }
+        return nil
+    }
+
+    /// When a received chapter state changed (#242): see `ChapterStateConflict.remoteTime`.
+    nonisolated static func remoteChangedAt(_ record: CKRecord) -> Date? {
+        ChapterStateConflict.remoteTime(field: record["stateChangedAt"] as? Date, savedByServer: record.modificationDate)
     }
 
     nonisolated static func applyRemoteDeletion(recordID: CKRecord.ID, db: Database) throws {
@@ -990,22 +1054,28 @@ extension CloudSyncManager {
         for chapter in chapters {
             guard let row = try Row.fetchOne(
                 db,
-                sql: "SELECT isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
+                sql: "SELECT isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, stateChangedAt FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
                 arguments: [chapter.mangaId, chapter.id]
             ) else { continue }
+            try db.execute(
+                sql: "DELETE FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
+                arguments: [chapter.mangaId, chapter.id]
+            )
+            // The row may have existed already, changed here later than the stash (#242).
+            let localAt = try Double.fetchOne(db, sql: "SELECT stateChangedAt FROM chapter WHERE id = ?", arguments: [chapter.id])
+            let stashAt = (row["stateChangedAt"] as Double?).map { Date(timeIntervalSince1970: $0) }
+            guard ChapterStateConflict.remoteWins(localChangedAt: localAt, remoteChangedAt: stashAt) else { continue }
 
             let isRead = row["isRead"] as Bool
             try db.execute(
-                sql: "UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?, isBookmarked = ? WHERE id = ?",
+                sql: "UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = MAX(readingSeconds, ?), isBookmarked = ? WHERE id = ?",
                 arguments: [
                     isRead, row["progress"] as Double, row["lastPageRead"] as Int,
                     row["readAt"] as Date?, row["readingSeconds"] as Int, row["isBookmarked"] as Bool, chapter.id
                 ]
             )
-            try db.execute(
-                sql: "DELETE FROM pending_chapter_state WHERE mangaId = ? AND chapterId = ?",
-                arguments: [chapter.mangaId, chapter.id]
-            )
+            try db.execute(sql: "UPDATE chapter SET stateChangedAt = ? WHERE id = ?",
+                           arguments: [row["stateChangedAt"] as Double?, chapter.id])
             if isRead {
                 try bumpLastRead(table: "manga", id: chapter.mangaId, readAt: row["readAt"] as Date?, db: db)
             }
@@ -1018,7 +1088,7 @@ extension CloudSyncManager {
             guard let row = try Row.fetchOne(
                 db,
                 sql: """
-                    SELECT chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked
+                    SELECT chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked, stateChangedAt
                     FROM pending_novel_chapter_state
                     WHERE novelId = ? AND (path = ? OR (path IS NULL AND chapterId = ?))
                     ORDER BY path IS NULL LIMIT 1
@@ -1026,18 +1096,29 @@ extension CloudSyncManager {
                 arguments: [chapter.novelId, chapter.path, chapter.id]
             ) else { continue }
 
-            let isRead = row["isRead"] as Bool
-            try db.execute(
-                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ? WHERE id = ?",
-                arguments: [
-                    isRead, row["readAt"] as Date?, row["readingSeconds"] as Int,
-                    row["lastScrollPercent"] as Double?, row["isBookmarked"] as Bool, chapter.id
-                ]
-            )
             try db.execute(
                 sql: "DELETE FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
                 arguments: [chapter.novelId, row["chapterId"] as String]
             )
+            // The SAVED row for this path: when the list's position id was already taken, insertAllIgnoringConflicts
+            // saved the chapter under a path id, and `chapter.id` is then ANOTHER chapter here (S192 self-test).
+            guard let local = try Row.fetchOne(
+                db, sql: "SELECT id, stateChangedAt FROM novel_chapter WHERE novelId = ? AND path = ? LIMIT 1",
+                arguments: [chapter.novelId, chapter.path]) else { continue }
+            let localId: String = local["id"]
+            let stashAt = (row["stateChangedAt"] as Double?).map { Date(timeIntervalSince1970: $0) }
+            guard ChapterStateConflict.remoteWins(localChangedAt: local["stateChangedAt"], remoteChangedAt: stashAt) else { continue }
+
+            let isRead = row["isRead"] as Bool
+            try db.execute(
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = MAX(readingSeconds, ?), lastScrollPercent = ?, isBookmarked = ? WHERE id = ?",
+                arguments: [
+                    isRead, row["readAt"] as Date?, row["readingSeconds"] as Int,
+                    row["lastScrollPercent"] as Double?, row["isBookmarked"] as Bool, localId
+                ]
+            )
+            try db.execute(sql: "UPDATE novel_chapter SET stateChangedAt = ? WHERE id = ?",
+                           arguments: [row["stateChangedAt"] as Double?, localId])
             if isRead {
                 try bumpLastRead(table: "novel", id: chapter.novelId, readAt: row["readAt"] as Date?, db: db)
             }

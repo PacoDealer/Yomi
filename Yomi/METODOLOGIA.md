@@ -2555,3 +2555,9 @@ previously here was removed during the 2026-08-04 doc restructure.
   this Wi-Fi either way; only an old-vs-new run (temporary worktree, separate DerivedData) shows the change broke none.
 - **A wrong test is not a wrong fix.** The nested-call check "failed" because it expected the inner call to get fresh
   time — it must not. Re-derive what the code should do before touching it.
+- **A trigger beats "remember to stamp it" in N places.** Every reading path (readers, lists, mark-all, restore,
+  carry-over) changes chapter state; one SQLite trigger with a value-changed WHEN covers them all, and the sync apply
+  overwrites the stamp right after its own UPDATE. Checked in plain `sqlite3` before building on it.
+- **Self-test fixtures that share ids across cases find real bugs.** The stash case failed only because the bulk case
+  had already used `ch-509` — exactly the "position id taken" situation real lists hit, which the replay got wrong
+  since S191 (#244). Don't "fix" such a test by picking an unused id.

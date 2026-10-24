@@ -469,6 +469,33 @@ final class DatabaseManager {
                           ifNotExists: true)
         }
 
+        // S192 (#242): WHEN a chapter's reading state last changed on this device (Unix seconds), so a CloudKit
+        // conflict keeps the newer change instead of "server wins". Stamped by a trigger on every REAL change (a
+        // write that sets the same values doesn't count), so no reader/list/backup path can forget it. Applying a
+        // record from iCloud overwrites the stamp with the record's own time right after (CloudSyncManager). NULL =
+        // never changed here since this migration. Not in the model structs; the stashes carry the remote time.
+        migrator.registerMigration("v32_chapter_state_changed_at") { db in
+            for table in ["chapter", "novel_chapter", "pending_chapter_state", "pending_novel_chapter_state"] {
+                try db.alter(table: table) { t in t.add(column: "stateChangedAt", .double) }
+            }
+            let now = "(julianday('now') - 2440587.5) * 86400.0"
+            func changed(_ columns: [String]) -> String {
+                columns.map { "NEW.\($0) IS NOT OLD.\($0)" }.joined(separator: " OR ")
+            }
+            let manga = ["isRead", "progress", "lastPageRead", "readAt", "readingSeconds", "isBookmarked"]
+            let novel = ["isRead", "readAt", "readingSeconds", "lastScrollPercent", "isBookmarked"]
+            try db.execute(sql: """
+                CREATE TRIGGER chapter_state_changed_at AFTER UPDATE OF \(manga.joined(separator: ", ")) ON chapter
+                WHEN \(changed(manga))
+                BEGIN UPDATE chapter SET stateChangedAt = \(now) WHERE id = NEW.id; END
+                """)
+            try db.execute(sql: """
+                CREATE TRIGGER novel_chapter_state_changed_at AFTER UPDATE OF \(novel.joined(separator: ", ")) ON novel_chapter
+                WHEN \(changed(novel))
+                BEGIN UPDATE novel_chapter SET stateChangedAt = \(now) WHERE id = NEW.id; END
+                """)
+        }
+
         #if DEBUG
         if CommandLine.arguments.contains("-yomiFailMigrationOnce") && !simulatedFailureUsed {
             simulatedFailureUsed = true

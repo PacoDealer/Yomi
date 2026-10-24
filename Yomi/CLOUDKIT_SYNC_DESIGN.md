@@ -151,6 +151,15 @@ methods (already exist for exactly this "insert-or-merge" shape, per `ARQUITECTU
 
 Conflict policy, since two devices can both change the same record between syncs:
 
+> **S192 (KNOWN_ISSUES #242) — chapter state is no longer last-write-wins.** `chapter`/`novel_chapter` carry
+> `stateChangedAt` (Unix seconds, stamped by a SQLite trigger on every real state change), sent as the
+> `stateChangedAt` Date field of `MangaChapterState`/`NovelChapterState`. On a fetch AND on `.serverRecordChanged`
+> the newer change wins (`ChapterStateConflict`, `Core/ProgressRules.swift`); a kept local state is re-sent over the
+> server record's change tag. Records from older builds count as changed when iCloud saved them; a sender that
+> doesn't know sends 0 and never beats a known change. `readingSeconds` takes the larger value either way (never
+> lowered — the additive-stat concern below is narrowed, not solved: two devices' time is still max, not sum).
+> Title/category records below are unchanged (server wins).
+
 - **Scalar "latest state wins" fields** (`isRead`, `progress`, `lastPageRead`, `readingStatus`,
   `inLibrary`, category assignment): CloudKit's own server record-change-tag mechanism already gives
   last-write-wins for free — accept it as-is. A real conflict here (reading the same chapter

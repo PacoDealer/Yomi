@@ -52,4 +52,16 @@ check(mm.inLibrary && mm.lastReadAt == newer && mm.readingSeconds == 500 && mm.n
 var lc2 = bk; lc2.notes = nil
 check(Manga.mergedForRestore(backup: bk, local: lc2).notes == "old", "backup fills missing notes")
 
-if failures == 0 { print("14 checks passed") } else { print("\(failures) failed"); exit(1) }
+// ChapterStateConflict (S192, #242)
+let at = { (t: Double) in Date(timeIntervalSince1970: t) }
+check(ChapterStateConflict.remoteWins(localChangedAt: nil, remoteChangedAt: at(5)), "never changed here: remote wins")
+check(ChapterStateConflict.remoteWins(localChangedAt: 100, remoteChangedAt: at(200)), "newer remote wins")
+check(!ChapterStateConflict.remoteWins(localChangedAt: 300, remoteChangedAt: at(200)), "offline read newer than iCloud copy is kept")
+check(ChapterStateConflict.remoteWins(localChangedAt: 200, remoteChangedAt: at(200)), "tie = own change echoed back")
+check(!ChapterStateConflict.remoteWins(localChangedAt: 1, remoteChangedAt: at(0)), "sender didn't know (0) never beats a known change")
+check(ChapterStateConflict.remoteWins(localChangedAt: nil, remoteChangedAt: at(0)), "…but fills a chapter never changed here")
+check(ChapterStateConflict.remoteTime(field: at(50), savedByServer: at(90)) == at(50), "field beats server save time")
+check(ChapterStateConflict.remoteTime(field: nil, savedByServer: at(90)) == at(90), "old build: server save time")
+check(ChapterStateConflict.remoteTime(field: nil, savedByServer: nil) == nil, "no time at all")
+
+if failures == 0 { print("23 checks passed") } else { print("\(failures) failed"); exit(1) }

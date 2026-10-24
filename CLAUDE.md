@@ -31,12 +31,15 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   site's cookies there + shared store), `PluginCallGate` 120 s per plugin call (fetches refused after, call returns
   empty), loopback redirects refused, Clear web cache now clears cookies. Old shared cookies NOT migrated (one more
   Cloudflare check per source). Sim + Mac tests; harness old-vs-new identical. Nothing on the phone.
+  Part 2 (#242, #244): chapter-state conflicts by time — v32 `stateChangedAt` + triggers, newer change wins, kept local
+  state re-sent. **Martin adds `stateChangedAt` (Date/Time) to MangaChapterState + NovelChapterState and deploys
+  BEFORE the next TestFlight build** (ROADMAP S192 part 2). Sim self-test 22/22; no real CloudKit round trip.
 - **S191 (ROADMAP S191, KNOWN_ISSUES #238):** Keiyoushi bridge LOCKED — per-launch 256-bit token
   (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
   without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device
   COMPILE only — not yet run on the phone. CloudKit (#239–#241): novel chapter state matched by PATH (record field
   `path`, deployed to Production by Martin 2026-10-24), batched off-main apply, account
-  sign-in/switch re-sends, foreground `resume()`. `-yomiSyncSelfTest` (sim) checks it. Open: #242 (conflict timestamps).
+  sign-in/switch re-sends, foreground `resume()`. `-yomiSyncSelfTest` (sim) checks it.
 - **S190 (ROADMAP S190, KNOWN_ISSUES #220–#237):** S189 audit list + verified leads fixed: tracker count never lowers,
   novel jump resumes, restore MERGES (`Core/ProgressRules.swift`, tested by `scripts/progress-rules-tests`), one-snapshot
   export, truncated .tachibk refused, additive reading time (`updateProgress(addingSeconds:)`), same-origin plugin
@@ -102,7 +105,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
 - Device-data repro: copy the phone's `Documents` (devicectl) + prefs into the sim container — METODOLOGIA S141.
 - Simulator in the desktop app stays dark at system level (simctl appearance doesn't take) — check light on device.
 - Build into `~/Library/Developer/Xcode/DerivedData/…` — `iOS/build/` on the Desktop fails CodeSign (xattrs).
-- Next GRDB migration prefix: **`v32_`** (v31 = `novel_sync_path`, S191).
+- Next GRDB migration prefix: **`v33_`** (v32 = `chapter_state_changed_at`, S192).
 
 ## Fresh clone
 `Yomi/Config/AppSecrets.swift` is gitignored — copy `AppSecrets.swift.template` next to it and fill in
@@ -160,7 +163,7 @@ scripts/build-personal.sh --release   # Martin's iPhone (paid team, real entitle
 ```
 Yomi/AppSettings.swift                    # @Observable UserDefaults singleton (shared with YomiWidget)
 Yomi/Core/DesignTokens.swift, CanvasEnvironment.swift   # tokens, \.yomiCanvas
-Yomi/Database/DatabaseManager.swift       # migrations (next v32_)
+Yomi/Database/DatabaseManager.swift       # migrations (next v33_)
 Yomi/Database/Queries/*.swift             # all DB access
 Yomi/Features/Extensions/JSBridge.swift   # JavaScriptCore runtime, cheerio bundle (Resources/yomi-js-libs.js)
 Yomi/Features/Extensions/ExtensionManager.swift, PluginCatalogService.swift
