@@ -956,6 +956,8 @@ struct SourceBrowseView: View {
     @State private var isSearchingSource = false
     @State private var currentPage = 1
     @State private var isLoadingMore = false
+    /// Bumped by every fresh load (feed, filters): a page still loading for the old list must not land in the new one.
+    @State private var loadGeneration = 0
     @State private var hasMoreContent = true
 
     /// Hard backstop for sources whose pagination never returns an empty page (e.g. AquaManga,
@@ -1189,6 +1191,8 @@ struct SourceBrowseView: View {
         isLoadingMore = false
         mangas = []
         novels = []
+        loadGeneration += 1
+        let generation = loadGeneration
         let sourceId = ext.id
 
         // Reuse existing bridge when switching tabs; only build one on first load
@@ -1233,6 +1237,8 @@ struct SourceBrowseView: View {
                 return .mangas(list, hasLatest: hasLatest)
             }
         }.value
+        // A newer load started while this one waited (switched feed/filters again): its result wins.
+        guard generation == loadGeneration else { return }
 
         switch result {
         case .novels(let items, let filtersJSON):
@@ -1298,6 +1304,7 @@ struct SourceBrowseView: View {
             return
         }
         isLoadingMore = true
+        let generation = loadGeneration
         let nextPage = currentPage + 1
         let sourceId = ext.id
         let feed = selectedFeed
@@ -1307,6 +1314,7 @@ struct SourceBrowseView: View {
             let items = await Task.detached(priority: .userInitiated) {
                 feed == .latest ? b.latestNovels(page: nextPage) : b.popularNovels(page: nextPage, filters: filters)
             }.value
+            guard generation == loadGeneration else { return }   // the list was reset meanwhile (S190)
             let existingIds = Set(novels.map { $0.id })
             let newNovels = items
                 .map { item in
@@ -1332,6 +1340,7 @@ struct SourceBrowseView: View {
                     ? b.getLatestManga(page: nextPage, sourceId: sourceId)
                     : b.getMangaList(page: nextPage, sourceId: sourceId)
             }.value
+            guard generation == loadGeneration else { return }   // the list was reset meanwhile (S190)
             let existingIds = Set(mangas.map { $0.id })
             let newMangas = results.filter { !existingIds.contains($0.id) }
             if newMangas.isEmpty {

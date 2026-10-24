@@ -63,16 +63,15 @@ nonisolated enum TermReplacementQueries {
 
     // MARK: Backup
 
-    static func exportRows() throws -> [[String: Any]] {
-        try appDatabase.read { db in
-            try Row.fetchAll(db, sql: "SELECT * FROM term_replacement ORDER BY createdAt").map { row in
-                var d: [String: Any] = ["id": row["id"] as String, "find": row["find"] as String,
-                                        "replacement": row["replacement"] as String,
-                                        "matchCase": row["matchCase"] as Bool,
-                                        "createdAt": (row["createdAt"] as Date).timeIntervalSince1970]
-                if let novelId = row["novelId"] as String? { d["novelId"] = novelId }
-                return d
-            }
+    /// Inside the backup export's single read transaction.
+    static func exportRows(_ db: Database) throws -> [[String: Any]] {
+        try Row.fetchAll(db, sql: "SELECT * FROM term_replacement ORDER BY createdAt").map { row in
+            var d: [String: Any] = ["id": row["id"] as String, "find": row["find"] as String,
+                                    "replacement": row["replacement"] as String,
+                                    "matchCase": row["matchCase"] as Bool,
+                                    "createdAt": (row["createdAt"] as Date).timeIntervalSince1970]
+            if let novelId = row["novelId"] as String? { d["novelId"] = novelId }
+            return d
         }
     }
 

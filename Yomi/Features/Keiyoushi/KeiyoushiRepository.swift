@@ -175,8 +175,17 @@ final class KeiyoushiRepository {
         installed.first { $0.info.sources.contains { $0.id == sourceId } }
     }
 
+    /// A newer version from the SAME repository the extension was installed from (S189 audit #9): a second repository
+    /// listing the same package name with a higher version must not be able to replace its APK. Installs from before
+    /// the repository was remembered (`repoURL` nil) keep the old any-repository rule.
     func availableUpdate(for ext: InstalledKeiyoushiExtension) -> KeiyoushiExtension? {
-        guard let remote = available.first(where: { $0.packageName == ext.info.packageName }),
+        let candidates: [KeiyoushiExtension]
+        if let origin = ext.info.repoURL {
+            candidates = repos.first { $0.url == origin }?.extensions ?? []
+        } else {
+            candidates = available
+        }
+        guard let remote = candidates.first(where: { $0.packageName == ext.info.packageName }),
               remote.versionCode > ext.info.versionCode else { return nil }
         return remote
     }
@@ -290,7 +299,9 @@ final class KeiyoushiRepository {
         // 404 = the repository replaced this version since our index was fetched: refresh it and take the current one.
         if (response as? HTTPURLResponse)?.statusCode == 404 {
             await refresh()
-            if let fresh = available.first(where: { $0.packageName == ext.packageName }), fresh.apkURL != ext.apkURL,
+            // Same repository only (audit #9) — never swap in another repository's APK under the same name.
+            let pool = ext.repoURL.flatMap { origin in repos.first { $0.url == origin }?.extensions } ?? available
+            if let fresh = pool.first(where: { $0.packageName == ext.packageName }), fresh.apkURL != ext.apkURL,
                let freshURL = URL(string: fresh.apkURL) {
                 ext = fresh
                 (data, response) = try await URLSession.shared.data(from: freshURL)

@@ -255,31 +255,27 @@ struct ChapterReaderView: View {
             // real position with page 0 — S141 lost "Chapter 1 · 55%, page 21" this way.
             guard !incognito, !pages.isEmpty else { return }
 
-            let elapsed = Int(Date().timeIntervalSince(sessionStart))
+            let elapsed = takeReadingSeconds()
             let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
             let cid = activeChapter.id
             let page = sourcePage(currentPage)
             Task.detached {
-                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
-            }
-
-            guard !pages.isEmpty, elapsed > 3 else { return }
-            let mangaId = manga.id
-            Task.detached(priority: .background) {
-                try? MangaQueries.addReadingSeconds(mangaId: mangaId, seconds: elapsed)
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, addingSeconds: elapsed, lastPageRead: page)
             }
         }
         // S182 (Martin's phone): the exit save above never runs when Yomi is closed from the app switcher or by iOS while
         // a chapter is open, so reopening it started at page 1. Save the position each time Yomi goes to the background.
         .onChange(of: scenePhase) { _, phase in
+            // Time spent in the background isn't reading (S189 audit #10): the clock restarts on return.
+            if phase == .active { sessionStart = Date() }
             if phase == .background { PageShapes.save(); PageLooks.save() }   // S182: a kill skips onDisappear
             guard phase == .background, !AppSettings.shared.isIncognito, !pages.isEmpty else { return }
-            let elapsed = Int(Date().timeIntervalSince(sessionStart))
+            let elapsed = takeReadingSeconds()
             let progress = Double(currentPage + 1) / Double(pages.count)
             let cid = activeChapter.id
             let page = sourcePage(currentPage)
             Task.detached {
-                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, addingSeconds: elapsed, lastPageRead: page)
             }
         }
         // Pages ahead load before they're reached (S161): on every page change, a new page list, the next chapter's list.
@@ -299,8 +295,12 @@ struct ChapterReaderView: View {
                 if AppSettings.shared.trackerAutoUpdate && !didUpdateTrackerForCurrentChapter {
                     didUpdateTrackerForCurrentChapter = true
                     let mangaTitle = manga.trackingTitle ?? manga.title
-                    let chapNum = Int(activeChapter.chapterNumber ?? 0)
+                    let finished = activeChapter.chapterNumber
+                    let mangaId = manga.id
                     Task {
+                        // Never lower the tracker's count, never send 0 for an unnumbered chapter (S189 #2).
+                        guard let chapNum = TrackerProgress.count(
+                            finished: finished, highestRead: TrackerProgress.highestReadManga(mangaId: mangaId)) else { return }
                         for tracker in TrackerManager.loggedInTrackers {
                             if let trackerId = await tracker.searchManga(title: mangaTitle) {
                                 await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
@@ -320,12 +320,16 @@ struct ChapterReaderView: View {
                 sourceURL = nil
                 return
             }
-            discussURL = await Task.detached(priority: .background) {
+            let discuss = await Task.detached(priority: .background) {
                 b.getDiscussionURL(chapterPath: path)
             }.value
-            sourceURL = await Task.detached(priority: .background) {
+            let source = await Task.detached(priority: .background) {
                 b.resolveSourceURL(path: path)
             }.value
+            // The chapter changed while these resolved: its own task sets them (S190 concurrency review).
+            guard !Task.isCancelled, activeChapter.path == path else { return }
+            discussURL = discuss
+            sourceURL = source
         }
         .sheet(isPresented: $showDiscussSheet) {
             if let url = discussURL {
@@ -496,18 +500,25 @@ struct ChapterReaderView: View {
         }
     }
 
+    /// Seconds read since the last save, and the clock restarts — every save adds only its own share (S190).
+    private func takeReadingSeconds() -> Int {
+        let elapsed = Int(Date().timeIntervalSince(sessionStart))
+        sessionStart = Date()
+        return elapsed
+    }
+
     private func crossIntoPreloadedChapter(atLocalIndex idx: Int) {
         guard let preload = nextPreload,
               hasNextChapter, preload.chapter.id == chapters[currentChapterIndex + 1].id else { return }
 
         // Close out the chapter being left, same bookkeeping navigateToChapter does explicitly.
-        let leavingElapsed = Int(Date().timeIntervalSince(sessionStart))
+        let leavingElapsed = takeReadingSeconds()
         let leavingProgress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let leavingId = activeChapter.id
         let leavingPage = sourcePage(currentPage)
         if !AppSettings.shared.isIncognito {
             Task.detached {
-                try? ChapterQueries.updateProgress(id: leavingId, progress: leavingProgress, readingSeconds: leavingElapsed, lastPageRead: leavingPage)
+                try? ChapterQueries.updateProgress(id: leavingId, progress: leavingProgress, addingSeconds: leavingElapsed, lastPageRead: leavingPage)
             }
         }
         markChapterRead()
@@ -531,13 +542,13 @@ struct ChapterReaderView: View {
         nextPreload = nil
         isPreloadingNextChapter = false
 
-        let elapsed = Int(Date().timeIntervalSince(sessionStart))
+        let elapsed = takeReadingSeconds()
         let progress = pages.isEmpty ? 0.0 : Double(currentPage + 1) / Double(pages.count)
         let cid = activeChapter.id
         let page = sourcePage(currentPage)
         if !AppSettings.shared.isIncognito, !pages.isEmpty {   // see the exit save: empty = never loaded
             Task.detached {
-                try? ChapterQueries.updateProgress(id: cid, progress: progress, readingSeconds: elapsed, lastPageRead: page)
+                try? ChapterQueries.updateProgress(id: cid, progress: progress, addingSeconds: elapsed, lastPageRead: page)
             }
         }
 

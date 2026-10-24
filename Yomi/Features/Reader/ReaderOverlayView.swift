@@ -401,6 +401,9 @@ struct ReaderOverlayView: View {
             .padding(.bottom, 14)
         }
         .opacity(showOverlay ? 1 : 0)
+        // Faded out is still in the accessibility tree: VoiceOver could reach invisible controls (S129 fixed the novel
+        // reader only; S189 audit #11).
+        .accessibilityHidden(!showOverlay)
         .motion(.easeInOut(duration: 0.2), value: showOverlay)
         .confirmationDialog("Mark previous as read", isPresented: $showMarkPreviousConfirm, titleVisibility: .hidden) {
             Button("Mark as Read") { onMarkPreviousRead?() }

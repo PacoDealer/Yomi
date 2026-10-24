@@ -1452,6 +1452,16 @@
         }
       }
     },
+    "Add to Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar a la biblioteca"
+          }
+        }
+      }
+    },
     "Add to library": {
       "localizations": {
         "es": {
@@ -1980,6 +1990,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disponibles"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrás"
           }
         }
       }
@@ -9629,6 +9649,16 @@
         }
       }
     },
+    "This extension has an invalid id and can't be installed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta extensión tiene un identificador no válido y no se puede instalar."
+          }
+        }
+      }
+    },
     "This extension is already added.": {
       "localizations": {
         "es": {
@@ -10336,6 +10366,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reglas de actualización"
+          }
+        }
+      }
+    },
+    "Update Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de actualizaciones"
           }
         }
       }

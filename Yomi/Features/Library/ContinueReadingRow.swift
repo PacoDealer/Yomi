@@ -146,8 +146,10 @@ enum ResumeReading {
         let resume = mangaChapter(in: chapters)
         let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? chapters.count - 1
 
-        // Keiyoushi titles read through the embedded JVM, not a JS plugin — the reader takes no bridge.
-        if KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) {
+        // Keiyoushi titles read through the embedded JVM, Suwayomi over REST and Local from files — none has a JS plugin,
+        // so the reader takes no bridge (the detail page's `canOpenReader` rule; Continue/History missed the last two).
+        if KeiyoushiMapping.isKeiyoushiSourceId(manga.sourceId) || SuwayomiService.isSuwayomiSourceId(manga.sourceId)
+            || manga.isLocal {
             return MangaTarget(bridge: nil, chapters: chapters, index: index)
         }
         guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == manga.sourceId }),

@@ -81,17 +81,30 @@ enum MangaQueries {
 
     // MARK: - Write
 
-    /// Toggles inLibrary, sets lastUpdatedAt to now, saves, and returns the updated manga
+    /// Toggles inLibrary, sets lastUpdatedAt to now and returns the row as saved. Writes only those two columns:
+    /// saving the caller's whole snapshot put back reading time / last-read date written by the reader since the
+    /// snapshot was taken (S189 audit). A title only browsed so far is inserted.
     @discardableResult
     nonisolated static func toggleLibrary(manga: Manga) throws -> Manga {
         var updated = manga
         updated.inLibrary = !manga.inLibrary
         updated.lastUpdatedAt = Date()
-        _ = try appDatabase.write { db in
-            try updated.save(db)
+        let saved = try appDatabase.write { db -> Manga in
+            try updated.insert(db, onConflict: .ignore)
+            try db.execute(sql: "UPDATE manga SET inLibrary = ?, lastUpdatedAt = ? WHERE id = ?",
+                           arguments: [updated.inLibrary, updated.lastUpdatedAt, updated.id])
+            return try Manga.fetchOne(db, key: updated.id) ?? updated
         }
         markCloudDirty(.manga, key: updated.id)
-        return updated
+        return saved
+    }
+
+    /// Sets only `inLibrary` on a saved title (bulk Remove).
+    nonisolated static func setInLibrary(id: String, _ inLibrary: Bool) throws {
+        _ = try appDatabase.write { db in
+            try db.execute(sql: "UPDATE manga SET inLibrary = ? WHERE id = ?", arguments: [inLibrary, id])
+        }
+        markCloudDirty(.manga, key: id)
     }
 
     /// Updates all fields of an existing manga by id

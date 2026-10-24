@@ -55,6 +55,7 @@ struct TextReaderView: View {
     struct PageInfo: Equatable { var chapterName: String; var page: Int; var pages: Int }
     @State private var showFinishedBanner = false
     @State private var sessionStart: Date = Date()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var lastKnownScrollPercent: Double? = nil
     /// Last value actually written to the DB per chapter — the autosave skips ticks that haven't moved a
     /// meaningful distance from it (Known Issue #142).
@@ -308,9 +309,11 @@ struct TextReaderView: View {
         .task(id: activeChapter.id) {
             let path = activeChapter.path
             let b = bridge
-            sourceURL = await Task.detached(priority: .background) {
+            let source = await Task.detached(priority: .background) {
                 b?.resolveSourceURL(path: path)
             }.value
+            guard !Task.isCancelled, activeChapter.path == path else { return }   // chapter changed meanwhile (S190)
+            sourceURL = source
         }
         .sheet(isPresented: $showPlayerSheet) {
             ListenPlayerView()
@@ -368,6 +371,12 @@ struct TextReaderView: View {
         .onChange(of: hPadding)     { _, v in AppSettings.shared.novelHorizontalPadding = v }
         .onChange(of: paragraphSpacing) { _, v in AppSettings.shared.novelParagraphSpacing = v }
         .onChange(of: letterSpacing) { _, v in AppSettings.shared.novelLetterSpacing = v }
+        // Time in the background isn't reading (S189 audit #10) unless the chapter is being read aloud. Saving on the
+        // way out also keeps the time when iOS ends Yomi there (onDisappear never runs then).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { flushReadingTime(); flushScrollPercent() }
+            if phase == .active && !listeningHere { sessionStart = Date() }
+        }
         .onChange(of: shouldRequestReview) { _, should in
             if should { requestReview(); shouldRequestReview = false }
         }
@@ -517,8 +526,12 @@ struct TextReaderView: View {
             }
             if AppSettings.shared.trackerAutoUpdate {
                 let novelTitle = novel.title
-                let chapNum = Int(chapter.chapterNumber ?? 0)
+                let finished = chapter.chapterNumber
+                let novelId = novel.id
                 Task {
+                    // Never lower the tracker's count, never send 0 for an unnumbered chapter (S189 #2).
+                    guard let chapNum = TrackerProgress.count(
+                        finished: finished, highestRead: TrackerProgress.highestReadNovel(novelId: novelId)) else { return }
                     for tracker in TrackerManager.loggedInTrackers {
                         if let trackerId = await tracker.searchManga(title: novelTitle) {
                             await tracker.updateMangaProgress(trackerId: trackerId, chaptersRead: chapNum)
@@ -593,8 +606,11 @@ struct TextReaderView: View {
             let novelId = novel.id
             Task.detached(priority: .background) { try? NovelQueries.markRead(chapterId: chapterId, novelId: novelId) }
         }
-        // Changing chapter by hand while listening moves the listening there too.
-        openChapter(index, restorePercent: 0, listen: listeningHere)
+        // Changing chapter by hand while listening moves the listening there too (from the top, so the
+        // voice and the page agree). Otherwise open where the user left that chapter: opening at 0 let the
+        // autosave write 0 % over the saved position a moment later (S189 audit #3).
+        let resume = listeningHere ? 0 : (NovelQueries.resumePercent(chapterId: target.id) ?? 0)
+        openChapter(index, restorePercent: resume, listen: listeningHere)
     }
 
     /// Replaces the document with one chapter. The web view stays; only its content changes.

@@ -164,6 +164,14 @@ final class NovelReaderController {
     }
     private var readyWaiters: [CheckedContinuation<Void, Never>] = []
 
+    /// The page will never say "ready" (load failed, view gone): let waiting queries go — `evaluate` then returns nil
+    /// instead of hanging translation / listen-from-here forever (S190 concurrency review).
+    fileprivate func releaseWaiters() {
+        let waiters = readyWaiters
+        readyWaiters = []
+        for waiter in waiters { waiter.resume() }
+    }
+
     private func call(_ body: String, _ args: [String: Any]) {
         guard isReady, let webView else {
             pending.append((body, args))
@@ -271,11 +279,19 @@ struct ReaderWebView: UIViewRepresentable {
         for name in NovelReaderController.messageNames {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: name)
         }
+        coordinator.controller.releaseWaiters()
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         let controller: NovelReaderController
         init(controller: NovelReaderController) { self.controller = controller }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+            controller.releaseWaiters()
+        }
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+            controller.releaseWaiters()
+        }
 
         private weak var linkedPop: UIGestureRecognizer?
 

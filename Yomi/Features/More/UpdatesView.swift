@@ -222,7 +222,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             func start(_ stream: [UpdateTarget]) {
                 group.addTask {
                     var out: [UpdateRunSummary.Result] = []
-                    for target in stream { out.append(await self.check(target, settings: settings)) }
+                    // A cancelled refresh (background time ran out) stops between titles (S190).
+                    for target in stream where !Task.isCancelled { out.append(await self.check(target, settings: settings)) }
                     return out
                 }
             }
@@ -232,7 +233,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             }
             for await streamResults in group {
                 results += streamResults
-                if let next = iterator.next() { start(next) }
+                if !Task.isCancelled, let next = iterator.next() { start(next) }
             }
         }
         return results
@@ -388,7 +389,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 && Self.saveNew(new, remoteCount: remote.count, localCount: local.count, manga: manga)
             try? UpdateScheduleQueries.setUploadDates(uploadDates)
             try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
-            return new
+            // A baseline is saved but isn't news: no download, no notification, no count (S189 audit).
+            return found ? new : []
         }.value
         notify(title: manga.title, count: newChapters.count, id: mangaId, type: "manga", settings: settings)
         return .checked(newChapters: newChapters.count)
@@ -405,8 +407,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
         let bridge = await ExtensionManager.shared.loadBridge(for: ext)
         let (remoteChapters, meta) = await Task.detached(priority: .background) {
-            let chapters = bridge?.getChapterList(mangaPath: mangaPath, mangaId: mangaId) ?? []
-            return (chapters, bridge?.lastMangayomiMeta)
+            let result = bridge?.getChapterListWithMeta(mangaPath: mangaPath, mangaId: mangaId)
+            return (result?.chapters ?? [], result?.meta)
         }.value
 
         // A plugin swallows its own JS exceptions and returns an empty list on failure; a library title always
@@ -424,7 +426,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             // L3a (S171): only Mangayomi plugins return details here — Yomi's own manga plugins have no details call.
             if settings.refreshMetadata, let meta { try? MangaQueries.updateSourceMetadata(Self.applying(meta, to: manga)) }
             try? UpdateScheduleQueries.recordCheck(.manga, id: mangaId, foundRelease: found, lastUpdate: manga.lastUpdatedAt)
-            return new
+            // A baseline is saved but isn't news: no download, no notification, no count (S189 audit).
+            return found ? new : []
         }.value
 
         if settings.autoDownload, let bridge {
@@ -493,6 +496,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
             try? UpdateScheduleQueries.recordCheck(.novel, id: novelId, foundRelease: isNews, lastUpdate: lastUpdate)
         }.value
 
+        guard isNews else { return .checked(newChapters: 0) }   // baseline: saved, not announced (S189 audit)
         notify(title: novel.title, count: newChapters.count, id: novelId, type: "novel", settings: settings)
         return .checked(newChapters: newChapters.count)
     }
@@ -674,6 +678,7 @@ struct UpdatesView: View {
                     UpdatesSettingsView()
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease")
+                        .accessibilityLabel("Update Settings")
                 }
             }
         }

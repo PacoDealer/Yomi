@@ -239,6 +239,11 @@ private nonisolated struct Lenient<T: Decodable>: Decodable {
     /// entry used to fail the whole array, so one typo emptied the repository (#154). The first format that reads
     /// at least one entry wins; entries it can't read are skipped.
     nonisolated static func parseEntries(from data: Data) -> [PluginCatalogEntry] {
+        // An id that could be a file path is dropped here (S190): it names the plugin's file on disk.
+        parseAnyFormat(data).filter { PluginNetworkPolicy.isSafePluginId($0.id) }
+    }
+
+    private nonisolated static func parseAnyFormat(_ data: Data) -> [PluginCatalogEntry] {
         let entries = decodeEach(PluginCatalogEntry.self, from: data)
         if !entries.isEmpty { return entries }
         let lnEntries = decodeEach(LNReaderEntry.self, from: data)
@@ -263,8 +268,13 @@ private nonisolated struct Lenient<T: Decodable>: Decodable {
     }
 
     /// Returns the catalog entry for an installed extension if a newer version is available.
+    /// Only from where the plugin's code came from (S190, S189 audit): another repository listing the same id or name
+    /// with a higher version used to be offered as an update and replaced the plugin's code.
     func availableUpdate(for ext: Extension) -> PluginCatalogEntry? {
-        let entry = entries.first(where: { $0.installIds.contains(ext.id) }) ?? entries.first(where: { $0.matches(ext) })
+        let sameOrigin = entries.filter {
+            URL(string: $0.fileURL).map { PluginNetworkPolicy.sameOrigin($0, ext.sourceListURL) } ?? false
+        }
+        let entry = sameOrigin.first(where: { $0.installIds.contains(ext.id) }) ?? sameOrigin.first(where: { $0.matches(ext) })
         guard let entry else { return nil }
         return Self.isNewer(entry.version, than: ext.version) ? entry : nil
     }

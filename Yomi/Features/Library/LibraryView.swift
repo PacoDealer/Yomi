@@ -552,19 +552,12 @@ struct LibraryView: View {
         let ids = selectedIds
         let novelIds = selectedNovelIds
         await Task.detached(priority: .userInitiated) {
-            for id in ids {
-                guard var manga = try? MangaQueries.fetchOne(id: id) else { continue }
-                manga.inLibrary = false
-                try? MangaQueries.update(manga)
-                let dir = FileManager.default
-                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("Downloads/\(id)")
-                try? FileManager.default.removeItem(at: dir)
-            }
+            // Removing from the library keeps downloads, like the context-menu Remove (S190): this path deleted the
+            // files without asking and left every chapter flagged as downloaded. Downloads deletes them on purpose.
+            for id in ids { try? MangaQueries.setInLibrary(id: id, false) }
             for id in novelIds {
-                guard var novel = try? NovelQueries.fetchOne(id: id) else { continue }
-                novel.inLibrary = false
-                try? NovelQueries.upsert(novel)
+                guard let novel = try? NovelQueries.fetchOne(id: id) else { continue }
+                try? NovelQueries.setInLibrary(novel, false)
             }
         }.value
         await viewModel.loadLibrary()

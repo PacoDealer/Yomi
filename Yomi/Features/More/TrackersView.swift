@@ -97,7 +97,8 @@ struct TrackerLogo: View {
     private var isWordmark: Bool { width != height }
 
     var body: some View {
-        Image(name)
+        // Decorative: the tracker's name is always shown next to it; VoiceOver read the asset name ("TrackerLogoMAL").
+        Image(decorative: name)
             .renderingMode(isWordmark ? .template : .original)
             .resizable()
             .scaledToFit()

@@ -366,18 +366,26 @@ enum ChapterQueries {
         try? MangaQueries.touchLastRead(mangaId: mangaId)
     }
 
-    /// Updates progress, readingSeconds, and lastPageRead for a chapter (direct UPDATE, no prior fetch).
-    nonisolated static func updateProgress(id: String, progress: Double, readingSeconds: Int, lastPageRead: Int = 0) throws {
+    /// Saves the reading position and ADDS the seconds read since the last save — to the chapter and to the manga's
+    /// total (S190). It used to SET `readingSeconds` to the current session, so reopening a chapter erased its time,
+    /// and the manga total only ever got the last chapter of a session (S189 audit #10).
+    nonisolated static func updateProgress(id: String, progress: Double, addingSeconds: Int, lastPageRead: Int = 0) throws {
         var mangaId: String?
+        let seconds = max(0, addingSeconds)
         _ = try appDatabase.write { db in
             try db.execute(
-                sql: "UPDATE chapter SET progress = ?, readingSeconds = ?, lastPageRead = ? WHERE id = ?",
-                arguments: [progress, readingSeconds, lastPageRead, id]
+                sql: "UPDATE chapter SET progress = ?, readingSeconds = readingSeconds + ?, lastPageRead = ? WHERE id = ?",
+                arguments: [progress, seconds, lastPageRead, id]
             )
             mangaId = try String.fetchOne(db, sql: "SELECT mangaId FROM chapter WHERE id = ?", arguments: [id])
+            if seconds > 0, let mangaId {
+                try db.execute(sql: "UPDATE manga SET readingSeconds = readingSeconds + ? WHERE id = ?",
+                               arguments: [seconds, mangaId])
+            }
         }
         if let mangaId {
             markCloudDirty(.mangaChapterState, key: "\(mangaId)|\(id)")
+            if seconds > 0 { markCloudDirty(.manga, key: mangaId) }
             // This is the only write on the ordinary "closed the reader partway through" path — the
             // ≥80% markChapterRead() path never runs for it. Without this touch, a manga genuinely
             // being read but never finished keeps lastReadAt NULL and never appears in History or
