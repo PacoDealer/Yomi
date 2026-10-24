@@ -66,3 +66,22 @@ extension Novel {
         return n
     }
 }
+
+/// Two devices changed the same chapter's reading state (S192, KNOWN_ISSUES #242): the newer change wins, instead of
+/// whatever iCloud held ("server wins" lost a read made offline whenever the iCloud copy was older).
+/// Times are when the state changed ON THE DEVICE (`stateChangedAt`, stamped by a database trigger on every real
+/// change), so a phone that was offline for a day still wins with the read it made last night.
+enum ChapterStateConflict {
+    /// The time a received record stands for: its `stateChangedAt` (sent since S192; 0 = the sender didn't know), or
+    /// for records from older builds, when iCloud saved it — late for an offline change, but never earlier than it.
+    nonisolated static func remoteTime(field: Date?, savedByServer: Date?) -> Date? {
+        field ?? savedByServer
+    }
+
+    /// Whether the received state replaces this device's. No local time = never changed here since S192 → take the
+    /// remote one (the old behaviour). A tie is the same change coming back from iCloud.
+    nonisolated static func remoteWins(localChangedAt: Double?, remoteChangedAt: Date?) -> Bool {
+        guard let local = localChangedAt, let remote = remoteChangedAt else { return true }
+        return remote.timeIntervalSince1970 >= local
+    }
+}
