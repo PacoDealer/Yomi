@@ -21,6 +21,30 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S190 — S189 audit fixes + the unverified leads checked (2026-10-24, simulator + Mac only; nothing on the phone)
+
+Martin: "continue, use the session wisely". Took the S189 ranked list, then ran 3 read-only verification agents
+(data/library leads, JS-plugin security leads, the concurrency audit that never reported) — ~25 leads → ~20 confirmed,
+all fixed except the ones listed under "still open". KNOWN_ISSUES #220–#237 has one row per fix.
+**Fixed (commit `b9bdb4f` + docs):** tracker count never goes down / never 0 (#220); novel Previous/list jump resumes
+the target's saved % (#221, **sim-verified**: 686 at 43 % → Next → Previous = 43 %, DB keeps 0.427); JSON restore
+MERGES (downloads kept, read ORs, furthest position, phone's notes/status/cover kept) (#222); export = one read
+transaction, orphans skipped on restore (#223); truncated .tachibk = "incomplete" (+ gunzip kept inflating after the
+last input byte — big streams could lose their tail) (#224); reading time additive, background time dropped (#225);
+CloudKit lastReadAt from the record's readAt (#226); Keiyoushi + JS plugin updates only from their origin (#227, #228);
+`PluginNetworkPolicy`: SOURCE.fetch http(s) only, no loopback/link-local; path-like plugin ids refused (#228);
+**all Remove-from-library paths keep downloads now** (behaviour change; Downloads deletes) + heart writes 2 columns
+(#229); baseline updates silent (#230); Continue resumes Suwayomi/Local manga (#231); novels NULL numbers last (#232);
+Safe Mode on Downloads/Insights/Local (#233); BG refresh honours expiry (#234); widget refreshes on background (#235);
+5 concurrency races (#236); VoiceOver labels (#237).
+**Verified:** sim build 0 warnings; `test-all.sh` 10/10 (new `progress-rules-tests` 14, plugin-trust 46);
+ReaderUITests 13/13; Spanish catalog 1041/1041; novel jump on the sim with real WeTried content.
+**Still open (next):** Keiyoushi bridge token (a remote 302 to 127.0.0.1 still reaches the bridge; touches the Kotlin
+server + JNI), APK signature pinning, CloudKit session (novel state keyed by local id #4, apply on main #5, account
+switch #6, engine global race), JS: shared cookie jar, no time limit, plain-http code (`NSAllowsArbitraryLoads`);
+Local NOVELS from Continue; duplicate-check dialog Safe Mode; remaining icon-only buttons. Research sweeps
+(competitors, guideline re-check) still not run. Phone: nothing new installed — next TestFlight build needs Martin's go.
+
 ## S189 — overnight multi-agent audit (2026-10-24, simulator + Mac only; cut short by the usage limit)
 
 **Build 615 (`0715b3a`) uploaded to TestFlight OK** (02:33). It needs Martin: the encryption answer + the Friends group.

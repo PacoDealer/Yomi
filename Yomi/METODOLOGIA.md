@@ -2520,3 +2520,15 @@ previously here was removed during the 2026-08-04 doc restructure.
   --test-id …` gives "App UI hierarchy" text; #193/#196 were a system sheet (App Store rating) from a counter that
   persists across test runs, not slow code. Any app state that persists in the sim (prefs counters, first-run flags)
   makes a test depend on how many times the suite has run.
+
+### S190 lessons
+- **Verify an audit's leads with a few skeptical read-only agents, then fix in the main session.** 3 agents (data,
+  plugin security, concurrency) turned ~25 "unverified" leads into ~20 confirmed bugs with file:line in ~4 minutes; a
+  63-agent fan-out (S189) hit the usage limit. One agent reported a "build break" that was my edit in progress —
+  agents reading a tree you are editing see half-done changes.
+- **"Input used up" is not "stream finished" for zlib.** The gunzip loop stopped when `avail_in == 0`, so output zlib
+  still held was dropped silently; loop until `Z_STREAM_END`, treat `Z_BUF_ERROR` / leftover `Z_OK` as truncated.
+- **Additive counters beat "set to session total".** `readingSeconds = elapsed` erased history on every reopen; each
+  save now adds only the seconds since the previous save, and the clock restarts on every save and on `.active`.
+- **SQLite string LIKE with a typographic apostrophe** (`Regressor’s`) doesn't match `'Regressor%s'` typed with `'` —
+  match on ids or a `%` wildcard instead when seeding the sim DB.

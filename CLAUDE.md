@@ -18,18 +18,22 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#219), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#237), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S189 — 2026-10-24)
+## Current state (S190 — 2026-10-24)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
-- **S189 (audit, report `~/Desktop/Projects/Yomi/reports/S189-audit.md`):** 26 confirmed findings, 3 fixed
-  (protobuf length trap + Keiyoushi packageName validation, `trackingTitle` codec, manga reader resume on chapter change).
-  Ranked open list in the report: restore clears downloads, tracker progress can go down, novel jump loses position,
-  CloudKit novel state keyed by local id, Keiyoushi bridge unauthenticated. ~25 findings + research unverified (limit).
+- **S190 (ROADMAP S190, KNOWN_ISSUES #220–#237):** S189 audit list + verified leads fixed: tracker count never lowers,
+  novel jump resumes, restore MERGES (`Core/ProgressRules.swift`, tested by `scripts/progress-rules-tests`), one-snapshot
+  export, truncated .tachibk refused, additive reading time (`updateProgress(addingSeconds:)`), same-origin plugin
+  updates, `PluginNetworkPolicy` (SOURCE.fetch http(s) only, no loopback; safe plugin ids), **Remove keeps downloads**,
+  baseline updates silent, concurrency guards. Open: Keiyoushi bridge token, CloudKit session (S189 #4–#6), JS cookie
+  jar / time limit. Sim-only; nothing on the phone.
+- **S189 (audit, report `~/Desktop/Projects/Yomi/reports/S189-audit.md`):** 26 confirmed findings (3 fixed then, the
+  rest S190). Build 615 uploaded.
 - **S188 (ROADMAP S188 REPORT):** Kingfisher 8.14; #208 chapter carry-over on refresh (`Core/ChapterCarryOver.swift`,
   `ChapterQueries.carryOverMovedChapters` — call BEFORE inserting a source's list); #193/#196 were the App Store rating
   sheet (no review count under `-yomiReaderFixture`); per-source search asks the plugin (#218); extension guide

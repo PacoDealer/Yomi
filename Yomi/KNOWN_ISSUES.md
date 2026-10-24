@@ -2,7 +2,7 @@
 
 Moved out of `CLAUDE.md` in S137 (2026-10-03) to keep CLAUDE.md under ~200 lines. Rows are
 numbered and permanent — add new rows at the bottom, mark fixed rows with ~~strikethrough~~ + ✅.
-Open rows as of S185: 4 (App Store Connect data — at listing time), 27 (by design), 170 (legal, before submission — S185: scrapers + catalog out of the public repo, see ROADMAP S185), 187/188 (latent), 208 (S188: duplicates fixed; real Aqua refresh untested — site down).
+Open rows as of S190: 4 (App Store Connect data — at listing time), 27 (by design), 227/228/236/237 (partly open — see each row), 170 (legal, before submission — S185: scrapers + catalog out of the public repo, see ROADMAP S185), 187/188 (latent), 208 (S188: duplicates fixed; real Aqua refresh untested — site down).
 
 
 | # | Issue | Notes |
