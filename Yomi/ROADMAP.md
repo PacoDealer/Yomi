@@ -51,7 +51,8 @@ Martin: "Don't upload yet. Work on the JS cookie jar / time limit next." No Test
 - Found + fixed on the way: #244 (novel stash replay onto the wrong chapter when the position id was taken).
 - **Verified:** build 0 warnings (Yomi + YomiWidget), test-all 11/11, progress-rules-tests 23 (rule mutant caught),
   trigger checked in plain sqlite3, sim `-yomiSyncSelfTest` 22/22. **Not verified:** real CloudKit (sim not signed in).
-- **Martin — before the next TestFlight build** (else chapter-state saves are refused in Production and wait, #204):
+- ✅ **DONE by Martin 2026-10-24:** `stateChangedAt` (Date/Time) added to both record types and deployed to Production.
+  The steps, for the record (else chapter-state saves are refused in Production and wait, #204):
   1. [CloudKit Console](https://icloud.developer.apple.com) → `iCloud.pacodealer.Yomi` → **Development** → Schema →
      Record Types → `MangaChapterState` → add field **`stateChangedAt`**, type **Date/Time** → Save.
   2. Same for **`NovelChapterState`**.

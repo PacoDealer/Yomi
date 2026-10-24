@@ -32,8 +32,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   empty), loopback redirects refused, Clear web cache now clears cookies. Old shared cookies NOT migrated (one more
   Cloudflare check per source). Sim + Mac tests; harness old-vs-new identical. Nothing on the phone.
   Part 2 (#242, #244): chapter-state conflicts by time — v32 `stateChangedAt` + triggers, newer change wins, kept local
-  state re-sent. **Martin adds `stateChangedAt` (Date/Time) to MangaChapterState + NovelChapterState and deploys
-  BEFORE the next TestFlight build** (ROADMAP S192 part 2). Sim self-test 22/22; no real CloudKit round trip.
+  state re-sent. `stateChangedAt` (Date/Time) on MangaChapterState + NovelChapterState DEPLOYED to Production by
+  Martin 2026-10-24. Sim self-test 22/22; no real CloudKit round trip.
 - **S191 (ROADMAP S191, KNOWN_ISSUES #238):** Keiyoushi bridge LOCKED — per-launch 256-bit token
   (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
   without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device
