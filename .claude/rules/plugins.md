@@ -28,3 +28,7 @@ paths:
   `sourceId`; installing an update under the catalog id orphaned them (S140). `relinkOrphanedTitles` repairs
   old orphans after every catalog load (old ids = sha256(plugin URL) or sha256(file name)).
 - Before testing a source, read the plugin's own `BASE_URL`/endpoints — don't test domains from memory.
+- Plugin requests go through the plugin's own `PluginCookieJar.session` (S192) — never `URLSession.shared` for
+  plugin traffic, never copy a jar's cookies into another plugin. Cookies from a web view: `CFCookieCopy.store` with
+  `PluginCookieJar.matching(_:host:)` (only that site). New JSBridge entry points that return results use
+  `callLock.run(empty) { … }` so a timed-out call returns empty, not partial.

@@ -105,6 +105,9 @@ struct StorageView: View {
         .confirmationDialog("Clear web cache & cookies?", isPresented: $showClearWebCacheConfirm, titleVisibility: .visible) {
             Button("Clear", role: .destructive) {
                 URLCache.shared.removeAllCachedResponses()
+                // The cookies requests actually send (S192: before, only WebKit's were cleared despite the title).
+                HTTPCookieStorage.shared.removeCookies(since: .distantPast)
+                PluginCookieJar.clearAll()
                 WKWebsiteDataStore.default().removeData(
                     ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
                     modifiedSince: .distantPast

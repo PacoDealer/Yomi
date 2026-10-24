@@ -355,10 +355,10 @@ with fallback defaults. `colorScheme` remains computed (derived from `theme`).
 
 ### CFBypassManager (enum inside Yomi/Features/Extensions/CFBypassView.swift)
 Namespace `enum` (not a standalone file). Provides Cloudflare bypass in two modes:
-- **Auto-bypass** (`autoBypass(url:) async → Bool`): attaches a full-size off-screen WKWebView to keyWindow for up to 30s — Cloudflare Turnstile needs a real viewport to run its JS, so this is not hidden/1×1pt. Polls `httpCookieStore` every 0.5s for `cf_clearance`. On success: copies all domain cookies to `HTTPCookieStorage.shared` → returns `true`. On timeout → returns `false`. No UI shown.
+- **Auto-bypass** (`autoBypass(url:) async → Bool`): attaches a full-size off-screen WKWebView to keyWindow for up to 30s — Cloudflare Turnstile needs a real viewport to run its JS, so this is not hidden/1×1pt. Polls `httpCookieStore` every 0.5s for `cf_clearance`. On success: copies the challenged site's cookies to the plugin's `PluginCookieJar` (passed in, S192) and `HTTPCookieStorage.shared` → returns `true`. On timeout → returns `false`. No UI shown.
 - **Manual bypass**: `CFBypassView` sheet with real WKWebView + URL bar. User navigates the CF challenge. `cf_clearance` copy happens on success.
 
-**Cookie mechanism:** `HTTPCookieStorage.shared` is the session-level cookie jar. `URLSession.shared` reads it automatically (`httpShouldHandleCookies = true`). Bypass is transparent to JSBridge SOURCE._fetchSync once cookies are stored.
+**Cookie mechanism (S192):** each JS plugin has its own jar (`PluginCookieJar` in `PluginSandbox.swift`, one ephemeral `URLSession` per plugin id, saved to `Application Support/PluginCookies/`). Bypass/Website copy only the challenged site's cookies into that plugin's jar AND `HTTPCookieStorage.shared` (Kingfisher covers/pages, Keiyoushi bridge). Plugin responses' cookies are mirrored to the shared store; plugins never read it. Plugin calls run through `PluginCallGate` (120 s per call, fetches refused after).
 
 **WKWebView delegate retention:** WKWebView holds navigationDelegate as `weak`. The `AutoBypassHelper` class holds itself alive via `withCheckedContinuation` — the class instance is retained for the duration of the continuation's lifetime.
 

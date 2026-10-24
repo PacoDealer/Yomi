@@ -2544,3 +2544,14 @@ previously here was removed during the 2026-08-04 doc restructure.
   different account. Re-read the conflict path before adding a reset.
 - **Adding a CloudKit field is a Martin step**: Production refuses saves with a field it hasn't deployed. If the sim
   isn't signed in to iCloud, the field can't be created by a Development save — he adds it in the Console.
+
+### S192 lessons
+- **Check the platform's API before designing around it.** Two 30-second Mac experiments decided the design: an
+  ephemeral session's cookie store isolates and can be shared/filled, while `HTTPCookieStorage()` silently stores
+  nothing; and `grep` of the SDK headers showed JavaScriptCore's time limit is private. Recall would have picked wrong.
+- **A time limit must fail the call, not trim it.** The paged novel loop keeps whatever pages it got — a timeout there
+  would have produced a short chapter list that looks real. The gate returns the empty value instead.
+- **Compare a runtime change against the previous commit on the same network.** 28 of 60 LNReader plugins fail on
+  this Wi-Fi either way; only an old-vs-new run (temporary worktree, separate DerivedData) shows the change broke none.
+- **A wrong test is not a wrong fix.** The nested-call check "failed" because it expected the inner call to get fresh
+  time — it must not. Re-derive what the code should do before touching it.

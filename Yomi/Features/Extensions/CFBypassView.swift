@@ -5,10 +5,12 @@ import UIKit
 // MARK: - CFBypassView
 
 /// Full-browser sheet that lets the user complete a Cloudflare challenge for any source.
-/// Once cf_clearance is detected for a domain, cookies are copied into URLSession shared
-/// storage so that JSBridge SOURCE.fetch picks them up automatically on the next load.
+/// Once cf_clearance is detected for a domain, cookies are copied into the source plugin's own jar (S192 — before,
+/// into the store every plugin read) and into the shared store, which covers, reader pages and Keiyoushi read.
 struct CFBypassView: View {
     var initialURL: String
+    /// The JS plugin this page is for; nil for Keiyoushi sources (they read the shared store through the bridge).
+    var cookieJar: PluginCookieJar? = nil
     /// Website mode (L3b, S171): a source's site opened from its extension's details page, like Mihon's WebView — same
     /// cookie store, so a Cloudflare check or a login done here also reaches the plugin. Done is always available.
     var isWebsite = false
@@ -19,9 +21,11 @@ struct CFBypassView: View {
     @State private var committed = false
     @State private var bypassed: [String] = []
 
-    init(initialURL: String = "https://", isWebsite: Bool = false, onSuccess: @escaping () -> Void) {
+    init(initialURL: String = "https://", isWebsite: Bool = false, cookieJar: PluginCookieJar? = nil,
+         onSuccess: @escaping () -> Void) {
         self.initialURL = initialURL
         self.isWebsite  = isWebsite
+        self.cookieJar  = cookieJar
         self.onSuccess  = onSuccess
         _urlText = State(initialValue: initialURL)
     }
@@ -38,6 +42,7 @@ struct CFBypassView: View {
                 CFWebViewRepresentable(
                     urlText:   $urlText,
                     committed: $committed,
+                    cookieJar: cookieJar,
                     onBypassed: { host in
                         bypassed.append(host)
                     }
@@ -51,8 +56,12 @@ struct CFBypassView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        onSuccess()
-                        dismiss()
+                        Task {
+                            // Website mode: a login has no cf_clearance to wait for — hand the plugin this site's cookies.
+                            if isWebsite { await CFCookieCopy.copySiteCookies(of: initialURL, to: cookieJar) }
+                            onSuccess()
+                            dismiss()
+                        }
                     }
                     .fontWeight(.semibold)
                     .disabled(bypassed.isEmpty && !isWebsite)
@@ -112,6 +121,7 @@ struct CFBypassView: View {
 private struct CFWebViewRepresentable: UIViewRepresentable {
     @Binding var urlText:   String
     @Binding var committed: Bool
+    var cookieJar: PluginCookieJar?
     var onBypassed: (String) -> Void
 
     func makeUIView(context: Context) -> WKWebView {
@@ -130,7 +140,7 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onBypassed: onBypassed)
+        Coordinator(cookieJar: cookieJar, onBypassed: onBypassed)
     }
 
     private func navigate(_ wv: WKWebView) {
@@ -143,12 +153,14 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         weak var webView: WKWebView?
+        let cookieJar: PluginCookieJar?
         var onBypassed: (String) -> Void
         var lastCommit = false
         private var pollTimer: Timer?
         private var bypassed = Set<String>()
 
-        init(onBypassed: @escaping (String) -> Void) {
+        init(cookieJar: PluginCookieJar?, onBypassed: @escaping (String) -> Void) {
+            self.cookieJar = cookieJar
             self.onBypassed = onBypassed
         }
 
@@ -173,15 +185,8 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
                         guard !self.bypassed.contains(domain) else { continue }
                         self.bypassed.insert(domain)
 
-                        // Copy all cookies for this domain into URLSession shared storage.
-                        // JSBridge SOURCE.fetch uses URLSession.shared, which reads from
-                        // HTTPCookieStorage.shared automatically (httpShouldHandleCookies = true).
-                        for c in cookies {
-                            let cd = c.domain.hasPrefix(".") ? String(c.domain.dropFirst()) : c.domain
-                            if cd == domain || domain.hasSuffix("." + cd) {
-                                HTTPCookieStorage.shared.setCookie(c)
-                            }
-                        }
+                        // Copy all cookies for this domain to the plugin's jar and the shared store.
+                        CFCookieCopy.store(CFCookieCopy.matching(cookies, host: domain), in: self.cookieJar)
                         DispatchQueue.main.async { self.onBypassed(domain) }
                     }
                 }
@@ -206,8 +211,8 @@ enum CFBypassManager {
     /// Copies all domain cookies to HTTPCookieStorage.shared on success.
     /// Uses CFBypassConstants.userAgent so the clearance cookie is valid for URLSession requests too.
     @MainActor
-    static func autoBypass(url: URL) async -> Bool {
-        let helper = AutoBypassHelper()
+    static func autoBypass(url: URL, cookieJar: PluginCookieJar?) async -> Bool {
+        let helper = AutoBypassHelper(cookieJar: cookieJar)
         return await helper.run(url: url)
     }
 }
@@ -215,12 +220,16 @@ enum CFBypassManager {
 // MARK: - AutoBypassHelper
 
 private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
+    private let cookieJar: PluginCookieJar?
+    private var url: URL?
     private var continuation: CheckedContinuation<Bool, Never>?
     private var webView: WKWebView?
     private var pollTimer: Timer?
     private var finished = false
     private var collectedCookies: [HTTPCookie] = []
     private var timeoutTask: Task<Void, Never>?
+
+    init(cookieJar: PluginCookieJar?) { self.cookieJar = cookieJar }
 
     @MainActor
     func run(url: URL) async -> Bool {
@@ -239,6 +248,7 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
         wv.customUserAgent = CFBypassConstants.userAgent
         wv.navigationDelegate = self
         webView = wv
+        self.url = url
         window.addSubview(wv)
         wv.load(URLRequest(url: url))
 
@@ -288,11 +298,35 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
         webView?.removeFromSuperview()
         webView = nil
         if success {
-            for c in collectedCookies { HTTPCookieStorage.shared.setCookie(c) }
+            // Only the challenged site's cookies — the off-screen view shares WebKit's store with every other page.
+            CFCookieCopy.store(CFCookieCopy.matching(collectedCookies, host: url?.host() ?? ""), in: cookieJar)
         }
         continuation?.resume(returning: success)
         continuation = nil
     }
 
     deinit { pollTimer?.invalidate() }
+}
+
+// MARK: - CFCookieCopy
+
+/// Moving WebKit cookies to where requests read them (S192).
+enum CFCookieCopy {
+    nonisolated static func matching(_ cookies: [HTTPCookie], host: String) -> [HTTPCookie] {
+        PluginCookieJar.matching(cookies, host: host)
+    }
+
+    /// The plugin's jar (when there is one) and the shared store — covers, reader pages and Keiyoushi read that one.
+    nonisolated static func store(_ cookies: [HTTPCookie], in jar: PluginCookieJar?) {
+        for c in cookies { HTTPCookieStorage.shared.setCookie(c) }
+        jar?.importCookies(cookies)
+    }
+
+    /// Website mode's Done: everything WebKit holds for that site.
+    @MainActor
+    static func copySiteCookies(of urlString: String, to jar: PluginCookieJar?) async {
+        guard let host = URL(string: urlString)?.host() else { return }
+        let all = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        store(matching(all, host: host), in: jar)
+    }
 }

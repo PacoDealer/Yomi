@@ -21,6 +21,29 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S192 — JS plugin sandbox: own cookies, time limit, redirect check (2026-10-24, Mac + simulator; nothing on the phone)
+
+Martin: "Don't upload yet. Work on the JS cookie jar / time limit next." No TestFlight upload. KNOWN_ISSUES #243.
+- **Cookies:** every JS plugin has its own jar (`PluginCookieJar`, new `Features/Extensions/PluginSandbox.swift`),
+  shared by every bridge built from its script, saved to `Application Support/PluginCookies/`. Cloudflare check,
+  auto-bypass and the extension page's Website button hand that plugin only that site's cookies (plus the shared
+  store, which covers/pages/Keiyoushi read). Removing a plugin deletes its jar.
+- **Time limit:** `PluginCallGate` (the bridge's lock + a 120 s budget per outermost call). Over time → fetches throw
+  "Yomi stopped this source…", the call returns empty. Paged novel lists (≤150 pages) get 120 s per page. Checked first:
+  JavaScriptCore's own limit (`JSContextGroupSetExecutionTimeLimit`) is not in the iOS 27.1 SDK headers = private API.
+- **Redirects** to 127.0.0.1/localhost/file are no longer followed (gap noted on #228).
+- **Bug found on the way:** Storage → "Clear web cache & cookies" only cleared WebKit's data; now also the shared
+  store and every jar.
+- **Verified:** build 0 warnings; test-all 11/11 (new `plugin-sandbox-tests`, 33 checks, local test site, two processes
+  for the relaunch check; mutants "jar = shared store" and "return partial result" both fail it); LNReader harness on
+  the sim, 60 plugins, previous commit vs this one: identical per-plugin outcomes (32 ok / 27 popular / 1 chapter —
+  same network); jar files present + backup-excluded in the sim container.
+- **Not verified:** a real Cloudflare challenge or Website login (none reproducible in the sim); on the phone.
+- **Tell Martin:** after this update each source may run its Cloudflare check once more, and Website logins have to
+  be redone — old cookies aren't moved into the new per-source stores (moving them all would undo the isolation).
+- **NEXT:** TestFlight build with S190–S192 (ask), phone check (Keiyoushi token, two-device sync, a Cloudflare source),
+  #242, plain-http plugin code.
+
 ## S191 — Keiyoushi bridge token + CloudKit fixes (2026-10-24, Mac + simulator + device compile; nothing on the phone)
 
 ### Part 2 — CloudKit (S189 audit #4–#6; #7 was S190; #12 left open as KNOWN_ISSUES #242)
