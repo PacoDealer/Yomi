@@ -563,8 +563,10 @@ nonisolated final class ProtoReader {
     }
 
     func readLengthDelimited() throws -> Data {
-        let length = Int(try readVarint64())
-        guard pos + length <= data.endIndex else { throw BackupParseError.truncated }
+        // Check against the bytes left BEFORE converting: a crafted 2^63+ length would trap in Int() or in `pos + length`.
+        let raw = try readVarint64()
+        guard raw <= UInt64(data.endIndex - pos) else { throw BackupParseError.truncated }
+        let length = Int(raw)
         let slice = data[pos ..< pos + length]
         pos += length
         return slice
