@@ -460,6 +460,15 @@ final class DatabaseManager {
             try db.create(index: "term_replacement_novel", on: "term_replacement", columns: ["novelId"])
         }
 
+        // Novel chapter ids are list POSITIONS on the detail page (`<novelId>-ch-<index>`), so the same id can name a
+        // different chapter on another device. Synced novel chapter state now carries the chapter's path and is
+        // matched by it (S191, S189 audit #4): the stash keeps the path, and the lookup needs an index.
+        migrator.registerMigration("v31_novel_sync_path") { db in
+            try db.alter(table: "pending_novel_chapter_state") { t in t.add(column: "path", .text) }
+            try db.create(index: "idx_novel_chapter_path", on: "novel_chapter", columns: ["novelId", "path"],
+                          ifNotExists: true)
+        }
+
         #if DEBUG
         if CommandLine.arguments.contains("-yomiFailMigrationOnce") && !simulatedFailureUsed {
             simulatedFailureUsed = true

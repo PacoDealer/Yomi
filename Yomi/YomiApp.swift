@@ -223,6 +223,7 @@ struct YomiApp: App {
         ExtensionManager.shared.seedBundledPlugins()
         LNReaderHarness.startIfRequested()
         KeiyoushiPageProbe.startIfRequested()
+        CloudSyncSelfTest.startIfRequested()
         #endif
         // Re-start the sync engine on cold launch if the user already turned it on in a prior
         // session — AppSettings' didSet only fires on an in-session toggle flip, not on load.
@@ -279,7 +280,8 @@ struct YomiApp: App {
                 Task { await NotificationManager.shared.checkAuthorizationStatus() }
                 NotificationManager.shared.cancelReadingReminder()
                 if settings.cloudSyncEnabled {
-                    Task { await CloudSyncManager.shared.syncNow() }
+                    // Starts sync too if the launch found no iCloud account yet (S191, audit #6).
+                    Task { await CloudSyncManager.shared.resume() }
                 }
             }
             if phase == .background {

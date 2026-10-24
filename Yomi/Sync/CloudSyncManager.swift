@@ -218,10 +218,20 @@ final class CloudSyncManager: NSObject {
 
         if isFirstEnable {
             await bootstrapPushAllLocalData()
+            UserDefaults.standard.set(true, forKey: Self.novelPathResendKey)
+        } else if !UserDefaults.standard.bool(forKey: Self.novelPathResendKey) {
+            await resendNovelChapterStates(engine: engine)
+            UserDefaults.standard.set(true, forKey: Self.novelPathResendKey)
         }
 
         await syncNow()
         #endif
+    }
+
+    /// App back in the foreground: sync, or start sync if it never started — a single "no account" answer at launch
+    /// (iCloud still signing in, no network yet) used to leave sync off until the next launch (S189 audit #6).
+    func resume() async {
+        if cloudSyncEngine == nil { await enable() } else { await syncNow() }
     }
 
     /// Stops the sync engine. Local data is untouched — disabling sync just stops pushing/pulling,
@@ -295,8 +305,33 @@ final class CloudSyncManager: NSObject {
 
     // MARK: - Bootstrap
 
-    private func bootstrapPushAllLocalData() async {
-        guard let engine = cloudSyncEngine else { return }
+    private static let novelPathResendKey = "cloudSyncNovelPathResent"
+
+    /// Once per device after S191: sends every novel chapter state again so the records already in iCloud gain the
+    /// chapter's path (#4) — until then another device can only match them by id.
+    private func resendNovelChapterStates(engine: CKSyncEngine) async {
+        let zoneID = self.zoneID
+        let keys: [String] = await Task.detached(priority: .utility) {
+            let rows = (try? appDatabase.read { db in
+                try Row.fetchAll(db, sql: """
+                    SELECT id, novelId FROM novel_chapter
+                    WHERE isRead = 1 OR readingSeconds > 0 OR lastScrollPercent > 0
+                    """)
+            }) ?? []
+            return rows.map { "\($0["novelId"] as String)|\($0["id"] as String)" }
+        }.value
+        guard !keys.isEmpty else { return }
+        await Task.detached(priority: .utility) {
+            let names = keys.map { CloudSyncManager.recordID(type: .novelChapterState, key: $0, zoneID: zoneID).recordName }
+            CloudSyncManager.rememberMappingBatch(recordNames: names, type: .novelChapterState, keys: keys)
+        }.value
+        engine.state.add(pendingRecordZoneChanges: keys.map {
+            .saveRecord(Self.recordID(type: .novelChapterState, key: $0, zoneID: zoneID))
+        })
+    }
+
+    private func bootstrapPushAllLocalData(engine: CKSyncEngine? = nil) async {
+        guard let engine = engine ?? cloudSyncEngine else { return }
         let zoneID = self.zoneID
 
         let changes: [CKSyncEngine.PendingRecordZoneChange] = await Task.detached(priority: .utility) {
@@ -439,6 +474,27 @@ final class CloudSyncManager: NSObject {
         }
     }
 
+    /// `rememberMapping` inside a caller's transaction (the batched apply, #5).
+    nonisolated static func rememberMapping(recordName: String, type: CloudRecordType, key: String, db: Database) throws {
+        try db.execute(
+            sql: "INSERT OR REPLACE INTO cloud_sync_map (recordName, recordType, key, recordData) VALUES (?, ?, ?, COALESCE((SELECT recordData FROM cloud_sync_map WHERE recordName = ?), NULL))",
+            arguments: [recordName, type.rawValue, key, recordName]
+        )
+    }
+
+    nonisolated static func mapping(for recordName: String, db: Database) throws -> (type: CloudRecordType, key: String)? {
+        guard let row = try Row.fetchOne(db, sql: "SELECT recordType, key FROM cloud_sync_map WHERE recordName = ?",
+                                         arguments: [recordName]),
+              let type = CloudRecordType(rawValue: row["recordType"] as String) else { return nil }
+        return (type, row["key"] as String)
+    }
+
+    nonisolated static func cacheRecord(_ record: CKRecord, db: Database) throws {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) else { return }
+        try db.execute(sql: "UPDATE cloud_sync_map SET recordData = ? WHERE recordName = ?",
+                       arguments: [data, record.recordID.recordName])
+    }
+
     private nonisolated static func mapping(for recordName: String) -> (type: CloudRecordType, key: String)? {
         let row: Row? = (try? appDatabase.read { db in
             try Row.fetchOne(db, sql: "SELECT recordType, key FROM cloud_sync_map WHERE recordName = ?", arguments: [recordName])
@@ -459,16 +515,6 @@ final class CloudSyncManager: NSObject {
             try db.execute(sql: "UPDATE cloud_sync_map SET recordData = NULL WHERE recordName = ?", arguments: [recordName])
         }
     }
-
-    private nonisolated static func cacheRecord(_ record: CKRecord) {
-        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) else { return }
-        _ = try? appDatabase.write { db in
-            try db.execute(
-                sql: "UPDATE cloud_sync_map SET recordData = ? WHERE recordName = ?",
-                arguments: [data, record.recordID.recordName]
-            )
-        }
-    }
 }
 
 // MARK: - CKSyncEngineDelegate
@@ -483,7 +529,13 @@ extension CloudSyncManager: CKSyncEngineDelegate {
         case .accountChange(let change):
             switch change.changeType {
             case .signIn, .switchAccounts:
+                // The engine starts over for the new account, and that account may hold none of this library — send
+                // all of it again (S189 audit #6). Nothing local is deleted: the library belongs to this phone first.
+                // Cached change tags stay: back on the SAME account they keep edits made while signed out from
+                // losing to the server copy; on another account a tag that names nothing comes back `.unknownItem`,
+                // which is sent again as new (below).
                 isAccountAvailable = true
+                await bootstrapPushAllLocalData(engine: syncEngine)
             case .signOut:
                 isAccountAvailable = false
                 status = .unavailable
@@ -492,34 +544,30 @@ extension CloudSyncManager: CKSyncEngineDelegate {
             }
 
         case .fetchedRecordZoneChanges(let event):
-            for modification in event.modifications {
-                applyRemote(record: modification.record)
-            }
-            for deletion in event.deletions {
-                applyRemoteDeletion(recordID: deletion.recordID)
-            }
+            await Self.applyRemoteBatch(records: event.modifications.map(\.record),
+                                        deletions: event.deletions.map(\.recordID))
 
         case .sentRecordZoneChanges(let event):
-            for saved in event.savedRecords {
-                Self.cacheRecord(saved)
-                failedChanges[saved.recordID.recordName] = nil
-            }
+            for saved in event.savedRecords { failedChanges[saved.recordID.recordName] = nil }
+            // One write for the whole batch, off the main actor (#5).
+            let saved = UncheckedRecords(records: event.savedRecords, deletions: [])
+            await Task.detached(priority: .utility) {
+                _ = try? appDatabase.write { db in for record in saved.records { try Self.cacheRecord(record, db: db) } }
+            }.value
             for deleted in event.deletedRecordIDs {
                 failedChanges[deleted.recordName] = nil
             }
             for (recordID, error) in event.failedRecordDeletes {
                 noteFailedChange(recordID: recordID, isDelete: true, error: error)
             }
+            var serverWins: [CKRecord] = []
             for failedSave in event.failedRecordSaves {
                 let recordID = failedSave.record.recordID
                 switch failedSave.error.code {
                 case .serverRecordChanged:
                     // v1 conflict policy: last write wins, server's committed value is authoritative —
                     // no custom per-field merge. See Yomi/CLOUDKIT_SYNC_DESIGN.md's conflict-policy note.
-                    if let serverRecord = failedSave.error.serverRecord {
-                        applyRemote(record: serverRecord)
-                        Self.cacheRecord(serverRecord)
-                    }
+                    if let serverRecord = failedSave.error.serverRecord { serverWins.append(serverRecord) }
                 case .zoneNotFound:
                     syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
                     syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
@@ -531,6 +579,7 @@ extension CloudSyncManager: CKSyncEngineDelegate {
                     noteFailedChange(recordID: recordID, isDelete: false, error: failedSave.error)
                 }
             }
+            if !serverWins.isEmpty { await Self.applyRemoteBatch(records: serverWins, deletions: []) }
 
         default:
             break
@@ -603,6 +652,9 @@ private extension CloudSyncManager {
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return nil }
             guard let chapter = try? appDatabase.read({ db in try NovelChapter.fetchOne(db, key: parts[1]) }) else { return nil }
+            // A record that came from another device names a chapter by THAT device's id, which can be a different
+            // chapter here (position ids, #4) — never send this chapter's state under it.
+            if let syncedPath = base["path"] as? String, syncedPath != chapter.path { return nil }
             populate(base, novelId: parts[0], from: chapter)
         case .mangaCategoryLink:
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
@@ -683,6 +735,8 @@ private extension CloudSyncManager {
     nonisolated static func populate(_ record: CKRecord, novelId: String, from chapter: NovelChapter) {
         record["novelId"]           = novelId
         record["chapterId"]         = chapter.id
+        // What another device matches on (S191, #4): ids are list positions and differ between devices.
+        record["path"]              = chapter.path
         record["isRead"]            = chapter.isRead
         record["readAt"]            = chapter.readAt
         record["readingSeconds"]    = Int64(chapter.readingSeconds)
@@ -693,19 +747,47 @@ private extension CloudSyncManager {
 
 // MARK: - Applying remote records (CKRecord -> local, for fetches + conflict resolution)
 
-private extension CloudSyncManager {
+extension CloudSyncManager {
 
-    nonisolated func applyRemote(record: CKRecord) {
+    /// Writes a fetched batch off the main thread in ONE transaction (S189 audit #5: each record used to take ~3 write
+    /// transactions on the main actor, so a first sync of a big library froze the UI). Each record runs in its own
+    /// savepoint, so one record that fails to apply never takes the rest of the batch with it.
+    nonisolated static func applyRemoteBatch(records: [CKRecord], deletions: [CKRecord.ID]) async {
+        guard !records.isEmpty || !deletions.isEmpty else { return }
+        let box = UncheckedRecords(records: records, deletions: deletions)
+        await Task.detached(priority: .utility) {
+            _ = try? appDatabase.write { db in
+                for record in box.records {
+                    do {
+                        try db.inSavepoint { try applyRemote(record: record, db: db); return .commit }
+                    } catch {
+                        NSLog("CloudSync: could not apply %@: %@", record.recordID.recordName, "\(error)")
+                    }
+                }
+                for recordID in box.deletions {
+                    try? db.inSavepoint { try applyRemoteDeletion(recordID: recordID, db: db); return .commit }
+                }
+            }
+        }.value
+    }
+
+    /// CKRecord isn't Sendable; the batch is handed to one detached task and never touched by the caller again.
+    struct UncheckedRecords: @unchecked Sendable {
+        let records: [CKRecord]
+        let deletions: [CKRecord.ID]
+    }
+
+    nonisolated static func applyRemote(record: CKRecord, db: Database) throws {
         guard let type = CloudRecordType(ckRecordType: record.recordType) else { return }
-        Self.rememberMapping(recordName: record.recordID.recordName, type: type, key: mapKey(for: type, record: record))
+        try rememberMapping(recordName: record.recordID.recordName, type: type, key: mapKey(for: type, record: record), db: db)
         // Keep the server's change tag: a later local edit sent without it comes back as a conflict, and the
         // server copy then overwrites the edit (#205).
-        Self.cacheRecord(record)
+        try cacheRecord(record, db: db)
 
         switch type {
         case .manga:
             guard let id = record["localId"] as? String else { return }
-            var manga = (try? MangaQueries.fetchOne(id: id)) ?? Manga(
+            var manga = try Manga.fetchOne(db, key: id) ?? Manga(
                 id: id,
                 path: record["path"] as? String ?? "",
                 sourceId: record["sourceId"] as? String ?? "",
@@ -727,15 +809,13 @@ private extension CloudSyncManager {
             manga.readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             manga.readingStatus  = ReadingStatus(rawValue: record["readingStatus"] as? String ?? "none") ?? .none
             manga.notes          = record["notes"] as? String
-            let excluded = Set(record["excludedScanlators"] as? [String] ?? [])
-            _ = try? appDatabase.write { db in
-                try manga.save(db)
-                try ChapterQueries.replaceExcludedScanlators(excluded, mangaId: id, db: db)
-            }
+            try manga.save(db)
+            try ChapterQueries.replaceExcludedScanlators(Set(record["excludedScanlators"] as? [String] ?? []),
+                                                         mangaId: id, db: db)
 
         case .novel:
             guard let id = record["localId"] as? String else { return }
-            var novel = (try? NovelQueries.fetchOne(id: id)) ?? Novel(
+            var novel = try Novel.fetchOne(db, key: id) ?? Novel(
                 id: id,
                 path: record["path"] as? String ?? "",
                 sourceId: record["sourceId"] as? String ?? "",
@@ -757,18 +837,16 @@ private extension CloudSyncManager {
             novel.readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             novel.readingStatus  = ReadingStatus(rawValue: record["readingStatus"] as? String ?? "none") ?? .none
             novel.notes          = record["notes"] as? String
-            _ = try? appDatabase.write { db in try novel.save(db) }
+            try novel.save(db)
 
         case .category:
             guard let id = record["localId"] as? String,
                   let name = record["name"] as? String else { return }
             let sort = Int(record["sort"] as? Int64 ?? 0)
-            _ = try? appDatabase.write { db in
-                try db.execute(
-                    sql: "INSERT INTO category (id, name, sort) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, sort = excluded.sort",
-                    arguments: [id, name, sort]
-                )
-            }
+            try db.execute(
+                sql: "INSERT INTO category (id, name, sort) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, sort = excluded.sort",
+                arguments: [id, name, sort]
+            )
 
         case .mangaChapterState:
             guard let mangaId = record["mangaId"] as? String,
@@ -779,35 +857,33 @@ private extension CloudSyncManager {
             let readAt = record["readAt"] as? Date
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             let isBookmarked = record["isBookmarked"] as? Bool ?? false
-            _ = try? appDatabase.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?,
+                        isBookmarked = ?
+                    WHERE id = ? AND mangaId = ?
+                    """,
+                arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, chapterId, mangaId]
+            )
+            if db.changesCount == 0 {
+                // The chapter isn't locally cached yet (its detail page has never been opened on
+                // this device) — a real upsert isn't possible, the sync payload has no title/url/
+                // chapterNumber to construct a valid chapter row with. CKSyncEngine won't redeliver
+                // this change once acknowledged, so stash it and replay once the chapter row
+                // actually gets inserted (see ChapterQueries.insertAllIgnoringConflicts /
+                // insertMangaAndChapters). Fixes code-review finding #41.
                 try db.execute(
                     sql: """
-                        UPDATE chapter SET isRead = ?, progress = ?, lastPageRead = ?, readAt = ?, readingSeconds = ?,
-                            isBookmarked = ?
-                        WHERE id = ? AND mangaId = ?
+                        INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(mangaId, chapterId) DO UPDATE SET
+                            isRead = excluded.isRead, progress = excluded.progress, lastPageRead = excluded.lastPageRead,
+                            readAt = excluded.readAt, readingSeconds = excluded.readingSeconds, isBookmarked = excluded.isBookmarked
                         """,
-                    arguments: [isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked, chapterId, mangaId]
+                    arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked]
                 )
-                if db.changesCount == 0 {
-                    // The chapter isn't locally cached yet (its detail page has never been opened on
-                    // this device) — a real upsert isn't possible, the sync payload has no title/url/
-                    // chapterNumber to construct a valid chapter row with. CKSyncEngine won't redeliver
-                    // this change once acknowledged, so stash it and replay once the chapter row
-                    // actually gets inserted (see ChapterQueries.insertAllIgnoringConflicts /
-                    // insertMangaAndChapters). Fixes code-review finding #41.
-                    try db.execute(
-                        sql: """
-                            INSERT INTO pending_chapter_state (mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(mangaId, chapterId) DO UPDATE SET
-                                isRead = excluded.isRead, progress = excluded.progress, lastPageRead = excluded.lastPageRead,
-                                readAt = excluded.readAt, readingSeconds = excluded.readingSeconds, isBookmarked = excluded.isBookmarked
-                            """,
-                        arguments: [mangaId, chapterId, isRead, progress, lastPageRead, readAt, readingSeconds, isBookmarked]
-                    )
-                } else if isRead {
-                    try Self.bumpLastRead(table: "manga", id: mangaId, readAt: readAt, db: db)
-                }
+            } else if isRead {
+                try bumpLastRead(table: "manga", id: mangaId, readAt: readAt, db: db)
             }
 
         case .novelChapterState:
@@ -818,97 +894,77 @@ private extension CloudSyncManager {
             let readingSeconds = Int(record["readingSeconds"] as? Int64 ?? 0)
             let lastScrollPercent = record["lastScrollPercent"] as? Double
             let isBookmarked = record["isBookmarked"] as? Bool ?? false
-            _ = try? appDatabase.write { db in
+            // Matched by PATH when the record has one (S191, #4): the sender's id is a list position on ITS device
+            // and can name a different chapter here. Records from before S191 have no path — by id, as before.
+            let path = record["path"] as? String
+            let target = path.map { ("novelId = ? AND path = ?", StatementArguments([novelId, $0])) }
+                ?? ("novelId = ? AND id = ?", StatementArguments([novelId, chapterId]))
+            try db.execute(
+                sql: "UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ? WHERE \(target.0)",
+                arguments: [isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked] + target.1
+            )
+            if db.changesCount == 0 {
+                // Same reasoning as .mangaChapterState above — stash and replay once
+                // NovelQueries.insertAllIgnoringConflicts brings the chapter row in (by path when known).
                 try db.execute(
                     sql: """
-                        UPDATE novel_chapter SET isRead = ?, readAt = ?, readingSeconds = ?, lastScrollPercent = ?, isBookmarked = ?
-                        WHERE id = ? AND novelId = ?
+                        INSERT INTO pending_novel_chapter_state (novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(novelId, chapterId) DO UPDATE SET
+                            path = excluded.path, isRead = excluded.isRead, readAt = excluded.readAt,
+                            readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent,
+                            isBookmarked = excluded.isBookmarked
                         """,
-                    arguments: [isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked, chapterId, novelId]
+                    arguments: [novelId, chapterId, path, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked]
                 )
-                if db.changesCount == 0 {
-                    // Same reasoning as .mangaChapterState above — stash and replay once
-                    // NovelQueries.insertAllIgnoringConflicts brings the chapter row in.
-                    try db.execute(
-                        sql: """
-                            INSERT INTO pending_novel_chapter_state (novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(novelId, chapterId) DO UPDATE SET
-                                isRead = excluded.isRead, readAt = excluded.readAt,
-                                readingSeconds = excluded.readingSeconds, lastScrollPercent = excluded.lastScrollPercent,
-                                isBookmarked = excluded.isBookmarked
-                            """,
-                        arguments: [novelId, chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked]
-                    )
-                } else if isRead {
-                    try Self.bumpLastRead(table: "novel", id: novelId, readAt: readAt, db: db)
-                }
+            } else if isRead {
+                try bumpLastRead(table: "novel", id: novelId, readAt: readAt, db: db)
             }
 
         case .mangaCategoryLink:
             guard let mangaId = record["mangaId"] as? String,
                   let categoryId = record["categoryId"] as? String else { return }
-            _ = try? appDatabase.write { db in
-                try db.execute(
-                    sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
-                    arguments: [mangaId, categoryId]
-                )
-            }
+            try db.execute(sql: "INSERT OR IGNORE INTO manga_category (mangaId, categoryId) VALUES (?, ?)",
+                           arguments: [mangaId, categoryId])
 
         case .novelCategoryLink:
             guard let novelId = record["novelId"] as? String,
                   let categoryId = record["categoryId"] as? String else { return }
-            _ = try? appDatabase.write { db in
-                try db.execute(
-                    sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
-                    arguments: [novelId, categoryId]
-                )
-            }
+            try db.execute(sql: "INSERT OR IGNORE INTO novel_category (novelId, categoryId) VALUES (?, ?)",
+                           arguments: [novelId, categoryId])
         }
     }
 
-    nonisolated func applyRemoteDeletion(recordID: CKRecord.ID) {
-        guard let mapping = CloudSyncManager.mapping(for: recordID.recordName) else { return }
+    nonisolated static func applyRemoteDeletion(recordID: CKRecord.ID, db: Database) throws {
+        guard let mapping = try mapping(for: recordID.recordName, db: db) else { return }
         switch mapping.type {
         case .category:
-            _ = try? appDatabase.write { db in _ = try Category.deleteOne(db, key: mapping.key) }
+            _ = try Category.deleteOne(db, key: mapping.key)
         case .mangaCategoryLink:
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return }
-            _ = try? appDatabase.write { db in
-                try db.execute(sql: "DELETE FROM manga_category WHERE mangaId = ? AND categoryId = ?", arguments: [parts[0], parts[1]])
-            }
+            try db.execute(sql: "DELETE FROM manga_category WHERE mangaId = ? AND categoryId = ?", arguments: [parts[0], parts[1]])
         case .novelCategoryLink:
             let parts = mapping.key.split(separator: "|", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return }
-            _ = try? appDatabase.write { db in
-                try db.execute(sql: "DELETE FROM novel_category WHERE novelId = ? AND categoryId = ?", arguments: [parts[0], parts[1]])
-            }
+            try db.execute(sql: "DELETE FROM novel_category WHERE novelId = ? AND categoryId = ?", arguments: [parts[0], parts[1]])
         default:
             break
         }
     }
 
-    nonisolated func mapKey(for type: CloudRecordType, record: CKRecord) -> String {
+    nonisolated static func mapKey(for type: CloudRecordType, record: CKRecord) -> String {
         switch type {
         case .manga, .novel, .category:
             return (record["localId"] as? String) ?? record.recordID.recordName
         case .mangaChapterState:
-            let mangaId = record["mangaId"] as? String ?? ""
-            let chapterId = record["chapterId"] as? String ?? ""
-            return "\(mangaId)|\(chapterId)"
+            return "\(record["mangaId"] as? String ?? "")|\(record["chapterId"] as? String ?? "")"
         case .novelChapterState:
-            let novelId = record["novelId"] as? String ?? ""
-            let chapterId = record["chapterId"] as? String ?? ""
-            return "\(novelId)|\(chapterId)"
+            return "\(record["novelId"] as? String ?? "")|\(record["chapterId"] as? String ?? "")"
         case .mangaCategoryLink:
-            let mangaId = record["mangaId"] as? String ?? ""
-            let categoryId = record["categoryId"] as? String ?? ""
-            return "\(mangaId)|\(categoryId)"
+            return "\(record["mangaId"] as? String ?? "")|\(record["categoryId"] as? String ?? "")"
         case .novelCategoryLink:
-            let novelId = record["novelId"] as? String ?? ""
-            let categoryId = record["categoryId"] as? String ?? ""
-            return "\(novelId)|\(categoryId)"
+            return "\(record["novelId"] as? String ?? "")|\(record["categoryId"] as? String ?? "")"
         }
     }
 }
@@ -958,10 +1014,16 @@ extension CloudSyncManager {
 
     nonisolated static func applyPendingNovelChapterStates(_ chapters: [NovelChapter], db: Database) throws {
         for chapter in chapters {
+            // A stash with a path is matched by it (S191, #4) — the sender's id may be another chapter here.
             guard let row = try Row.fetchOne(
                 db,
-                sql: "SELECT isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
-                arguments: [chapter.novelId, chapter.id]
+                sql: """
+                    SELECT chapterId, isRead, readAt, readingSeconds, lastScrollPercent, isBookmarked
+                    FROM pending_novel_chapter_state
+                    WHERE novelId = ? AND (path = ? OR (path IS NULL AND chapterId = ?))
+                    ORDER BY path IS NULL LIMIT 1
+                    """,
+                arguments: [chapter.novelId, chapter.path, chapter.id]
             ) else { continue }
 
             let isRead = row["isRead"] as Bool
@@ -974,7 +1036,7 @@ extension CloudSyncManager {
             )
             try db.execute(
                 sql: "DELETE FROM pending_novel_chapter_state WHERE novelId = ? AND chapterId = ?",
-                arguments: [chapter.novelId, chapter.id]
+                arguments: [chapter.novelId, row["chapterId"] as String]
             )
             if isRead {
                 try bumpLastRead(table: "novel", id: chapter.novelId, readAt: row["readAt"] as Date?, db: db)
