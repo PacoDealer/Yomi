@@ -554,6 +554,7 @@ struct ChapterReaderView: View {
             pages = local.urls.map(\.absoluteString)
             pageSources = local.sourcePages
             isLoading = false
+            resumeSavedPage()
             return
         }
 
@@ -571,6 +572,8 @@ struct ChapterReaderView: View {
             isLoading = false
             if result.pages.isEmpty {
                 errorMessage = await Self.localArchiveError(path: path) ?? String(localized: "No pages found.")
+            } else {
+                resumeSavedPage()
             }
         }
     }
@@ -685,6 +688,9 @@ struct ChapterReaderView: View {
 
     private func loadPages() async {
         sessionStart = Date()
+        // Next/Prev/chapter list while this first load is still in flight moves to another chapter — this result
+        // must not land on it (S189 audit; navigateToChapter has had the same guard since #88).
+        let startIndex = currentChapterIndex
 
         let result: [String]
         if activeChapter.isDownloaded, let local = DownloadManager.shared.localPages(for: activeChapter) {
@@ -693,6 +699,7 @@ struct ChapterReaderView: View {
         } else {
             let path = activeChapter.path
             let loaded = await Self.readerPages(bridge: bridge, path: path)
+            guard currentChapterIndex == startIndex else { return }
             result = loaded.pages
             pageSources = nil
             if loaded.fromCache { cachedListPaths.insert(path) }
@@ -702,25 +709,31 @@ struct ChapterReaderView: View {
         if result.isEmpty {
             errorMessage = String(localized: "No pages found for this chapter.")
         } else {
-            // Restore reading progress (prefer stored page number)
-            // Downloaded chapters resume too (they always opened at page 1 before D12).
-            let chapterId = activeChapter.id
-            let pageCount = result.count
-            let sources = pageSources
-            Task.detached {
-                if let saved = try? ChapterQueries.fetchOne(id: chapterId),
-                   !saved.isRead, pageCount > 1 {
-                    let resumePage: Int
-                    if saved.lastPageRead > 0 {
-                        resumePage = min(Self.localPage(forSource: saved.lastPageRead, in: sources), pageCount - 1)
-                    } else if saved.progress > 0 {
-                        resumePage = min(Int(saved.progress * Double(pageCount - 1)), pageCount - 1)
-                    } else {
-                        resumePage = 0
-                    }
-                    if resumePage > 0 {
-                        await MainActor.run { currentPage = resumePage }
-                    }
+            resumeSavedPage()
+        }
+    }
+
+    /// Restore reading progress (prefer the stored page number) of the chapter now on screen. Downloaded chapters resume
+    /// too (D12). Called on open AND after Next/Prev/chapter-list moves — before S189 those always opened at page 1.
+    private func resumeSavedPage() {
+        let index = currentChapterIndex
+        let chapterId = activeChapter.id
+        let pageCount = pages.count
+        let sources = pageSources
+        Task.detached {
+            if let saved = try? ChapterQueries.fetchOne(id: chapterId),
+               !saved.isRead, pageCount > 1 {
+                let resumePage: Int
+                if saved.lastPageRead > 0 {
+                    resumePage = min(Self.localPage(forSource: saved.lastPageRead, in: sources), pageCount - 1)
+                } else if saved.progress > 0 {
+                    resumePage = min(Int(saved.progress * Double(pageCount - 1)), pageCount - 1)
+                } else {
+                    resumePage = 0
+                }
+                if resumePage > 0 {
+                    // Only if the reader is still on that chapter and the user hasn't moved yet.
+                    await MainActor.run { if currentChapterIndex == index, currentPage == 0 { currentPage = resumePage } }
                 }
             }
         }
