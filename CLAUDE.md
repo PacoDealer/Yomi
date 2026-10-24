@@ -30,7 +30,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
   without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device
   COMPILE only — not yet run on the phone. CloudKit (#239–#241): novel chapter state matched by PATH (record field
-  `path`, **Martin must deploy it to Production before the next TestFlight**), batched off-main apply, account
+  `path`, deployed to Production by Martin 2026-10-24), batched off-main apply, account
   sign-in/switch re-sends, foreground `resume()`. `-yomiSyncSelfTest` (sim) checks it. Open: #242 (conflict timestamps),
   JS cookie jar / time limit.
 - **S190 (ROADMAP S190, KNOWN_ISSUES #220–#237):** S189 audit list + verified leads fixed: tracker count never lowers,
@@ -64,7 +64,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   (`ccb98a0`, S190, uploaded 2026-10-24 — needs encryption answer + Friends group; 615 left unanswered on purpose, expires on its own) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
-- **Open (Martin):** deploy `NovelChapterState.path` to CloudKit Production (ROADMAP S191) before the next TestFlight, S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
+- **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
   (Paid Apps Agreement), App Store listing/screenshots (`Yomi/APP_STORE_LISTING.md`), Sponsors + Ko-fi accounts.
 - **Translate is OFF** (`NovelTranslation.isAvailable = false`, backlog ROADMAP S182).
 

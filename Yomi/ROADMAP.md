@@ -38,6 +38,7 @@ The research audit revealed that 800+ sources are already available across four 
      Record Types → `NovelChapterState` → add field **`path`**, type **String** → Save.
   2. Deploy Schema Changes → the diff must list only `NovelChapterState.path` → Deploy.
   (Refused saves are not lost: they wait in "N items could not sync" and are sent again after the deploy, #204.)
+  **DONE by Martin 2026-10-24** (field added in Development, Deploy Schema Changes run; not checked by me in the console).
 
 ### Part 1 — Keiyoushi bridge token
 
