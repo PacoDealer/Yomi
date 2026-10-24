@@ -53,7 +53,11 @@ final class JSBridge {
     // Bridges are cached per source (ExtensionManager.bridge(for:)), so several screens can share one.
     // Plugin calls pass results through JS globals (__lnr_result…) across separate evaluateScript calls,
     // so every public entry point holds this lock to keep one caller's result from leaking into another's.
-    nonisolated private let callLock = NSRecursiveLock()
+    // The gate also gives each call a time limit (S192, PluginSandbox.swift).
+    nonisolated private let callLock = PluginCallGate()
+
+    /// This plugin's own cookies (S192): its Cloudflare checks and Website logins go here, not to every plugin.
+    nonisolated let cookieJar: PluginCookieJar
 
     // Set by getChapterList() for Mangayomi plugins — detail metadata extracted
     // from the same getDetail() call so MangaDetailView can update synopsis/cover/status.
@@ -64,10 +68,11 @@ final class JSBridge {
     /// The chapter list plus, for Mangayomi plugins, the title's summary/status/cover from the same getDetail call.
     nonisolated func getChapterListWithMeta(mangaPath: String, mangaId: String)
         -> (chapters: [Chapter], meta: (summary: String?, status: String?, coverURL: URL?)?) {
-        callLock.lock(); defer { callLock.unlock() }
-        lastMangayomiMeta = nil
-        let chapters = getChapterList(mangaPath: mangaPath, mangaId: mangaId)
-        return (chapters, lastMangayomiMeta)
+        callLock.run((chapters: [], meta: nil)) {
+            lastMangayomiMeta = nil
+            let chapters = getChapterList(mangaPath: mangaPath, mangaId: mangaId)
+            return (chapters: chapters, meta: lastMangayomiMeta)
+        }
     }
 
     // MARK: - Init
@@ -79,11 +84,16 @@ final class JSBridge {
         else { return nil }
 
         context = ctx
+        // Every bridge built from `<id>.js` (the cached one, Browse search, readers) shares the plugin's jar.
+        cookieJar = PluginCookieJar.forPlugin(scriptURL.deletingPathExtension().lastPathComponent)
         context.exceptionHandler = { _, exception in
             print("❌ JSBridge exception:", exception?.toString() ?? "unknown")
         }
-        JSBridge.injectShims(into: ctx)
+        JSBridge.injectShims(into: ctx, jar: cookieJar, gate: callLock)
+        // The script's top level runs as a call too, so a plugin that fetches while loading has the same limit.
+        callLock.lock()
         ctx.evaluateScript(source)
+        callLock.unlock()
         JSBridge.injectPaperbackAdapter(into: ctx)
         JSBridge.injectLNReaderAdapter(into: ctx)
         JSBridge.injectMangayomiAdapter(into: ctx)
@@ -522,11 +532,11 @@ final class JSBridge {
 
     // MARK: - Shims
 
-    nonisolated private static func injectShims(into ctx: JSContext) {
+    nonisolated private static func injectShims(into ctx: JSContext, jar: PluginCookieJar, gate: PluginCallGate) {
         injectSyncPromise(into: ctx)   // Must be first — replaces global Promise before any plugin code runs
         injectConsole(into: ctx)
         injectStorage(into: ctx)
-        injectSourceFetch(into: ctx)
+        injectSourceFetch(into: ctx, jar: jar, gate: gate)
         injectCheerio(into: ctx)       // Bundled libs: cheerio, dayjs, htmlparser2 + URL/atob/TextEncoder/setTimeout polyfills
         injectWebAPIs(into: ctx)       // FormData (+ URL fallback if the bundle is missing)
         injectRequireShim(into: ctx)
@@ -860,13 +870,22 @@ final class JSBridge {
     nonisolated(unsafe) static var debugLogFetches = false
     #endif
 
-    nonisolated private static func injectSourceFetch(into ctx: JSContext) {
+    nonisolated private static func injectSourceFetch(into ctx: JSContext, jar: PluginCookieJar, gate: PluginCallGate) {
         let ctxID = ObjectIdentifier(ctx)
         /// One blocking request. Returns the body plus what a fetch() Response needs: status, final URL after
         /// redirects (Madara plugins compare it to the requested host to spot captcha redirects) and headers.
         func perform(_ urlString: String, _ method: String, _ body: String?, _ headersJSON: String?)
             -> (body: String, status: Int, url: String, headers: [String: String]) {
             guard let url = URL(string: urlString), PluginNetworkPolicy.allows(url) else { return ("", 0, urlString, [:]) }
+            // Over its time limit (S192): refuse, and make the plugin's fetch throw so it stops instead of looping on
+            // empty pages. The entry point then returns its empty value (PluginCallGate.run).
+            guard gate.allowsRequest() else {
+                if let current = JSContext.current() {
+                    current.exception = JSValue(newErrorFromMessage:
+                        "Yomi stopped this source: it took longer than \(Int(gate.limit)) seconds", in: current)
+                }
+                return ("", 0, urlString, [:])
+            }
             var request = URLRequest(url: url, timeoutInterval: jsBridgeRequestTimeout)
             // Default headers — prevents Cloudflare/CDN blocks
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
@@ -891,7 +910,8 @@ final class JSBridge {
             var responseHeaders: [String: String] = [:]
             var detectedCFURL: String? = nil
             let sem = DispatchSemaphore(value: 0)
-            URLSession.shared.dataTask(with: request) { data, response, error in
+            // The plugin's own session: its own cookies, and redirects checked against PluginNetworkPolicy (S192).
+            jar.session.dataTask(with: request) { data, response, error in
                 yomiLogNetwork(request, response: response, data: data, error: error)
                 if let data = data {
                     result = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
@@ -915,6 +935,7 @@ final class JSBridge {
                 sem.signal()
             }.resume()
             sem.wait()
+            jar.didFinishRequest(to: URL(string: finalURL))
             if let blocked = detectedCFURL {
                 _cfLock.lock()
                 _cfBlockedByContext[ctxID] = blocked
@@ -1328,33 +1349,35 @@ final class JSBridge {
     // MARK: - Plugin API — Manga (Format A / C / D)
 
     nonisolated func getMangaList(page: Int, sourceId: String) -> [Manga] {
-        callLock.lock(); defer { callLock.unlock() }
-        if isMangayomiPlugin {
-            return callMangayomiGetList(method: "getPopular", page: page, sourceId: sourceId)
+        callLock.run([]) {
+            if isMangayomiPlugin {
+                return callMangayomiGetList(method: "getPopular", page: page, sourceId: sourceId)
+            }
+            let result = context
+                .objectForKeyedSubscript("getMangaList")?
+                .call(withArguments: [page])
+            return JSBridge.parseMangaArray(result, sourceId: sourceId)
         }
-        let result = context
-            .objectForKeyedSubscript("getMangaList")?
-            .call(withArguments: [page])
-        return JSBridge.parseMangaArray(result, sourceId: sourceId)
     }
 
     /// Returns the latest-updated manga list. Returns [] if the plugin doesn't support it.
     nonisolated func getLatestManga(page: Int, sourceId: String) -> [Manga] {
-        callLock.lock(); defer { callLock.unlock() }
-        if isMangayomiPlugin {
-            guard let methodVal = context.objectForKeyedSubscript("__mgy_latestMethod"),
-                  !methodVal.isUndefined, !methodVal.isNull,
-                  let method = methodVal.toString(),
-                  method != "undefined", method != "null"
+        callLock.run([]) {
+            if isMangayomiPlugin {
+                guard let methodVal = context.objectForKeyedSubscript("__mgy_latestMethod"),
+                      !methodVal.isUndefined, !methodVal.isNull,
+                      let method = methodVal.toString(),
+                      method != "undefined", method != "null"
+                else { return [] }
+                return callMangayomiGetList(method: method, page: page, sourceId: sourceId)
+            }
+            guard
+                let fn = context.objectForKeyedSubscript("getLatestManga"),
+                !fn.isUndefined, !fn.isNull, fn.isObject
             else { return [] }
-            return callMangayomiGetList(method: method, page: page, sourceId: sourceId)
+            let result = fn.call(withArguments: [page])
+            return JSBridge.parseMangaArray(result, sourceId: sourceId)
         }
-        guard
-            let fn = context.objectForKeyedSubscript("getLatestManga"),
-            !fn.isUndefined, !fn.isNull, fn.isObject
-        else { return [] }
-        let result = fn.call(withArguments: [page])
-        return JSBridge.parseMangaArray(result, sourceId: sourceId)
     }
 
     /// True if this plugin supports a latest-updates feed.
@@ -1370,97 +1393,99 @@ final class JSBridge {
     }
 
     nonisolated func getChapterList(mangaPath: String, mangaId: String) -> [Chapter] {
-        callLock.lock(); defer { callLock.unlock() }
-        if isMangayomiPlugin {
-            context.setObject(mangaPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
-            // getDetail → extract chapters in JS to avoid toDictionary() type-cast failures
-            // on complex JSC objects. Normalises all known field-name variants here.
-            context.evaluateScript("""
-            __mgy_result = undefined;
-            __mgy_chapters = [];
-            (function() {
-                try {
-                    var __r = __mangayomiSource.getDetail(__mgy_url);
-                    if (__r && typeof __r.then === 'function') {
-                        __r.then(function(v) { __mgy_result = v; });
-                    } else { __mgy_result = __r; }
-                } catch(e) { console.error('Mangayomi getDetail: ' + e); }
-                if (!__mgy_result) return;
-                var raw = __mgy_result.episodes || __mgy_result.chapters ||
-                          __mgy_result.chapterList || __mgy_result.chapter_list || [];
-                if (!Array.isArray(raw)) return;
-                __mgy_chapters = raw.map(function(e, i) {
-                    var url = e.url || e.link || e.id || e.href || e.path || '';
-                    var name = e.name || e.title || ('Episode ' + (i + 1));
-                    var scanlator = e.scanlator || e.team || null;
-                    return { url: url, name: name, scanlator: scanlator };
-                }).filter(function(e) { return e.url.length > 0; });
-            })();
-            """)
-            guard let arr = context.objectForKeyedSubscript("__mgy_chapters"),
-                  !arr.isUndefined, !arr.isNull,
-                  let items = arr.toArray() as? [[String: Any]] else { return [] }
-            // Cache manga metadata from the same getDetail result (no extra network call)
-            context.evaluateScript("""
-            __mgy_meta = (function() {
-                if (!__mgy_result) return {};
-                return {
-                    summary: __mgy_result.description || __mgy_result.synopsis || __mgy_result.summary || null,
-                    status:  __mgy_result.status || null,
-                    cover:   __mgy_result.imageUrl || __mgy_result.cover || __mgy_result.thumbnail || null
-                };
-            })();
-            """)
-            if let meta = context.objectForKeyedSubscript("__mgy_meta")?.toDictionary() as? [String: Any] {
-                let coverURL = (meta["cover"] as? String).flatMap { URL(string: $0) }
-                lastMangayomiMeta = (
-                    summary: meta["summary"] as? String,
-                    status: meta["status"] as? String,
-                    coverURL: coverURL
-                )
+        callLock.run([]) {
+            if isMangayomiPlugin {
+                context.setObject(mangaPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
+                // getDetail → extract chapters in JS to avoid toDictionary() type-cast failures
+                // on complex JSC objects. Normalises all known field-name variants here.
+                context.evaluateScript("""
+                __mgy_result = undefined;
+                __mgy_chapters = [];
+                (function() {
+                    try {
+                        var __r = __mangayomiSource.getDetail(__mgy_url);
+                        if (__r && typeof __r.then === 'function') {
+                            __r.then(function(v) { __mgy_result = v; });
+                        } else { __mgy_result = __r; }
+                    } catch(e) { console.error('Mangayomi getDetail: ' + e); }
+                    if (!__mgy_result) return;
+                    var raw = __mgy_result.episodes || __mgy_result.chapters ||
+                              __mgy_result.chapterList || __mgy_result.chapter_list || [];
+                    if (!Array.isArray(raw)) return;
+                    __mgy_chapters = raw.map(function(e, i) {
+                        var url = e.url || e.link || e.id || e.href || e.path || '';
+                        var name = e.name || e.title || ('Episode ' + (i + 1));
+                        var scanlator = e.scanlator || e.team || null;
+                        return { url: url, name: name, scanlator: scanlator };
+                    }).filter(function(e) { return e.url.length > 0; });
+                })();
+                """)
+                guard let arr = context.objectForKeyedSubscript("__mgy_chapters"),
+                      !arr.isUndefined, !arr.isNull,
+                      let items = arr.toArray() as? [[String: Any]] else { return [] }
+                // Cache manga metadata from the same getDetail result (no extra network call)
+                context.evaluateScript("""
+                __mgy_meta = (function() {
+                    if (!__mgy_result) return {};
+                    return {
+                        summary: __mgy_result.description || __mgy_result.synopsis || __mgy_result.summary || null,
+                        status:  __mgy_result.status || null,
+                        cover:   __mgy_result.imageUrl || __mgy_result.cover || __mgy_result.thumbnail || null
+                    };
+                })();
+                """)
+                if let meta = context.objectForKeyedSubscript("__mgy_meta")?.toDictionary() as? [String: Any] {
+                    let coverURL = (meta["cover"] as? String).flatMap { URL(string: $0) }
+                    lastMangayomiMeta = (
+                        summary: meta["summary"] as? String,
+                        status: meta["status"] as? String,
+                        coverURL: coverURL
+                    )
+                }
+                return items.enumerated().compactMap { (index, ch) in
+                    let chURL = ch["url"] as? String ?? ""
+                    guard !chURL.isEmpty else { return nil }
+                    let name = ch["name"] as? String ?? "Episode \(index + 1)"
+                    let scanlator = ch["scanlator"] as? String
+                    return Chapter(
+                        id: chURL, mangaId: mangaId, path: chURL, name: name,
+                        chapterNumber: Double(index),
+                        isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil,
+                        progress: 0.0, readingSeconds: 0, lastPageRead: 0, scanlator: scanlator
+                    )
+                }
             }
-            return items.enumerated().compactMap { (index, ch) in
-                let chURL = ch["url"] as? String ?? ""
-                guard !chURL.isEmpty else { return nil }
-                let name = ch["name"] as? String ?? "Episode \(index + 1)"
-                let scanlator = ch["scanlator"] as? String
-                return Chapter(
-                    id: chURL, mangaId: mangaId, path: chURL, name: name,
-                    chapterNumber: Double(index),
-                    isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil,
-                    progress: 0.0, readingSeconds: 0, lastPageRead: 0, scanlator: scanlator
-                )
-            }
+            let result = context
+                .objectForKeyedSubscript("getChapterList")?
+                .call(withArguments: [mangaPath])
+            return JSBridge.parseChapterArray(result, mangaId: mangaId)
         }
-        let result = context
-            .objectForKeyedSubscript("getChapterList")?
-            .call(withArguments: [mangaPath])
-        return JSBridge.parseChapterArray(result, mangaId: mangaId)
     }
 
     nonisolated func getPageList(chapterPath: String) -> [String] {
-        callLock.lock(); defer { callLock.unlock() }
-        if isMangayomiPlugin {
-            context.setObject(chapterPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
-            context.evaluateScript("""
-            __mgy_result = undefined;
-            (function() {
-                try {
-                    var __r = __mangayomiSource.getPageList(__mgy_url);
-                    if (__r && typeof __r.then === 'function') {
-                        __r.then(function(v) { __mgy_result = v; });
-                    } else { __mgy_result = __r; }
-                } catch(e) { console.error('Mangayomi getPageList: ' + e); }
-            })();
-            """)
-            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
-                  !raw.isUndefined, !raw.isNull else { return [] }
-            return raw.toArray()?.compactMap { $0 as? String }.filter { !$0.isEmpty } ?? []
+        callLock.run([]) {
+            if isMangayomiPlugin {
+                context.setObject(chapterPath as AnyObject, forKeyedSubscript: "__mgy_url" as NSString)
+                context.evaluateScript("""
+                __mgy_result = undefined;
+                (function() {
+                    try {
+                        var __r = __mangayomiSource.getPageList(__mgy_url);
+                        if (__r && typeof __r.then === 'function') {
+                            __r.then(function(v) { __mgy_result = v; });
+                        } else { __mgy_result = __r; }
+                    } catch(e) { console.error('Mangayomi getPageList: ' + e); }
+                })();
+                """)
+                guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+                      !raw.isUndefined, !raw.isNull else { return [] }
+                return raw.toArray()?.compactMap { $0 as? String }.filter { !$0.isEmpty } ?? []
+            }
+            let result = context
+                .objectForKeyedSubscript("getPageList")?
+                .call(withArguments: [chapterPath])
+            return result?.toArray() as? [String] ?? []
         }
-        let result = context
-            .objectForKeyedSubscript("getPageList")?
-            .call(withArguments: [chapterPath])
-        return result?.toArray() as? [String] ?? []
     }
 
     // MARK: - Mangayomi (Format D) — evaluateScript callers
@@ -1512,16 +1537,17 @@ final class JSBridge {
     /// Returns the URL string for the chapter's comment/discussion page, or nil if the plugin
     /// doesn't implement `getDiscussionURL(chapterPath)`.
     nonisolated func getDiscussionURL(chapterPath: String) -> URL? {
-        callLock.lock(); defer { callLock.unlock() }
-        guard
-            let fn = context.objectForKeyedSubscript("getDiscussionURL"),
-            !fn.isUndefined, !fn.isNull, fn.isObject
-        else { return nil }
-        let result = fn.call(withArguments: [chapterPath])
-        guard let urlString = result?.toString(), !urlString.isEmpty,
-              urlString != "undefined", urlString != "null"
-        else { return nil }
-        return URL(string: urlString)
+        callLock.run(nil) {
+            guard
+                let fn = context.objectForKeyedSubscript("getDiscussionURL"),
+                !fn.isUndefined, !fn.isNull, fn.isObject
+            else { return nil }
+            let result = fn.call(withArguments: [chapterPath])
+            guard let urlString = result?.toString(), !urlString.isEmpty,
+                  urlString != "undefined", urlString != "null"
+            else { return nil }
+            return URL(string: urlString)
+        }
     }
 
     // MARK: - Source URL (best-effort, no plugin changes required)
@@ -1549,37 +1575,38 @@ final class JSBridge {
     // MARK: - Search
 
     nonisolated func searchManga(query: String, page: Int, sourceId: String) -> [Manga] {
-        callLock.lock(); defer { callLock.unlock() }
-        if isLNReaderPlugin { return [] }
-        if isMangayomiPlugin {
-            context.setObject(query as AnyObject, forKeyedSubscript: "__mgy_q" as NSString)
-            context.setObject(page as AnyObject,  forKeyedSubscript: "__mgy_p" as NSString)
-            context.evaluateScript("""
-            __mgy_result = undefined;
-            (function() {
-                try {
-                    if (typeof __mangayomiSource.search !== 'function') {
-                        __mgy_result = { list: [] }; return;
-                    }
-                    var __r = __mangayomiSource.search(__mgy_q, __mgy_p, []);
-                    if (__r && typeof __r.then === 'function') {
-                        __r.then(function(v) { __mgy_result = v; });
-                    } else { __mgy_result = __r; }
-                } catch(e) { console.error('Mangayomi search: ' + e); }
-            })();
-            """)
-            guard let raw = context.objectForKeyedSubscript("__mgy_result"),
-                  !raw.isUndefined, !raw.isNull,
-                  let dict = raw.toDictionary() as? [String: Any],
-                  let list = dict["list"] as? [[String: Any]] else { return [] }
-            return list.compactMap { JSBridge.parseMangayomiItem($0, sourceId: sourceId) }
+        callLock.run([]) {
+            if isLNReaderPlugin { return [] }
+            if isMangayomiPlugin {
+                context.setObject(query as AnyObject, forKeyedSubscript: "__mgy_q" as NSString)
+                context.setObject(page as AnyObject,  forKeyedSubscript: "__mgy_p" as NSString)
+                context.evaluateScript("""
+                __mgy_result = undefined;
+                (function() {
+                    try {
+                        if (typeof __mangayomiSource.search !== 'function') {
+                            __mgy_result = { list: [] }; return;
+                        }
+                        var __r = __mangayomiSource.search(__mgy_q, __mgy_p, []);
+                        if (__r && typeof __r.then === 'function') {
+                            __r.then(function(v) { __mgy_result = v; });
+                        } else { __mgy_result = __r; }
+                    } catch(e) { console.error('Mangayomi search: ' + e); }
+                })();
+                """)
+                guard let raw = context.objectForKeyedSubscript("__mgy_result"),
+                      !raw.isUndefined, !raw.isNull,
+                      let dict = raw.toDictionary() as? [String: Any],
+                      let list = dict["list"] as? [[String: Any]] else { return [] }
+                return list.compactMap { JSBridge.parseMangayomiItem($0, sourceId: sourceId) }
+            }
+            guard
+                let fn = context.objectForKeyedSubscript("searchManga"),
+                !fn.isUndefined, !fn.isNull
+            else { return [] }
+            let result = fn.call(withArguments: [query, page])
+            return JSBridge.parseMangaArray(result, sourceId: sourceId)
         }
-        guard
-            let fn = context.objectForKeyedSubscript("searchManga"),
-            !fn.isUndefined, !fn.isNull
-        else { return [] }
-        let result = fn.call(withArguments: [query, page])
-        return JSBridge.parseMangaArray(result, sourceId: sourceId)
     }
 
     // MARK: - Plugin API — Novel (Format B)
@@ -1656,26 +1683,27 @@ final class JSBridge {
 
     /// `filters`: values chosen in `PluginFilterSheet`; nil = the plugin's own defaults.
     nonisolated func popularNovels(page: Int, filters: [PluginFilter]? = nil) -> [NovelItem] {
-        callLock.lock(); defer { callLock.unlock() }
-        context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
-        context.setObject((filters.map(PluginFilter.valuesJSON) ?? "") as NSString, forKeyedSubscript: "__lnr_fv" as NSString)
-        // LNReader popularNovels(page, options) — pass the plugin's own filter objects (so t.filters.genres.value
-        // doesn't throw on null) with each `value` replaced by the chosen one.
-        context.evaluateScript("""
-        __lnr_opts = (function() {
-            var f = (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {};
-            var chosen = __lnr_fv ? JSON.parse(__lnr_fv) : {};
-            var out = {};
-            Object.keys(f).forEach(function(k) {
-                out[k] = Object.assign({}, f[k]);
-                if (Object.prototype.hasOwnProperty.call(chosen, k)) out[k].value = chosen[k];
-            });
-            return { filters: out, showLatestNovels: false };
-        })();
-        """)
-        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
-        let raw = context.objectForKeyedSubscript("__lnr_result")
-        return JSBridge.parseNovelItems(raw)
+        callLock.run([]) {
+            context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
+            context.setObject((filters.map(PluginFilter.valuesJSON) ?? "") as NSString, forKeyedSubscript: "__lnr_fv" as NSString)
+            // LNReader popularNovels(page, options) — pass the plugin's own filter objects (so t.filters.genres.value
+            // doesn't throw on null) with each `value` replaced by the chosen one.
+            context.evaluateScript("""
+            __lnr_opts = (function() {
+                var f = (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {};
+                var chosen = __lnr_fv ? JSON.parse(__lnr_fv) : {};
+                var out = {};
+                Object.keys(f).forEach(function(k) {
+                    out[k] = Object.assign({}, f[k]);
+                    if (Object.prototype.hasOwnProperty.call(chosen, k)) out[k].value = chosen[k];
+                });
+                return { filters: out, showLatestNovels: false };
+            })();
+            """)
+            callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
+            let raw = context.objectForKeyedSubscript("__lnr_result")
+            return JSBridge.parseNovelItems(raw)
+        }
     }
 
     /// True when the LNReader plugin supports a latest-updated feed (all LNReader plugins do).
@@ -1683,67 +1711,71 @@ final class JSBridge {
 
     /// Fetches the latest-updated novel list from an LNReader plugin.
     nonisolated func latestNovels(page: Int) -> [NovelItem] {
-        callLock.lock(); defer { callLock.unlock() }
-        context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
-        context.evaluateScript("""
-        __lnr_opts = {
-            filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
-            showLatestNovels: true
-        };
-        """)
-        callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
-        let raw = context.objectForKeyedSubscript("__lnr_result")
-        return JSBridge.parseNovelItems(raw)
+        callLock.run([]) {
+            context.setObject(page as AnyObject, forKeyedSubscript: "__lnr_p" as NSString)
+            context.evaluateScript("""
+            __lnr_opts = {
+                filters: (typeof plugin !== 'undefined' && plugin && plugin.filters) ? plugin.filters : {},
+                showLatestNovels: true
+            };
+            """)
+            callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
+            let raw = context.objectForKeyedSubscript("__lnr_result")
+            return JSBridge.parseNovelItems(raw)
+        }
     }
 
     nonisolated func searchNovels(query: String, page: Int) -> [NovelItem] {
-        callLock.lock(); defer { callLock.unlock() }
-        context.setObject(query as AnyObject, forKeyedSubscript: "__lnr_q" as NSString)
-        context.setObject(page as AnyObject,  forKeyedSubscript: "__lnr_p" as NSString)
-        callPluginMethod("searchNovels", argGlobals: ["__lnr_q", "__lnr_p"])
-        return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+        callLock.run([]) {
+            context.setObject(query as AnyObject, forKeyedSubscript: "__lnr_q" as NSString)
+            context.setObject(page as AnyObject,  forKeyedSubscript: "__lnr_p" as NSString)
+            callPluginMethod("searchNovels", argGlobals: ["__lnr_q", "__lnr_p"])
+            return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+        }
     }
 
     nonisolated func parseNovel(path: String) -> SourceNovel? {
-        callLock.lock(); defer { callLock.unlock() }
-        context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
-        callPluginMethod("parseNovel", argGlobals: ["__lnr_path"])
-        guard let dict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any] else { return nil }
-        var rawChapters = dict["chapters"] as? [[String: Any]] ?? []
-        // Paged plugins (Novel Fire, LnMTL, …) return `totalPages` and serve chapters through parsePage(path, page).
-        // LNReader loads pages as you scroll; Yomi's chapter list is one list, so fetch them all (capped).
-        if let totalPages = (dict["totalPages"] as? NSNumber)?.intValue, totalPages > 0 {
-            let novelPath = dict["path"] as? String ?? path
-            var paged: [[String: Any]] = []
-            for page in 1...min(totalPages, 150) {
-                context.setObject(novelPath as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
-                context.setObject(String(page) as AnyObject, forKeyedSubscript: "__lnr_page" as NSString)
-                callPluginMethod("parsePage", argGlobals: ["__lnr_path", "__lnr_page"])
-                let pageDict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any]
-                guard let chapters = pageDict?["chapters"] as? [[String: Any]], !chapters.isEmpty else { break }
-                paged.append(contentsOf: chapters)
+        callLock.run(nil) {
+            context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+            callPluginMethod("parseNovel", argGlobals: ["__lnr_path"])
+            guard let dict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any] else { return nil }
+            var rawChapters = dict["chapters"] as? [[String: Any]] ?? []
+            // Paged plugins (Novel Fire, LnMTL, …) return `totalPages` and serve chapters through parsePage(path, page).
+            // LNReader loads pages as you scroll; Yomi's chapter list is one list, so fetch them all (capped).
+            if let totalPages = (dict["totalPages"] as? NSNumber)?.intValue, totalPages > 0 {
+                let novelPath = dict["path"] as? String ?? path
+                var paged: [[String: Any]] = []
+                for page in 1...min(totalPages, 150) {
+                callLock.restart()   // each page gets the full time limit; a timeout still fails the whole list
+                    context.setObject(novelPath as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+                    context.setObject(String(page) as AnyObject, forKeyedSubscript: "__lnr_page" as NSString)
+                    callPluginMethod("parsePage", argGlobals: ["__lnr_path", "__lnr_page"])
+                    let pageDict = context.objectForKeyedSubscript("__lnr_result")?.toDictionary() as? [String: Any]
+                    guard let chapters = pageDict?["chapters"] as? [[String: Any]], !chapters.isEmpty else { break }
+                    paged.append(contentsOf: chapters)
+                }
+                if !paged.isEmpty { rawChapters = paged }
             }
-            if !paged.isEmpty { rawChapters = paged }
-        }
-        let chapters: [JSNovelChapter] = rawChapters.compactMap {
-            guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
-            return JSNovelChapter(
-                name:          name,
-                path:          cPath,
-                chapterNumber: $0["chapterNumber"] as? Double,
-                releaseTime:   $0["releaseTime"]   as? String
+            let chapters: [JSNovelChapter] = rawChapters.compactMap {
+                guard let name = $0["name"] as? String, let cPath = $0["path"] as? String else { return nil }
+                return JSNovelChapter(
+                    name:          name,
+                    path:          cPath,
+                    chapterNumber: $0["chapterNumber"] as? Double,
+                    releaseTime:   $0["releaseTime"]   as? String
+                )
+            }
+            return SourceNovel(
+                path:     dict["path"]    as? String ?? path,
+                name:     dict["name"]    as? String ?? "",
+                cover:    dict["cover"]   as? String,
+                author:   dict["author"]  as? String,
+                summary:  dict["summary"] as? String,
+                status:   dict["status"]  as? String,
+                genres:   JSBridge.novelGenres(dict["genres"]),
+                chapters: chapters
             )
         }
-        return SourceNovel(
-            path:     dict["path"]    as? String ?? path,
-            name:     dict["name"]    as? String ?? "",
-            cover:    dict["cover"]   as? String,
-            author:   dict["author"]  as? String,
-            summary:  dict["summary"] as? String,
-            status:   dict["status"]  as? String,
-            genres:   JSBridge.novelGenres(dict["genres"]),
-            chapters: chapters
-        )
     }
 
     /// LNReader plugins give genres as one comma-separated string; Yomi's own give an array.
@@ -1755,10 +1787,11 @@ final class JSBridge {
     }
 
     nonisolated func parseChapter(path: String) -> String {
-        callLock.lock(); defer { callLock.unlock() }
-        context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
-        callPluginMethod("parseChapter", argGlobals: ["__lnr_path"])
-        return context.objectForKeyedSubscript("__lnr_result")?.toString() ?? ""
+        callLock.run("") {
+            context.setObject(path as AnyObject, forKeyedSubscript: "__lnr_path" as NSString)
+            callPluginMethod("parseChapter", argGlobals: ["__lnr_path"])
+            return context.objectForKeyedSubscript("__lnr_result")?.toString() ?? ""
+        }
     }
 
     // MARK: - Parsers

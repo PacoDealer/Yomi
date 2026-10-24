@@ -399,7 +399,7 @@ struct MangaDetailView: View {
         .task { notesText = manga.notes ?? "" }
         .task { aniListScore = await AniListService.shared.fetchScore(title: manga.title, isManga: true) }
         .sheet(isPresented: $showCFBypass) {
-            CFBypassView(initialURL: bridge?.cfBlockedURL ?? keiyoushiCFURL ?? "https://") {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? keiyoushiCFURL ?? "https://", cookieJar: bridge?.cookieJar) {
                 bridge?.clearCFBlock()
                 keiyoushiCFURL = nil
                 Task { await loadChapters(force: true) }

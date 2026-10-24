@@ -31,6 +31,7 @@ struct ExtensionDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var website: String?
+    @State private var websitePluginId: String?
     @State private var confirmRemove = false
     @State private var showLangPicker = false
     @State private var keiyoushiInstallPick: KeiyoushiExtension?
@@ -47,8 +48,9 @@ struct ExtensionDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(item: Binding(get: { website.map(WebsiteLink.init) }, set: { website = $0?.url })) { link in
-            CFBypassView(initialURL: link.url, isWebsite: true) {}
+        .fullScreenCover(item: Binding(get: { website.map { WebsiteLink(url: $0, pluginId: websitePluginId) } },
+                                       set: { website = $0?.url })) { link in
+            CFBypassView(initialURL: link.url, isWebsite: true, cookieJar: link.pluginId.map(PluginCookieJar.forPlugin)) {}
         }
         .sheet(item: $keiyoushiInstallPick) { ext in
             KeiyoushiLanguageSheet(ext: ext, initial: KeiyoushiLanguageSheet.defaultSelection(for: ext),
@@ -112,7 +114,7 @@ struct ExtensionDetailView: View {
                 }
                 Spacer()
                 if let site = entry?.site, URL(string: site)?.scheme != nil {
-                    PillButton(title: "Website") { website = site }
+                    PillButton(title: "Website") { websitePluginId = installed?.id; website = site }
                 }
             }
         }
@@ -199,7 +201,7 @@ struct ExtensionDetailView: View {
                     Spacer()
                     // One website for the whole extension when its sources share it; else each source has its own.
                     if homes.count == 1, let site = homes.first {
-                        PillButton(title: "Website") { website = site }
+                        PillButton(title: "Website") { websitePluginId = nil; website = site }
                     }
                 }
             }
@@ -255,7 +257,7 @@ struct ExtensionDetailView: View {
             }
             Spacer()
             if showWebsite, !source.homeURL.isEmpty {
-                Button { website = source.homeURL } label: { Image(systemName: "safari") }
+                Button { websitePluginId = nil; website = source.homeURL } label: { Image(systemName: "safari") }
                     .buttonStyle(.borderless)
                     .accessibilityLabel("\(source.name) website")
             }
@@ -291,5 +293,7 @@ struct ExtensionDetailView: View {
 /// `fullScreenCover(item:)` wants an Identifiable.
 private struct WebsiteLink: Identifiable {
     let url: String
+    /// The installed JS plugin whose cookie jar gets this site's cookies (S192); nil for Keiyoushi / not added yet.
+    var pluginId: String? = nil
     var id: String { url }
 }

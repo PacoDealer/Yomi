@@ -349,7 +349,7 @@ struct NovelDetailView: View {
             }
         }
         .sheet(isPresented: $showCFBypass) {
-            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://") {
+            CFBypassView(initialURL: bridge?.cfBlockedURL ?? "https://", cookieJar: bridge?.cookieJar) {
                 bridge?.clearCFBlock()
                 Task { await loadChapters(force: true) }
             }
@@ -1007,7 +1007,7 @@ struct NovelDetailView: View {
               let url = URL(string: cfURL) else { return }
         bypassAttempted = true
         isBypassing = true
-        let success = await CFBypassManager.autoBypass(url: url)
+        let success = await CFBypassManager.autoBypass(url: url, cookieJar: bridge?.cookieJar)
         bridge?.clearCFBlock()
         isBypassing = false
         if success {

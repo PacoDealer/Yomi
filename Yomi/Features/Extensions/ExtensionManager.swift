@@ -246,6 +246,7 @@ final class ExtensionManager {
         let localURL = extensionsDirectory.appendingPathComponent("\(ext.id).js")
         try? FileManager.default.removeItem(at: localURL)
         if let previous = previousFile(for: ext.id) { try? FileManager.default.removeItem(at: previous) }
+        PluginCookieJar.remove(id: ext.id)   // its logins and Cloudflare clearances go with it (S192)
         try? ExtensionQueries.delete(id: ext.id)
         loadInstalled()
     }
