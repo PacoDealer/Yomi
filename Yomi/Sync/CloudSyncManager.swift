@@ -1,5 +1,6 @@
 import Foundation
 import CloudKit
+import Synchronization
 import CryptoKit
 import GRDB
 import Observation
@@ -70,10 +71,23 @@ nonisolated enum CloudRecordType: String, CaseIterable {
 // actual CKRecord. So the *Queries write layer can mark a row dirty synchronously, exactly like every
 // other Queries write, with zero added latency and no actor-hop bookkeeping.
 
-nonisolated(unsafe) private var cloudSyncEngine: CKSyncEngine?
-nonisolated(unsafe) private var cloudSyncZoneID = CKRecordZone.ID(
-    zoneName: "LibraryZone", ownerName: CKCurrentUserDefaultName
-)
+//
+// S193 (#236): behind a lock. A bare `nonisolated(unsafe)` var was read by background Queries writes while the main
+// actor set or cleared it (enable / disable) — a data race on a class reference, which can crash.
+private struct CloudSyncHandle: @unchecked Sendable {   // CKSyncEngine and CKRecordZone.ID are thread-safe to share
+    var engine: CKSyncEngine?
+    var zoneID = CKRecordZone.ID(zoneName: "LibraryZone", ownerName: CKCurrentUserDefaultName)
+}
+nonisolated private let cloudSyncHandle = Mutex(CloudSyncHandle())
+
+nonisolated private var cloudSyncEngine: CKSyncEngine? {
+    get { cloudSyncHandle.withLock { $0.engine } }
+    set { cloudSyncHandle.withLock { $0.engine = newValue } }
+}
+nonisolated private var cloudSyncZoneID: CKRecordZone.ID {
+    get { cloudSyncHandle.withLock { $0.zoneID } }
+    set { cloudSyncHandle.withLock { $0.zoneID = newValue } }
+}
 
 /// Marks a local row dirty for the next CloudKit sync. Safe to call from any context, including
 /// inside any `nonisolated static func` on `MangaQueries`/`ChapterQueries`/`NovelQueries`/
@@ -207,8 +221,8 @@ final class CloudSyncManager: NSObject {
             delegate: self
         )
         let engine = CKSyncEngine(configuration)
-        cloudSyncEngine = engine
-        cloudSyncZoneID = zoneID
+        let newZoneID = zoneID
+        cloudSyncHandle.withLock { $0.engine = engine; $0.zoneID = newZoneID }   // one step: no engine with an old zone
 
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
 
@@ -248,6 +262,9 @@ final class CloudSyncManager: NSObject {
     func syncNow(retryFailed: Bool = false) async {
         guard let engine = cloudSyncEngine else { return }
         status = .syncing
+        // A mark stashed by a write that saw "no engine" just before `enable` set it can land after enable's drain;
+        // it would wait until the next launch. Cheap when there are none (#236).
+        await Self.drainPendingMarks(engine: engine, zoneID: zoneID)
         if retryFailed, !failedChanges.isEmpty {
             // Failures come back through `handleEvent` and land in `failedChanges` again.
             let retries: [CKSyncEngine.PendingRecordZoneChange] = failedChanges.map { recordName, failure in
@@ -281,12 +298,7 @@ final class CloudSyncManager: NSObject {
     /// Drains `cloud_sync_map.pendingChange` rows (marks made while no engine was running) into a
     /// freshly-created engine's own persisted state. See `markCloudDirty`/`markCloudDeleted` above.
     private static func drainPendingMarks(engine: CKSyncEngine, zoneID: CKRecordZone.ID) async {
-        let rows: [(recordName: String, change: String)] = await Task.detached(priority: .utility) {
-            let fetched: [Row] = (try? appDatabase.read { db in
-                try Row.fetchAll(db, sql: "SELECT recordName, pendingChange FROM cloud_sync_map WHERE pendingChange IS NOT NULL")
-            }) ?? []
-            return fetched.map { ($0["recordName"] as String, $0["pendingChange"] as String) }
-        }.value
+        let rows = await Task.detached(priority: .utility) { pendingMarks() }.value
 
         guard !rows.isEmpty else { return }
 
@@ -296,11 +308,27 @@ final class CloudSyncManager: NSObject {
         }
         engine.state.add(pendingRecordZoneChanges: changes)
 
-        await Task.detached(priority: .utility) {
-            _ = try? appDatabase.write { db in
-                try db.execute(sql: "UPDATE cloud_sync_map SET pendingChange = NULL WHERE pendingChange IS NOT NULL")
+        // Clear only what was handed over: a mark stashed after the read above stays pending for the next drain
+        // (clearing every row lost it — #236).
+        await Task.detached(priority: .utility) { clearDrainedMarks(rows) }.value
+    }
+
+    /// Marks stashed while no engine ran (`cloud_sync_map.pendingChange`).
+    nonisolated static func pendingMarks() -> [(recordName: String, change: String)] {
+        let fetched: [Row] = (try? appDatabase.read { db in
+            try Row.fetchAll(db, sql: "SELECT recordName, pendingChange FROM cloud_sync_map WHERE pendingChange IS NOT NULL")
+        }) ?? []
+        return fetched.map { ($0["recordName"] as String, $0["pendingChange"] as String) }
+    }
+
+    /// Clears exactly these marks — a row whose mark was stashed or changed after `pendingMarks()` read it keeps it.
+    nonisolated static func clearDrainedMarks(_ rows: [(recordName: String, change: String)]) {
+        _ = try? appDatabase.write { db in
+            for row in rows {
+                try db.execute(sql: "UPDATE cloud_sync_map SET pendingChange = NULL WHERE recordName = ? AND pendingChange = ?",
+                               arguments: [row.recordName, row.change])
             }
-        }.value
+        }
     }
 
     // MARK: - Bootstrap

@@ -158,6 +158,10 @@ final class KeiyoushiBridge {
     }
     private var starting: Task<Int, Error>?
     private var everStarted = false
+    /// Bumped by `pause()`. A start that finishes after a pause must not keep its port: the server is paused right
+    /// after it (the host runs start and pause in order), so the cached port would point at nothing and
+    /// `resumeIfPaused` would think the bridge was still up (S189 audit #13, S193).
+    private var pauseCount = 0
 
     // MARK: Lock (S191)
 
@@ -206,8 +210,11 @@ final class KeiyoushiBridge {
 
     /// Back in the foreground: serve again right away if Keiyoushi was in use, so an open chapter's remaining pages
     /// load (before S144 they all failed until some other Keiyoushi call happened to restart the bridge).
+    /// A cached port is checked too: a listener that died while suspended would otherwise stay dead for page images,
+    /// which don't go through `call`'s retry. The server's `start` returns the live port at once when it is up (S193).
     func resumeIfPaused() async {
-        guard everStarted, port == nil else { return }
+        guard everStarted else { return }
+        if let cached = port, starting == nil { dropDeadPort(cached) }
         _ = try? await ensurePort()
     }
     private var handles: [String: String] = [:]   // packageName → server-issued extension handle
@@ -218,6 +225,8 @@ final class KeiyoushiBridge {
         if let port { return port }
         if let starting { return try await starting.value }
         guard KeiyoushiJVMHost.isAvailable else { throw KeiyoushiError.runtimeUnavailable }
+        everStarted = true   // so coming back from a pause during this start restarts the bridge
+        let pausesBefore = pauseCount
         let task = Task<Int, Error> {
             try await withCheckedThrowingContinuation { cont in
                 KeiyoushiJVMHost.shared.start(withToken: Self.token) { port, error in
@@ -232,8 +241,20 @@ final class KeiyoushiBridge {
         starting = task
         defer { starting = nil }
         let started = try await task.value
-        port = started
+        if pauseCount == pausesBefore { port = started }
         return started
+    }
+
+    /// The listener behind the cached port is gone (killed while suspended, or paused under us): forget the port so
+    /// the next `ensurePort` asks the server again — its `start` returns the live port, or opens a new listener.
+    private func dropDeadPort(_ dead: Int) {
+        if port == dead { port = nil }
+    }
+
+    /// Nothing listening on the port (connection refused / dropped before any reply).
+    private nonisolated static func isDeadListener(_ error: Error) -> Bool {
+        guard let code = (error as? URLError)?.code else { return false }
+        return code == .cannotConnectToHost || code == .networkConnectionLost
     }
 
     /// The port the bridge serves on now, starting it again if it was paused (page images are fetched straight
@@ -242,9 +263,10 @@ final class KeiyoushiBridge {
 
     /// App going to the background: stop serving (iOS would suspend the socket anyway) but keep extensions loaded.
     func pause() {
-        guard port != nil else { return }
+        guard port != nil || starting != nil else { return }
+        pauseCount += 1
         port = nil
-        KeiyoushiJVMHost.shared.pauseBridge()
+        KeiyoushiJVMHost.shared.pauseBridge()   // queued after any start in flight
     }
 
     /// Drops the cached handle after an install/update/uninstall, so the next call loads the new APK.
@@ -346,14 +368,17 @@ final class KeiyoushiBridge {
         guard let ext = KeiyoushiRepository.shared.installedExtension(forSourceId: sourceId) else {
             throw KeiyoushiError.bridge(String(localized: "This Keiyoushi source isn't installed."))
         }
-        let port = try await ensurePort()
+        var port = try await ensurePort()
+        var restarted = false
         let pkg = ext.id
         let homeURL = ext.info.sources.first { $0.id == sourceId }?.homeURL
         var body = params
         body["method"] = method
         body["sourceId"] = sourceId
 
-        for attempt in 0..<2 {
+        var attempt = 0
+        while attempt < 2 {
+            defer { attempt += 1 }
             if let handle = handles[pkg], attempt == 0 {
                 body["extensionId"] = handle
                 body["data"] = nil
@@ -378,7 +403,17 @@ final class KeiyoushiBridge {
             }
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let data: Data, response: URLResponse
+            do {
+                (data, response) = try await URLSession.shared.data(for: request)
+            } catch where !restarted && Self.isDeadListener(error) {
+                // Once per call: restart the listener and send the same request again (it never reached the server).
+                restarted = true
+                dropDeadPort(port)
+                port = try await ensurePort()
+                attempt -= 1
+                continue
+            }
             let http = response as? HTTPURLResponse
             if let handle = http?.value(forHTTPHeaderField: "X-Mangayomi-Extension-Id") { handles[pkg] = handle }
             switch http?.statusCode ?? 0 {
