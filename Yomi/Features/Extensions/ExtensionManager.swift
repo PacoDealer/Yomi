@@ -139,10 +139,12 @@ final class ExtensionManager {
             // Install/reinstall means "get the current plugin" — a locally cached response
             // (the CDN sends max-age=3600) would silently re-serve stale plugin code, so
             // bypass URLCache the same way PluginCatalogService's force refresh does.
+            guard PluginNetworkPolicy.isSecureDownload(ext.sourceListURL) else { throw PluginDownloadError.insecure }
             var request = URLRequest(url: ext.sourceListURL)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
             yomiLogNetwork(request, response: response, data: data)
+            guard PluginNetworkPolicy.isSecureDownload(response.url) else { throw PluginDownloadError.insecure }
             try await Task.detached { try PluginScript.validate(data, response: response, sha256: sha256) }.value
 
             // An existing install under a different id (e.g. from an old sha256-hash ID
@@ -330,5 +332,13 @@ final class ExtensionManager {
     private func sha256id(_ string: String) -> String {
         let hash = SHA256.hash(data: Data(string.utf8))
         return String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32))
+    }
+}
+
+/// A plugin download refused by `PluginNetworkPolicy.isSecureDownload` (S193).
+enum PluginDownloadError: LocalizedError {
+    case insecure
+    var errorDescription: String? {
+        String(localized: "Extensions are only downloaded over a secure (https) link.")
     }
 }

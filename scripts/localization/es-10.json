@@ -14,5 +14,8 @@
   "Show as list": "Ver como lista",
   "Show as grid": "Ver como cuadrícula",
   "Random title": "Título al azar",
-  "Sort and filter": "Ordenar y filtrar"
+  "Sort and filter": "Ordenar y filtrar",
+  "Extensions are only downloaded over a secure (https) link.": "Las extensiones solo se descargan desde un enlace seguro (https).",
+  "This extension isn't properly signed, so it wasn't installed.": "Esta extensión no está firmada correctamente, así que no se instaló.",
+  "This update is signed by a different key than the installed extension, so it wasn't installed.": "Esta actualización está firmada con una clave distinta de la extensión instalada, así que no se instaló."
 }

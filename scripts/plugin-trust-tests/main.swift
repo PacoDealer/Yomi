@@ -50,6 +50,18 @@ for bad in ["", "../evil", "../../Library/x", "a/b", ".hidden", "..", "a\\b", "c
 }
 
 func u(_ s: String) -> URL { URL(string: s)! }
+
+// S193: plugin code and repo lists only over https, to a real host.
+for ok in ["https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json",
+           "https://cdn.jsdelivr.net/gh/LNReader/lnreader-plugins@plugins/v3.0.0/.dist/plugins.min.json",
+           "https://yomi-plugins.web.app/index.json"] {
+    policy(PluginNetworkPolicy.isSecureDownload(u(ok)), "secure download \(ok)")
+}
+for bad in ["http://raw.githubusercontent.com/x/y/index.min.json", "HTTP://example.com/p.js", "ftp://example.com/p.js",
+            "file:///etc/hosts", "https://127.0.0.1/p.js", "https://localhost/p.js", "data:text/javascript,1"] {
+    policy(!PluginNetworkPolicy.isSecureDownload(URL(string: bad)), "insecure download refused \(bad)")
+}
+policy(!PluginNetworkPolicy.isSecureDownload(nil), "no final URL refused")
 policy(PluginNetworkPolicy.sameOrigin(u("https://yomi-plugins.web.app/a.js"), u("https://yomi-plugins.web.app/b/c.js")), "same host")
 policy(!PluginNetworkPolicy.sameOrigin(u("https://evil.example/a.js"), u("https://yomi-plugins.web.app/a.js")), "other host")
 policy(PluginNetworkPolicy.sameOrigin(u("https://raw.githubusercontent.com/LNReader/plugins/x.js"),

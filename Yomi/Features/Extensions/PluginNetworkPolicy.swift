@@ -16,6 +16,14 @@ nonisolated enum PluginNetworkPolicy {
         return true
     }
 
+    /// Plugin CODE and the lists that point at it (JS plugins, catalogs, Keiyoushi indexes and APKs) only over https,
+    /// to a real host. Over plain http anyone on the network (café Wi-Fi) could swap in their own code (S193). Check
+    /// the link before fetching and the response's final URL after, since a redirect can drop to http.
+    static func isSecureDownload(_ url: URL?) -> Bool {
+        guard let url, url.scheme?.lowercased() == "https" else { return false }
+        return allows(url)
+    }
+
     /// Two plugin file links come from the same publisher: same host, and on hosts many publishers share (GitHub raw,
     /// GitHub Pages, jsDelivr) the same owner too.
     static func sameOrigin(_ a: URL, _ b: URL) -> Bool {

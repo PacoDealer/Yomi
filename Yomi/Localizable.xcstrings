@@ -4048,6 +4048,16 @@
         }
       }
     },
+    "Extensions are only downloaded over a secure (https) link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las extensiones solo se descargan desde un enlace seguro (https)."
+          }
+        }
+      }
+    },
     "Extensions come from repositories. Paste a repository's link to add it, then add the extensions you want.": {
       "localizations": {
         "es": {
@@ -9729,6 +9739,16 @@
         }
       }
     },
+    "This extension isn't properly signed, so it wasn't installed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta extensión no está firmada correctamente, así que no se instaló."
+          }
+        }
+      }
+    },
     "This feed has nothing to show yet.": {
       "localizations": {
         "es": {
@@ -9845,6 +9865,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Este título está marcado para adultos."
+          }
+        }
+      }
+    },
+    "This update is signed by a different key than the installed extension, so it wasn't installed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta actualización está firmada con una clave distinta de la extensión instalada, así que no se instaló."
           }
         }
       }

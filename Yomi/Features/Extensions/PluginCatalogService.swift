@@ -192,10 +192,13 @@ private nonisolated struct Lenient<T: Decodable>: Decodable {
                     do {
                         // force means "check for updates now" — a locally cached response
                         // (the CDN sends max-age=3600) would defeat that, so bypass URLCache.
+                        // Catalogs name the plugin code to install: https only (S193).
+                        guard PluginNetworkPolicy.isSecureDownload(url) else { return (index, []) }
                         var request = URLRequest(url: url)
                         if force { request.cachePolicy = .reloadIgnoringLocalCacheData }
                         let (data, response) = try await URLSession.shared.data(for: request)
                         yomiLogNetwork(request, response: response, data: data)
+                        guard PluginNetworkPolicy.isSecureDownload(response.url) else { return (index, []) }
                         let parsed = Self.parseEntries(from: data)
                         return (index, parsed.map { entry -> PluginCatalogEntry in var e = entry; e.repoURL = repoURL; return e.withInstallIds() })
                     } catch {
