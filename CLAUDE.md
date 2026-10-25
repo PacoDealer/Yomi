@@ -18,22 +18,22 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#243), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#248), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S192 — 2026-10-24)
+## Current state (S193 — 2026-10-25)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
-- **S192 (ROADMAP S192, KNOWN_ISSUES #243):** JS plugin sandbox (`Features/Extensions/PluginSandbox.swift`): own
-  cookie jar per plugin (`PluginCookieJar`, saved in `Application Support/PluginCookies/`; bypass/Website copy only that
-  site's cookies there + shared store), `PluginCallGate` 120 s per plugin call (fetches refused after, call returns
-  empty), loopback redirects refused, Clear web cache now clears cookies. Old shared cookies NOT migrated (one more
-  Cloudflare check per source). Sim + Mac tests; harness old-vs-new identical. Nothing on the phone.
-  Part 2 (#242, #244): chapter-state conflicts by time — v32 `stateChangedAt` + triggers, newer change wins, kept local
-  state re-sent. `stateChangedAt` (Date/Time) on MangaChapterState + NovelChapterState DEPLOYED to Production by
-  Martin 2026-10-24. Sim self-test 22/22; no real CloudKit round trip.
+- **S193 (ROADMAP S193 parts 1–3, KNOWN_ISSUES #245–#248, #227):** Local novels open from Continue; Safe Mode in the
+  duplicate dialog; Spanish + VoiceOver leftovers. CloudKit engine handle behind a `Mutex`, drain keeps late marks
+  (#245, self-test 28/28). Keiyoushi bridge recovers a dead/raced port (#246, compile only — no JVM in the sim).
+  Plugin code/catalogs/indexes/APKs **https only** (`PluginNetworkPolicy.isSecureDownload`, #247). Keiyoushi APKs
+  **signature-checked** (`ApkSignature`, v2/v3) and pinned per extension (`signerSHA256`). Migration chain tested
+  (`DatabaseManager.makeMigrator()`, `scripts/migration-chain-tests`, #248). Nothing on the phone.
+- **S192 (ROADMAP S192, KNOWN_ISSUES #243):** JS plugin sandbox (own cookie jar per plugin, 120 s call limit, loopback
+  redirects refused); #242 chapter-state conflicts by time (`stateChangedAt` deployed to Production 2026-10-24).
 - **S191 (ROADMAP S191, KNOWN_ISSUES #238):** Keiyoushi bridge LOCKED — per-launch 256-bit token
   (`KeiyoushiBridge.token`) passed to `EmbeddedBridge.start(port, dir, token)` (server patch); every route answers 401
   without `X-Yomi-Bridge-Token`. Host fails closed on an old jar. Mac harness + Kotlin test verified; sim + device

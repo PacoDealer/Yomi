@@ -67,6 +67,22 @@ final class DatabaseManager {
     // MARK: - Migrations
 
     private func migrate(_ db: DatabaseQueue) throws {
+        var migrator = Self.makeMigrator()
+        #if DEBUG
+        if CommandLine.arguments.contains("-yomiFailMigrationOnce") && !simulatedFailureUsed {
+            simulatedFailureUsed = true
+            migrator.registerMigration("zz_debug_simulated_failure") { _ in
+                throw DatabaseError(message: "Simulated migration failure (-yomiFailMigrationOnce)")
+            }
+        }
+        #endif
+        snapshotBeforeMigrating(db, migrator)
+        try migrator.migrate(db)
+    }
+
+    /// Every schema migration, in order. Static and free of app state so `scripts/migration-chain-tests` runs the
+    /// real chain on macOS (S193, S189 audit #15).
+    nonisolated static func makeMigrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
 
         // v1 — initial tables
@@ -496,16 +512,7 @@ final class DatabaseManager {
                 """)
         }
 
-        #if DEBUG
-        if CommandLine.arguments.contains("-yomiFailMigrationOnce") && !simulatedFailureUsed {
-            simulatedFailureUsed = true
-            migrator.registerMigration("zz_debug_simulated_failure") { _ in
-                throw DatabaseError(message: "Simulated migration failure (-yomiFailMigrationOnce)")
-            }
-        }
-        #endif
-        snapshotBeforeMigrating(db, migrator)
-        try migrator.migrate(db)
+        return migrator
     }
 
     /// A failed migration keeps Yomi on `DatabaseFailureView` (S185), so before pending migrations run on an

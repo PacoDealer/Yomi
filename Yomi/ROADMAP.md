@@ -21,6 +21,24 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S193 part 3 — migration tests, https-only plugin code, APK signatures (2026-10-25, Mac + simulator + device compile)
+
+Martin: "keep going: migration-chain tests, APK signature pinning, plain-http plugin code".
+- **#248 migration chain tested:** `DatabaseManager.makeMigrator()` (static) + `scripts/migration-chain-tests` (SwiftPM
+  with the app's GRDB pin): fresh install (integrity, FKs, tables, second run no-op) and a v1-era library with data
+  upgraded step by step (v24 numbers, v25 dead imports + sync mappings, reading state kept, rows decode as the app's
+  models, v32 stamps). 32 checks; breaking v24 / the v32 same-value guard fails 3.
+- **#247 https only for plugin code:** JS plugin downloads, catalogs, Keiyoushi index + APK, Add repository, Install
+  from URL — https and a real host, final URL re-checked after redirects. Live Yomi index: all https. Suwayomi/OPDS keep
+  http (self-hosted). An http repository already saved now loads nothing (catalog) or shows the error (Keiyoushi).
+- **#227 APK signatures:** `Features/Keiyoushi/ApkSignature.swift` checks Android's v2/v3 scheme (signature with the
+  certificate's key + chunked file digest) and returns the certificate SHA-256. Install refuses unsigned/tampered
+  APKs; an update must match the pinned key (`InstalledKeiyoushiExtension.signerSHA256`, or the APK on disk for older
+  installs). `scripts/apk-signature-tests`: the 3 POC APKs = Keiyoushi's published key `9add655a…`; changed content,
+  directory, signed data, truncation all refused (real APKs are read from `Tools/`, never committed; CI skips them).
+**Verified:** test-all 13/13 suites, sim build 0 warnings, device build OK. Not run on the phone: a real Keiyoushi
+install/update through the new check (📱 add or update one extension after the next build).
+
 ## S193 part 2 — sync engine race + Keiyoushi bridge port (2026-10-25, simulator + device compile; nothing on the phone)
 
 Martin: "push it, then the sync and bridge fixes". Both confirmed in the code first.

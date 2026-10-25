@@ -898,6 +898,10 @@ struct AddRepoSheet: View {
             error = String(localized: "That doesn't look like a link.")
             return
         }
+        guard PluginNetworkPolicy.isSecureDownload(url) else {
+            error = String(localized: "Extensions are only downloaded over a secure (https) link.")
+            return
+        }
         guard !settings.pluginCatalogURLs.contains(trimmed), !settings.mihonRepoURLs.contains(trimmed) else {
             error = String(localized: "This repository is already added.")
             return
@@ -995,6 +999,10 @@ private struct InstallFromURLSheet: View {
     private func installFromURL() async {
         let urlString = pluginURL.trimmingCharacters(in: .whitespaces)
         guard let url = URL(string: urlString) else { return }
+        guard PluginNetworkPolicy.isSecureDownload(url) else {
+            errorMessage = String(localized: "Extensions are only downloaded over a secure (https) link.")
+            return
+        }
 
         let hash = SHA256.hash(data: Data(urlString.utf8))
         let id = String(hash.compactMap { String(format: "%02x", $0) }.joined().prefix(32).lowercased())

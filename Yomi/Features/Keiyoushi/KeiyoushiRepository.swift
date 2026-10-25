@@ -45,6 +45,9 @@ nonisolated struct InstalledKeiyoushiExtension: Codable, Hashable, Identifiable,
     /// Languages the user chose to show for a multi-language extension (MangaFire lists ~10). `nil` = all of
     /// them, which is also what installs saved before this field existed decode to.
     var enabledLangs: [String]? = nil
+    /// SHA-256 of the certificate that signed this APK (`ApkSignature`, S193). Updates must be signed by the same key.
+    /// nil in installs saved earlier — the APK on disk is checked instead at the next update.
+    var signerSHA256: String? = nil
 
     var id: String { info.packageName }
 
@@ -58,6 +61,9 @@ nonisolated struct InstalledKeiyoushiExtension: Codable, Hashable, Identifiable,
 
 enum KeiyoushiError: LocalizedError {
     case badRepoURL
+    case insecure
+    case badSignature
+    case signerChanged
     case notAnIndex
     case download(String)
     case runtimeUnavailable
@@ -66,6 +72,10 @@ enum KeiyoushiError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badRepoURL: return String(localized: "That isn't a valid repository URL.")
+        case .insecure: return String(localized: "Extensions are only downloaded over a secure (https) link.")
+        case .badSignature: return String(localized: "This extension isn't properly signed, so it wasn't installed.")
+        case .signerChanged:
+            return String(localized: "This update is signed by a different key than the installed extension, so it wasn't installed.")
         case .notAnIndex: return String(localized: "That link isn't a Mihon extension repository (index.pb or index.min.json).")
         case .download(let why): return String(localized: "Download failed — \(why)")
         case .runtimeUnavailable:
@@ -215,6 +225,7 @@ final class KeiyoushiRepository {
         guard let url = URL(string: trimmed), url.scheme?.hasPrefix("http") == true, url.host != nil else {
             throw KeiyoushiError.badRepoURL
         }
+        guard PluginNetworkPolicy.isSecureDownload(url) else { throw KeiyoushiError.insecure }
         let candidates: [URL]
         let path = url.path.lowercased()
         if path.hasSuffix(".pb") || path.hasSuffix(".json") {
@@ -275,10 +286,12 @@ final class KeiyoushiRepository {
     private static func fetchIndex(_ urlString: String) async throws
         -> (Data, (name: String, extensions: [KeiyoushiExtension])) {
         guard let url = URL(string: urlString) else { throw KeiyoushiError.badRepoURL }
+        guard PluginNetworkPolicy.isSecureDownload(url) else { throw KeiyoushiError.insecure }
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         let (data, response) = try await URLSession.shared.data(for: request)
         yomiLogNetwork(request, response: response, data: data, error: nil)
+        guard PluginNetworkPolicy.isSecureDownload(response.url) else { throw KeiyoushiError.insecure }
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw KeiyoushiError.download("HTTP \(http.statusCode)")
         }
@@ -295,6 +308,7 @@ final class KeiyoushiRepository {
     func install(_ ext: KeiyoushiExtension, langs: [String]? = nil) async throws {
         var ext = ext
         guard let url = URL(string: ext.apkURL) else { throw KeiyoushiError.badRepoURL }
+        guard PluginNetworkPolicy.isSecureDownload(url) else { throw KeiyoushiError.insecure }
         var (data, response) = try await URLSession.shared.data(from: url)
         // 404 = the repository replaced this version since our index was fetched: refresh it and take the current one.
         if (response as? HTTPURLResponse)?.statusCode == 404 {
@@ -302,11 +316,12 @@ final class KeiyoushiRepository {
             // Same repository only (audit #9) — never swap in another repository's APK under the same name.
             let pool = ext.repoURL.flatMap { origin in repos.first { $0.url == origin }?.extensions } ?? available
             if let fresh = pool.first(where: { $0.packageName == ext.packageName }), fresh.apkURL != ext.apkURL,
-               let freshURL = URL(string: fresh.apkURL) {
+               let freshURL = URL(string: fresh.apkURL), PluginNetworkPolicy.isSecureDownload(freshURL) {
                 ext = fresh
                 (data, response) = try await URLSession.shared.data(from: freshURL)
             }
         }
+        guard PluginNetworkPolicy.isSecureDownload(response.url) else { throw KeiyoushiError.insecure }
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw KeiyoushiError.download("HTTP \(http.statusCode)")
         }
@@ -314,13 +329,27 @@ final class KeiyoushiRepository {
         guard data.count > 1024, data.prefix(2) == Data([0x50, 0x4B]) else {
             throw KeiyoushiError.download("the file isn't an Android package")
         }
+        // Android's own install rule (S193, #227): a valid v2/v3 signature, and an update signed by the key the
+        // installed version was signed with — a compromised repository can't swap in its own code.
         let fileName = "\(ext.packageName).apk"
+        let previous = installed.first { $0.id == ext.packageName }
+        let previousFile = previous.map { Self.apkDirectory.appendingPathComponent($0.apkFileName) }
+        let downloaded = data
+        let (signer, pinned) = try await Task.detached(priority: .userInitiated) {
+            () throws -> (String, String?) in
+            let signer: String
+            do { signer = try ApkSignature.verify(downloaded) } catch { throw KeiyoushiError.badSignature }
+            let pinned = previous?.signerSHA256
+                ?? previousFile.flatMap { try? Data(contentsOf: $0) }.flatMap { try? ApkSignature.verify($0) }
+            return (signer, pinned)
+        }.value
+        if let pinned, pinned != signer { throw KeiyoushiError.signerChanged }
         try data.write(to: Self.apkDirectory.appendingPathComponent(fileName), options: .atomic)
-        let previousLangs = installed.first { $0.id == ext.packageName }?.enabledLangs
+        let previousLangs = previous?.enabledLangs
         let allLangs = Set(ext.sources.map(\.lang))
         let chosen = langs.map { Set($0) == allLangs ? nil : $0.sorted() } ?? previousLangs
         let entry = InstalledKeiyoushiExtension(info: ext, apkFileName: fileName, installedAt: Date(),
-                                                enabledLangs: chosen)
+                                                enabledLangs: chosen, signerSHA256: signer)
         installed.removeAll { $0.id == ext.packageName }
         installed.append(entry)
         installed.sort { $0.info.name.localizedCaseInsensitiveCompare($1.info.name) == .orderedAscending }
