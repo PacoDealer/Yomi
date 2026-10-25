@@ -1117,6 +1117,7 @@ struct SourceBrowseView: View {
                     Button { autoBypassFailed = false } label: {
                         Image(systemName: "xmark").font(.caption).foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Dismiss")
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -1141,6 +1142,7 @@ struct SourceBrowseView: View {
                 } label: {
                     Image(systemName: "shield.slash")
                 }
+                .accessibilityLabel("Bypass Cloudflare")
                 .help("Bypass Cloudflare")
             }
         }

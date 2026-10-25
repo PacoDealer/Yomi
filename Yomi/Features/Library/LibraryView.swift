@@ -414,6 +414,7 @@ struct LibraryView: View {
                         } label: {
                             Image(systemName: settings.libraryDisplayMode == "grid" ? "list.bullet" : "square.grid.2x2")
                         }
+                        .accessibilityLabel(settings.libraryDisplayMode == "grid" ? Text("Show as list") : Text("Show as grid"))
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -424,6 +425,7 @@ struct LibraryView: View {
                         } label: {
                             Image(systemName: "shuffle")
                         }
+                        .accessibilityLabel("Random title")
                         .disabled(viewModel.displayedManga.isEmpty)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
@@ -461,6 +463,7 @@ struct LibraryView: View {
                                 || viewModel.sourceFilterActive
                             Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                         }
+                        .accessibilityLabel("Sort and filter")
                     }
                 }
             }

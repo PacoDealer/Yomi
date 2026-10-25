@@ -283,7 +283,7 @@ struct ListenPlayerView: View {
             Section("Better voices: iPhone Settings → Accessibility → Read & Speak → Voices") {}
         } label: {
             optionLabel("Voice", systemImage: "person.wave.2",
-                        value: voices.first { $0.identifier == settings.ttsVoiceId }.map(Self.voiceLabel) ?? "Automatic")
+                        value: voices.first { $0.identifier == settings.ttsVoiceId }.map(Self.voiceLabel) ?? String(localized: "Automatic"))
         }
         .buttonStyle(.plain)
     }

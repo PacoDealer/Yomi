@@ -21,6 +21,20 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S193 — visible-bug fixes from the S192 list (2026-10-25, simulator only; nothing on the phone)
+
+Martin picked "visible bugs first". Each one re-checked in the code before fixing.
+1. **Local novels from Continue/History** opened the detail page — `ResumeReading.novel` demanded a JS plugin. Now Local
+   gets a nil bridge (the detail page's rule). Sim-verified: Old Style Book in Continue → reader directly.
+2. **Duplicate-check dialog** ("Already in your library?") ignored Safe Mode — filtered in manga AND novel detail.
+3. **Spanish:** the audit's "Queued" was already fixed; five plain `String`s still bypassed the catalog: novel night
+   theme "Off", TTS voice "Automatic", Migrate "Local Files", manga Cloudflare chapter error, Keiyoushi "Not set".
+4. **VoiceOver:** 8 icon-only buttons labelled (Library grid/list, Random title, Sort and filter; Clear search ×2;
+   Cloudflare banner Dismiss ×2; Browse Bypass Cloudflare). 5 new Spanish strings in `es-10.json`, catalog 1046/1046.
+**Verified:** sim build 0 warnings, `test-all.sh` 11/11, Continue → reader on the sim. Not checked: VoiceOver/Spanish on
+screen (code + catalog only). **Still open from the list:** CloudKit engine global race + pending-mark window (#236),
+Keiyoushi bridge port cached forever, migration-chain tests, APK signature pinning (#227), plain-http plugin code.
+
 ## S192 — JS plugin sandbox: own cookies, time limit, redirect check (2026-10-24, Mac + simulator; nothing on the phone)
 
 Martin: "Don't upload yet. Work on the JS cookie jar / time limit next." No TestFlight upload. KNOWN_ISSUES #243.

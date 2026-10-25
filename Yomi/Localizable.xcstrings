@@ -3567,6 +3567,16 @@
         }
       }
     },
+    "Dismiss": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
     "Don't Check": {
       "localizations": {
         "es": {
@@ -7385,6 +7395,16 @@
         }
       }
     },
+    "Random title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título al azar"
+          }
+        }
+      }
+    },
     "Read": {
       "localizations": {
         "es": {
@@ -8597,6 +8617,26 @@
         }
       }
     },
+    "Show as grid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver como cuadrícula"
+          }
+        }
+      }
+    },
+    "Show as list": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver como lista"
+          }
+        }
+      }
+    },
     "Show menu with": {
       "localizations": {
         "es": {
@@ -8774,6 +8814,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ordenar"
+          }
+        }
+      }
+    },
+    "Sort and filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordenar y filtrar"
           }
         }
       }

@@ -9,5 +9,10 @@
   "Back": "Atrás",
   "Add to Library": "Agregar a la biblioteca",
   "Update Settings": "Ajustes de actualizaciones",
-  "This extension has an invalid id and can't be installed.": "Esta extensión tiene un identificador no válido y no se puede instalar."
+  "This extension has an invalid id and can't be installed.": "Esta extensión tiene un identificador no válido y no se puede instalar.",
+  "Dismiss": "Descartar",
+  "Show as list": "Ver como lista",
+  "Show as grid": "Ver como cuadrícula",
+  "Random title": "Título al azar",
+  "Sort and filter": "Ordenar y filtrar"
 }

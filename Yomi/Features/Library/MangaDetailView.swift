@@ -860,6 +860,7 @@ struct MangaDetailView: View {
                             Button { chapterSearchText = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                             }
+                            .accessibilityLabel("Clear search")
                             .buttonStyle(.plain)
                         }
                     }
@@ -1277,8 +1278,10 @@ struct MangaDetailView: View {
     private func heartTapped() async {
         if !manga.inLibrary {
             let snapshot = manga
+            // Safe Mode hides 18+ titles here too: the dialog would otherwise name and open them (#233).
+            let safe = SafeMode.filter
             let found = await Task.detached(priority: .userInitiated) {
-                (try? MangaQueries.possibleDuplicates(of: snapshot)) ?? []
+                ((try? MangaQueries.possibleDuplicates(of: snapshot)) ?? []).filter { safe.allows($0.manga) }
             }.value
             if !found.isEmpty {
                 duplicates = found
@@ -1633,7 +1636,7 @@ struct MangaDetailView: View {
             let message = error.localizedDescription
             if message.hasPrefix("CLOUDFLARE:") {
                 keiyoushiCFURL = String(message.dropFirst("CLOUDFLARE:".count))
-                chapterLoadError = "Cloudflare blocked this source."
+                chapterLoadError = String(localized: "Cloudflare blocked this source.")
             } else {
                 chapterLoadError = message
             }

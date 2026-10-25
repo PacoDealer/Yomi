@@ -82,7 +82,7 @@ struct KeiyoushiSourceSettingsView: View {
                 editing = preference
             } label: {
                 LabeledContent {
-                    Text(text.isEmpty ? "Not set" : text).lineLimit(1)
+                    Text(text.isEmpty ? String(localized: "Not set") : text).lineLimit(1)
                 } label: {
                     label(preference)
                 }
