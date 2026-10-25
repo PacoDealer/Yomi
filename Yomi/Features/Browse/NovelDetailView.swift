@@ -333,6 +333,7 @@ struct NovelDetailView: View {
                     Button { autoBypassFailed = false } label: {
                         Image(systemName: "xmark").font(.caption).foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Dismiss")
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -711,6 +712,7 @@ struct NovelDetailView: View {
                             Button { chapterSearchText = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                             }
+                            .accessibilityLabel("Clear search")
                             .buttonStyle(.plain)
                         }
                     }
@@ -849,8 +851,10 @@ struct NovelDetailView: View {
     private func heartTapped() async {
         if !isInLibrary {
             let snapshot = novel
+            // Safe Mode hides 18+ titles here too: the dialog would otherwise name and open them (#233).
+            let safe = SafeMode.filter
             let found = await Task.detached(priority: .userInitiated) {
-                (try? NovelQueries.possibleDuplicates(of: snapshot)) ?? []
+                ((try? NovelQueries.possibleDuplicates(of: snapshot)) ?? []).filter { safe.allows($0.novel) }
             }.value
             if !found.isEmpty {
                 duplicates = found

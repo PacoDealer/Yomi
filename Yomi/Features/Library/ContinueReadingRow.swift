@@ -101,7 +101,8 @@ struct ContinueReadingRow: View {
 /// open the detail page instead, which loads the chapters.
 enum ResumeReading {
     struct MangaTarget { let bridge: JSBridge?; let chapters: [Chapter]; let index: Int }
-    struct NovelTarget { let bridge: JSBridge; let chapters: [NovelChapter]; let index: Int }
+    /// `bridge` is nil for Local novels: they read from files, like the detail page (`LocalLibrary.isLocalSourceId`).
+    struct NovelTarget { let bridge: JSBridge?; let chapters: [NovelChapter]; let index: Int }
 
     /// The chapter Continue opens (S144), for every Continue in the app. `chapters` in reading order.
     ///
@@ -162,11 +163,14 @@ enum ResumeReading {
         let chapters = await Task.detached(priority: .userInitiated) {
             (try? NovelQueries.fetchChapters(novelId: novelId)) ?? []
         }.value
-        guard !chapters.isEmpty,
-              let ext = ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId }),
-              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return nil }
+        guard !chapters.isEmpty else { return nil }
         let resume = novelChapter(in: chapters)
         let index = resume.flatMap { r in chapters.firstIndex { $0.id == r.id } } ?? 0
+        if LocalLibrary.isLocalSourceId(novel.sourceId) {
+            return NovelTarget(bridge: nil, chapters: chapters, index: index)
+        }
+        guard let ext = ExtensionManager.shared.installed.first(where: { $0.id == novel.sourceId }),
+              let bridge = await ExtensionManager.shared.loadBridge(for: ext) else { return nil }
         return NovelTarget(bridge: bridge, chapters: chapters, index: index)
     }
 }
@@ -362,8 +366,8 @@ private struct ContinueReadingNovelCell: View {
             }
         }
         .navigationDestination(isPresented: $navigateToReader) {
-            if let bridge = readerBridge {
-                TextReaderView(novel: novel, bridge: bridge, chapters: readerChapters, startIndex: readerChapterIndex)
+            if readerBridge != nil || LocalLibrary.isLocalSourceId(novel.sourceId) {
+                TextReaderView(novel: novel, bridge: readerBridge, chapters: readerChapters, startIndex: readerChapterIndex)
             }
         }
         .navigationDestination(isPresented: $navigateToDetail) {

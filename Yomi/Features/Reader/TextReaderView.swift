@@ -1314,7 +1314,7 @@ extension TextReaderOverlayView {
     }
 
     private var nightSummary: String {
-        guard !settings.novelNightTheme.isEmpty else { return "Off" }
+        guard !settings.novelNightTheme.isEmpty else { return String(localized: "Off") }
         let name = NovelTheme.resolve(settings.novelNightTheme).name
         return settings.novelNightMode == "schedule"
             ? "\(name), \(NightTheme.timeLabel(settings.novelNightStart))–\(NightTheme.timeLabel(settings.novelNightEnd))"
