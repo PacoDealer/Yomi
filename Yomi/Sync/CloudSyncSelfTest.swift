@@ -139,6 +139,7 @@ nonisolated enum CloudSyncSelfTest {
         check("main actor not blocked (gap < 250 ms)", longestGap < 0.25, "\(Int(longestGap * 1000)) ms")
 
         await conflictChecks()
+        drainChecks()
         cleanUp()
         NSLog("SYNC-SELFTEST DONE %@", failures == 0 ? "all passed" : "\(failures) FAILED")
     }
@@ -266,6 +267,30 @@ nonisolated enum CloudSyncSelfTest {
     private static func count(_ sql: String) -> Int {
         let id = novelId
         return ((try? appDatabase.read { db in try Int.fetchOne(db, sql: sql, arguments: [id]) }) ?? nil) ?? -1
+    }
+
+    /// #236 (S193): a drain clears only the marks it handed to the engine. A mark stashed (or changed) between its
+    /// read and its clear stays pending for the next drain — the old blanket clear lost it.
+    private static func drainChecks() {
+        let keyA = "\(novelId)|drain-a", keyB = "\(novelId)|drain-b"
+        let nameA = CloudSyncManager.recordID(type: .novelChapterState, key: keyA, zoneID: zone).recordName
+        let nameB = CloudSyncManager.recordID(type: .novelChapterState, key: keyB, zoneID: zone).recordName
+        CloudSyncManager.rememberMapping(recordName: nameA, type: .novelChapterState, key: keyA)
+        CloudSyncManager.rememberMapping(recordName: nameB, type: .novelChapterState, key: keyB)
+        CloudSyncManager.markPending(recordName: nameA, change: "save")
+        let drained = CloudSyncManager.pendingMarks().filter { $0.recordName == nameA || $0.recordName == nameB }
+        check("drain reads the stashed mark", drained.count == 1 && drained.first?.recordName == nameA, "\(drained)")
+        // Between the read and the clear: a new mark for B, and A changes to a delete.
+        CloudSyncManager.markPending(recordName: nameB, change: "save")
+        CloudSyncManager.markPending(recordName: nameA, change: "delete")
+        CloudSyncManager.clearDrainedMarks(drained)
+        let after = Dictionary(uniqueKeysWithValues: CloudSyncManager.pendingMarks()
+            .filter { $0.recordName == nameA || $0.recordName == nameB }.map { ($0.recordName, $0.change) })
+        check("late mark survives the clear", after[nameB] == "save", "\(after)")
+        check("changed mark survives the clear", after[nameA] == "delete", "\(after)")
+        CloudSyncManager.clearDrainedMarks([(nameA, "delete"), (nameB, "save")])
+        let left = CloudSyncManager.pendingMarks().filter { $0.recordName == nameA || $0.recordName == nameB }
+        check("drained marks cleared", left.isEmpty, "\(left)")
     }
 
     private static func cleanUp() {

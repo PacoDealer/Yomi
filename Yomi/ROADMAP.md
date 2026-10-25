@@ -21,6 +21,20 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S193 part 2 — sync engine race + Keiyoushi bridge port (2026-10-25, simulator + device compile; nothing on the phone)
+
+Martin: "push it, then the sync and bridge fixes". Both confirmed in the code first.
+- **#245 CloudKit:** the engine handle is behind a `Mutex` (was a bare global read off the main actor while enable/
+  disable wrote it). The start-up drain cleared every pending mark, losing one stashed between its read and the clear —
+  now it clears only what it sent, and drains again at every sync. **Verified:** `-yomiSyncSelfTest` 28/28 (4 new
+  drain checks); putting the old clear back fails 2 of them.
+- **#246 Keiyoushi bridge port:** a background pause during start-up was ignored and the start cached a dead port;
+  a dead listener was never noticed. Now: a start overtaken by a pause doesn't keep its port, `call` restarts the bridge
+  and retries once on "can't connect", and coming to the foreground re-asks the server for the live port.
+  **Verified:** device + sim compile only — the simulator has no JVM. 📱 Needs a phone check: open a Keiyoushi chapter,
+  background the app, come back, pages + next call still load.
+test-all 11/11, sim build 0 warnings, device build OK.
+
 ## S193 — visible-bug fixes from the S192 list (2026-10-25, simulator only; nothing on the phone)
 
 Martin picked "visible bugs first". Each one re-checked in the code before fixing.
