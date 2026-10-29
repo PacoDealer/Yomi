@@ -27,5 +27,17 @@
   "Turn on": "Activar",
   "Turn off": "Desactivar",
   "Turned Off": "Desactivadas",
-  "Not searched and not checked for updates. Touch and hold one to turn it back on.": "No se buscan ni se revisan sus actualizaciones. Mantén presionada una para volver a activarla."
+  "Not searched and not checked for updates. Touch and hold one to turn it back on.": "No se buscan ni se revisan sus actualizaciones. Mantén presionada una para volver a activarla.",
+  "Choose a web page link (http or https).": "Elige el enlace de una página web (http o https).",
+  "Couldn't open this link": "No se pudo abrir este enlace",
+  "From this link": "Desde este enlace",
+  "Link": "Enlace",
+  "No source opens this link directly. Results for “%@”.": "Ninguna fuente abre este enlace directamente. Resultados para «%@».",
+  "None of your sources opens links from this website.": "Ninguna de tus fuentes abre enlaces de este sitio web.",
+  "Open Link": "Abrir enlace",
+  "Open Link in Yomi": "Abrir enlace en Yomi",
+  "Opening link…": "Abriendo enlace…",
+  "Opens a manga or novel from its web page, using the sources you've installed in Yomi.": "Abre un manga o una novela desde su página web, con las fuentes que instalaste en Yomi.",
+  "Results stream in from all your installed sources. Paste a link to a title to open it.": "Los resultados llegan de todas tus fuentes instaladas. Pega el enlace de un título para abrirlo.",
+  "Search titles or paste a link": "Busca títulos o pega un enlace"
 }

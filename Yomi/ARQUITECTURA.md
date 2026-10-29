@@ -782,6 +782,19 @@ keeps installed APKs + `installed.json` in Application Support/Keiyoushi. IDs: m
 sourceId `keiyoushi_<mihonId>`, chapter path `keiyoushi://<base64 json>`; routed like Suwayomi in MangaDetailView and
 ChapterReaderView. Not yet routed: Updates, Downloads, backup import.
 
+## Opening a title from a website link (S196)
+
+`Core/SharedLink.swift` (pure rules, `scripts/shared-link-tests`) + `Features/Browse/SharedLinkResolver.swift`.
+Entry points: a link typed/pasted in Browse → Search all sources (`GlobalSearchView.openLink`, 600 ms debounce),
+`yomi://link?url=…` (`ContentView.onOpenURL`), and the "Open Link in Yomi" App Intent (`OpenLinkIntent.swift`) —
+the last two go through `appRouter.openSharedLink` → Browse opens search with the link.
+Order: (1) Keiyoushi source whose `homeURL` host matches → `KeiyoushiBridge.search(query: <link>)` (Keiyoushi's
+`KeiSource.getSearchManga` turns a URL query into `getMangaByUrl`) → first result, same id as browsing;
+(2) the ONE novel plugin whose `novelSite` (`plugin.site` / `BASE_URL`) the link starts with → path = exact reverse
+of `site + path` (keeps "/" when the site has none) → Library match by `samePath`, else `parseNovel` must find it;
+(3) otherwise search all sources for the slug's words. No share extension: iOS doesn't let one open its app
+(`reports/S196-shared-links.md`).
+
 ## Known architectural issues
 
 ### @Observable computed property chain — theme/accent ✅ Fixed S23

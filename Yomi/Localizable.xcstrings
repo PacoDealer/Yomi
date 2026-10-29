@@ -2545,6 +2545,16 @@
         }
       }
     },
+    "Choose a web page link (http or https).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige el enlace de una página web (http o https)."
+          }
+        }
+      }
+    },
     "Clear": {
       "localizations": {
         "es": {
@@ -3132,6 +3142,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo cargar tu biblioteca"
+          }
+        }
+      }
+    },
+    "Couldn't open this link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir este enlace"
           }
         }
       }
@@ -4328,6 +4348,16 @@
         }
       }
     },
+    "From this link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desde este enlace"
+          }
+        }
+      }
+    },
     "General": {
       "localizations": {
         "es": {
@@ -5201,6 +5231,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Interlineado"
+          }
+        }
+      }
+    },
+    "Link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace"
           }
         }
       }
@@ -6440,6 +6480,16 @@
         }
       }
     },
+    "No source opens this link directly. Results for “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna fuente abre este enlace directamente. Resultados para «%@»."
+          }
+        }
+      }
+    },
     "No sources installed": {
       "localizations": {
         "es": {
@@ -6526,6 +6576,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ninguna de tus otras fuentes encontró \"%@\". Prueba a editar el texto de búsqueda de abajo."
+          }
+        }
+      }
+    },
+    "None of your sources opens links from this website.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguna de tus fuentes abre enlaces de este sitio web."
           }
         }
       }
@@ -6951,6 +7011,26 @@
         }
       }
     },
+    "Open Link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir enlace"
+          }
+        }
+      }
+    },
+    "Open Link in Yomi": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir enlace en Yomi"
+          }
+        }
+      }
+    },
     "Open Source Licenses": {
       "localizations": {
         "es": {
@@ -6997,6 +7077,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al abrir un título se ven sus capítulos guardados y se vuelve a consultar la fuente después de una hora. Desliza hacia abajo para actualizar cuando quieras."
+          }
+        }
+      }
+    },
+    "Opening link…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abriendo enlace…"
+          }
+        }
+      }
+    },
+    "Opens a manga or novel from its web page, using the sources you've installed in Yomi.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre un manga o una novela desde su página web, con las fuentes que instalaste en Yomi."
           }
         }
       }
@@ -8016,12 +8116,12 @@
         }
       }
     },
-    "Results stream in from all your installed sources.": {
+    "Results stream in from all your installed sources. Paste a link to a title to open it.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los resultados van llegando de todas tus fuentes instaladas."
+            "value": "Los resultados llegan de todas tus fuentes instaladas. Pega el enlace de un título para abrirlo."
           }
         }
       }
@@ -8337,12 +8437,12 @@
         }
       }
     },
-    "Search titles": {
+    "Search titles or paste a link": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscar títulos"
+            "value": "Busca títulos o pega un enlace"
           }
         }
       }

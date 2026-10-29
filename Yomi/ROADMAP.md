@@ -21,7 +21,7 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
-## S196 — competitor gaps: auto-scroll timer, custom background, turn sources off (2026-10-29, simulator only)
+## S196 — competitor gaps: auto-scroll timer, custom background, turn sources off, open from a link (2026-10-29, simulator only)
 
 Martin chose "competitor feature gaps" (reader quick wins, sources & sharing, toolbar + trackers).
 - **Auto-scroll stop timer:** `AppSettings.autoScrollStopMinutes` (0 = never; 5/10/15/30/60). Picker in Settings →
@@ -34,12 +34,21 @@ Martin chose "competitor feature gaps" (reader quick wins, sources & sharing, to
   library updates (`RefreshSettings.turnedOffSources` in `eligibleTargets`) skip it. A whole Keiyoushi extension covers
   all its languages.
 - **Toolbar:** already built in S172 (RESEARCH §28 corrected) — nothing to do.
-- **Not done, needs Martin:** open-from-shared-link (Yomi manga plugins define their own title ids, so a link can't be
-  turned into the same title reliably; and a share extension can't officially open the app) and trackers
-  (MangaUpdates logs in with a username + password — needs his account to test).
+- **Open a title from a link** (Martin: "Make some research and decide", then "Yes, build it"; research
+  `~/Desktop/Projects/Yomi/reports/S196-shared-links.md`, design ARQUITECTURA "Opening a title from a website link"):
+  paste a link in Search all sources, `yomi://link?url=`, or the "Open Link in Yomi" Shortcuts action. Keiyoushi →
+  URL search (466 extensions resolve links, incl. Asura/MangaFire); novel plugins → LNReader's rule as the reverse of
+  `site + path`; else search the slug's words. No share extension (iOS forbids opening the app from one).
+  Bug caught on screen: typing a link letter by letter resolved a half-typed link and opened a broken title → 600 ms
+  debounce + the plugin must find the novel (`parseNovel`) before it opens, else search.
+  `scripts/shared-link-tests` 29 checks, 2 mutants caught. Siri phrase is English-only (no AppShortcuts.xcstrings).
+- **Not done, needs Martin:** trackers (MangaUpdates logs in with a username + password — needs his account).
 **Verified (simulator):** build 0 warnings (app + widget), test-all all passed, ReaderUITests 13/13, Spanish 1059/1059.
 On screen: timer picker + countdown badge + stop; Custom background (dark brown behind pages in RTL); NovelFire turned
 off → Turned Off section → turned back on. Not run: the full 5-minute stop, search/update skipping with a live source.
+Links on the sim: WeTried link with a trailing slash → the Library entry itself (no duplicate); NovelFire Shadow Slave
+(not in Library, `?ref=` dropped) → 900 chapters; unknown site → search "shadow slave"; typed NovelFire link → Library
+entry; DB checked, no junk rows. **Not run: the Keiyoushi branch (no JVM in the sim) and the Shortcuts action — phone.**
 **Noticed (not fixed):** the reader's top bar title is dark text in system light mode whatever the background (it uses
 the system text colour) — check on the phone in light mode.
 
