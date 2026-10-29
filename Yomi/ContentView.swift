@@ -60,6 +60,13 @@ struct ContentView: View {
         .background(palette.bg.ignoresSafeArea())
         .onOpenURL { url in
             if url.scheme == "yomi", url.host == "open" { openTitle(from: url); return }
+            // yomi://link?url=<website link> (S196): open a title from its web page.
+            if url.scheme == "yomi", url.host == "link" {
+                let link = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first(where: { $0.name == "url" })?.value
+                if let link, SharedLink.url(in: link) != nil { appRouter.openSharedLink(link) }
+                return
+            }
             guard url.isFileURL else { TrackerManager.route(url: url); return }
             Task {
                 let report = await Task.detached(priority: .userInitiated) { () -> String in

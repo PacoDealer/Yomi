@@ -23,6 +23,8 @@ struct BrowseView: View {
     @State private var opdsLoading = false
     @State private var opdsLoadingMore = false
     @State private var showSearch = false
+    /// The link Search all sources starts with (S196); a new link makes a new search screen.
+    @State private var searchSeed = ""
     @State private var tab: BrowseTab = .sources
     @State private var catalogService = PluginCatalogService.shared
     @State private var keiyoushi = KeiyoushiRepository.shared
@@ -54,9 +56,26 @@ struct BrowseView: View {
             .background(canvas.bg.ignoresSafeArea())
             .navigationTitle("Browse")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(isPresented: $showSearch) { SearchScreen() }
+            .navigationDestination(isPresented: $showSearch) { SearchScreen(seed: searchSeed).id(searchSeed) }
         }
         .task { await catalogService.fetchCatalog() }
+        .onChange(of: appRouter.pendingSharedLink, initial: true) { _, link in
+            guard let link else { return }
+            appRouter.pendingSharedLink = nil
+            tab = .sources
+            // A search (and the title an earlier link opened) may still be on screen: close it, then open afresh.
+            if showSearch {
+                showSearch = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(450))
+                    searchSeed = link
+                    showSearch = true
+                }
+            } else {
+                searchSeed = link
+                showSearch = true
+            }
+        }
         // "Add Sources" (Library) and first run land here.
         .onChange(of: appRouter.openBrowseExtensions, initial: true) { _, open in
             if open {
@@ -359,7 +378,7 @@ struct BrowseView: View {
     // MARK: Search pill (N.06)
 
     private var searchPill: some View {
-        Button { showSearch = true } label: {
+        Button { searchSeed = ""; showSearch = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15))
@@ -791,8 +810,10 @@ enum PluginKindCache {
 // MARK: - SearchScreen
 
 private struct SearchScreen: View {
+    /// A shared link (S196) to start with; "" = an empty search.
+    var seed: String = ""
     var body: some View {
-        GlobalSearchView()
+        GlobalSearchView(initialQuery: seed)
     }
 }
 
@@ -800,8 +821,28 @@ private struct SearchScreen: View {
 
 private struct GlobalSearchView: View {
     @State private var extensionManager = ExtensionManager.shared
-    @State private var searchQuery = ""
+    @State private var searchQuery: String
     @State private var isSearchPresented = true
+    /// S196: a pasted or shared link — what it resolved to, and whether that is still being worked out.
+    @State private var linkResult: LinkResult? = nil
+    @State private var isResolvingLink = false
+    @State private var openedFromLink: LinkResult? = nil
+    /// Set when no source could open the link and the search runs on its words instead.
+    @State private var linkFallbackWords: String? = nil
+
+    init(initialQuery: String = "") {
+        _searchQuery = State(initialValue: initialQuery)
+    }
+
+    /// A title a link opened. Identity is per resolve, so opening the same link twice pushes again.
+    struct LinkResult: Identifiable, Hashable {
+        let id = UUID()
+        let manga: Manga?
+        let novel: Novel?
+        let bridge: JSBridge?
+        static func == (a: Self, b: Self) -> Bool { a.id == b.id }
+        func hash(into h: inout Hasher) { h.combine(id) }
+    }
     @State private var sections: [SearchSection] = []
     @State private var pendingCount = 0
     @State private var debounceTask: Task<Void, Never>? = nil
@@ -818,12 +859,22 @@ private struct GlobalSearchView: View {
 
     var body: some View {
         Group {
-            if extensionManager.installed.isEmpty {
+            if extensionManager.installed.isEmpty && KeiyoushiRepository.shared.installed.isEmpty {
                 YomiEmptyState(
                     systemImage: "puzzlepiece.extension",
                     title: "No sources installed",
                     message: "Add an extension from Browse → Extensions before searching."
                 )
+            } else if isResolvingLink {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Opening link…")
+                        .font(YomiTokens.Font.mono(12))
+                        .foregroundStyle(canvas.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let linkResult {
+                linkResultView(linkResult)
             } else if pendingCount > 0 && sections.isEmpty {
                 VStack(spacing: 12) {
                     ProgressView()
@@ -834,13 +885,21 @@ private struct GlobalSearchView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !sections.isEmpty {
                 resultsList
+            } else if let words = linkFallbackWords {
+                if words.isEmpty {
+                    YomiEmptyState(systemImage: "link",
+                                   title: "Couldn't open this link",
+                                   message: "None of your sources opens links from this website.")
+                } else {
+                    ContentUnavailableView.search(text: words)
+                }
             } else if searchQuery.count >= 2 {
                 ContentUnavailableView.search(text: searchQuery)
             } else if searchQuery.isEmpty {
                 YomiEmptyState(
                     systemImage: "magnifyingglass",
                     title: "Search all sources",
-                    message: "Results stream in from all your installed sources."
+                    message: "Results stream in from all your installed sources. Paste a link to a title to open it."
                 )
             } else {
                 YomiEmptyState(
@@ -851,9 +910,65 @@ private struct GlobalSearchView: View {
             }
         }
         .navigationTitle("Search")
-        .searchable(text: $searchQuery, isPresented: $isSearchPresented, prompt: "Search titles")
-        .onChange(of: searchQuery) { _, newValue in
+        .searchable(text: $searchQuery, isPresented: $isSearchPresented, prompt: "Search titles or paste a link")
+        .onChange(of: searchQuery, initial: true) { _, newValue in
             scheduleSearch(query: newValue)
+        }
+        .navigationDestination(item: $openedFromLink) { result in
+            linkDestination(result)
+        }
+    }
+
+    // MARK: Link (S196)
+
+    @ViewBuilder
+    private func linkDestination(_ result: LinkResult) -> some View {
+        if let manga = result.manga {
+            MangaDetailView(manga: manga)
+        } else if let novel = result.novel {
+            NovelDetailView(novel: novel, bridge: result.bridge)
+        }
+    }
+
+    /// The opened title stays here as one cover, so Back from it doesn't land on an empty screen.
+    private func linkResultView(_ result: LinkResult) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("From this link")
+                .font(YomiTokens.Font.grotesk(YomiTokens.TypeScale.headline, weight: .medium))
+                .foregroundStyle(canvas.textPrimary)
+            if let manga = result.manga {
+                MangaCoverCell(manga: manga).frame(width: 108)
+            } else if let novel = result.novel, let bridge = result.bridge {
+                NovelCoverCell(novel: novel, bridge: bridge).frame(width: 108)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func openLink(_ link: URL) {
+        isResolvingLink = true
+        debounceTask = Task {
+            // Typed letter by letter, a link is "complete" at every step — wait until the typing stops.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            let target = await SharedLinkResolver.resolve(link)
+            guard !Task.isCancelled else { return }
+            isResolvingLink = false
+            switch target {
+            case .manga(let manga):
+                let result = LinkResult(manga: manga, novel: nil, bridge: nil)
+                linkResult = result
+                openedFromLink = result
+            case .novel(let novel, let bridge):
+                let result = LinkResult(manga: nil, novel: novel, bridge: bridge)
+                linkResult = result
+                openedFromLink = result
+            case .search(let words):
+                linkFallbackWords = words
+                if words.count >= 2 { await runParallelSearch(query: words) }
+            }
         }
     }
 
@@ -862,6 +977,12 @@ private struct GlobalSearchView: View {
     private var resultsList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22, pinnedViews: [.sectionHeaders]) {
+                if let words = linkFallbackWords, !words.isEmpty {
+                    Text("No source opens this link directly. Results for \u{201C}\(words)\u{201D}.")
+                        .font(.footnote)
+                        .foregroundStyle(canvas.textSecondary)
+                        .padding(.horizontal, 16)
+                }
                 ForEach(sections) { section in
                     sectionView(section)
                 }
@@ -926,6 +1047,15 @@ private struct GlobalSearchView: View {
 
     private func scheduleSearch(query: String) {
         debounceTask?.cancel()
+        linkResult = nil
+        linkFallbackWords = nil
+        isResolvingLink = false
+        if let link = SharedLink.url(in: query) {
+            sections = []
+            pendingCount = 0
+            openLink(link)
+            return
+        }
         guard query.count >= 2 else {
             sections = []
             pendingCount = 0

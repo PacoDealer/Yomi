@@ -1552,6 +1552,17 @@ final class JSBridge {
 
     // MARK: - Source URL (best-effort, no plugin changes required)
 
+    /// The website a novel plugin's paths hang off (S196, opening a shared link): LNReader's `plugin.site`, else
+    /// Yomi's own plugins' `BASE_URL`/`BASE` — the same base `resolveSourceURL` joins paths to.
+    nonisolated var novelSite: String? {
+        callLock.lock(); defer { callLock.unlock() }
+        guard let result = context.evaluateScript("""
+            (typeof plugin !== 'undefined' && plugin && typeof plugin.site === 'string' && plugin.site) ? plugin.site
+            : ((typeof BASE_URL !== 'undefined') ? BASE_URL : ((typeof BASE !== 'undefined') ? BASE : ''))
+            """), let site = result.toString(), !site.isEmpty, site != "undefined" else { return nil }
+        return site
+    }
+
     /// Absolute URL of a chapter/manga's page on its origin site — backs the reader's
     /// "view source" icon. `path` is usually source-relative (each plugin strips its own
     /// `BASE_URL`/`BASE` constant before storing `path`), so this opportunistically reads that

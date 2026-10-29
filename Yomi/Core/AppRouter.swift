@@ -30,6 +30,16 @@ final class AppRouter {
     var pendingOpenMangaId: String? = nil
     var pendingOpenNovelId: String? = nil
 
+    /// A website link to open (S196): set by `yomi://link?url=…` and the "Open Link in Yomi" action; Browse opens
+    /// it in Search all sources and resets this.
+    var pendingSharedLink: String? = nil
+
+    /// Shows Browse and hands it `link`.
+    func openSharedLink(_ link: String) {
+        selectedTab = Self.tabBrowse
+        pendingSharedLink = link
+    }
+
     // MARK: - Init
 
     init() {
