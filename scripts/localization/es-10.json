@@ -17,5 +17,15 @@
   "Sort and filter": "Ordenar y filtrar",
   "Extensions are only downloaded over a secure (https) link.": "Las extensiones solo se descargan desde un enlace seguro (https).",
   "This extension isn't properly signed, so it wasn't installed.": "Esta extensión no está firmada correctamente, así que no se instaló.",
-  "This update is signed by a different key than the installed extension, so it wasn't installed.": "Esta actualización está firmada con una clave distinta de la extensión instalada, así que no se instaló."
+  "This update is signed by a different key than the installed extension, so it wasn't installed.": "Esta actualización está firmada con una clave distinta de la extensión instalada, así que no se instaló.",
+  "Stop auto-scroll after": "Detener el desplazamiento automático tras",
+  "Never": "Nunca",
+  "1 hour": "1 hora",
+  "Custom": "Personalizado",
+  "Background colour": "Color de fondo",
+  "Auto-scroll · %@": "Desplazamiento automático · %@",
+  "Turn on": "Activar",
+  "Turn off": "Desactivar",
+  "Turned Off": "Desactivadas",
+  "Not searched and not checked for updates. Touch and hold one to turn it back on.": "No se buscan ni se revisan sus actualizaciones. Mantén presionada una para volver a activarla."
 }

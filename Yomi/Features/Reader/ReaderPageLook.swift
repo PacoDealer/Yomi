@@ -105,13 +105,20 @@ enum ReaderBackdrop {
         case "white":     return .white
         case "gray":      return gray
         case "automatic": return systemIsDark ? gray : .white
+        case "custom":    return Color(hex: AppSettings.shared.readerBackgroundCustom)
         default:          return .black
         }
     }
 
     /// Whether text and spinners drawn straight on the backdrop need to be dark.
     static func isLight(_ setting: String) -> Bool {
-        setting == "white" || (setting == "automatic" && !systemIsDark)
+        switch setting {
+        case "white":     return true
+        case "automatic": return !systemIsDark
+        // Dark text wins on anything brighter than mid-grey (WCAG: the contrast with black beats the one with white).
+        case "custom":    return ThemeContrast.luminance(AppSettings.shared.readerBackgroundCustom) > 0.179
+        default:          return false
+        }
     }
 
     /// The iPhone's own light/dark. Not the view's colour scheme: the reader forces dark on itself. A screen's traits
@@ -176,6 +183,7 @@ extension CGImage {
 /// The background choices, shared by Settings and the reader's own sheet.
 struct ReaderBackgroundPicker: View {
     @Binding var selection: String
+    @State private var settings = AppSettings.shared
 
     var body: some View {
         Picker("Background", selection: $selection) {
@@ -183,6 +191,13 @@ struct ReaderBackgroundPicker: View {
             Text("Dark grey").tag("gray")
             Text("White").tag("white")
             Text("Automatic").tag("automatic")
+            Text("Custom").tag("custom")
+        }
+        if selection == "custom" {
+            ColorPicker("Background colour", selection: Binding(
+                get: { Color(hex: settings.readerBackgroundCustom) },
+                set: { settings.readerBackgroundCustom = ThemeContrast.hex($0) }
+            ), supportsOpacity: false)
         }
     }
 }

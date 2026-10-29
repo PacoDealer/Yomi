@@ -128,6 +128,7 @@ struct BrowseView: View {
                     if hasSuwayomi { suwayomiSection }
                     if hasOPDS { opdsSection }
                     localSection
+                    if !turnedOffItems.isEmpty { turnedOffSection }
                     Color.clear.frame(height: 24)
                 }
             }
@@ -153,8 +154,16 @@ struct BrowseView: View {
         items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    private var mangaItems: [BrowseSourceItem] { sorted(allItems.filter { !$0.isNovel }) }
-    private var novelItems: [BrowseSourceItem] { sorted(allItems.filter(\.isNovel)) }
+    /// Sources the user turned off (S196) sit in their own section at the bottom, out of every other list.
+    private func isTurnedOff(_ item: BrowseSourceItem) -> Bool {
+        let off = Set(settings.turnedOffSourceIds)
+        return !item.sourceIds.isEmpty && item.sourceIds.allSatisfy(off.contains)
+    }
+
+    private var activeItems: [BrowseSourceItem] { allItems.filter { !isTurnedOff($0) } }
+    private var mangaItems: [BrowseSourceItem] { sorted(activeItems.filter { !$0.isNovel }) }
+    private var novelItems: [BrowseSourceItem] { sorted(activeItems.filter(\.isNovel)) }
+    private var turnedOffItems: [BrowseSourceItem] { sorted(allItems.filter(isTurnedOff)) }
 
     /// The last 3 sources opened, most recent first, leaving out pinned ones (they're listed above). A Keiyoushi
     /// entry is one language of an extension, so it opens that language directly.
@@ -179,7 +188,38 @@ struct BrowseView: View {
             }
             return nil
         }
-        .filter { !$0.isHiddenBySafeMode }
+        .filter { !$0.isHiddenBySafeMode && !isTurnedOff($0) }
+    }
+
+    @ViewBuilder
+    private func turnOffButton(_ item: BrowseSourceItem) -> some View {
+        if isTurnedOff(item) {
+            Button { settings.setSources(item.sourceIds, turnedOff: false) } label: {
+                Label("Turn on", systemImage: "power")
+            }
+        } else {
+            Button { settings.setSources(item.sourceIds, turnedOff: true) } label: {
+                Label("Turn off", systemImage: "power")
+            }
+        }
+    }
+
+    /// Turned-off sources (S196): still installed, dimmed, and skipped by search and library updates.
+    private var turnedOffSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle("Turned Off", count: turnedOffItems.count)
+            Text("Not searched and not checked for updates. Touch and hold one to turn it back on.")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+                .padding(.horizontal, YomiTokens.Layout.screenMargin)
+            VStack(spacing: 0) {
+                ForEach(turnedOffItems) { item in
+                    sourceLink(item).opacity(0.5)
+                }
+            }
+            .padding(.horizontal, YomiTokens.Layout.screenMargin)
+        }
+        .padding(.top, 28)
     }
 
     @ViewBuilder
@@ -244,6 +284,7 @@ struct BrowseView: View {
             .buttonStyle(.plain)
             .contextMenu {
                 pinButton(BrowseSourceKey.plugin(ext.id))
+                turnOffButton(item)
                 Button(role: .destructive) {
                     extensionManager.remove(ext)
                 } label: {
@@ -269,6 +310,7 @@ struct BrowseView: View {
             .contextMenu {
                 // One language pins that language; an extension with several is pinned from its language list.
                 if sources.count == 1, let only = sources.first { pinButton(BrowseSourceKey.keiyoushi(only.id)) }
+                turnOffButton(item)
             }
         case .keiyoushiSource(let ext, let source):
             NavigationLink {
@@ -278,7 +320,10 @@ struct BrowseView: View {
                           subtitle: "\(SourceLanguage.displayName(for: source.lang)) · Manga\(origin)", isNSFW: ext.info.isNSFW, isMihonIcon: true)
             }
             .buttonStyle(.plain)
-            .contextMenu { pinButton(BrowseSourceKey.keiyoushi(source.id)) }
+            .contextMenu {
+                pinButton(BrowseSourceKey.keiyoushi(source.id))
+                turnOffButton(item)
+            }
         }
     }
 
@@ -701,6 +746,16 @@ private enum BrowseSourceItem: Identifiable {
         return false
     }
 
+    /// The Yomi source ids behind this row (what titles store in `sourceId`). A whole Keiyoushi extension is every
+    /// language it has, so turning it off also covers languages turned on later.
+    var sourceIds: [String] {
+        switch self {
+        case .plugin(let ext, _): return [ext.id]
+        case .keiyoushi(let ext): return ext.info.sources.map { KeiyoushiMapping.sourcePrefix + $0.id }
+        case .keiyoushiSource(_, let source): return [KeiyoushiMapping.sourcePrefix + source.id]
+        }
+    }
+
     /// True when Safe Mode hides this source.
     var isHiddenBySafeMode: Bool {
         switch self {
@@ -886,7 +941,8 @@ private struct GlobalSearchView: View {
 
     private func runParallelSearch(query: String) async {
         let safe = SafeMode.filter
-        let sources = extensionManager.installed.filter { !safe.hidesSource($0.id) }
+        let off = Set(AppSettings.shared.turnedOffSourceIds)
+        let sources = extensionManager.installed.filter { !safe.hidesSource($0.id) && !off.contains($0.id) }
         await MainActor.run { pendingCount = sources.count }
 
         await withTaskGroup(of: SearchSection?.self) { group in

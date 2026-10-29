@@ -24,8 +24,11 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S195 — 2026-10-29)
+## Current state (S196 — 2026-10-29)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S196 (ROADMAP S196):** competitor gaps — auto-scroll stop timer (`autoScrollStopMinutes`), custom manga reader
+  background (`readerBackground "custom"` + `readerBackgroundCustom`), turn sources off (`turnedOffSourceIds`: Browse
+  "Turned Off" section, skipped by global search + library updates). Shared-link open + trackers wait on Martin. Sim only.
 - **S195 (ROADMAP S195, KNOWN_ISSUES #249–#250, RESEARCH §27–28):** bulk Mark read honours "Delete manga after
   reading" (#249); `scripts/download-bookkeeping-tests` + `DownloadedPages.prepareResume`, `scan` groups split parts by
   count (#250). Guideline re-check vs the Oct 16 2026 text (new 2.5.19 → review-notes draft discloses extensions

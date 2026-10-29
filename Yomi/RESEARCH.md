@@ -2445,3 +2445,5 @@ Full report: `~/Desktop/Projects/Yomi/reports/S195-competitors.md`.
   2.1 new TTS, EPUB export, shared-URL open. No 2026 App Store removals/DMCA found.
 - Yomi gaps (later, stability first): customizable reader toolbar, MangaUpdates/MangaBaka/Comick trackers,
   auto-scroll timer, custom background colour, disable-broken-sources, open from shared URL, content levels.
+  **S196 correction:** the customizable reader toolbar was already built in S172 (L3c) — not a gap. S196 built the
+  auto-scroll timer, custom manga background colour and turn-off-sources (the novel reader had custom themes since S177).

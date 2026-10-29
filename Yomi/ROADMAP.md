@@ -21,6 +21,28 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S196 — competitor gaps: auto-scroll timer, custom background, turn sources off (2026-10-29, simulator only)
+
+Martin chose "competitor feature gaps" (reader quick wins, sources & sharing, toolbar + trackers).
+- **Auto-scroll stop timer:** `AppSettings.autoScrollStopMinutes` (0 = never; 5/10/15/30/60). Picker in Settings →
+  Manga & Webtoon and in the reader's own settings (Webtoon, long press = Auto-scroll). The badge counts down
+  ("Auto-scroll · 4:59"). Long strip only — the only mode with auto-scroll.
+- **Custom manga reader background:** `readerBackground = "custom"` + `readerBackgroundCustom` (#RRGGBB), colour well
+  under the Background picker. Spinner/error text pick dark or light by luminance. (Novels already had custom themes, S177.)
+- **Turn sources off** (Aidoku 0.9): `AppSettings.turnedOffSourceIds` (Yomi source ids = what titles store). Browse →
+  touch and hold a source → Turn off: it moves to a dimmed "Turned Off" section at the bottom; global search and
+  library updates (`RefreshSettings.turnedOffSources` in `eligibleTargets`) skip it. A whole Keiyoushi extension covers
+  all its languages.
+- **Toolbar:** already built in S172 (RESEARCH §28 corrected) — nothing to do.
+- **Not done, needs Martin:** open-from-shared-link (Yomi manga plugins define their own title ids, so a link can't be
+  turned into the same title reliably; and a share extension can't officially open the app) and trackers
+  (MangaUpdates logs in with a username + password — needs his account to test).
+**Verified (simulator):** build 0 warnings (app + widget), test-all all passed, ReaderUITests 13/13, Spanish 1059/1059.
+On screen: timer picker + countdown badge + stop; Custom background (dark brown behind pages in RTL); NovelFire turned
+off → Turned Off section → turned back on. Not run: the full 5-minute stop, search/update skipping with a live source.
+**Noticed (not fixed):** the reader's top bar title is dark text in system light mode whatever the background (it uses
+the system text colour) — check on the phone in light mode.
+
 ## S195 — download bookkeeping tests + a download-deleting bug (2026-10-29, Mac + simulator build; nothing on the phone)
 
 Martin has build 631 on his phone (encryption + Friends done) but can't do the phone checks yet. He chose, in order:

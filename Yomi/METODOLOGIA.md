@@ -2569,3 +2569,9 @@ previously here was removed during the 2026-08-04 doc restructure.
   the code depends on something the test can't control (order, timing).
 - Competitor research: check every "Yomi lacks X" against the code before writing it down (S195: bulk migration and
   OCR were already there; background colour turned out to be presets only).
+
+### S196 — check a competitor "gap" against our own code before listing it
+The S195 sweep listed "customizable reader toolbar" as a Yomi gap; it had shipped in S172. Before a feature goes on a
+gap list, grep Yomi for it (settings keys, view names, ROADMAP). Second lesson: a link → title feature depends on how
+each source type builds title ids (LNReader `sourceId_path`, Keiyoushi hashed url, Yomi plugins their own `id`) — read
+the id rules before promising "open from link".

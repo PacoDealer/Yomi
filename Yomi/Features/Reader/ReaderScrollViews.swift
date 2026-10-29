@@ -18,6 +18,8 @@ struct WebtoonReaderView: View {
 
     @State private var visibleId: String? = nil
     @State private var isAutoScrolling = false
+    /// When auto-scroll turns itself off (Settings → "Stop auto-scroll after"); nil = runs until stopped.
+    @State private var autoScrollEnds: Date? = nil
     @State private var settings = AppSettings.shared
     @State private var scroller = StripScroller()
     /// Last page the strip reported, from either source (`scrollPosition` or visibility) — reported once.
@@ -109,7 +111,16 @@ struct WebtoonReaderView: View {
         }
         .overlay(alignment: .bottom) {
             if isAutoScrolling {
-                Label("Auto-scroll", systemImage: "arrow.down.circle.fill")
+                Label {
+                    if let autoScrollEnds, autoScrollEnds > .now {
+                        Text("Auto-scroll · \(Text(timerInterval: Date.now...autoScrollEnds, countsDown: true))")
+                            .monospacedDigit()
+                    } else {
+                        Text("Auto-scroll")
+                    }
+                } icon: {
+                    Image(systemName: "arrow.down.circle.fill")
+                }
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundStyle(.white)
@@ -122,10 +133,16 @@ struct WebtoonReaderView: View {
         }
         .motion(.easeInOut(duration: 0.2), value: isAutoScrolling)
         .task(id: isAutoScrolling) {
-            guard isAutoScrolling else { return }
+            guard isAutoScrolling else { autoScrollEnds = nil; return }
+            let minutes = settings.autoScrollStopMinutes
+            autoScrollEnds = minutes > 0 ? Date.now.addingTimeInterval(Double(minutes) * 60) : nil
             while !Task.isCancelled && isAutoScrolling {
                 try? await Task.sleep(for: .milliseconds(Int(settings.autoScrollSpeed * 1000)))
                 guard !Task.isCancelled && isAutoScrolling else { break }
+                if let ends = autoScrollEnds, Date.now >= ends {
+                    withMotion(.easeInOut(duration: 0.2)) { isAutoScrolling = false }
+                    break
+                }
                 guard let cur = visibleId, cur.hasPrefix("cur:"), let idx = Int(cur.dropFirst(4)) else { break }
                 let nextIdx = idx + 1
                 guard nextIdx < pages.count else { isAutoScrolling = false; break }
