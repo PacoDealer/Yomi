@@ -296,6 +296,13 @@ HOW TO TEST WITH REAL CONTENT
 2. In Yomi: Browse > On This iPhone > Local Files > Import, and choose the file.
 3. Open it from Library. Reader settings are behind a tap in the middle of the screen.
 
+HOW TO TEST EXTENSIONS (public-domain books from Wikisource)
+1. Browse > Extensions > Add Repository, and paste:
+   https://raw.githubusercontent.com/PacoDealer/Yomi/main/docs/example-plugin/index.json
+   This is the example from our open-source extension guide (github.com/PacoDealer/Yomi, docs/EXTENSIONS.md). It is not suggested anywhere in the app.
+2. Tap Add next to "Wikisource (example)".
+3. Browse > Sources > Wikisource (example), open any book (for example Adam Bede), then Start.
+
 OPTIONAL FEATURES
 - OPDS: the user can enter the address of an OPDS catalog on a server they run or are allowed to use.
 - Extensions: the user can paste the link of a repository and add extensions from it (JavaScript run by JavaScriptCore, and Mihon-format extensions run interpreted, with no JIT, by an embedded OpenJDK runtime inside the app's sandbox). Extensions are downloaded over HTTPS only; Mihon-format packages must carry a valid signature, and updates must match the installed version's signing key. No repository or extension is included in the app, and the app does not link to or suggest any. Extensions do not change the purpose of the app: they are additional places the reader can list and open titles from.

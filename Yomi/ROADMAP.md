@@ -40,6 +40,11 @@ downloaded chapter read → it stays downloaded.
   age range. 4.7 still doesn't name JVM bytecode (Keiyoushi rests on DPLA §3.3.1(B), unchanged). 1.2 "via your website"
   still open. 📱/Martin: decide whether to give the reviewer a public-domain test repository; answer the new
   social-media age-rating questions.
+- **Reviewer test repository (Martin: yes):** the review-notes draft now has "HOW TO TEST EXTENSIONS". The repository is
+  the Wikisource example already in the public repo (`docs/example-plugin/index.json` on GitHub raw, nothing new to
+  host). Checksum matches live, `test.mjs` all ok. **Verified on a FRESH simulator** (new device, first launch):
+  welcome → Browse → Extensions → Add Repository → Add Wikisource → catalogue → Adam Bede (56 chapters) → Start →
+  chapter 1 text. Temporary simulator deleted. CLAUDE.md rule: never move that folder.
 - **Competitor + ecosystem sweep** (RESEARCH §28, report `~/Desktop/Projects/Yomi/reports/S195-competitors.md`): nothing
   breaks Yomi. The lib-1.6 memo API is in the shipped jar (checked), index still `index.pb`, LNReader URL live. Feature gaps
   for later: reader toolbar customization, 3 trackers, auto-scroll timer, custom background colour, disable broken

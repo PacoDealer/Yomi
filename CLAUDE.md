@@ -97,6 +97,9 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   `CalmList` + `Section(calm:)`, delete = swipe → red trash. Theme `canvas` Automatic/Ink/Midnight/Paper/Sepia.
 - **Extensions:** fresh installs have NO repositories and Yomi suggests none (5.2.2); the 18+ switch lives ONLY in
   `RepositoriesView` (off by default, `AdultExtensionsToggle` — turning it on goes through `AgeGate`). Any number of Mihon repositories (`index.pb` / `index.min.json`).
+- **Review test repository (S195):** the App Review notes point at
+  `raw.githubusercontent.com/PacoDealer/Yomi/main/docs/example-plugin/index.json` — never move/rename that folder;
+  after editing `wikisource.js` update `sha256` in its `index.json` (`node docs/example-plugin/test.mjs`).
 - **Backup screen:** ONE Import (json/.tachibk/.tmb) + ONE Export menu — never two `.fileImporter`s on a view.
 - **Licences:** `LicensesView` texts from `scripts/build-licenses.sh` (re-run after dependency changes). `PageBorders.swift`
   is MPL-2.0 — if the repo ever goes private, host it publicly first. Mihon ports are Apache-2.0 (ChapterRecognition,
