@@ -67,8 +67,8 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   GitHub Actions `Tests` workflow; issue forms; novel reader CSP (nonce — **new reader scripts need the nonce**,
   inline handlers never run); Library remove = write then reload. Firebase folder now has a LOCAL git repo (no remote).
 - **Phone:** personal Release `94cee39` (S183 cache fix); `scripts/build-personal.sh --release` with the phone unlocked
-  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 621
-  (`ccb98a0`, S190, uploaded 2026-10-24 — needs encryption answer + Friends group; 615 left unanswered on purpose, expires on its own) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
+  installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 631
+  (`36e9e88`, S190–S193, uploaded 2026-10-28 — needs encryption answer + Friends group; 621/615 superseded) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
 - **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar

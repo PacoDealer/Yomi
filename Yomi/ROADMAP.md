@@ -21,6 +21,14 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S194 — TestFlight build 631 (2026-10-28)
+
+Martin: "Yes, upload build 631". `scripts/build-testflight.sh` → build **631** = `36e9e88` (S190–S193), local signatures
+verified, upload succeeded. Only warning: no dSYM for the vendored OpenJDKRuntime.framework (crash symbols for the JVM
+only; harmless). 📱 Martin: answer the encryption question + add to Friends, then the S193 phone checks (Keiyoushi
+background/foreground, extension install/update through the signature check, one Cloudflare check per source + Website
+logins redone, two-device sync).
+
 ## S193 part 3 — migration tests, https-only plugin code, APK signatures (2026-10-25, Mac + simulator + device compile)
 
 Martin: "keep going: migration-chain tests, APK signature pinning, plain-http plugin code".
