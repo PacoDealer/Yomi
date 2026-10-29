@@ -24,8 +24,12 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S193 — 2026-10-25)
+## Current state (S195 — 2026-10-29)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S195 (ROADMAP S195, KNOWN_ISSUES #249–#250, RESEARCH §27–28):** bulk Mark read honours "Delete manga after
+  reading" (#249); `scripts/download-bookkeeping-tests` + `DownloadedPages.prepareResume`, `scan` groups split parts by
+  count (#250). Guideline re-check vs the Oct 16 2026 text (new 2.5.19 → review-notes draft discloses extensions
+  in detail). Competitor sweep: nothing breaks Yomi (lib-1.6 memo is in the shipped jar). Sim/Mac only.
 - **S193 (ROADMAP S193 parts 1–3, KNOWN_ISSUES #245–#248, #227):** Local novels open from Continue; Safe Mode in the
   duplicate dialog; Spanish + VoiceOver leftovers. CloudKit engine handle behind a `Mutex`, drain keeps late marks
   (#245, self-test 28/28). Keiyoushi bridge recovers a dead/raced port (#246, compile only — no JVM in the sim).
@@ -68,7 +72,7 @@ Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this bl
   inline handlers never run); Library remove = write then reload. Firebase folder now has a LOCAL git repo (no remote).
 - **Phone:** personal Release `94cee39` (S183 cache fix); `scripts/build-personal.sh --release` with the phone unlocked
   installs the latest. Real entitlements, CloudKit **Production**; profile expires 2027-10-15. **TestFlight:** build 631
-  (`36e9e88`, S190–S193, uploaded 2026-10-28 — needs encryption answer + Friends group; 621/615 superseded) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
+  (`36e9e88`, S190–S193, uploaded 2026-10-28, encryption + Friends done, on Martin's phone; phone checks pending) is the newest uploaded — **never upload without Martin's explicit go for that build**; each upload needs
   the encryption question by hand; needs the LOCAL Apple Distribution cert (cloud signing breaks on the í in "Martín").
 - **Martin's rule (S144): no new features until everything works perfectly** (daily use: RTOC + Asura manhwa, WeTried novels).
 - **Open (Martin):** S183 phone check-list (ROADMAP S183), trackers (AniList client id), two-device sync test, tip jar
