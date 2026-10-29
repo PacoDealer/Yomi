@@ -21,6 +21,20 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S195 — download bookkeeping tests + a download-deleting bug (2026-10-29, Mac + simulator build; nothing on the phone)
+
+Martin has build 631 on his phone (encryption + Friends done) but can't do the phone checks yet. He chose, in order:
+download tests → App Store guideline re-check → competitor research.
+- **#249 bug found while reading the code:** selecting chapters → Mark as read, and Mark all as read, deleted their
+  downloads even with "Delete manga after reading" OFF. Now they honour the setting like the reader does.
+- **#250 tests:** `scripts/download-bookkeeping-tests` (41 checks): page files (`DownloadedPages.scan`, reading order,
+  split rows), resume (`DownloadedPages.prepareResume`, moved out of `DownloadManager` so it can be tested), and the DB
+  flag (`DownloadQueries`, refresh keeps it). A mutant survived at first and showed `scan` depended on folder order
+  with leftovers of two different splits — parts are now grouped by count.
+**Verified:** sim build 0 warnings, test-all 14/14, 8 mutants caught. Not run: a real download (the sim can't reach
+Keiyoushi). 📱 Add to the phone checks: download one chapter, read it offline; with the setting off, mark a
+downloaded chapter read → it stays downloaded.
+
 ## S194 — TestFlight build 631 (2026-10-28)
 
 Martin: "Yes, upload build 631". `scripts/build-testflight.sh` → build **631** = `36e9e88` (S190–S193), local signatures

@@ -1694,8 +1694,9 @@ struct MangaDetailView: View {
     private func markSelected(read: Bool) async {
         let ids = selectedChapterIds
         let mangaId = manga.id
-        // When marking as read, collect downloaded chapters so we can auto-delete
-        let downloadedIds: Set<String> = read
+        // When marking as read, collect downloaded chapters to auto-delete — only if "Delete manga after reading" is
+        // on (S195: these two bulk paths deleted downloads even with the setting off; the reader always checked it).
+        let downloadedIds: Set<String> = read && AppSettings.shared.deleteDownloadAfterReading
             ? Set(chapters.filter { ids.contains($0.id) && $0.isDownloaded }.map { $0.id })
             : []
         await Task.detached(priority: .userInitiated) {
@@ -1731,7 +1732,7 @@ struct MangaDetailView: View {
     private func markAllChapters(read: Bool) async {
         let ids = Set(chapters.map { $0.id })
         let mangaId = manga.id
-        let downloadedIds: Set<String> = read
+        let downloadedIds: Set<String> = read && AppSettings.shared.deleteDownloadAfterReading   // S195, see above
             ? Set(chapters.filter { $0.isDownloaded }.map { $0.id })
             : []
         await Task.detached(priority: .userInitiated) {

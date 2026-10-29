@@ -310,13 +310,8 @@ import SwiftUI
         //    every page is written atomically, so a file that exists is a whole page.
         let dir = downloadsDirectory(mangaId: item.manga.id, chapterId: chapterId)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        Self.removeStalePages(in: dir, keepingBelow: urls.count)
-        let onDisk = DownloadedPages.scan(dir)
-        for file in onDisk.incomplete { try? FileManager.default.removeItem(at: file) }
-
         let total = urls.count
-        var missing: [Int] = []
-        for idx in 0..<total where onDisk.pages[idx] == nil { missing.append(idx) }
+        let missing = DownloadedPages.prepareResume(dir, pageCount: total)
         var completed = total - missing.count
         var failedPages = 0
         var outOfSpace = false
@@ -375,19 +370,6 @@ import SwiftUI
         if outOfSpace { return .lowStorage }
         if failedPages > 0 { return .failed("\(failedPages) of \(total) pages failed to download") }
         return .done
-    }
-
-    /// A chapter whose page list got shorter since the last try must not keep the old extra pages — `localURLs`
-    /// would show them at the end.
-    nonisolated private static func removeStalePages(in dir: URL, keepingBelow count: Int) {
-        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        for file in files where file.pathExtension == "dat" {
-            // `<page>.dat` or a part `<page>-<part>of<count>.dat` (D12)
-            let name = file.deletingPathExtension().lastPathComponent
-            if let idx = Int(name.split(separator: "-").first ?? ""), idx >= count {
-                try? FileManager.default.removeItem(at: file)
-            }
-        }
     }
 
     // MARK: - Page fetch
