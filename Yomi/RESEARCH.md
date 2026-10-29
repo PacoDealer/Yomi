@@ -2433,3 +2433,15 @@ Full report: `~/Desktop/Projects/Yomi/reports/S195-guidelines-recheck.md`. Guide
   rests on DPLA §3.3.1(B) "interpreted code", unchanged in the Oct 13 DPLA), 4.7.1–4.7.5, 5.2.2.
 - DPLA §3.3.1(A) "deprecated technologies (such as Java)" applies to macOS App Store apps, not iOS.
 - Age rating questionnaire: new social-media questions, required since September 2026.
+
+## 28. S195 — Competitor + ecosystem sweep (2026-10-29, live sources Jul→Oct 2026)
+
+Full report: `~/Desktop/Projects/Yomi/reports/S195-competitors.md`.
+- **Nothing breaks Yomi:** Keiyoushi's ~1,300 lib-1.6 extensions need `SManga/SChapter.setMemo/getMemo`, and the
+  shipped `MExtensionServer-v1.0.9-r105.jar` has them (class files checked). Index is still `index.pb`. Mihon 0.21 moved to
+  own-repo-only updates, which Yomi has done since S190. LNReader index `plugins/v3.0.0` answers 200.
+- Tachimanga shipped 5.0→5.3 in Sep–Oct (Liquid Glass, custom toolbar, trackers, auto-scroll timer); Aidoku 0.9
+  (OCR dictionary, built-in Suwayomi) is still off the App Store; Mihon 0.21 Safe/Mixed/18+ content levels; LNReader
+  2.1 new TTS, EPUB export, shared-URL open. No 2026 App Store removals/DMCA found.
+- Yomi gaps (later, stability first): customizable reader toolbar, MangaUpdates/MangaBaka/Comick trackers,
+  auto-scroll timer, custom background colour, disable-broken-sources, open from shared URL, content levels.

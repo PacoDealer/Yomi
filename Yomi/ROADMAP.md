@@ -40,6 +40,10 @@ downloaded chapter read → it stays downloaded.
   age range. 4.7 still doesn't name JVM bytecode (Keiyoushi rests on DPLA §3.3.1(B), unchanged). 1.2 "via your website"
   still open. 📱/Martin: decide whether to give the reviewer a public-domain test repository; answer the new
   social-media age-rating questions.
+- **Competitor + ecosystem sweep** (RESEARCH §28, report `~/Desktop/Projects/Yomi/reports/S195-competitors.md`): nothing
+  breaks Yomi. The lib-1.6 memo API is in the shipped jar (checked), index still `index.pb`, LNReader URL live. Feature gaps
+  for later: reader toolbar customization, 3 trackers, auto-scroll timer, custom background colour, disable broken
+  sources, open from shared URL, Safe/Mixed/18+ levels.
 
 ## S194 — TestFlight build 631 (2026-10-28)
 
