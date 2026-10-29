@@ -298,8 +298,8 @@ HOW TO TEST WITH REAL CONTENT
 
 OPTIONAL FEATURES
 - OPDS: the user can enter the address of an OPDS catalog on a server they run or are allowed to use.
-- Extensions: the user can paste the link of a repository and add extensions from it (JavaScript, and Mihon-format extensions run by an embedded OpenJDK runtime). No repository or extension is included in the app, and the app does not link to or suggest any. Extensions do not change the purpose of the app: they are additional places the reader can list and open titles from.
-- A switch in Repositories (off by default) decides whether extensions that a repository marks as 18+ are listed.
+- Extensions: the user can paste the link of a repository and add extensions from it (JavaScript run by JavaScriptCore, and Mihon-format extensions run interpreted, with no JIT, by an embedded OpenJDK runtime inside the app's sandbox). Extensions are downloaded over HTTPS only; Mihon-format packages must carry a valid signature, and updates must match the installed version's signing key. No repository or extension is included in the app, and the app does not link to or suggest any. Extensions do not change the purpose of the app: they are additional places the reader can list and open titles from.
+- A switch in Repositories (off by default) decides whether extensions that a repository marks as 18+ are listed. Turning it on asks for the user's age range (Declared Age Range); under 18 it stays off.
 - A web sheet with an address bar appears when a site asks the user to pass a browser check. Because of it we declared "Unrestricted Web Access".
 - iCloud sync (off by default) stores the user's library in their private CloudKit database.
 

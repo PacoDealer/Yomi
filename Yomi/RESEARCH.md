@@ -2419,3 +2419,17 @@ Sources: [Stripe cross-border payouts](https://docs.stripe.com/connect/cross-bor
 [Liberapay countries](https://liberapay.com/about/global) ·
 [Open Collective expenses](https://docs.opencollective.com/help/expenses-and-getting-paid/expenses) ·
 [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+
+## 27. S195 — App Store guideline re-check (2026-10-29, live text)
+
+Full report: `~/Desktop/Projects/Yomi/reports/S195-guidelines-recheck.md`. Guidelines "Last Updated: October 16, 2026".
+- **New 2.5.19** (hidden/dormant/undocumented features; Apple's news: features "that weren't included in the version
+  of the app that was submitted to App Review" = bait-and-switch). Yomi's defence is disclosure: the review notes
+  (APP_STORE_LISTING §5) now say extensions run interpreted (no JIT), https-only, signature-checked, and that 18+
+  asks for an age range. Open decision: give the reviewer a public-domain test repository (Wikisource example).
+- 1.2 now names its scope (social media, UGC platforms, AI creation apps); the NSFW "via your website" sentence is
+  unchanged → the in-app 18+ switch is still the known gap. New 2.3.14 creative assets: all-audiences.
+- Unchanged: 2.5.2 (no exception), 4.7 names only HTML5/JS + plug-ins + emulators (**not JVM bytecode** — Keiyoushi
+  rests on DPLA §3.3.1(B) "interpreted code", unchanged in the Oct 13 DPLA), 4.7.1–4.7.5, 5.2.2.
+- DPLA §3.3.1(A) "deprecated technologies (such as Java)" applies to macOS App Store apps, not iOS.
+- Age rating questionnaire: new social-media questions, required since September 2026.
