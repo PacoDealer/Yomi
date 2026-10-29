@@ -76,10 +76,12 @@ struct DownloadedPages {
 
     /// Parses a folder. A whole `<page>.dat` wins over parts of the same page; a part set with a part missing (a split
     /// that stopped half-way) doesn't count — `incomplete` lists those files so a resumed download can clear them.
+    /// Part sets are grouped by their count, so leftovers of an older split never decide the result by folder order
+    /// (S195): the one complete set is the page; with none, or more than one, every part is cleared.
     nonisolated static func scan(_ dir: URL) -> (pages: [Int: [URL]], incomplete: [URL]) {
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
         var whole: [Int: URL] = [:]
-        var parts: [Int: (count: Int, files: [Int: URL])] = [:]
+        var parts: [Int: [Int: [Int: URL]]] = [:]   // page → part count → part → file
         var incomplete: [URL] = []
         for file in files where file.pathExtension == "dat" {
             let name = file.deletingPathExtension().lastPathComponent
@@ -93,18 +95,16 @@ struct DownloadedPages {
             guard partOf.count == 2, let part = Int(partOf[0]), let count = Int(partOf[1]), part < count else {
                 continue
             }
-            var entry = parts[page] ?? (count, [:])
-            if entry.count != count { incomplete.append(file); continue }
-            entry.files[part] = file
-            parts[page] = entry
+            parts[page, default: [:]][count, default: [:]][part] = file
         }
         var pages: [Int: [URL]] = whole.mapValues { [$0] }
-        for (page, entry) in parts {
-            let files = entry.files.values.map { $0 }
-            if whole[page] != nil || entry.files.count != entry.count {
-                incomplete.append(contentsOf: files)
+        for (page, sets) in parts {
+            let complete = sets.filter { $0.value.count == $0.key }
+            if whole[page] == nil, complete.count == 1, let kept = complete.first {
+                pages[page] = (0..<kept.key).compactMap { kept.value[$0] }
+                for (count, files) in sets where count != kept.key { incomplete.append(contentsOf: files.values) }
             } else {
-                pages[page] = (0..<entry.count).compactMap { entry.files[$0] }
+                for files in sets.values { incomplete.append(contentsOf: files.values) }
             }
         }
         return (pages, incomplete)
@@ -123,6 +123,23 @@ struct DownloadedPages {
         }
         self.urls = urls
         self.sourcePages = sourcePages
+    }
+
+    /// Before a (re)download: drops pages past the end (a chapter whose page list got shorter since the last try must
+    /// not keep its old extra pages — the reader would show them at the end) and half-written part sets, then returns
+    /// the source pages still missing. Pages already on disk are whole (every file is written atomically) and skipped.
+    nonisolated static func prepareResume(_ dir: URL, pageCount: Int) -> [Int] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.pathExtension == "dat" {
+            // `<page>.dat` or a part `<page>-<part>of<count>.dat` (D12)
+            let name = file.deletingPathExtension().lastPathComponent
+            if let idx = Int(name.split(separator: "-").first ?? ""), idx >= pageCount {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+        let onDisk = scan(dir)
+        for file in onDisk.incomplete { try? FileManager.default.removeItem(at: file) }
+        return (0..<max(0, pageCount)).filter { onDisk.pages[$0] == nil }
     }
 
     nonisolated static func fileName(page: Int, part: Int, of count: Int) -> String {
