@@ -34,6 +34,12 @@ download tests → App Store guideline re-check → competitor research.
 **Verified:** sim build 0 warnings, test-all 14/14, 8 mutants caught. Not run: a real download (the sim can't reach
 Keiyoushi). 📱 Add to the phone checks: download one chapter, read it offline; with the setting off, mark a
 downloaded chapter read → it stays downloaded.
+- **Guideline re-check** (live, guidelines updated Oct 16 2026; report `~/Desktop/Projects/Yomi/reports/S195-guidelines-recheck.md`,
+  RESEARCH §27): new **2.5.19** (undocumented features / bait-and-switch) is the new risk; defence = disclosure, so the
+  review-notes draft now says extensions run interpreted (no JIT), https-only, signature-checked, and 18+ asks for an
+  age range. 4.7 still doesn't name JVM bytecode (Keiyoushi rests on DPLA §3.3.1(B), unchanged). 1.2 "via your website"
+  still open. 📱/Martin: decide whether to give the reviewer a public-domain test repository; answer the new
+  social-media age-rating questions.
 
 ## S194 — TestFlight build 631 (2026-10-28)
 
