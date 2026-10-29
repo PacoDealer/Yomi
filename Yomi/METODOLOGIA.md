@@ -2561,3 +2561,11 @@ previously here was removed during the 2026-08-04 doc restructure.
 - **Self-test fixtures that share ids across cases find real bugs.** The stash case failed only because the bulk case
   had already used `ch-509` — exactly the "position id taken" situation real lists hit, which the replay got wrong
   since S191 (#244). Don't "fix" such a test by picking an unused id.
+
+### S195 — a surviving mutant can be a code bug
+- A mutant that removed the "mixed part counts" guard in `DownloadedPages.scan` passed the tests. Adding the mirrored
+  case still didn't catch it, because the result depended on the folder's listing order, which isn't fixed. The fix was
+  to the code (group parts by count), not only the test. When a mutant survives a test that looks right, check whether
+  the code depends on something the test can't control (order, timing).
+- Competitor research: check every "Yomi lacks X" against the code before writing it down (S195: bulk migration and
+  OCR were already there; background colour turned out to be presets only).
