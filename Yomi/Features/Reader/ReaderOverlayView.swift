@@ -173,6 +173,15 @@ struct ReaderOverlayView: View {
                         Text("Scroll while held").tag("hold")
                         Text("Share or save").tag("pageMenu")
                     }
+                    if settings.stripLongPress == "autoScroll" {
+                        Picker("Stop auto-scroll after", selection: $settings.autoScrollStopMinutes) {
+                            Text("Never").tag(0)
+                            ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                                Text("\(minutes) minutes").tag(minutes)
+                            }
+                            Text("1 hour").tag(60)
+                        }
+                    }
                 }
             }
         default:

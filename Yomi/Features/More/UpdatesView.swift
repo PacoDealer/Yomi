@@ -146,7 +146,8 @@ private struct NovelReaderDest: Identifiable, Hashable {
             notify: AppSettings.shared.sendUpdateNotifications,
             autoDownload: AppSettings.shared.backgroundDownloadEnabled,
             refreshMetadata: AppSettings.shared.updateRefreshMetadata,
-            safe: SafeMode.filter)
+            safe: SafeMode.filter,
+            turnedOffSources: Set(AppSettings.shared.turnedOffSourceIds))
 
         // The skip rules read the DB per title — do that off the main thread, once, before counting.
         let targets: [UpdateTarget]
@@ -247,6 +248,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         let notExpectedNovels = s.skipNotExpected ? ((try? UpdateScheduleQueries.notExpected(.novel)) ?? []) : []
         for manga in (try? MangaQueries.fetchLibrary()) ?? [] {
             if manga.isLocal { continue }  // local files: nothing to check online (S148)
+            if s.turnedOffSources.contains(manga.sourceId) { continue }
             if !s.safe.allows(manga) { continue }
             if notExpectedManga.contains(manga.id) { continue }
             if s.skipNotStarted && manga.lastReadAt == nil { continue }
@@ -260,6 +262,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
         }
         for novel in (try? NovelQueries.fetchLibrary()) ?? [] {
             if LocalLibrary.isLocalSourceId(novel.sourceId) { continue }
+            if s.turnedOffSources.contains(novel.sourceId) { continue }
             if !s.safe.allows(novel) { continue }
             if notExpectedNovels.contains(novel.id) { continue }
             if s.skipNotStarted && novel.lastReadAt == nil { continue }
@@ -583,6 +586,8 @@ private struct RefreshSettings: Sendable {
     let refreshMetadata: Bool
     /// Safe Mode (S179): hidden titles aren't checked, so they never notify or appear in Updates.
     let safe: SafeFilter
+    /// Sources the user turned off (S196): their titles aren't checked.
+    let turnedOffSources: Set<String>
 }
 
 private struct UpdateFeedGroup: Identifiable {

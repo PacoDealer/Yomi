@@ -441,6 +441,11 @@ import Observation
         didSet { defaults.set(autoScrollSpeed, forKey: "autoScrollSpeed") }
     }
 
+    /// Auto-scroll turns itself off after this many minutes (0 = never). S196, Tachimanga-style timer.
+    var autoScrollStopMinutes: Int {
+        didSet { defaults.set(autoScrollStopMinutes, forKey: "autoScrollStopMinutes") }
+    }
+
     /// Horizontal padding (points) applied to each image in Webtoon mode
     var webtoonHorizontalPadding: Int {
         didSet { defaults.set(webtoonHorizontalPadding, forKey: "webtoonHorizontalPadding") }
@@ -514,9 +519,14 @@ import Observation
     }
 
     /// Behind the manga pages (F17): "black" (pre-F17) | "gray" | "white" | "automatic" (iPhone light/dark + each page's
-    /// own margins in the paged modes)
+    /// own margins in the paged modes) | "custom" (S196: `readerBackgroundCustom`)
     var readerBackground: String {
         didSet { defaults.set(readerBackground, forKey: "readerBackground") }
+    }
+
+    /// The colour used when `readerBackground == "custom"`, "#RRGGBB".
+    var readerBackgroundCustom: String {
+        didSet { defaults.set(readerBackgroundCustom, forKey: "readerBackgroundCustom") }
     }
 
     // MARK: - Library display mode
@@ -560,6 +570,22 @@ import Observation
 
     func togglePinned(_ key: String) {
         pinnedSourceKeys = pinnedSourceKeys.contains(key) ? pinnedSourceKeys.filter { $0 != key } : pinnedSourceKeys + [key]
+    }
+
+    /// Sources the user turned off (S196, Aidoku's "disable broken sources"): Yomi source ids, the same strings a
+    /// title stores in `sourceId` (plugin id, or `keiyoushi_<mihonId>`). Still installed; left out of Browse's lists,
+    /// global search and library updates until turned back on.
+    var turnedOffSourceIds: [String] {
+        didSet { defaults.set(turnedOffSourceIds, forKey: "turnedOffSourceIds") }
+    }
+
+    func isSourceTurnedOff(_ sourceId: String) -> Bool { turnedOffSourceIds.contains(sourceId) }
+
+    func setSources(_ sourceIds: [String], turnedOff: Bool) {
+        let ids = Set(sourceIds)
+        var list = turnedOffSourceIds.filter { !ids.contains($0) }
+        if turnedOff { list += sourceIds.filter { !list.contains($0) } }
+        turnedOffSourceIds = list
     }
 
     // MARK: - App Lock
@@ -774,6 +800,7 @@ import Observation
         detailRefreshHourly     = d.object(forKey: "detailRefreshHourly")          as? Bool ?? true
         excludedCategoryIds     = d.stringArray(forKey: "excludedCategoryIds")     ?? []
         autoScrollSpeed          = d.object(forKey: "autoScrollSpeed")          as? Double ?? 3.0
+        autoScrollStopMinutes    = d.object(forKey: "autoScrollStopMinutes")    as? Int    ?? 0
         webtoonHorizontalPadding = d.object(forKey: "webtoonHorizontalPadding") as? Int    ?? 0
         tapZoneLayout            = d.string(forKey: "tapZoneLayout")             ?? "default"
         stripTapZoneLayout       = d.string(forKey: "stripTapZoneLayout")        ?? "disabled"
@@ -789,6 +816,7 @@ import Observation
         cropBorders              = d.object(forKey: "cropBorders")               as? Bool ?? false
         cropBordersStrip         = d.object(forKey: "cropBordersStrip")          as? Bool ?? false
         readerBackground         = d.string(forKey: "readerBackground")          ?? "black"
+        readerBackgroundCustom   = d.string(forKey: "readerBackgroundCustom")    ?? "#1E1A16"
         libraryDisplayMode       = d.string(forKey: "libraryDisplayMode")        ?? "grid"
         suwayomiURL              = d.string(forKey: "suwayomiURL")               ?? ""
         if let urls = d.stringArray(forKey: "mihonRepoURLs") {
@@ -799,6 +827,7 @@ import Observation
         }
         recentSourceKeys         = d.stringArray(forKey: "recentSourceKeys")     ?? []
         pinnedSourceKeys         = d.stringArray(forKey: "pinnedSourceKeys")     ?? []
+        turnedOffSourceIds       = d.stringArray(forKey: "turnedOffSourceIds")   ?? []
         appLockEnabled           = d.object(forKey: "appLockEnabled")            as? Bool ?? false
         secureScreenEnabled      = d.object(forKey: "secureScreenEnabled")       as? Bool ?? false
         ttsSpeechRate            = d.object(forKey: "ttsSpeechRate")            as? Float ?? 0.5

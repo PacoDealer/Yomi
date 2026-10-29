@@ -301,6 +301,13 @@ private struct MangaReaderSettingsView: View {
                 Stepper(value: $settings.autoScrollSpeed, in: 1...10, step: 0.5) {
                     LabeledContent("Auto-scroll", value: "1 page / \(settings.autoScrollSpeed.formatted()) s")
                 }
+                Picker("Stop auto-scroll after", selection: $settings.autoScrollStopMinutes) {
+                    Text("Never").tag(0)
+                    ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                        Text("\(minutes) minutes").tag(minutes)
+                    }
+                    Text("1 hour").tag(60)
+                }
                 Toggle("Crop borders", isOn: $settings.cropBordersStrip)
                 Toggle("Scroll bar", isOn: $settings.readerScrollIndicator)
                 Picker("Side margins", selection: $settings.webtoonHorizontalPadding) {
