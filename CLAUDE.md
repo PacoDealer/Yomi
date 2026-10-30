@@ -18,14 +18,16 @@ App binary ships zero plugin files (App Store compliance). Repo: `PacoDealer/Yom
 
 ## Docs (read the relevant one, not all of them)
 - `Yomi/ROADMAP.md` — session log (newest first), plans, App Store submission checklist (authoritative)
-- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#250), open rows listed at its top
+- `Yomi/KNOWN_ISSUES.md` — numbered bug table (#1–#251), open rows listed at its top
 - `Yomi/RESEARCH.md` — research; **§22 = direction (S122), §23 = perf audit, §25 = UX evidence + ranked list §25.10, §26 = S138 "calm" design direction, §27 guidelines Oct 2026, §28 competitors Oct 2026**
 - `Yomi/ARQUITECTURA.md` — architecture, data flows, DB schema · `Yomi/METODOLOGIA.md` — workflow + per-session lessons
 - `Yomi/KEIYOUSHI_POC.md` — on-device Keiyoushi results + gaps · `Yomi/HISTORY.md` — archived sessions + old CLAUDE.md states
 - `Yomi/design/` — S79–S95 design system (Space Grotesk/Mono "catalog" look) — **superseded by S138 "calm", RESEARCH §26**
 
-## Current state (S196 — 2026-10-29)
+## Current state (S197 — 2026-10-30)
 Session-by-session detail: `Yomi/ROADMAP.md`. The S137–S183 version of this block is archived verbatim in `Yomi/HISTORY.md`.
+- **S197 (ROADMAP S197, KNOWN_ISSUES #251):** manga reader bars follow the reader background (`ReaderOverlayView.barScheme`),
+  not the app theme — title was dark on black in system light mode. Sheets unchanged. Sim only.
 - **S196 (ROADMAP S196):** competitor gaps — auto-scroll stop timer (`autoScrollStopMinutes`), custom manga reader
   background (`readerBackground "custom"` + `readerBackgroundCustom`), turn sources off (`turnedOffSourceIds`: Browse
   "Turned Off" section, skipped by global search + library updates), open a title from a website link (paste in

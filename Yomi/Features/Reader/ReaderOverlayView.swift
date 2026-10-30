@@ -220,6 +220,13 @@ struct ReaderOverlayView: View {
         }
     }
 
+    /// The bars follow the reader background, not the app theme. The app root's .preferredColorScheme wins over the
+    /// reader's .dark, so in system light mode the title was dark text on a black backdrop (S197). Applied to the bars
+    /// only: the sheets keep the app's own look, as before.
+    private var barScheme: ColorScheme {
+        ReaderBackdrop.isLight(settings.readerBackground) ? .light : .dark
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Top bar — individual floating Liquid Glass chips
@@ -240,7 +247,8 @@ struct ReaderOverlayView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                .shadow(color: .black.opacity(0.5), radius: 6)
+                // Halo opposite the text so it reads over page art too (webtoon pages run under the bar).
+                .shadow(color: (barScheme == .dark ? Color.black : Color.white).opacity(0.5), radius: 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !chapters.isEmpty {
@@ -274,6 +282,7 @@ struct ReaderOverlayView: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
+            .environment(\.colorScheme, barScheme)
             .sheet(isPresented: $showChapterSheet) {
                 let target = currentChapterIndex
                 NavigationStack {
@@ -408,6 +417,7 @@ struct ReaderOverlayView: View {
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
             .padding(.horizontal, 12)
             .padding(.bottom, 14)
+            .environment(\.colorScheme, barScheme)
         }
         .opacity(showOverlay ? 1 : 0)
         // Faded out is still in the accessibility tree: VoiceOver could reach invisible controls (S129 fixed the novel

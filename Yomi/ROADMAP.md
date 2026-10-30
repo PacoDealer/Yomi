@@ -21,6 +21,19 @@ The research audit revealed that 800+ sources are already available across four 
 
 ---
 
+## S197 — reader top bar title readable in system light mode (2026-10-30, simulator only)
+- **Bug (noticed S196, KNOWN_ISSUES #251):** in system light mode the manga reader's title was dark text on the black
+  backdrop. The app theme's `.preferredColorScheme` overrides the reader's `.dark` (same cause as the novel reader, S136).
+- **Fix:** `ReaderOverlayView.barScheme` = light when the reader background is light (`ReaderBackdrop.isLight`), else
+  dark; set on the top and bottom bars only. First try put it on the whole overlay — the Reader Settings sheet then
+  flipped light/dark with its detent, so it now sits before the `.sheet` modifiers and the sheets look as before.
+**Verified (simulator, system light mode):** build 0 warnings; Black → white title + dark chips/bar; White → dark title
++ light chips/bar, switches live; Custom dark brown → white title; Reader Settings sheet light at medium and large.
+ReaderUITests 13/13. Not checked: "Automatic" in a paged mode uses the page's own edge colour but the bars still follow
+the system (pre-existing `isLight` rule, also used by the spinner) — check on the phone.
+
+---
+
 ## S196 — competitor gaps: auto-scroll timer, custom background, turn sources off, open from a link (2026-10-29, simulator only)
 
 Martin chose "competitor feature gaps" (reader quick wins, sources & sharing, toolbar + trackers).
