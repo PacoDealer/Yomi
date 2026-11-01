@@ -286,6 +286,10 @@ struct TextReaderView: View {
                     onToggleTTS:          { toggleListening() },
                     onViewSource:         { showSourceSheet = true },
                     onTermReplacements:   { showTermList = true },
+                    onFind:               {
+                        withMotion(.easeInOut(duration: 0.2)) { showOverlay = false }
+                        controller.presentFind()
+                    },
                     translateOn:          $translateOn
                 )
                 // The app root's .preferredColorScheme (app theme) wins over this view's, so the glass menu
@@ -414,6 +418,8 @@ struct TextReaderView: View {
         .font(YomiTokens.Font.mono(11))
         .foregroundStyle(Color(hex: shownTheme.fg).opacity(0.5))
         .padding(.horizontal, 24)
+        // The Find bar (S198) is a keyboard accessory: without this the counter rose onto the last line.
+        .ignoresSafeArea(.keyboard)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(info.page) of \(info.pages), \(info.chapterName)")
@@ -897,6 +903,7 @@ struct TextReaderOverlayView: View {
     var onToggleTTS:          (() -> Void)? = nil
     var onViewSource:         (() -> Void)? = nil
     var onTermReplacements:   (() -> Void)? = nil
+    var onFind:               (() -> Void)? = nil
     @Binding var translateOn: Bool
     @State private var translateLanguages: [Locale.Language] = []
 
@@ -945,6 +952,18 @@ struct TextReaderOverlayView: View {
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let onFind {
+                    Button(action: onFind) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 17))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .glassEffect(.regular, in: Circle())
+                    .accessibilityLabel("Find in Chapter")
+                    .accessibilityIdentifier("novelFindButton")
+                }
 
                 if !chapters.isEmpty {
                     Button {

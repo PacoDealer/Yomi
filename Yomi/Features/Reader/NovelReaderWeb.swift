@@ -67,6 +67,14 @@ final class NovelReaderController {
         call("yomi.scrollToChapter(id)", ["id": id])
     }
 
+    // MARK: Find in chapter (S198 — LNReader 2.1 has in-chapter search)
+
+    /// Opens the system find bar over the page (highlights every match, next/previous). It searches what is in the
+    /// document: the current chapter, plus its neighbours in infinite scroll.
+    func presentFind() {
+        webView?.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+
     // MARK: Listening (S143) — the page mirrors ListenPlayer; see `tts*` in the script.
 
     /// The sentences ListenPlayer speaks for a chapter; the page finds each one's text to highlight it.
@@ -244,6 +252,7 @@ struct ReaderWebView: UIViewRepresentable {
         webView.scrollView.backgroundColor = .clear
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.navigationDelegate = context.coordinator
+        webView.isFindInteractionEnabled = true
         #if DEBUG
         webView.isInspectable = true
         #endif
@@ -273,6 +282,7 @@ struct ReaderWebView: UIViewRepresentable {
             scroll.pinchGestureRecognizer?.isEnabled = !options.pages
         }
         context.coordinator.yieldToEdgeSwipe(scroll)
+        context.coordinator.snapsToPages(scroll, on: options.pages)
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -294,6 +304,38 @@ struct ReaderWebView: UIViewRepresentable {
         }
 
         private weak var linkedPop: UIGestureRecognizer?
+        private var offsetObservation: NSKeyValueObservation?
+        private var snapWork: DispatchWorkItem?
+
+        /// Pages mode: Find in Chapter (S198) scrolls the match to the middle of the screen, which leaves the page
+        /// half-turned. Once nothing is moving, settle on the nearest whole page — the one the match is centred in.
+        func snapsToPages(_ scroll: UIScrollView, on: Bool) {
+            guard on else {
+                offsetObservation = nil
+                snapWork?.cancel()
+                return
+            }
+            guard offsetObservation == nil else { return }
+            offsetObservation = scroll.observe(\.contentOffset) { [weak self] scroll, _ in
+                MainActor.assumeIsolated { self?.scheduleSnap(scroll) }
+            }
+        }
+
+        private func scheduleSnap(_ scroll: UIScrollView) {
+            snapWork?.cancel()
+            let work = DispatchWorkItem { [weak scroll] in
+                guard let scroll, scroll.isPagingEnabled, !scroll.isTracking, !scroll.isDecelerating else { return }
+                let width = scroll.bounds.width
+                guard width > 0 else { return }
+                let x = scroll.contentOffset.x
+                let target = (x / width).rounded() * width
+                guard abs(target - x) > 1 else { return }
+                let maxX = max(0, scroll.contentSize.width - width)
+                scroll.setContentOffset(CGPoint(x: min(max(0, target), maxX), y: scroll.contentOffset.y), animated: true)
+            }
+            snapWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+        }
 
         /// A drag that starts on the left screen edge is "back" (`.swipeBackEnabled()`), not a page turn: the
         /// web view's pan waits for the navigation controller's edge recognizer to fail. Swipes that start
