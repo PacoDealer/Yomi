@@ -151,6 +151,9 @@ final class LibraryViewModel {
 
     var categories: [Category] = []
     var categoryItemCounts: [String: Int] = [:]
+    /// The same counts split by type, for the Manga | Novels switch (S199): the chips count what the switch shows.
+    var categoryMangaCounts: [String: Int] = [:]
+    var categoryNovelCounts: [String: Int] = [:]
 
     /// When nil → show all library manga. When set → filter to that category.
     var selectedCategoryId: String? = nil {
@@ -187,18 +190,30 @@ final class LibraryViewModel {
     func loadCategories() {
         // Safe Mode: count only the titles the Library shows.
         let visible: Set<String>? = AppSettings.shared.safeMode ? Set(mangas.map(\.id) + novels.map(\.id)) : nil
+        // A category keeps titles removed from the library; the per-type counts only count what the Library shows.
+        let inLibrary = Set(mangas.map(\.id) + novels.map(\.id))
         Task.detached {
             let cats = (try? CategoryQueries.fetchAll()) ?? []
             var counts = (try? CategoryQueries.fetchItemCounts()) ?? [:]
-            if let visible {
-                for cat in cats {
-                    let ids = ((try? CategoryQueries.mangaIds(inCategory: cat.id)) ?? [])
-                        + ((try? CategoryQueries.novelIds(inCategory: cat.id)) ?? [])
-                    counts[cat.id] = ids.filter(visible.contains).count
+            var mangaCounts: [String: Int] = [:], novelCounts: [String: Int] = [:]
+            for cat in cats {
+                var mangaIds = (try? CategoryQueries.mangaIds(inCategory: cat.id)) ?? []
+                var novelIds = (try? CategoryQueries.novelIds(inCategory: cat.id)) ?? []
+                if let visible {
+                    mangaIds = mangaIds.filter(visible.contains)
+                    novelIds = novelIds.filter(visible.contains)
+                    counts[cat.id] = mangaIds.count + novelIds.count
                 }
+                mangaCounts[cat.id] = mangaIds.filter(inLibrary.contains).count
+                novelCounts[cat.id] = novelIds.filter(inLibrary.contains).count
             }
-            let finalCounts = counts
-            await MainActor.run { self.categories = cats; self.categoryItemCounts = finalCounts }
+            let finalCounts = counts, finalManga = mangaCounts, finalNovels = novelCounts
+            await MainActor.run {
+                self.categories = cats
+                self.categoryItemCounts = finalCounts
+                self.categoryMangaCounts = finalManga
+                self.categoryNovelCounts = finalNovels
+            }
         }
     }
 
@@ -305,7 +320,7 @@ final class LibraryViewModel {
         // Safe Mode (S179): hidden titles leave every count, filter, shelf and the widget, not just the grid.
         mangas = result.0.filter(safe.allows)
         novels = result.1.filter(safe.allows)
-        if safe.isOn { loadCategories() }
+        loadCategories()   // again, now that the library is known (Safe Mode + the per-type counts filter by it)
         unreadCounts = result.2
         novelUnreadCounts = result.3
         if let err = result.4 { errorMessage = err }

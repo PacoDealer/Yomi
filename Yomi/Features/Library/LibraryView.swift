@@ -24,6 +24,34 @@ struct LibraryView: View {
         self.onBrowseTap = onBrowseTap
     }
 
+    /// Manga | Novels switch (S199, PacoDealer): with a big library the novels sat below every manga. Only shown when
+    /// the library has both; the choice is remembered. Continue reading stays mixed.
+    @AppStorage("libraryContentType") private var contentType = "manga"
+    private var showsTypeSwitch: Bool { !viewModel.mangas.isEmpty && !viewModel.novels.isEmpty }
+    private var showsManga: Bool { !showsTypeSwitch || contentType != "novels" }
+    private var showsNovels: Bool { !showsTypeSwitch || contentType == "novels" }
+    private var shownManga: [Manga] { showsManga ? viewModel.displayedManga : [] }
+    private var shownNovels: [Novel] { showsNovels ? viewModel.displayedNovels : [] }
+
+    /// What a category chip counts: the type the switch shows.
+    private func shownCount(_ categoryId: String) -> Int {
+        guard showsTypeSwitch else { return viewModel.categoryItemCounts[categoryId] ?? 0 }
+        return showsNovels ? viewModel.categoryNovelCounts[categoryId] ?? 0 : viewModel.categoryMangaCounts[categoryId] ?? 0
+    }
+
+    @ViewBuilder
+    private var typeSwitch: some View {
+        if showsTypeSwitch && !isSelecting {
+            Picker("Show", selection: $contentType) {
+                Text("Manga").tag("manga")
+                Text("Novels").tag("novels")
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, YomiTokens.Layout.screenMargin)
+            .padding(.top, 4)
+        }
+    }
+
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: YomiTokens.Layout.coverGutter, alignment: .top),
               count: max(2, settings.libraryColumns))
@@ -68,7 +96,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                let hasAnyContent = !viewModel.displayedManga.isEmpty || !viewModel.displayedNovels.isEmpty
+                let hasAnyContent = !shownManga.isEmpty || !shownNovels.isEmpty
                 if !hasAnyContent && !viewModel.hasLoaded {
                     // First read still running (#252): an empty canvas, not the empty-library screen.
                     Color.clear
@@ -113,6 +141,7 @@ struct LibraryView: View {
                 } else if !hasAnyContent {
                     // Keep the chips here too, or an empty category leaves no way back to "All".
                     VStack(spacing: 0) {
+                        typeSwitch
                         categoryTabBar
                         if viewModel.searchText.isEmpty {
                             ContentUnavailableView("Nothing in this category",
@@ -125,16 +154,17 @@ struct LibraryView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 0) {
+                            typeSwitch
                             categoryTabBar
                             if !isSelecting { ContinueReadingRow() }
-                            if !viewModel.displayedManga.isEmpty {
+                            if !shownManga.isEmpty {
                                 // Show "Manga" header only when novels are also present
-                                if !viewModel.displayedNovels.isEmpty {
-                                    LibrarySectionHeader(title: "Manga", count: viewModel.displayedManga.count)
+                                if !shownNovels.isEmpty {
+                                    LibrarySectionHeader(title: "Manga", count: shownManga.count)
                                 }
                                 if settings.libraryDisplayMode == "list" {
                                     LazyVStack(spacing: 0) {
-                                        ForEach(viewModel.displayedManga) { manga in
+                                        ForEach(shownManga) { manga in
                                             ZStack(alignment: .leading) {
                                                 NavigationLink(destination: MangaDetailView(manga: manga)) {
                                                     MangaListRow(manga: manga,
@@ -201,7 +231,7 @@ struct LibraryView: View {
                                     .padding(.horizontal, 16)
                                 } else {
                                     LazyVGrid(columns: columns, spacing: 20) {
-                                        ForEach(viewModel.displayedManga) { manga in
+                                        ForEach(shownManga) { manga in
                                             MangaCoverCell(
                                                 manga: manga,
                                                 isSelecting: isSelecting,
@@ -239,12 +269,15 @@ struct LibraryView: View {
                                     .padding(.horizontal, YomiTokens.Layout.screenMargin)
                                 }
                             }
-                            if !viewModel.displayedNovels.isEmpty {
+                            if !shownNovels.isEmpty {
                                 VStack(alignment: .leading, spacing: 0) {
-                                    LibrarySectionHeader(title: "Novels", count: viewModel.displayedNovels.count)
+                                    // Like the Manga header: only when both are on the page (the switch shows one type).
+                                    if !shownManga.isEmpty {
+                                        LibrarySectionHeader(title: "Novels", count: shownNovels.count)
+                                    }
                                     if settings.libraryDisplayMode == "list" {
                                         LazyVStack(spacing: 0) {
-                                            ForEach(viewModel.displayedNovels) { novel in
+                                            ForEach(shownNovels) { novel in
                                                 ZStack(alignment: .leading) {
                                                     Button { selectedNovel = novel; showNovelDetail = true } label: {
                                                         NovelLibraryListRow(
@@ -313,7 +346,7 @@ struct LibraryView: View {
                                         .padding(.horizontal, 16)
                                     } else {
                                         LazyVGrid(columns: columns, spacing: 20) {
-                                            ForEach(viewModel.displayedNovels) { novel in
+                                            ForEach(shownNovels) { novel in
                                                 NovelLibraryCoverCell(
                                                     novel: novel,
                                                     unreadCount: viewModel.novelUnreadCounts[novel.id] ?? 0,
@@ -395,8 +428,8 @@ struct LibraryView: View {
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        let allManga = Set(viewModel.displayedManga.map { $0.id })
-                        let allNovels = Set(viewModel.displayedNovels.map { $0.id })
+                        let allManga = Set(shownManga.map { $0.id })
+                        let allNovels = Set(shownNovels.map { $0.id })
                         let allSelected = selectedIds == allManga && selectedNovelIds == allNovels
                         Button(allSelected ? "Deselect All" : "Select All") {
                             withMotion(.spring(duration: 0.15)) {
@@ -421,7 +454,7 @@ struct LibraryView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            if let pick = viewModel.displayedManga.randomElement() {
+                            if let pick = shownManga.randomElement() {
                                 randomMangaDest = pick
                                 showRandomManga = true
                             }
@@ -429,7 +462,7 @@ struct LibraryView: View {
                             Image(systemName: "shuffle")
                         }
                         .accessibilityLabel("Random title")
-                        .disabled(viewModel.displayedManga.isEmpty)
+                        .disabled(shownManga.isEmpty)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
@@ -617,7 +650,8 @@ struct LibraryView: View {
                 HStack(spacing: 8) {
                     LibraryTab(
                         label: "All",
-                        count: settings.showCategoryItemCounts ? viewModel.mangas.count + viewModel.novels.count : nil,
+                        count: settings.showCategoryItemCounts
+                            ? (showsManga ? viewModel.mangas.count : 0) + (showsNovels ? viewModel.novels.count : 0) : nil,
                         isSelected: viewModel.selectedCategoryId == nil
                     ) {
                         viewModel.selectedCategoryId = nil
@@ -626,7 +660,7 @@ struct LibraryView: View {
                     ForEach(viewModel.categories) { category in
                         LibraryTab(
                             label: "\(category.name)",
-                            count: settings.showCategoryItemCounts ? viewModel.categoryItemCounts[category.id] ?? 0 : nil,
+                            count: settings.showCategoryItemCounts ? shownCount(category.id) : nil,
                             isSelected: viewModel.selectedCategoryId == category.id
                         ) {
                             viewModel.selectedCategoryId = category.id
