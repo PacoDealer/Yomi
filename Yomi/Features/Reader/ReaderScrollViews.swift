@@ -26,20 +26,27 @@ struct WebtoonReaderView: View {
     @State private var observedId: String? = nil
     @State private var viewSize: CGSize = .zero
     @GestureState private var isHolding = false
+    /// Where each laid-out page's top is on screen — written every scroll frame, so a plain class (no re-render).
+    @State private var pageTops = StripPageTops()
+    /// Crossing into the preloaded chapter (#254): the parent swaps `pages` to that chapter, which used to leave the
+    /// scroll offset pointing far down the new list and then animate to the page's TOP — the reader shot down, then
+    /// jumped back to the start of the page (Asura pages are several screens tall). Kept: the page, and how far
+    /// into it the reader was, restored without animation once the new list is laid out.
+    @State private var pendingCross: (index: Int, intoPage: CGFloat)? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: settings.readerScrollIndicator) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, url in
-                        pageImage(url)
+                        pageImage(url, id: "cur:\(index)")
                             .id("cur:\(index)")
                     }
                     if let boundaryTitles {
                         ChapterBoundaryCard(finishedTitle: boundaryTitles.finished, nextTitle: boundaryTitles.next, axis: .vertical)
                             .id("boundary")
                         ForEach(Array(nextPages.enumerated()), id: \.offset) { index, url in
-                            pageImage(url)
+                            pageImage(url, id: "next:\(index)")
                                 .id("next:\(index)")
                         }
                     }
@@ -67,12 +74,30 @@ struct WebtoonReaderView: View {
             .onChange(of: visibleId) { _, id in
                 if let id { observe(id) }
             }
-            .onChange(of: pages) { observedId = nil }   // a new chapter's "cur:N" is a different page
+            .onChange(of: pages) {
+                observedId = nil   // a new chapter's "cur:N" is a different page
+                pageTops.y = [:]
+                guard let cross = pendingCross else { return }
+                pendingCross = nil
+                let id = "cur:\(cross.index)"
+                observedId = id    // the strip's own position, not a slider jump
+                var instant = Transaction()
+                instant.disablesAnimations = true
+                withTransaction(instant) { proxy.scrollTo(id, anchor: .top) }
+                // Next run loop, once the page is laid out where scrollTo put it: back to the same spot inside it.
+                DispatchQueue.main.async {
+                    guard let top = pageTops.y[id], let sv = scroller.scrollView else { return }
+                    let maxY = max(0, sv.contentSize.height - sv.bounds.height + sv.adjustedContentInset.bottom)
+                    sv.contentOffset.y = min(max(sv.contentOffset.y + top + cross.intoPage,
+                                                 -sv.adjustedContentInset.top), maxY)
+                }
+            }
             .onChange(of: currentPage) { _, new in
                 // Two-way sync with the overlay's progress slider — scrolling
                 // updates currentPage above, this reflects slider drags back
                 // into the scroll position. Guarded so it's a no-op when the
                 // change originated from the scroll itself.
+                if let cross = pendingCross, cross.index == new { return }   // the crossing restores it (#254)
                 let newId = "cur:\(new)"
                 guard newId != visibleId, newId != observedId else { return }
                 withMotion { proxy.scrollTo(newId, anchor: .top) }
@@ -161,14 +186,24 @@ struct WebtoonReaderView: View {
                 onNeedsNextChapterPreload?()
             }
         } else if id.hasPrefix("next:"), let idx = Int(id.dropFirst(5)) {
+            // How far the reader is past that page's top (0 if it was never measured).
+            pendingCross = (idx, max(0, -(pageTops.y[id] ?? 0)))
             onCrossedIntoNextChapter?(idx)
         }
     }
 
-    private func pageImage(_ url: String) -> some View {
+    private func pageImage(_ url: String, id: String) -> some View {
         StripPageImage(url: url, axis: .vertical)
             .readerPageMenu(url: url, enabled: settings.stripLongPress == "pageMenu")
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .scrollView).minY } action: { [pageTops] y in
+                pageTops.y[id] = y
+            }
     }
+}
+
+/// Page tops of the long strip, on screen (see `WebtoonReaderView.pageTops`).
+final class StripPageTops {
+    var y: [String: CGFloat] = [:]
 }
 
 // MARK: - ChapterBoundaryCard
