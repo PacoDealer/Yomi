@@ -569,6 +569,22 @@ enum NovelReaderScript {
         if (range <= 0) return 1;
         return clamp((window.scrollY - s.offsetTop) / range);
       }
+      // Continue landed a little above or below the saved spot (#253): the reader fonts (woff2) and the chapter's
+      // images arrive after the first layout, and each reflow changed the chapter's height under a fixed scroll
+      // offset. Until the reader touches the screen (or 3 s pass), put them back on the saved spot after every change.
+      var hold = null;
+      function holdPosition(s, pct) {
+        if (hold) hold.stop();
+        if (!(pct > 0.01) || typeof ResizeObserver === 'undefined') return;
+        var stopped = false;
+        function again() { if (!stopped && !touching && s.isConnected) { goTo(s, pct); schedule(); } }
+        var ro = new ResizeObserver(again);
+        ro.observe(s);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(again);
+        var timer = setTimeout(stop, 3000);
+        function stop() { stopped = true; ro.disconnect(); clearTimeout(timer); if (hold && hold.s === s) hold = null; }
+        hold = { s: s, stop: stop };
+      }
       function goTo(s, pct) {
         if (opts.pages) {
           var r = span(s);
@@ -700,6 +716,7 @@ enum NovelReaderScript {
 
       document.addEventListener('touchstart', function (e) {
         touching = true; lastTouchAt = Date.now();
+        if (hold) hold.stop();
         if (e.touches.length !== 1) { touch = null; ignoreClick = true; return; }
         var t = e.touches[0];
         touch = { x: t.clientX, y: t.clientY, t: Date.now(), dx: 0, dy: 0, sel: hasSelection() };
@@ -901,6 +918,7 @@ enum NovelReaderScript {
           window.scrollTo(0, 0);
           goTo(s, pct > 0.01 ? pct : 0);
           requestAnimationFrame(function () { goTo(s, pct > 0.01 ? pct : 0); update(); });
+          holdPosition(s, pct);
         },
         append: function (ch) {
           if (find(ch.id)) return;
@@ -912,6 +930,7 @@ enum NovelReaderScript {
         },
         scrollToChapter: function (id) {
           var s = find(id);
+          if (hold) hold.stop();
           if (s) goTo(s, 0);
         },
         ttsSet: function (id, list) {
