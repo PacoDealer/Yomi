@@ -35,6 +35,9 @@ final class LibraryViewModel {
     var novelUnreadCounts: [String: Int] = [:] { didSet { rebuildDisplayed() } }
     var searchText: String = "" { didSet { rebuildDisplayed() } }
     var isLoading: Bool = false
+    /// False until the first read of the library finished. Before that the lists are empty only because nothing
+    /// was read yet — showing "Your library is empty" then made every cold launch flash a first-run look (#252).
+    var hasLoaded: Bool = false
     var errorMessage: String? = nil
     /// The sort of the category being shown — each category keeps its own (S170, Tachimanga v4.1). "All" is the
     /// old global `librarySortOrder`, and the fallback for a category never sorted on its own.
@@ -306,6 +309,7 @@ final class LibraryViewModel {
         unreadCounts = result.2
         novelUnreadCounts = result.3
         if let err = result.4 { errorMessage = err }
+        hasLoaded = true
         await Self.writeWidgetData(mangas: mangas, novels: novels)
         isLoading = false
     }

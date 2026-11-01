@@ -2535,6 +2535,16 @@
         }
       }
     },
+    "Checking for new chapters…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscando capítulos nuevos…"
+          }
+        }
+      }
+    },
     "Choose a 4-digit passcode": {
       "localizations": {
         "es": {
@@ -3082,6 +3092,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo agregar %@: %@"
+          }
+        }
+      }
+    },
+    "Couldn't check %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo consultar %@"
           }
         }
       }
@@ -11441,6 +11461,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "abierto"
+          }
+        }
+      }
+    },
+    "the source": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la fuente"
           }
         }
       }

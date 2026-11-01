@@ -11,6 +11,7 @@ struct NovelDetailView: View {
     @State private var synopsisExpanded = false
     @State private var chapters: [NovelChapter] = []
     @State private var isLoadingChapters = false
+    @State private var pullStatus: PullRefreshStatus? = nil
     @State private var isInLibrary: Bool
     @State private var chapterForNav: NovelChapter? = nil
     @State private var allCategories: [Category] = []
@@ -184,7 +185,8 @@ struct NovelDetailView: View {
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
         .background(canvas.bg.ignoresSafeArea())
-        .refreshable { await loadChapters(force: true) }
+        .refreshable { await pullToRefresh() }
+        .pullRefreshStatus($pullStatus)
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : "")
@@ -1023,6 +1025,31 @@ struct NovelDetailView: View {
 
     /// `force` = pull to refresh (or a retry): always asks the source. Otherwise a library novel checked within the
     /// hour (L3a, S171, Tachimanga v3.4) keeps the saved chapters it shows first.
+    /// Pull down on the page: this novel's chapters from its source, like one row of the Updates tab (Tachimanga),
+    /// with a visible result — the system spinner doesn't show under this page's header.
+    private func pullToRefresh() async {
+        guard pullStatus != .checking else { return }
+        let id = novel.id
+        let isLocal = LocalLibrary.isLocalSourceId(novel.sourceId)
+        let inLibrary = novel.inLibrary
+        let before = Set(chapters.map(\.id))
+        let checkedBefore = await Task.detached { try? UpdateScheduleQueries.lastChecked(.novel, id: id) }.value
+        pullStatus = .checking
+        await loadChapters(force: true)
+        let checkedAfter = await Task.detached { try? UpdateScheduleQueries.lastChecked(.novel, id: id) }.value
+        // Only library novels have a row to stamp; a browse-only one answered if it has chapters.
+        let reached = isLocal || (inLibrary ? (checkedAfter != nil && checkedAfter != checkedBefore) : !chapters.isEmpty)
+        let added = chapters.filter { !before.contains($0.id) }.count
+        if !reached {
+            pullStatus = .done(String(localized: "Couldn't check \(sourceName ?? String(localized: "the source"))"))
+        } else if before.isEmpty {
+            pullStatus = .done(String(localized: "\(chapters.count) chapters"))
+        } else {
+            pullStatus = .done(added == 0 ? String(localized: "No new chapters")
+                                          : String(localized: "\(added) new chapters"))
+        }
+    }
+
     private func loadChapters(force: Bool = false) async {
         isLoadingChapters = true
         let novelId = novel.id

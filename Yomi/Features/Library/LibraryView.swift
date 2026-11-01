@@ -69,7 +69,10 @@ struct LibraryView: View {
         NavigationStack {
             Group {
                 let hasAnyContent = !viewModel.displayedManga.isEmpty || !viewModel.displayedNovels.isEmpty
-                if !hasAnyContent && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
+                if !hasAnyContent && !viewModel.hasLoaded {
+                    // First read still running (#252): an empty canvas, not the empty-library screen.
+                    Color.clear
+                } else if !hasAnyContent && viewModel.searchText.isEmpty && viewModel.selectedCategoryId == nil {
                     if let error = viewModel.errorMessage {
                         // A failed library read (DB corruption, disk I/O) used to render as the
                         // ordinary "you haven't added anything yet" empty state — indistinguishable

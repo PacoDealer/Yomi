@@ -63,6 +63,7 @@ struct MangaDetailView: View {
     // Feature 3 — Storage size
     @State private var storageSizeLabel: String? = nil
     @State private var toastMessage: String? = nil
+    @State private var pullStatus: PullRefreshStatus? = nil
 
     // Feature 4 — Chapter selection
     @State private var isSelectingChapters = false
@@ -283,7 +284,7 @@ struct MangaDetailView: View {
         // The header's cover tint runs up under the status bar, like an Apple Music album page.
         .ignoresSafeArea(edges: isSelectingChapters ? [] : .top)
         .background(canvas.bg.ignoresSafeArea())
-        .refreshable { await loadChapters(force: true) }
+        .refreshable { await pullToRefresh() }
         .navigationTitle(isSelectingChapters
             ? (selectedChapterIds.isEmpty ? "Select" : "\(selectedChapterIds.count) selected")
             : "")
@@ -459,6 +460,7 @@ struct MangaDetailView: View {
             .presentationDetents([.medium, .large])
         }
         .yomiToast($toastMessage)
+        .pullRefreshStatus($pullStatus)
         .yomiToast(Binding(
             get: { NetworkMonitor.shared.queuedNotice },
             set: { NetworkMonitor.shared.queuedNotice = $0 }
@@ -1349,6 +1351,28 @@ struct MangaDetailView: View {
 
     /// `force` = pull to refresh (or a retry): always asks the source. Otherwise a library title checked within the
     /// hour shows its saved chapters only (`skipsSource`).
+    /// Pull down on the page: this title's chapters from its source, like one row of the Updates tab (Tachimanga),
+    /// with a visible result — the system spinner doesn't show under this page's header.
+    private func pullToRefresh() async {
+        guard pullStatus != .checking else { return }
+        let id = manga.id
+        let isLocal = LocalLibrary.isLocalSourceId(manga.sourceId)
+        let before = Set(chapters.map(\.id))
+        let checkedBefore = await Task.detached { try? UpdateScheduleQueries.lastChecked(.manga, id: id) }.value
+        pullStatus = .checking
+        await loadChapters(force: true)
+        let checkedAfter = await Task.detached { try? UpdateScheduleQueries.lastChecked(.manga, id: id) }.value
+        let added = chapters.filter { !before.contains($0.id) }.count
+        if !isLocal, checkedAfter == nil || checkedAfter == checkedBefore {
+            pullStatus = .done(String(localized: "Couldn't check \(sourceName ?? String(localized: "the source"))"))
+        } else if before.isEmpty {
+            pullStatus = .done(String(localized: "\(chapters.count) chapters"))
+        } else {
+            pullStatus = .done(added == 0 ? String(localized: "No new chapters")
+                                          : String(localized: "\(added) new chapters"))
+        }
+    }
+
     private func loadChapters(force: Bool = false) async {
         let perf = Perf.begin("OpenManga")
         defer { perf.end() }
@@ -1547,6 +1571,7 @@ struct MangaDetailView: View {
             _ = try? ChapterQueries.carryOverMovedChapters(mangaId: mangaSnapshot.id, remote: fetched) // #208 — before the insert
             try? ChapterQueries.insertMangaAndChapters(manga: mangaSnapshot, chapters: fetched)
             try? MangaQueries.updateSourceMetadata(mangaSnapshot)
+            if !fetched.isEmpty { try? UpdateScheduleQueries.markChecked(.manga, id: mangaSnapshot.id) }
         }.value
 
         let saved = await savedChapters(mangaId: mangaId)

@@ -60,6 +60,14 @@ nonisolated enum UpdateScheduleQueries {
         }
     }
 
+    /// When the title last got chapters back from its source — nil if never. Pull to refresh on a detail page compares
+    /// it before and after, to tell "no new chapters" from "the source didn't answer".
+    nonisolated static func lastChecked(_ kind: Kind, id: String) throws -> Date? {
+        try appDatabase.read { db in
+            try Date.fetchOne(db, sql: "SELECT lastCheckedAt FROM \(kind.table) WHERE id = ?", arguments: [id])
+        }
+    }
+
     /// Whether opening the title should skip the source: checked less than `maxAge` ago (Tachimanga v3.4, once an hour).
     nonisolated static func checkedRecently(_ kind: Kind, id: String, maxAge: TimeInterval = 3600,
                                             now: Date = Date()) throws -> Bool {

@@ -37,11 +37,8 @@ struct BrowseView: View {
         case migrate = "Migrate"
     }
 
-    /// Plugin + Keiyoushi updates waiting — shown on the Extensions tab.
-    private var updateCount: Int {
-        extensionManager.installed.filter { catalogService.availableUpdate(for: $0) != nil }.count
-            + keiyoushi.installed.filter { keiyoushi.availableUpdate(for: $0) != nil }.count
-    }
+    /// Plugin + Keiyoushi updates waiting — shown on the Extensions tab (and on the Browse tab icon).
+    private var updateCount: Int { ExtensionUpdates.count }
 
     var body: some View {
         NavigationStack {
@@ -58,7 +55,7 @@ struct BrowseView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showSearch) { SearchScreen(seed: searchSeed).id(searchSeed) }
         }
-        .task { await catalogService.fetchCatalog() }
+        .task { await ExtensionUpdates.refreshIfStale() }
         .onChange(of: appRouter.pendingSharedLink, initial: true) { _, link in
             guard let link else { return }
             appRouter.pendingSharedLink = nil
@@ -1603,5 +1600,31 @@ private struct NovelCoverCell: View {
             isNSFW: false,
             sourceIds: []
         ))
+    }
+}
+
+// MARK: - ExtensionUpdates
+
+/// Installed extensions (JS plugins + Keiyoushi) with a newer version in their repository. Counted the way the
+/// Extensions list shows them — Safe Mode's hidden extensions aren't counted. Read from a view's body, so the badge
+/// follows the catalogs (all three singletons are @Observable).
+@MainActor
+enum ExtensionUpdates {
+    static var count: Int {
+        let settings = AppSettings.shared
+        let catalog = PluginCatalogService.shared
+        let keiyoushi = KeiyoushiRepository.shared
+        return ExtensionManager.shared.installed
+            .filter { !(settings.safeMode && $0.isNSFW) && catalog.availableUpdate(for: $0) != nil }.count
+            + keiyoushi.installed
+            .filter { !SafeMode.hides($0.info) && keiyoushi.availableUpdate(for: $0) != nil }.count
+    }
+
+    /// Both catalogs, each only when its own copy is old — at launch and when Browse opens, so updates show on the
+    /// tab badge without visiting Extensions first (S199, PacoDealer's fix list).
+    static func refreshIfStale() async {
+        async let js: Void = PluginCatalogService.shared.fetchCatalog()
+        async let kei: Void = KeiyoushiRepository.shared.refreshIfStale()
+        _ = await (js, kei)
     }
 }

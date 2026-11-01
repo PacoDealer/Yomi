@@ -49,6 +49,58 @@ extension View {
     }
 }
 
+// MARK: - Pull to refresh status (detail pages)
+//
+// The manga/novel detail pages draw their header up under the status bar with the navigation bar hidden, so the
+// system refresh spinner has nowhere visible to sit — a pull ran the refresh with no sign that anything happened.
+// This pill says "Checking…" while it runs, then the result for a moment.
+
+enum PullRefreshStatus: Equatable {
+    case checking
+    case done(String)
+}
+
+private struct PullRefreshStatusModifier: ViewModifier {
+    @Binding var status: PullRefreshStatus?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if let status {
+                    HStack(spacing: 8) {
+                        switch status {
+                        case .checking:
+                            ProgressView().controlSize(.small)
+                            Text("Checking for new chapters…")
+                        case .done(let message):
+                            Text(message)
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(Motion.slide(.top))
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            .motion(.easeInOut(duration: 0.2), value: status)
+            .task(id: status) {
+                guard case .done = status else { return }
+                try? await Task.sleep(for: .seconds(2.5))
+                status = nil
+            }
+    }
+}
+
+extension View {
+    /// The pull-to-refresh pill of a detail page: shown while `status` is `.checking`, a result for 2.5 s after `.done`.
+    func pullRefreshStatus(_ status: Binding<PullRefreshStatus?>) -> some View {
+        modifier(PullRefreshStatusModifier(status: status))
+    }
+}
+
 @MainActor
 enum YomiHaptics {
     static func error() {

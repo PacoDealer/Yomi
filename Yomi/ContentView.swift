@@ -58,6 +58,12 @@ struct ContentView: View {
         // and the old switch had no UI left, so anyone who had it on was stuck with it.
         .environment(\.yomiCanvas, palette)
         .background(palette.bg.ignoresSafeArea())
+        // Extension updates on the Browse tab badge without opening Extensions first — a few seconds in, so it
+        // doesn't compete with the launch itself.
+        .task {
+            try? await Task.sleep(for: .seconds(3))
+            await ExtensionUpdates.refreshIfStale()
+        }
         .onOpenURL { url in
             if url.scheme == "yomi", url.host == "open" { openTitle(from: url); return }
             // yomi://link?url=<website link> (S196): open a title from its web page.
@@ -116,6 +122,7 @@ struct ContentView: View {
             Tab("Browse", systemImage: "safari", value: AppRouter.tabBrowse) {
                 BrowseView()
             }
+            .badge(ExtensionUpdates.count)
             .customizationID("com.Yomi.Browse")
 
         case .history:
