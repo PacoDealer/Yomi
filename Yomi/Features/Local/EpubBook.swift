@@ -109,6 +109,12 @@ nonisolated struct EpubBook {
         body = body.replacingOccurrences(
             of: #"<svg\b[\s\S]*?<image\b[^>]*?(?:xlink:)?href\s*=\s*["']([^"']+)["'][\s\S]*?</svg>"#,
             with: "<img src=\"$1\">", options: [.regularExpression, .caseInsensitive])
+        // EPUB chapters are XHTML, where `<a id="chap04"/>` is an empty element. The reader parses them as HTML,
+        // where it opens a link that never closes and paints the whole chapter in the link colour (Project
+        // Gutenberg books do this in every chapter). Close such tags explicitly; void tags (img, br, …) stay as they are.
+        body = body.replacingOccurrences(
+            of: #"<(?!(?:area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)\b)([a-zA-Z][\w:-]*)(\s[^<>]*?)?\s*/>"#,
+            with: "<$1$2></$1>", options: .regularExpression)
 
         let dir = (href as NSString).deletingLastPathComponent
         var out = ""
