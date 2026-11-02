@@ -581,6 +581,12 @@ nonisolated private final class SpeechDelegate: NSObject, AVSpeechSynthesizerDel
 nonisolated enum ListenText {
     static func sentences(fromHTML html: String) -> [String] {
         var text = html.replacing(/(?is)<(script|style)\b[^>]*>.*?<\/\1>/, with: " ")
+        // Line breaks in the source are just wrapping (Project Gutenberg wraps every ~75 characters): as "\n" they
+        // split sentences mid-way, so speech paused there and the highlight covered half a sentence (S200).
+        // When the chapter has block tags, only tags start a new paragraph; plain text keeps its line breaks.
+        if text.contains(/(?i)<(p|div|br|h[1-6]|li|blockquote)\b/) {
+            text = text.replacing(/\s+/, with: " ")
+        }
         text = text.replacing(/(?i)<br\s*\/?>|<\/?(p|div|h[1-6]|li|blockquote|tr|section|article|hr|ul|ol|table)\b[^>]*>/, with: "\n")
         text = text.replacing(/<[^>]+>/, with: "")
         text = decodeEntities(text)

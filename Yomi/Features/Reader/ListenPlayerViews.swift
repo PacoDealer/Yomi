@@ -17,7 +17,7 @@ struct ListenMiniPlayer: View {
             Button(action: onOpen) {
                 HStack(spacing: 12) {
                     if let novel = player.novel {
-                        CoverImage(url: novel.coverURL)
+                        CoverImage(url: novel.coverURL, customPath: novel.resolvedCustomCoverPath)
                             .frame(width: 32)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
@@ -155,7 +155,7 @@ struct ListenPlayerView: View {
     private var header: some View {
         VStack(spacing: 14) {
             if let novel = player.novel {
-                CoverImage(url: novel.coverURL)
+                CoverImage(url: novel.coverURL, customPath: novel.resolvedCustomCoverPath)
                     .frame(width: 150)
                     .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.cover))
                     .coverHairline()

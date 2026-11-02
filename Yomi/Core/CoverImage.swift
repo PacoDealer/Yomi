@@ -5,6 +5,9 @@ import Kingfisher
 /// KFImage provides disk + memory cache; covers load instantly after first fetch.
 struct CoverImage: View {
     let url: URL?
+    /// A cover file on the phone (local books, user-picked covers): pass `resolvedCustomCoverPath`, never the
+    /// stored relative path. Wins over `url` when the file loads.
+    var customPath: String? = nil
 
     // `Color.secondary` only tracks system light/dark mode, not the app's own canvas —
     // a manga/novel with no cover art rendered a plain system-gray box regardless of which
@@ -12,6 +15,17 @@ struct CoverImage: View {
     @Environment(\.yomiCanvas) private var canvas
 
     var body: some View {
+        if let customPath, let image = UIImage(contentsOfFile: customPath) {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(2/3, contentMode: .fill)
+                .coverAspectSized()
+        } else {
+            remote
+        }
+    }
+
+    private var remote: some View {
         KFImage(url)
             .coverSized()
             .keiyoushiCoverFallback(url)
