@@ -868,7 +868,7 @@ private struct NovelLibraryCoverCell: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
                 Group {
-                    if let customPath = novel.customCoverPath,
+                    if let customPath = novel.resolvedCustomCoverPath,
                        let uiImage = UIImage(contentsOfFile: customPath) {
                         Image(uiImage: uiImage)
                             .resizable()

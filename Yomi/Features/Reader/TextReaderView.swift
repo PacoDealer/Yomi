@@ -136,7 +136,9 @@ struct TextReaderView: View {
                 overflow-wrap: break-word;
             }
             /* The column is capped near 36em (~75 characters) so iPad and landscape lines stay readable. */
-            #yomi-chapters { padding: 24px \(hPadding)px 200px \(hPadding)px;
+            /* Top: below the notch/Dynamic Island (the web view ignores safe areas), so a chapter's first lines
+               aren't under the status bar when the controls are hidden. Pages mode sets its own padding. */
+            #yomi-chapters { padding: calc(env(safe-area-inset-top) + 24px) \(hPadding)px 200px \(hPadding)px;
                              max-width: calc(36em + \(2 * hPadding)px); margin: 0 auto; }
             p { margin: 0 0 \(ps)em 0; }
             a { color: \(lnk); text-decoration: none; }
