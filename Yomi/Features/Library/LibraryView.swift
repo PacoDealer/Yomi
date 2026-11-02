@@ -25,7 +25,7 @@ struct LibraryView: View {
     }
 
     /// Manga | Novels switch (S199, PacoDealer): with a big library the novels sat below every manga. Only shown when
-    /// the library has both; the choice is remembered. Continue reading stays mixed.
+    /// the library has both; the choice is remembered. Continue reading follows it too (S200, PacoDealer).
     @AppStorage("libraryContentType") private var contentType = "manga"
     private var showsTypeSwitch: Bool { !viewModel.mangas.isEmpty && !viewModel.novels.isEmpty }
     private var showsManga: Bool { !showsTypeSwitch || contentType != "novels" }
@@ -156,7 +156,7 @@ struct LibraryView: View {
                         VStack(spacing: 0) {
                             typeSwitch
                             categoryTabBar
-                            if !isSelecting { ContinueReadingRow() }
+                            if !isSelecting { ContinueReadingRow(showsManga: showsManga, showsNovels: showsNovels) }
                             if !shownManga.isEmpty {
                                 // Show "Manga" header only when novels are also present
                                 if !shownNovels.isEmpty {

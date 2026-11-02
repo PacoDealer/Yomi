@@ -39,6 +39,9 @@ private enum ContinueItem: Identifiable {
 // MARK: - ContinueReadingRow
 
 struct ContinueReadingRow: View {
+    /// The Library's Manga | Novels switch (S200, PacoDealer: Continue follows it). Both true = no switch shown.
+    var showsManga = true
+    var showsNovels = true
     @State private var items: [ContinueItem] = []
     @Environment(\.yomiCanvas) private var canvas
 
@@ -70,19 +73,25 @@ struct ContinueReadingRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { Task { await loadItems() } }
+        .onChange(of: showsNovels) { Task { await loadItems() } }
     }
 
-    /// At most two titles: the last manga and the last novel read, most recent first (KNOWN_ISSUES #165 —
-    /// PacoDealer wants "what I'm reading now", not a history row).
+    /// At most two titles, most recent first (KNOWN_ISSUES #165 — PacoDealer wants "what I'm reading now", not a
+    /// history row): the last manga and the last novel; with the Manga | Novels switch on one type, the last two
+    /// of that type (S200), so the shelf stays the same size.
     private func loadItems() async {
-        // Safe Mode: the last title it allows (a few more rows, so a hidden one doesn't empty the shelf).
+        // Safe Mode: the last titles it allows (a few more rows, so a hidden one doesn't empty the shelf).
         let safe = SafeMode.filter
-        let limit = safe.isOn ? 20 : 1
+        let perType = showsManga && showsNovels ? 1 : 2
+        let limit = safe.isOn ? 20 : perType
+        let wantsManga = showsManga, wantsNovels = showsNovels
         async let mangaFetch = Task.detached(priority: .userInitiated) {
-            Array(((try? MangaQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(1))
+            guard wantsManga else { return [Manga]() }
+            return Array(((try? MangaQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(perType))
         }.value
         async let novelFetch = Task.detached(priority: .userInitiated) {
-            Array(((try? NovelQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(1))
+            guard wantsNovels else { return [Novel]() }
+            return Array(((try? NovelQueries.fetchRecentlyRead(limit: limit)) ?? []).filter(safe.allows).prefix(perType))
         }.value
         let (mangas, novels) = await (mangaFetch, novelFetch)
 
