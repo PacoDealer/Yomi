@@ -64,3 +64,7 @@ grep -q "EXPORT SUCCEEDED" "$LOG" || { echo "Upload failed — full log: $LOG"; 
 echo "Uploaded build $BUILD. It appears in App Store Connect → TestFlight after Apple finishes processing."
 scripts/changelog/publish-release.sh "$BUILD" \
   || { echo "Upload OK, but the GitHub release / website step failed — fix it and rerun scripts/changelog/publish-release.sh $BUILD" >&2; exit 1; }
+# Same notes into TestFlight's "What to Test" once Apple has the build (skips itself when no API key is set up).
+TFLOG="$HOME/Library/Logs/Yomi-testflight-notes-$BUILD.log"
+nohup python3 scripts/changelog/testflight-notes.py "$BUILD" >"$TFLOG" 2>&1 &
+echo "What to Test: waiting for Apple in the background — log: $TFLOG"
