@@ -9,3 +9,5 @@ Vendor/*
 !Vendor/PLzmaSDK/
 perf-traces/
 __pycache__/
+# Release notes drafts (scripts/changelog). Not committed: a commit would change the build number.
+release-notes/

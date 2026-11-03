@@ -2,7 +2,10 @@
 # Archives Yomi (Release, paid team, Keiyoushi runtime embedded — Config/TestFlight.xcconfig) and uploads the build
 # to App Store Connect for TestFlight. Needs: the paid Team ID in Config/TestFlight.xcconfig, Xcode signed in to
 # that account (Settings → Accounts), and an app record for pacodealer.Yomi in App Store Connect.
-# Pass --archive-only to stop before the upload (checks signing without sending anything to Apple).
+# Pass --archive-only to stop before the upload (a full rehearsal: every check below runs, nothing goes to Apple).
+# Release notes: no release-notes/build-N.md = no upload. Draft it with scripts/changelog/draft-notes.py, rewrite it
+# in plain user language and show it to PacoDealer with the upload question. After the upload, the notes become the
+# GitHub release build-N and the website's What's new is rebuilt and deployed (scripts/changelog/publish-release.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -12,6 +15,12 @@ TEAM=$(sed -n 's/^DEVELOPMENT_TEAM = //p' Config/TestFlight.xcconfig)
 [ -d Vendor/Keiyoushi/OpenJDKRuntime.framework ] || { echo "Vendor/Keiyoushi missing — run scripts/keiyoushi/stage-vendor.sh" >&2; exit 1; }
 # App Store Connect wants a build number that only goes up: the commit count does, and maps back to a commit.
 BUILD=$(git rev-list --count HEAD)
+NOTES="release-notes/build-$BUILD.md"
+[ -f "$NOTES" ] || { echo "No $NOTES — no upload without release notes. Run scripts/changelog/draft-notes.py, rewrite the draft, retry." >&2; exit 1; }
+python3 scripts/changelog/whats-new.py --clean "$NOTES" >/dev/null || { echo "$NOTES has nothing to publish — not uploading." >&2; exit 1; }
+git fetch -q origin main
+git merge-base --is-ancestor HEAD origin/main || { echo "Push first: build $BUILD's release must point at a commit on GitHub." >&2; exit 1; }
+echo "Release notes for build $BUILD:"; python3 scripts/changelog/whats-new.py --clean "$NOTES" | sed 's/^/  /'
 OUT="$HOME/Library/Developer/Xcode/DerivedData/Yomi-testflight"
 ARCHIVE="$OUT/Yomi-$BUILD.xcarchive"
 LOG=$(mktemp)
@@ -53,3 +62,5 @@ xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OPTS" -e
   -allowProvisioningUpdates 2>&1 | tee "$LOG" | grep -E "error|Upload|EXPORT (SUCCEEDED|FAILED)" || true
 grep -q "EXPORT SUCCEEDED" "$LOG" || { echo "Upload failed — full log: $LOG"; exit 1; }
 echo "Uploaded build $BUILD. It appears in App Store Connect → TestFlight after Apple finishes processing."
+scripts/changelog/publish-release.sh "$BUILD" \
+  || { echo "Upload OK, but the GitHub release / website step failed — fix it and rerun scripts/changelog/publish-release.sh $BUILD" >&2; exit 1; }
