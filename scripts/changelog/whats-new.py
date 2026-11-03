@@ -150,7 +150,9 @@ def main():
     print(f"Wrote {out}")
 
     if a.deploy:
-        subprocess.run(["firebase", "deploy", "--only", "hosting:site"], cwd=FIREBASE, check=True)
+        if subprocess.run(["firebase", "deploy", "--only", "hosting:site"], cwd=FIREBASE).returncode:
+            sys.exit("firebase deploy failed. If it says the credentials are no longer valid, run "
+                     "`firebase login --reauth`, then `python3 scripts/changelog/whats-new.py --deploy`.")
         if subprocess.run(["git", "diff", "--quiet", "--", "site/whats-new.html"], cwd=FIREBASE).returncode:
             subprocess.run(["git", "commit", "-q", "-m", "What's new: rebuilt from the GitHub releases",
                             "--", "site/whats-new.html"], cwd=FIREBASE, check=True)
