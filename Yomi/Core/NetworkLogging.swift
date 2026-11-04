@@ -7,7 +7,7 @@ import Pulse
 /// in Release). Deliberately a plain nonisolated function, not routed through Pulse's
 /// `URLSessionProxy` — that type is `@MainActor`, which would force an actor hop at every call
 /// site. Several of Yomi's real fetch paths can't take that hop: `JSBridge`'s plugin fetch is
-/// `nonisolated`/`Task.detached` by design (see the dev notes' Swift 6 rules), and some services
+/// `nonisolated`/`Task.detached` by design (Swift 6 concurrency rules), and some services
 /// here are custom actors (`AniListService`) or unstructured `TaskGroup` children
 /// (`PluginCatalogService`). `LoggerStore.storeRequest` has no actor affinity, so this is safe
 /// to call from any of them without changing isolation anywhere.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs every macOS-compiled test suite in scripts/*-tests + check-bundle-docs.py (S184). Yomi has no unit-test target: each suite compiles the
-# pure-Foundation file(s) it tests with swiftc and runs them. UI tests (YomiUITests) are separate — see the dev notes.
+# pure-Foundation file(s) it tests with swiftc and runs them. UI tests (YomiUITests) are separate.
 # Usage: scripts/test-all.sh            exit code = number of failed suites
 cd "$(dirname "$0")"
 failed=()

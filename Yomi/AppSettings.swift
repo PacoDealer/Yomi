@@ -387,7 +387,7 @@ import Observation
     }
 
     /// Auto-update progress on every connected tracker (MAL/AniList/Shikimori/Bangumi) whenever a
-    /// chapter finishes. Previously always-on with no opt-out — see the dev notes Known Issues.
+    /// chapter finishes. Previously always-on with no opt-out.
     var trackerAutoUpdate: Bool {
         didSet { defaults.set(trackerAutoUpdate, forKey: "trackerAutoUpdate") }
     }

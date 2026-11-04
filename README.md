@@ -2,6 +2,8 @@
 
 A clean, fast manga, manhwa, manhua and light novel reader for iOS. It reads your own files (CBZ, CBR, CB7, ZIP, EPUB) and can be extended with repositories you add by link.
 
+Built by one developer with AI coding help.
+
 ---
 
 ## Getting Started

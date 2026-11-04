@@ -122,7 +122,7 @@ enum YomiTokens {
 
     enum Accent {
         // Default: Vermilion — warm premium red, the YOMI signature.
-        // the dev notes §confirmed: Vermilion replaces old Coral default.
+        // Vermilion replaces old Coral default.
         static let defaultHex = "#E5473A"
         static let `default`  = Color(hex: defaultHex)
 

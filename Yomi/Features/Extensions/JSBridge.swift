@@ -7,7 +7,7 @@ nonisolated(unsafe) private var _cfBlockedByContext: [ObjectIdentifier: String] 
 
 /// Request timeout for SOURCE.fetch, mirrored from AppSettings.shared.requestTimeout on MainActor
 /// (AppSettings didSet) — read from inside Task.detached JS execution, where reading
-/// AppSettings.shared directly is unsafe (see the dev notes' concurrency rules).
+/// AppSettings.shared directly is unsafe.
 nonisolated(unsafe) var jsBridgeRequestTimeout: TimeInterval = 30
 
 // MARK: - Novel Result Types

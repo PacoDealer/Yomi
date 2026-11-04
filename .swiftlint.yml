@@ -3,7 +3,7 @@ excluded:
   - node_modules
   - YomiWidget
   - Yomi/design
-  - .worktrees
+  - "**/worktrees"
 
 opt_in_rules:
   - empty_count

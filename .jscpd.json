@@ -6,7 +6,7 @@
     "node_modules/**",
     "YomiWidget/**",
     "Yomi/design/**",
-    ".worktrees/**"
+    "**/worktrees/**"
   ],
   "format": ["swift"],
   "absolute": false
