@@ -179,7 +179,7 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
 
                 webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
                     guard let self else { return }
-                    for cookie in cookies where cookie.name == "cf_clearance" {
+                    for cookie in cookies where CFBypassConstants.clearanceCookieNames.contains(cookie.name) {
                         let raw    = cookie.domain
                         let domain = raw.hasPrefix(".") ? String(raw.dropFirst()) : raw
                         guard !self.bypassed.contains(domain) else { continue }
@@ -204,6 +204,9 @@ enum CFBypassConstants {
     /// User-Agent used by both JSBridge (SOURCE._fetchSync) and the bypass WKWebView.
     /// Cloudflare binds cf_clearance to the UA that solved the challenge — they must match.
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+    /// Cookies that mean "the site's bot check passed". Cloudflare sets cf_clearance; Batcave's own guard (S208, its
+    /// Keiyoushi extension opens a WebView on a redirect to /_c) sets __guard_trust.
+    nonisolated static let clearanceCookieNames: Set<String> = ["cf_clearance", "__guard_trust"]
 }
 
 enum CFBypassManager {
@@ -281,7 +284,7 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
             webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
                 DispatchQueue.main.async {
                     guard !self.finished else { return }
-                    guard cookies.contains(where: { $0.name == "cf_clearance" }) else { return }
+                    guard cookies.contains(where: { CFBypassConstants.clearanceCookieNames.contains($0.name) }) else { return }
                     self.collectedCookies = cookies
                     t.invalidate()
                     self.finish(success: true)

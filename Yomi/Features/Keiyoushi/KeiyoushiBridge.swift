@@ -429,6 +429,12 @@ final class KeiyoushiBridge {
                 if err?.code == 403 || http?.statusCode == 403, let homeURL {
                     throw KeiyoushiError.bridge("CLOUDFLARE:\(homeURL)")
                 }
+                // S208: extensions whose site check needs a WebView (Batcave's guard) can't open one on iOS; they
+                // report Mihon's "Open in WebView to bypass …". Same remedy as Cloudflare: verify in CFBypassView,
+                // whose cookies reach the extension through the Cookie header above.
+                if let message = err?.error, message.localizedCaseInsensitiveContains("open in webview"), let homeURL {
+                    throw KeiyoushiError.bridge("CLOUDFLARE:\(homeURL)")
+                }
                 throw KeiyoushiError.bridge(err?.error ?? String(localized: "The extension failed (HTTP \(http?.statusCode ?? 0))."))
             }
         }
