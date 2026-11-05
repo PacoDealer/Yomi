@@ -31,6 +31,8 @@ struct ReaderOverlayView: View {
     var onToggleBookmark: (() -> Void)? = nil
     var onMarkPreviousRead: (() -> Void)? = nil
     var currentPageURL: String? = nil
+    /// The page slider is being dragged: the scrolling readers jump without animation and stop reporting pages meanwhile.
+    var onScrubbingChanged: (Bool) -> Void = { _ in }
 
     @State private var showChapterSheet = false
     @State private var showSettingsSheet = false
@@ -403,7 +405,8 @@ struct ReaderOverlayView: View {
                             ),
                             range: 0...Double(totalPages - 1),
                             accessibilityLabelText: "Page",
-                            accessibilityValueText: { String(localized: "Page \(Int($0.rounded()) + 1) of \(totalPages)") }
+                            accessibilityValueText: { String(localized: "Page \(Int($0.rounded()) + 1) of \(totalPages)") },
+                            onEditingChanged: onScrubbingChanged
                         )
 
                         Text("\(totalPages)")

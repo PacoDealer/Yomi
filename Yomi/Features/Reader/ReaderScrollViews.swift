@@ -13,6 +13,10 @@ struct WebtoonReaderView: View {
     let chapterKey: String
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
+    /// The overlay's page slider is being dragged. Each step then jumps straight to its page, and the strip doesn't
+    /// report the pages it passes: animated scrolls through tall pages reported pages in between, which moved the
+    /// slider back under the finger and the two fought (PacoDealer, phone S206).
+    var isScrubbing = false
     var nextChapter: Chapter? = nil
     var nextPages: [String] = []
     var boundaryTitles: (finished: String, next: String)? = nil
@@ -101,6 +105,12 @@ struct WebtoonReaderView: View {
             .onChange(of: visibleId) { _, id in
                 if let id { observe(id) }
             }
+            .onChange(of: isScrubbing) { _, scrubbing in
+                // Reports were off during the drag: a jump near the end still loads the next chapter.
+                if !scrubbing, nextChapter == nil, pages.count > 0, currentPage >= pages.count - 3 {
+                    onNeedsNextChapterPreload?()
+                }
+            }
             .onChange(of: chapterKey) { _, key in
                 // A crossing keeps the chapters above; any other chapter change (Next button, chapter list) starts over.
                 if key != crossingTo { earlier = [] }
@@ -113,7 +123,12 @@ struct WebtoonReaderView: View {
                 // change originated from the scroll itself (including a crossing).
                 let newId = Self.pageId(chapterKey, new)
                 guard newId != visibleId, newId != observedId else { return }
-                withMotion { proxy.scrollTo(newId, anchor: .top) }
+                if isScrubbing {
+                    observedId = newId
+                    proxy.scrollTo(newId, anchor: .top)
+                } else {
+                    withMotion { proxy.scrollTo(newId, anchor: .top) }
+                }
             }
         }
         .modifier(ReaderZoom(scrollAxis: .vertical, pinchEnabled: settings.readerPinchZoom && !isHolding))
@@ -191,7 +206,7 @@ struct WebtoonReaderView: View {
     }
 
     private func observe(_ id: String) {
-        guard id != observedId, let (key, idx) = Self.parse(id) else { return }
+        guard !isScrubbing, id != observedId, let (key, idx) = Self.parse(id) else { return }
         observedId = id
         if key == chapterKey {
             currentPage = idx
@@ -353,6 +368,8 @@ struct ContinuousHorizontalReaderView: View {
     @Binding var currentPage: Int
     @Binding var showOverlay: Bool
     var isRTL: Bool = false
+    /// See `WebtoonReaderView.isScrubbing`.
+    var isScrubbing = false
     var nextChapter: Chapter? = nil
     var nextPages: [String] = []
     var boundaryTitles: (finished: String, next: String)? = nil
@@ -392,7 +409,7 @@ struct ContinuousHorizontalReaderView: View {
                 }
             }
             .onChange(of: visibleId) { _, id in
-                guard let id else { return }
+                guard let id, !isScrubbing else { return }
                 if id.hasPrefix("cur:"), let idx = Int(id.dropFirst(4)) {
                     currentPage = idx
                     if nextChapter == nil, pages.count > 0, idx >= pages.count - 3 {
@@ -402,10 +419,15 @@ struct ContinuousHorizontalReaderView: View {
                     onCrossedIntoNextChapter?(idx)
                 }
             }
+            .onChange(of: isScrubbing) { _, scrubbing in
+                if !scrubbing, nextChapter == nil, pages.count > 0, currentPage >= pages.count - 3 {
+                    onNeedsNextChapterPreload?()
+                }
+            }
             .onChange(of: currentPage) { _, new in
                 let newId = "cur:\(new)"
                 guard newId != visibleId else { return }
-                withMotion { proxy.scrollTo(newId, anchor: .center) }
+                if isScrubbing { proxy.scrollTo(newId, anchor: .center) } else { withMotion { proxy.scrollTo(newId, anchor: .center) } }
             }
         }
         .modifier(ReaderZoom(scrollAxis: .horizontal, pinchEnabled: settings.readerPinchZoom))

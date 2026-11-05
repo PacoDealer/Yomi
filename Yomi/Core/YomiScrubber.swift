@@ -17,6 +17,8 @@ struct YomiScrubber: View {
     /// How the current value is spoken. Defaults to the bare number, which is right for a page
     /// index but not for e.g. a font size in points.
     var accessibilityValueText: (Double) -> String = { "\(Int($0.rounded()))" }
+    /// True when a drag starts, false when it ends (like `Slider`'s `onEditingChanged`).
+    var onEditingChanged: (Bool) -> Void = { _ in }
 
     @State private var isDragging = false
 
@@ -48,13 +50,13 @@ struct YomiScrubber: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in
-                        isDragging = true
+                        if !isDragging { isDragging = true; onEditingChanged(true) }
                         let clampedX = min(max(0, drag.location.x), width)
                         let rawValue = range.lowerBound + Double(clampedX / width) * (range.upperBound - range.lowerBound)
                         let stepped = (rawValue / step).rounded() * step
                         value = min(max(stepped, range.lowerBound), range.upperBound)
                     }
-                    .onEnded { _ in isDragging = false }
+                    .onEnded { _ in isDragging = false; onEditingChanged(false) }
             )
         }
         .frame(height: 24)

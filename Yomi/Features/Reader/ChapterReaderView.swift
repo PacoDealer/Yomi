@@ -36,6 +36,8 @@ struct ChapterReaderView: View {
     @State private var readerMode: ReaderMode
     @State private var showOverlay = true
     @State private var currentPage = 0
+    /// The overlay's page slider is being dragged (see `WebtoonReaderView.isScrubbing`).
+    @State private var isScrubbing = false
     @State private var sessionStart: Date = Date()
     @State private var discussURL: URL? = nil
     @State private var showDiscussSheet = false
@@ -156,6 +158,7 @@ struct ChapterReaderView: View {
                         chapterKey: activeChapter.id,
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
+                        isScrubbing: isScrubbing,
                         nextChapter: nextPreload?.chapter,
                         nextPages: nextPreload?.pages ?? [],
                         boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
@@ -174,6 +177,7 @@ struct ChapterReaderView: View {
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
                         isRTL: true,
+                        isScrubbing: isScrubbing,
                         nextChapter: nextPreload?.chapter,
                         nextPages: nextPreload?.pages ?? [],
                         boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
@@ -186,6 +190,7 @@ struct ChapterReaderView: View {
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
                         isRTL: false,
+                        isScrubbing: isScrubbing,
                         nextChapter: nextPreload?.chapter,
                         nextPages: nextPreload?.pages ?? [],
                         boundaryTitles: nextPreload.map { (activeChapter.name, $0.chapter.name) },
@@ -222,7 +227,8 @@ struct ChapterReaderView: View {
                 isBookmarked: isActiveBookmarked,
                 onToggleBookmark: toggleBookmark,
                 onMarkPreviousRead: markPreviousRead,
-                currentPageURL: pages.indices.contains(currentPage) ? pages[currentPage] : nil
+                currentPageURL: pages.indices.contains(currentPage) ? pages[currentPage] : nil,
+                onScrubbingChanged: { isScrubbing = $0 }
             )
         }
         .navigationBarHidden(true)
