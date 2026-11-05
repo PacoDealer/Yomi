@@ -153,6 +153,7 @@ struct ChapterReaderView: View {
                 case .verticalScroll:
                     WebtoonReaderView(
                         pages: pages,
+                        chapterKey: activeChapter.id,
                         currentPage: $currentPage,
                         showOverlay: $showOverlay,
                         nextChapter: nextPreload?.chapter,
@@ -287,7 +288,9 @@ struct ChapterReaderView: View {
         .onChange(of: currentPage) { _, newPage in
             prefetchAhead()
             if pages.count > 0 { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-            if pages.count > 0 && newPage >= pages.count - 2 {
+            // #264: the banner is the paged modes' Next button, so it waits for the last page. Continuous modes
+            // never show it (their chapter boundary card does the job; tall strip pages made it pop up mid-read).
+            if !isContinuousReaderMode && pages.count > 0 && newPage == pages.count - 1 {
                 withMotion(.spring(duration: 0.4)) { showFinishedBanner = true }
             }
             if !AppSettings.shared.isIncognito && pages.count > 0 && newPage >= pages.count - 2 {

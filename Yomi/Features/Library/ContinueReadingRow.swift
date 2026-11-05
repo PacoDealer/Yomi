@@ -69,6 +69,9 @@ struct ContinueReadingRow: View {
                     }
                 }
                 .padding(.horizontal, YomiTokens.Layout.screenMargin)
+                // #256: the Library's VStack has spacing 0, so without this the progress bars touched the first
+                // grid row (no "Manga" header in between when the Manga | Novels switch shows one type).
+                .padding(.bottom, 24)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

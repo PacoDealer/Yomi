@@ -1156,7 +1156,7 @@ struct SourceBrowseView: View {
     @State private var autoBypassFailed = false
 
     private let columns = [
-        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)
+        GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12, alignment: .top)
     ]
 
     // MARK: Filtered Content

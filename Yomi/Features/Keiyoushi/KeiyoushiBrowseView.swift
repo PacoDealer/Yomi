@@ -37,7 +37,7 @@ struct KeiyoushiBrowseView: View {
     @State private var showFilters = false
 
     private let bridge = KeiyoushiBridge.shared
-    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12, alignment: .top)]
 
     private var filterList: [[String: Any]] { KeiyoushiFilter.wire(filters, defaults: filterDefaults) }
     private var isFiltering: Bool { filters != filterDefaults }

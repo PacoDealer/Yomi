@@ -18,7 +18,7 @@ struct OPDSBrowseView: View {
     @State private var errorMessage: String? = nil
     @State private var selectedEntry: OPDSEntry? = nil
 
-    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 12, alignment: .top)]
 
     var body: some View {
         Group {
