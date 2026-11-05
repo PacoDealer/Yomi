@@ -11,7 +11,7 @@ Plan, results and next steps: **`Yomi/KEIYOUSHI_POC.md`**. Big downloads/builds 
 | `build-runtime-framework.sh` | Wraps OpenJDK Mobile's static `libdevice.a` into a device-only `OpenJDKRuntime.framework`, with the Java home at `lib/` (the only place iOS HotSpot looks). Consumed by `Labs/YomiBridgeLab/prepare.sh`. |
 | `Launcher.java` | Mac stand-in for the iOS host: calls `mextensionserver.EmbeddedBridge.start(port, dir)`. |
 | `jul-shim/` | Our 2-class `java.util.logging` stand-in (the iOS runtime has no `java.logging`). |
-| `patches/m-extension-server-yomi.patch` | Our MPL-2.0 changes to M-Extension-Server (`NoZstdInterceptor`, jar cache, wire stats, iOS build without NewPipe, bridge token S191). Publish with any build we distribute. |
+| `patches/m-extension-server-yomi.patch` | Our MPL-2.0 changes to M-Extension-Server (`NoZstdInterceptor`, jar cache, wire stats, iOS build without NewPipe, bridge token S191, S208 dex2jar fixes for R8/Kotlin 2.4 extensions + coroutines 1.11 / serialization 1.11 / OkHttp 5.4). Publish with any build we distribute. |
 
 Quick check that everything still works:
 
