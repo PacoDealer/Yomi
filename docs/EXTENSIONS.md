@@ -152,4 +152,6 @@ Volume → Book → Chapter) list their Book pages as chapters.
 
 ## Licence
 
-Yomi is MPL-2.0. The example plugin is under the same licence — copy it freely as a starting point.
+The app is GPL-3.0 (see NOTICE). Extensions are separate programs and are not covered by the app's licence. The
+example plugin is under the MIT licence so you can copy it freely as a starting point, for any extension under any
+licence.

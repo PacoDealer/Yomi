@@ -14,6 +14,8 @@ for need in "$PKGS/GRDB.swift/LICENSE" "$PKGS/Unrar.swift/Sources/Cunrar/license
   [ -e "$need" ] || { echo "Missing $need" >&2; exit 1; }
 done
 rm -rf "$OUT" && mkdir -p "$OUT"
+# Yomi's own licence: NOTICE (GPL-3.0 + the two section-7 permissions) followed by the GPL text.
+{ cat "$ROOT/NOTICE"; printf '\n\n────────────────────────────────────────\nGNU General Public License, version 3\n────────────────────────────────────────\n\n'; cat "$ROOT/LICENSE"; } > "$OUT/licence-yomi.txt"
 rule() { printf '\n\n%s\n%s\n%s\n\n' "────────────────────────────────────────" "$1" "────────────────────────────────────────"; }
 
 # Swift packages

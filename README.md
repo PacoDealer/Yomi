@@ -7,7 +7,7 @@
 <p align="center">Manga, webtoons and light novels in one free iPhone app. No ads, no subscription, no account.</p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="Licence: MPL-2.0" src="https://img.shields.io/github/license/PacoDealer/Yomi?style=flat"></a>
+  <a href="LICENSE"><img alt="Licence: GPL-3.0" src="https://img.shields.io/github/license/PacoDealer/Yomi?style=flat"></a>
   <a href="https://github.com/PacoDealer/Yomi/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/PacoDealer/Yomi/actions/workflows/tests.yml/badge.svg"></a>
   <a href="https://github.com/PacoDealer/Yomi/releases"><img alt="Latest beta" src="https://img.shields.io/github/v/release/PacoDealer/Yomi?include_prereleases&label=beta&style=flat"></a>
 </p>
@@ -65,8 +65,10 @@ and, for security issues, [SECURITY.md](SECURITY.md).
 
 ## Licence
 
-[Mozilla Public License 2.0](LICENSE): you can use, study and build on Yomi; changes to Yomi's own files stay open
-under the same licence. Some parts keep their own licences — see [NOTICE](NOTICE).
+[GNU GPL v3](LICENSE), with two additional permissions (UnRAR, and app stores as long as the full source stays
+public) — see [NOTICE](NOTICE). You can use, study and build on Yomi; anything built from it stays open under the
+same licence. Versions up to build 666 were released under the Mozilla Public License 2.0. Some parts keep their own
+licences — see [NOTICE](NOTICE).
 
 Screenshots show public-domain books from Project Gutenberg and [Pepper & Carrot](https://www.peppercarrot.com) by
 David Revoy, CC BY 4.0.

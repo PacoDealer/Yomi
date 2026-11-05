@@ -10,6 +10,7 @@ struct LicensesView: View {
     var body: some View {
         CalmList {
             Section(calm: "App") {
+                LicenseRow(name: "Yomi", license: "GNU GPL v3, with additional permissions", file: "licence-yomi")
                 LicenseRow(name: "GRDB.swift", license: "MIT", file: "licence-grdb")
                 LicenseRow(name: "Kingfisher", license: "MIT", file: "licence-kingfisher")
                 LicenseRow(name: "Unrar.swift and UnRAR", license: "MIT; UnRAR source under RARLAB's licence",

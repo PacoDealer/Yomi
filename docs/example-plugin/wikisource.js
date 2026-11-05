@@ -6,7 +6,7 @@
 //
 // This is a "Format B" (LNReader-style) novel plugin: one global `plugin` object with four functions. Yomi calls them
 // from a background thread; SOURCE.fetch is synchronous and returns the response body as a string. See
-// docs/EXTENSIONS.md for the whole contract. License: MPL-2.0, like the rest of the repository.
+// docs/EXTENSIONS.md for the whole contract. License: MIT (docs/example-plugin/LICENSE; unlike the app, which is GPL-3.0) — copy it freely.
 
 var API = "https://en.wikisource.org/w/api.php";
 var SITE = "https://en.wikisource.org/wiki/";

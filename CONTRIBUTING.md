@@ -38,7 +38,8 @@ way. Fixing bugs in everyday reading comes before new features.
 
 ## Licence
 
-By contributing, you agree that your contribution is licensed under the [Mozilla Public License 2.0](LICENSE), like
-the rest of Yomi.
+By contributing, you agree that your contribution is licensed under the [GNU GPL v3](LICENSE) with the two
+additional permissions in [NOTICE](NOTICE) (UnRAR, and app stores), like the rest of Yomi — so it can ship in the
+App Store build.
 
 Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
