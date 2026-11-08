@@ -512,6 +512,27 @@ final class DatabaseManager {
                 """)
         }
 
+        // A2 (S209, Komikku's library update errors, Apache-2.0): the titles whose last library update FAILED and why,
+        // so the list survives a relaunch. One row per title (`kind` = "manga"/"novel"), replaced on the next failure,
+        // deleted on the next success. Device-local: not synced, not in backups. No foreign key (two parent tables) —
+        // rows of titles no longer in the library are skipped and pruned when read (`UpdateErrorQueries.fetchAll`).
+        migrator.registerMigration("v33_update_error") { db in
+            try db.create(table: "update_error") { t in
+                t.column("kind", .text).notNull()
+                t.column("titleId", .text).notNull()
+                t.column("message", .text).notNull()
+                t.column("failedAt", .datetime).notNull()
+                t.primaryKey(["kind", "titleId"])
+            }
+        }
+
+        // A3 (S209, J2K's per-series viewer, Apache-2.0): the reading mode chosen INSIDE the reader for this manga
+        // (`ReaderMode` raw value); NULL = follow Settings (and the webtoon-tag guess). Not in the model struct, like
+        // v27/v29 — read and written by `MangaQueries.readerMode` / `setReaderMode`; synced on the Manga record.
+        migrator.registerMigration("v34_manga_reader_mode") { db in
+            try db.alter(table: "manga") { t in t.add(column: "readerMode", .text) }
+        }
+
         return migrator
     }
 

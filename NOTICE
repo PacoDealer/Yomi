@@ -32,6 +32,14 @@ Other licences
 
 - Code ported from Mihon (https://github.com/mihonapp/mihon), Apache License 2.0 — the Mihon licence is in
   scripts/third-party-licences/ported/mihon-LICENSE.txt, and each ported file names its origin.
+- Behaviour modelled on Komikku (https://github.com/komikku-app/komikku), Apache License 2.0 (same licence text as
+  Mihon's): the saved library-update errors (Yomi/Features/More/UpdatesView.swift, table `update_error`).
+- Behaviour modelled on TachiyomiJ2K (https://github.com/Jays2Kings/tachiyomiJ2K), Apache License 2.0: the reading
+  mode remembered per manga (Yomi/Features/Reader/ChapterReaderView.swift, column `manga.readerMode`).
+- Plugin-host behaviour ported from LNReader (https://github.com/LNReader/lnreader), MIT License, © LNReader
+  contributors: `@libs/storage` (Yomi/Features/Extensions/PluginSandbox.swift `PluginStore`, JSBridge.swift), the
+  plugin settings form (Yomi/Features/More/ExtensionDetailView.swift) and the Website page's saved web storage
+  (Yomi/Features/Extensions/CFBypassView.swift).
 - Yomi/Features/Reader/PageBorders.swift — ported from tachiyomiorg/image-decoder, Mozilla Public License 2.0.
 - scripts/keiyoushi-poc/patches/m-extension-server-yomi.patch — changes to M-Extension-Server
   (https://github.com/kodjodevf/M-Extension-Server), Mozilla Public License 2.0.

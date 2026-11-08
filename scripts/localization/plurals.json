@@ -238,5 +238,15 @@
       "one": "Demasiados intentos. Vuelve a intentarlo en %lld segundo.",
       "other": "Demasiados intentos. Vuelve a intentarlo en %lld segundos."
     }
+  },
+  "%lld titles couldn't update": {
+    "en": {
+      "one": "%lld title couldn't update",
+      "other": "%lld titles couldn't update"
+    },
+    "es": {
+      "one": "%lld título no se pudo actualizar",
+      "other": "%lld títulos no se pudieron actualizar"
+    }
   }
 }

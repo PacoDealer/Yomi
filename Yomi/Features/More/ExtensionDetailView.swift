@@ -6,7 +6,8 @@ import SwiftUI
 // details; Tachimanga v2.1/v4.14 "open a source's website without installing"). Shows what the repository says about
 // it, opens the source's website in Yomi's web view (same cookie store as the plugins, so a Cloudflare check or a
 // login there also helps the source), and for Keiyoushi lists every source with its own settings (before, only
-// reachable from that source's Browse screen). Yomi/LNReader plugins have no settings of their own.
+// reachable from that source's Browse screen). LNReader plugins that declare `pluginSettings` get their form here
+// (S209, `PluginSettingsSection`).
 //
 // The page resolves its extension from the live managers each render, so Add/Update/Remove show at once.
 
@@ -36,6 +37,8 @@ struct ExtensionDetailView: View {
     @State private var showLangPicker = false
     @State private var keiyoushiInstallPick: KeiyoushiExtension?
     @State private var keiyoushiLanguageEdit: InstalledKeiyoushiExtension?
+    /// The installed plugin's settings form (LNReader `pluginSettings`), loaded from its bridge.
+    @State private var pluginSettings: [PluginSettingField] = []
 
     var body: some View {
         CalmList {
@@ -52,6 +55,7 @@ struct ExtensionDetailView: View {
                                        set: { website = $0?.url })) { link in
             CFBypassView(initialURL: link.url, isWebsite: true, cookieJar: link.pluginId.map(PluginCookieJar.forPlugin)) {}
         }
+        .task(id: pluginSettingsKey) { await loadPluginSettings() }
         .sheet(item: $keiyoushiInstallPick) { ext in
             KeiyoushiLanguageSheet(ext: ext, initial: KeiyoushiLanguageSheet.defaultSelection(for: ext),
                                    confirmTitle: "Add") { langs in
@@ -67,6 +71,21 @@ struct ExtensionDetailView: View {
     }
 
     // MARK: Plugin (Yomi / LNReader / Mangayomi)
+
+    /// Changes when the installed plugin or its version does, so an update reloads the form.
+    private var pluginSettingsKey: String {
+        guard case let .plugin(id, name, repo) = target, let ext = installedPlugin(id, name, repo) else { return "" }
+        return "\(ext.id)@\(ext.version)"
+    }
+
+    private func loadPluginSettings() async {
+        guard case let .plugin(id, name, repo) = target, let ext = installedPlugin(id, name, repo) else {
+            pluginSettings = []
+            return
+        }
+        let bridge = await extensionManager.loadBridge(for: ext)
+        pluginSettings = await Task.detached(priority: .userInitiated) { bridge?.pluginSettings() ?? [] }.value
+    }
 
     private func installedPlugin(_ id: String?, _ name: String?, _ repoURL: String?) -> Extension? {
         if let id, let ext = extensionManager.installed.first(where: { $0.id == id }) { return ext }
@@ -141,6 +160,10 @@ struct ExtensionDetailView: View {
             if let entry { infoRow("Repository", PluginCatalogService.repoLabel(from: entry.repoURL)) }
             if let site = entry?.site { infoRow("Website", URL(string: site)?.host() ?? site) }
             if installed != nil, entry == nil { infoRow("Source", String(localized: "Added from a link")) }
+        }
+
+        if let installed, !pluginSettings.isEmpty {
+            PluginSettingsSection(pluginId: installed.id, fields: pluginSettings)
         }
 
         if let installed {
@@ -296,4 +319,82 @@ private struct WebsiteLink: Identifiable {
     /// The installed JS plugin whose cookie jar gets this site's cookies (S192); nil for Keiyoushi / not added yet.
     var pluginId: String? = nil
     var id: String { url }
+}
+
+// MARK: - PluginSettingsSection
+
+/// An LNReader plugin's own settings (`pluginSettings`, S209 — LNReader's usePluginSettings, MIT): text, switch, pick-one
+/// and pick-several. Each change is saved in the plugin's storage at once (where the plugin reads it with
+/// `storage.get`), and the cached bridge is dropped so a plugin that reads its settings while loading sees it.
+struct PluginSettingsSection: View {
+    let pluginId: String
+    let fields: [PluginSettingField]
+
+    @Environment(\.yomiCanvas) private var canvas
+    @State private var values: [String: PluginSettingField.Kind] = [:]
+
+    var body: some View {
+        Section {
+            ForEach(fields) { field in
+                control(field)
+            }
+        } header: {
+            CalmSectionHeader("Settings")
+        } footer: {
+            Text("Saved for this extension on this iPhone.")
+                .font(.footnote)
+                .foregroundStyle(canvas.textSecondary)
+        }
+        .task(id: pluginId) {
+            let store = PluginStore.forPlugin(pluginId)
+            let fields = fields
+            values = await Task.detached(priority: .userInitiated) {
+                Dictionary(fields.map { ($0.key, $0.current(in: store)) }, uniquingKeysWith: { a, _ in a })
+            }.value
+        }
+    }
+
+    @ViewBuilder
+    private func control(_ field: PluginSettingField) -> some View {
+        switch values[field.key] ?? field.kind {
+        case .toggle(let on):
+            Toggle(field.label, isOn: Binding(get: { on }, set: { save(field, .toggle($0)) }))
+        case .select(let chosen, let options):
+            Picker(field.label, selection: Binding(get: { chosen }, set: { save(field, .select($0, options)) })) {
+                ForEach(options, id: \.self) { Text($0.label).tag($0.value) }
+            }
+        case .checkboxes(let chosen, let options):
+            VStack(alignment: .leading, spacing: 8) {
+                Text(field.label).foregroundStyle(canvas.textPrimary)
+                ForEach(options, id: \.self) { option in
+                    Toggle(option.label, isOn: Binding(
+                        get: { chosen.contains(option.value) },
+                        set: { on in
+                            var next = chosen.filter { $0 != option.value }
+                            if on { next.append(option.value) }
+                            save(field, .checkboxes(next, options))
+                        }))
+                    .font(.subheadline)
+                }
+            }
+        case .text(let text):
+            // Plugins write long labels (instructions), so the label sits above the field, not beside it.
+            VStack(alignment: .leading, spacing: 6) {
+                Text(field.label).foregroundStyle(canvas.textPrimary)
+                TextField("Not set", text: Binding(get: { text }, set: { save(field, .text($0)) }))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .foregroundStyle(canvas.textSecondary)
+            }
+        }
+    }
+
+    private func save(_ field: PluginSettingField, _ value: PluginSettingField.Kind) {
+        values[field.key] = value
+        let store = PluginStore.forPlugin(pluginId), id = pluginId
+        Task.detached(priority: .utility) {
+            field.save(value, in: store)
+            ExtensionManager.reloadBridge(id: id)
+        }
+    }
 }

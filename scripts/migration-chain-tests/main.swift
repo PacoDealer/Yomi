@@ -22,7 +22,7 @@ func consistent(_ db: DatabaseQueue) throws -> (integrity: [String], fk: Int) {
 let migrator = DatabaseManager.makeMigrator()
 let names = migrator.migrations
 check("migration ids are unique", Set(names).count == names.count, "\(names)")
-check("migration ids are ordered by version", names.first == "v1_initial" && names.last?.hasPrefix("v32") == true,
+check("migration ids are ordered by version", names.first == "v1_initial" && names.last?.hasPrefix("v34") == true,
       "\(names.first ?? "") … \(names.last ?? "")")
 
 // MARK: 1. Fresh install
@@ -136,6 +136,22 @@ do {
         check("v32: name change not stamped", stamps.first { $0.0 == "c3" }?.1 == nil, "\(stamps)")
         let n = try Double.fetchOne(db, sql: "SELECT stateChangedAt FROM novel_chapter WHERE id = 'nc1'")
         check("v32: novel change stamped", n.map { abs($0 - before) < 5 } == true, "\(String(describing: n))")
+    }
+
+    // v33 (S209): one saved update error per title — a second failure replaces it (the upsert UpdateErrorQueries uses).
+    try db.write { db in
+        let upsert = """
+            INSERT INTO update_error (kind, titleId, message, failedAt) VALUES (?, ?, ?, ?)
+            ON CONFLICT(kind, titleId) DO UPDATE SET message = excluded.message, failedAt = excluded.failedAt
+            """
+        try db.execute(sql: upsert, arguments: ["manga", "m1", "Cloudflare", Date()])
+        try db.execute(sql: upsert, arguments: ["manga", "m1", "No chapters", Date()])
+        try db.execute(sql: upsert, arguments: ["novel", "m1", "No chapters", Date()])
+    }
+    try db.read { db in
+        let rows = try Row.fetchAll(db, sql: "SELECT kind, message FROM update_error ORDER BY kind")
+            .map { "\($0["kind"] as String):\($0["message"] as String)" }
+        check("v33: one error per title, latest wins", rows == ["manga:No chapters", "novel:No chapters"], "\(rows)")
     }
 } catch { check("v1 upgrade ran", false, "\(error)") }
 

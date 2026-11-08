@@ -89,3 +89,45 @@ nonisolated enum UpdateScheduleQueries {
         }
     }
 }
+
+/// Titles whose last library update failed (v33, S209) — Komikku's "Library update errors" (Apache-2.0). Written by
+/// every refresh, foreground or background: a failure replaces the title's row, a success deletes it.
+nonisolated enum UpdateErrorQueries {
+
+    struct Row: Sendable, Equatable {
+        let kind: UpdateScheduleQueries.Kind
+        let titleId: String
+        let message: String
+        let failedAt: Date
+    }
+
+    nonisolated static func record(_ kind: UpdateScheduleQueries.Kind, id: String, message: String?,
+                                   at date: Date = Date()) throws {
+        _ = try appDatabase.write { db in
+            if let message {
+                try db.execute(sql: """
+                    INSERT INTO update_error (kind, titleId, message, failedAt) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(kind, titleId) DO UPDATE SET message = excluded.message, failedAt = excluded.failedAt
+                    """, arguments: [kind.table, id, message, date])
+            } else {
+                try db.execute(sql: "DELETE FROM update_error WHERE kind = ? AND titleId = ?", arguments: [kind.table, id])
+            }
+        }
+    }
+
+    /// Every stored error of a title still in the library; rows of titles that left it are deleted on the way.
+    nonisolated static func fetchAll() throws -> [Row] {
+        try appDatabase.write { db in
+            try db.execute(sql: """
+                DELETE FROM update_error WHERE
+                  (kind = 'manga' AND titleId NOT IN (SELECT id FROM manga WHERE inLibrary = 1)) OR
+                  (kind = 'novel' AND titleId NOT IN (SELECT id FROM novel WHERE inLibrary = 1))
+                """)
+            return try GRDB.Row.fetchAll(db, sql: "SELECT kind, titleId, message, failedAt FROM update_error").map {
+                let kind: String = $0["kind"]
+                return Row(kind: kind == "novel" ? .novel : .manga, titleId: $0["titleId"], message: $0["message"],
+                           failedAt: $0["failedAt"])
+            }
+        }
+    }
+}

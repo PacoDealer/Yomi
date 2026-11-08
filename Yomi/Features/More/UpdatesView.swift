@@ -89,7 +89,7 @@ private struct NovelReaderDest: Identifiable, Hashable {
 
     func loadFromDB() async {
         let safe = SafeMode.filter
-        entries = await Task.detached(priority: .userInitiated) {
+        (entries, errors) = await Task.detached(priority: .userInitiated) {
             let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
             let mangas = Dictionary(((try? MangaQueries.fetchLibrary()) ?? []).filter(safe.allows).map { ($0.id, $0) },
                                     uniquingKeysWith: { a, _ in a })
@@ -105,10 +105,31 @@ private struct NovelReaderDest: Identifiable, Hashable {
                 out.append(UpdateFeedEntry(kind: .novel(n, ch), fetchedAt: at, isRead: ch.isRead))
             }
             // Newest first; within one refresh, highest chapter first (a plain sort shuffled 100 above 101).
-            return out.sorted { a, b in
+            let feed = out.sorted { a, b in
                 a.fetchedAt != b.fetchedAt ? a.fetchedAt > b.fetchedAt : a.chapterNumber > b.chapterNumber
             }
+            let errors: [UpdateErrorItem] = ((try? UpdateErrorQueries.fetchAll()) ?? []).compactMap { row in
+                let target: UpdateTarget? = switch row.kind {
+                case .manga: mangas[row.titleId].map { .manga($0) }
+                case .novel: novels[row.titleId].map { .novel($0) }
+                }
+                return target.map { UpdateErrorItem(target: $0, message: row.message, failedAt: row.failedAt) }
+            }
+            return (feed, errors)
         }.value
+    }
+
+    /// Titles whose last update failed, saved in the DB (v33, S209 — Komikku's update errors), so they survive a
+    /// relaunch; a title leaves the list on its next successful check.
+    var errors: [UpdateErrorItem] = []
+
+    /// `errors` grouped by message, the biggest group first — "Cloudflare — open the title once to verify · 4".
+    var errorGroups: [UpdateErrorGroup] {
+        Dictionary(grouping: errors, by: \.message)
+            .map { UpdateErrorGroup(message: $0.key, items: $0.value.sorted {
+                $0.target.title.localizedCaseInsensitiveCompare($1.target.title) == .orderedAscending
+            }) }
+            .sorted { $0.items.count != $1.items.count ? $0.items.count > $1.items.count : $0.message < $1.message }
     }
 
     // MARK: Refresh (S142: Keiyoushi titles + Tachimanga-style summary, #174)
@@ -290,6 +311,13 @@ private struct NovelReaderDest: Identifiable, Hashable {
         case .novel(let novel):
             outcome = await checkNovelUpdates(for: novel, settings: settings)
         }
+        // Saved per title (v33): a failure replaces the title's error, a success clears it.
+        let (kind, id): (UpdateScheduleQueries.Kind, String) = switch target {
+        case .manga(let m): (.manga, m.id)
+        case .novel(let n): (.novel, n.id)
+        }
+        let message: String? = if case .failed(let why) = outcome { why } else { nil }
+        await Task.detached(priority: .utility) { try? UpdateErrorQueries.record(kind, id: id, message: message) }.value
         progressDone += 1
         return UpdateRunSummary.Result(target: target, outcome: outcome)
     }
@@ -545,6 +573,20 @@ enum UpdateTarget: Identifiable {
     var isKeiyoushi: Bool { KeiyoushiMapping.isKeiyoushiSourceId(sourceId) }
 }
 
+/// A saved update failure (v33) joined to its library title.
+struct UpdateErrorItem: Identifiable {
+    let target: UpdateTarget
+    let message: String
+    let failedAt: Date
+    var id: String { target.id }
+}
+
+struct UpdateErrorGroup: Identifiable {
+    let message: String
+    let items: [UpdateErrorItem]
+    var id: String { message }
+}
+
 /// What the last refresh did per title — Tachimanga's "Updates Summary" (Completed / Failed).
 struct UpdateRunSummary {
     enum Outcome {
@@ -607,7 +649,7 @@ struct UpdatesView: View {
     @State private var isLoadingReader = false
     @State private var refreshSummary: String? = nil
     @State private var showSummary = false
-    private var hasContent: Bool { !vm.entries.isEmpty || vm.lastRun != nil }
+    private var hasContent: Bool { !vm.entries.isEmpty || vm.lastRun != nil || !vm.errors.isEmpty }
 
     private var groupedFeed: [UpdateFeedGroup] {
         var buckets: [String: [UpdateFeedEntry]] = [:]
@@ -715,14 +757,21 @@ struct UpdatesView: View {
             }
             .padding(.vertical, 4)
             .statusRowStyle()
-        } else if let run = vm.lastRun {
+        } else if vm.lastRun != nil || !vm.errors.isEmpty {
             Button { showSummary = true } label: {
                 HStack(spacing: 6) {
-                    Text(Self.statusLine(run))
-                        .font(.subheadline)
-                        .foregroundStyle(canvas.textSecondary)
-                    if !run.failed.isEmpty {
-                        Text("· \(run.failed.count) failed")
+                    if let run = vm.lastRun {
+                        Text(Self.statusLine(run))
+                            .font(.subheadline)
+                            .foregroundStyle(canvas.textSecondary)
+                        if !vm.errors.isEmpty {
+                            Text("· \(vm.errors.count) failed")
+                                .font(.subheadline)
+                                .foregroundStyle(.red)
+                        }
+                    } else {
+                        // After a relaunch: only the saved errors are left (S209).
+                        Text("\(vm.errors.count) titles couldn't update")
                             .font(.subheadline)
                             .foregroundStyle(.red)
                     }
@@ -876,17 +925,26 @@ private extension View {
 
 // MARK: - Updates Summary
 
-/// Tachimanga's "Updates Summary": every title the last refresh checked, Failed (with why, and Retry) first,
-/// then Completed (new-chapter counts first). Same calm rows as Updates — no separators.
+/// Tachimanga's "Updates Summary": the titles whose update failed (saved, S209 — grouped by why, with Retry and
+/// Migrate per group, Komikku's update errors), then what the last refresh completed (new-chapter counts first).
+/// Same calm rows as Updates — no separators.
 private struct UpdatesSummaryView: View {
     let vm: UpdatesViewModel
     @Environment(\.yomiCanvas) private var canvas
     @Environment(\.dismiss) private var dismiss
+    @State private var migration: MigrationRequest?
+
+    /// One source's failed manga, handed to the Migrate flow (it moves one source's titles at a time).
+    private struct MigrationRequest: Identifiable {
+        let sourceId: String
+        let titles: [Manga]
+        var id: String { sourceId }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let run = vm.lastRun {
+                if vm.lastRun != nil || !vm.errors.isEmpty {
                     List {
                         if vm.isRefreshing {
                             Text("Checking \(vm.progressDone) of \(vm.progressTotal)")
@@ -895,11 +953,16 @@ private struct UpdatesSummaryView: View {
                                 .monospacedDigit()
                                 .summaryRowStyle()
                         }
-                        if !run.failed.isEmpty {
-                            header("Failed", count: run.failed.count)
-                            ForEach(run.failed) { row($0) }
+                        if !vm.errors.isEmpty {
+                            header("Failed", count: vm.errors.count)
+                            ForEach(vm.errorGroups) { group in
+                                Section {
+                                    groupHeader(group)
+                                    ForEach(group.items) { errorRow($0) }
+                                }
+                            }
                         }
-                        if !run.completed.isEmpty {
+                        if let run = vm.lastRun, !run.completed.isEmpty {
                             header("Completed", count: run.completed.count)
                             ForEach(run.completed) { row($0) }
                         }
@@ -917,16 +980,23 @@ private struct UpdatesSummaryView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Done") { dismiss() }
                 }
-                if let failed = vm.lastRun?.failed, !failed.isEmpty {
+                if !vm.errors.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Retry Failed") {
-                            Task { await vm.refresh(only: failed.map(\.target)) }
-                        }
-                        .disabled(vm.isRefreshing)
+                        Button("Retry Failed") { retry(vm.errors) }
+                            .disabled(vm.isRefreshing)
                     }
                 }
             }
+            .sheet(item: $migration, onDismiss: { Task { await vm.loadFromDB() } }) { request in
+                MigrationFlowSheet(sourceId: request.sourceId, sourceName: SourceStatus.sourceName(request.sourceId),
+                                   titles: request.titles)
+            }
         }
+    }
+
+    private func retry(_ items: [UpdateErrorItem]) {
+        let targets = items.map(\.target)
+        Task { await vm.refresh(only: targets) }
     }
 
     private func header(_ title: LocalizedStringKey, count: Int) -> some View {
@@ -937,19 +1007,78 @@ private struct UpdatesSummaryView: View {
             .summaryRowStyle()
     }
 
-    private func row(_ result: UpdateRunSummary.Result) -> some View {
-        HStack(spacing: 14) {
-            Group {
-                if let path = result.target.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
-                    Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill).coverAspectSized()
-                } else {
-                    CoverImage(url: result.target.coverURL)
+    /// The reason, how many titles it hit, and what to do about them: try again, or move them to another source.
+    private func groupHeader(_ group: UpdateErrorGroup) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(group.message) · \(group.items.count)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.red)
+            HStack(spacing: 10) {
+                Button("Retry These") { retry(group.items) }
+                    .disabled(vm.isRefreshing)
+                migrateButton(group)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.top, 8)
+        .summaryRowStyle()
+    }
+
+    /// Manga only (Yomi migrates manga). Migrate works per source, so titles from several sources get a menu.
+    @ViewBuilder
+    private func migrateButton(_ group: UpdateErrorGroup) -> some View {
+        let manga: [Manga] = group.items.compactMap {
+            if case .manga(let m) = $0.target, !LocalLibrary.isLocalSourceId(m.sourceId) { m } else { nil }
+        }
+        let bySource = Dictionary(grouping: manga, by: \.sourceId).sorted { $0.value.count > $1.value.count }
+        if bySource.count == 1, let only = bySource.first {
+            Button("Migrate These") { migration = MigrationRequest(sourceId: only.key, titles: only.value) }
+        } else if bySource.count > 1 {
+            Menu("Migrate These") {
+                ForEach(bySource, id: \.key) { sourceId, titles in
+                    Button("\(SourceStatus.sourceName(sourceId)) · \(titles.count)") {
+                        migration = MigrationRequest(sourceId: sourceId, titles: titles)
+                    }
                 }
             }
-            .frame(width: 36)
-            .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
-            .coverHairline(cornerRadius: YomiTokens.Radius.thumb)
+        }
+    }
 
+    private func cover(_ target: UpdateTarget) -> some View {
+        Group {
+            if let path = target.customCoverPath, let uiImage = UIImage(contentsOfFile: path) {
+                Image(uiImage: uiImage).resizable().aspectRatio(2 / 3, contentMode: .fill).coverAspectSized()
+            } else {
+                CoverImage(url: target.coverURL)
+            }
+        }
+        .frame(width: 36)
+        .clipShape(RoundedRectangle(cornerRadius: YomiTokens.Radius.thumb))
+        .coverHairline(cornerRadius: YomiTokens.Radius.thumb)
+    }
+
+    private func errorRow(_ item: UpdateErrorItem) -> some View {
+        HStack(spacing: 14) {
+            cover(item.target)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.target.title)
+                    .font(.body)
+                    .foregroundStyle(canvas.textPrimary)
+                    .lineLimit(1)
+                Text("\(SourceStatus.sourceName(item.target.sourceId)) · \(item.failedAt, format: .relative(presentation: .named))")
+                    .font(.subheadline)
+                    .foregroundStyle(canvas.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .summaryRowStyle()
+    }
+
+    private func row(_ result: UpdateRunSummary.Result) -> some View {
+        HStack(spacing: 14) {
+            cover(result.target)
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.target.title)
                     .font(.body)

@@ -26,6 +26,11 @@ struct MangaDetailView: View {
     /// Site to open in `CFBypassView` when a Keiyoushi extension got a Cloudflare 403 (its cookies then reach
     /// the extension through the bridge's Cookie forwarding).
     @State private var keiyoushiCFURL: String? = nil
+    /// A5 (S209): the hidden Cloudflare pass runs once per visit; while it runs the empty state says so.
+    @State private var cloudflareAutoTried = false
+    @State private var isPassingCloudflare = false
+    /// The last plugin fetch returned no chapters (library titles still show their saved ones).
+    @State private var lastFetchCameBackEmpty = false
     @State private var downloadManager = DownloadManager.shared
 
     // Feature 1 — Category assignment
@@ -393,7 +398,7 @@ struct MangaDetailView: View {
         }
         .task {
             await adoptSavedState()
-            await loadChapters()
+            await loadChaptersPassingCloudflare()
         }
         .task { await loadCategories() }
         .task { computeStorageSize() }
@@ -909,7 +914,14 @@ struct MangaDetailView: View {
     }
 
     @ViewBuilder private var chaptersEmptyState: some View {
-        if let chapterLoadError {
+        if isPassingCloudflare {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Bypassing Cloudflare…")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        } else if let chapterLoadError {
             VStack(alignment: .leading, spacing: 10) {
                 Text(chapterLoadError)
                     .font(.subheadline).foregroundStyle(.secondary)
@@ -1360,7 +1372,7 @@ struct MangaDetailView: View {
         let before = Set(chapters.map(\.id))
         let checkedBefore = await Task.detached { try? UpdateScheduleQueries.lastChecked(.manga, id: id) }.value
         pullStatus = .checking
-        await loadChapters(force: true)
+        await loadChaptersPassingCloudflare(force: true)
         let checkedAfter = await Task.detached { try? UpdateScheduleQueries.lastChecked(.manga, id: id) }.value
         let added = chapters.filter { !before.contains($0.id) }.count
         if !isLocal, checkedAfter == nil || checkedAfter == checkedBefore {
@@ -1371,6 +1383,25 @@ struct MangaDetailView: View {
             pullStatus = .done(added == 0 ? String(localized: "No new chapters")
                                           : String(localized: "\(added) new chapters"))
         }
+    }
+
+    /// `loadChapters`, and when the source was blocked by a Cloudflare check, one hidden pass in an off-screen web view
+    /// and a second try (A5, S209 — Browse and Novel detail have done this since #86). Only if that fails does the
+    /// manual "Bypass Cloudflare" button show. Works for JS plugins (their jar) and Keiyoushi (the shared store).
+    private func loadChaptersPassingCloudflare(force: Bool = false) async {
+        bridge?.clearCFBlock()
+        await loadChapters(force: force)
+        guard !cloudflareAutoTried else { return }
+        let blocked = keiyoushiCFURL ?? (lastFetchCameBackEmpty ? bridge?.cfBlockedURL : nil)
+        guard let blocked, let url = URL(string: blocked) else { return }
+        cloudflareAutoTried = true
+        isPassingCloudflare = true
+        let passed = await CFBypassManager.autoBypass(url: url, cookieJar: bridge?.cookieJar)
+        isPassingCloudflare = false
+        guard passed else { return }
+        bridge?.clearCFBlock()
+        keiyoushiCFURL = nil
+        await loadChapters(force: true)
     }
 
     private func loadChapters(force: Bool = false) async {
@@ -1430,6 +1461,7 @@ struct MangaDetailView: View {
             return
         }
         let (loadedChapters, mangayomiMeta) = await Task.detached(priority: .userInitiated) {
+            loadedBridge?.clearCFBlock()   // so `cfBlockedURL` afterwards is this fetch's, not an older request's (A5)
             let result = loadedBridge?.getChapterListWithMeta(mangaPath: mangaPath, mangaId: mangaId)
             return (result?.chapters ?? [], result?.meta)
         }.value
@@ -1469,6 +1501,7 @@ struct MangaDetailView: View {
             (try? ChapterQueries.fetchAll(mangaId: mangaId)) ?? []
         }.value
 
+        lastFetchCameBackEmpty = loadedChapters.isEmpty
         if loadedChapters.isEmpty {
             // API returned nothing (network failure, Cloudflare block, etc.) —
             // fall back to DB so previously-loaded chapters remain accessible.

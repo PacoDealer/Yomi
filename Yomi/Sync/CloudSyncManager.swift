@@ -667,6 +667,8 @@ private extension CloudSyncManager {
             // empty — CloudKit can't start a new field with an empty list (S152).
             let excluded = ((try? ChapterQueries.excludedScanlators(mangaId: manga.id)) ?? []).sorted()
             base["excludedScanlators"] = excluded.isEmpty ? nil : excluded
+            // Reading mode chosen in the reader for this title (v34); nil = follows Settings.
+            base["readerMode"] = try? MangaQueries.readerMode(mangaId: manga.id)
         case .novel:
             guard let novel = try? NovelQueries.fetchOne(id: mapping.key) else { return nil }
             populate(base, from: novel)
@@ -862,6 +864,8 @@ extension CloudSyncManager {
             try manga.save(db)
             try ChapterQueries.replaceExcludedScanlators(Set(record["excludedScanlators"] as? [String] ?? []),
                                                          mangaId: id, db: db)
+            try db.execute(sql: "UPDATE manga SET readerMode = ? WHERE id = ?",
+                           arguments: [record["readerMode"] as? String, id])
 
         case .novel:
             guard let id = record["localId"] as? String else { return nil }

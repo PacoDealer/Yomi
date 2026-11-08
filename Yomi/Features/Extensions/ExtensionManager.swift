@@ -249,6 +249,7 @@ final class ExtensionManager {
         try? FileManager.default.removeItem(at: localURL)
         if let previous = previousFile(for: ext.id) { try? FileManager.default.removeItem(at: previous) }
         PluginCookieJar.remove(id: ext.id)   // its logins and Cloudflare clearances go with it (S192)
+        PluginStore.remove(id: ext.id)       // and its saved storage + settings (S209)
         try? ExtensionQueries.delete(id: ext.id)
         loadInstalled()
     }
@@ -316,6 +317,13 @@ final class ExtensionManager {
         guard let built = JSBridge(scriptURL: localURL) else { return nil }
         Self.bridgeCache[ext.id] = (stamp, built)
         return built
+    }
+
+    /// Drops the cached bridge so the next `bridge(for:)` loads the script again — a plugin that reads its settings
+    /// while loading sees a change made in its Settings form (S209).
+    nonisolated static func reloadBridge(id: String) {
+        Self.bridgeCacheLock.lock(); defer { Self.bridgeCacheLock.unlock() }
+        Self.bridgeCache.removeValue(forKey: id)
     }
 
     /// `bridge(for:)` from a main-actor caller without blocking the UI on a first build.

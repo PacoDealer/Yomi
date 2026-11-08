@@ -186,6 +186,24 @@ enum MangaQueries {
     }
 
     /// Sets lastUpdatedAt to now for the given manga
+    /// The reading mode saved for this manga in the reader (v34), nil = follow Settings.
+    nonisolated static func readerMode(mangaId: String) throws -> String? {
+        try appDatabase.read { db in
+            try String.fetchOne(db, sql: "SELECT readerMode FROM manga WHERE id = ?", arguments: [mangaId])
+        }
+    }
+
+    /// Saves the mode picked in the reader and marks the manga for sync. A title without a row (opened from
+    /// Browse and never saved) has nothing to update — it follows Settings next time.
+    nonisolated static func setReaderMode(_ mode: String?, mangaId: String) throws {
+        let changed = try appDatabase.write { db -> Bool in
+            try db.execute(sql: "UPDATE manga SET readerMode = ? WHERE id = ? AND readerMode IS NOT ?",
+                           arguments: [mode, mangaId, mode])
+            return db.changesCount > 0
+        }
+        if changed { markCloudDirty(.manga, key: mangaId) }
+    }
+
     nonisolated static func touchLastUpdated(mangaId: String) throws {
         _ = try appDatabase.write { db in
             try Manga

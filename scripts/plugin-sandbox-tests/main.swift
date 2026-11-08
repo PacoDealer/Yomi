@@ -4,6 +4,9 @@ import Foundation
 let args = CommandLine.arguments
 let phase = args[1], port = args[2]
 PluginCookieJar.directory = URL(fileURLWithPath: args[3], isDirectory: true)
+// S209: plugin storage goes next to the jars, in its own folder.
+PluginStore.directory = URL(fileURLWithPath: args[3], isDirectory: true).appendingPathComponent("store", isDirectory: true)
+try? FileManager.default.createDirectory(at: PluginStore.directory!, withIntermediateDirectories: true)
 let site = "http://127.0.0.1:\(port)"
 
 var failures = 0, checks = 0
@@ -134,6 +137,47 @@ if phase == "write" {
     }
     expect("restart doesn't revive a timed-out call", !afterRestart)
     expect("…and the call still returns empty", undone == "empty", undone)
+
+    // S209 PluginStore: LNReader item format, expiry, isolation, removal.
+    let store = PluginStore.forPlugin("com.test.a")
+    store.set("_DB_token", #"{"created":"x","value":"abc"}"#)
+    store.set("_DB_old", #"{"created":"x","value":1,"expires":1000}"#)
+    expect("store: item value", store.itemValueJSON("token") == "\"abc\"", store.itemValueJSON("token") ?? "nil")
+    expect("store: expired item is nil", store.itemValueJSON("old") == nil)
+    expect("store: expired item deleted", store.get("_DB_old") == nil)
+    expect("store: same object per id", PluginStore.forPlugin("com.test.a") === store)
+    expect("store: other plugin can't see it", PluginStore.forPlugin("com.test.b").get("_DB_token") == nil)
+    let gone = PluginStore.forPlugin("com.test.d")
+    gone.set("_DB_x", "{}"); PluginStore.remove(id: "com.test.d")
+    expect("store: removed plugin's store is empty", gone.keys().isEmpty)
+
+    // S209 PluginSettingField: parse, default, save, read back.
+    let toggle = PluginSettingField(json: ["key": "hideLocked", "label": "Hide locked", "type": "Switch", "value": false])!
+    let select = PluginSettingField(json: ["key": "mirror", "label": "Mirror", "type": "Select", "value": "a",
+                                           "options": [["label": "A", "value": "a"], ["label": "B", "value": "b"]]])!
+    let boxes = PluginSettingField(json: ["key": "langs", "label": "Languages", "type": "CheckboxGroup", "value": ["en"],
+                                          "options": [["label": "English", "value": "en"], ["label": "Spanish", "value": "es"]]])!
+    let text = PluginSettingField(json: ["key": "user", "label": "User", "value": "anon"])!
+    expect("settings: default before saving", toggle.current(in: store) == .toggle(false))
+    toggle.save(.toggle(true), in: store)
+    select.save(.select("b", []), in: store)
+    boxes.save(.checkboxes(["en", "es"], []), in: store)
+    text.save(.text("alice"), in: store)
+    expect("settings: switch saved", toggle.current(in: store) == .toggle(true))
+    expect("settings: select saved", { if case .select("b", _) = select.current(in: store) { true } else { false } }())
+    expect("settings: checkboxes saved", { if case .checkboxes(["en", "es"], _) = boxes.current(in: store) { true } else { false } }())
+    expect("settings: text saved", text.current(in: store) == .text("alice"))
+    expect("settings: stored as an LNReader item", store.get("_DB_hideLocked")?.contains("\"value\":true") == true,
+           store.get("_DB_hideLocked") ?? "nil")
+    expect("settings: no key → nil", PluginSettingField(json: ["label": "x"]) == nil)
+
+    // S209 PluginImageHeaders: per host, never the User-Agent.
+    PluginImageHeaders.register(["Referer": "https://site.test/", "User-Agent": "Plugin"],
+                                forHostsOf: ["https://cdn.site.test/a.jpg", nil, "not a url"])
+    let h = PluginImageHeaders.headers(for: URL(string: "https://CDN.site.test/b.jpg"))
+    expect("image headers: host match", h["Referer"] == "https://site.test/", "\(h)")
+    expect("image headers: never the UA", h["User-Agent"] == nil)
+    expect("image headers: other hosts get none", PluginImageHeaders.headers(for: URL(string: "https://other.test/x")).isEmpty)
 } else {
     // A new process: only what was saved to disk.
     let a = PluginCookieJar.forPlugin("com.test.a")
@@ -143,6 +187,12 @@ if phase == "write" {
     expect("imported Cloudflare cookie survives", get(PluginCookieJar.forPlugin("com.test.c"), "/echo").body.contains("cf_clearance=ok"))
     expect("removed jar stays empty", get(PluginCookieJar.forPlugin("com.test.d"), "/echo").body.isEmpty)
     expect("still isolated after relaunch", !get(PluginCookieJar.forPlugin("com.test.b"), "/echo").body.contains("login"))
+    // S209: plugin storage survives a relaunch; a removed plugin's doesn't come back.
+    let store = PluginStore.forPlugin("com.test.a")
+    expect("store: survives a relaunch", store.itemValueJSON("token") == "\"abc\"", store.itemValueJSON("token") ?? "nil")
+    expect("store: saved setting survives", store.get("_DB_hideLocked")?.contains("true") == true)
+    expect("store: expired item stays deleted", store.get("_DB_old") == nil)
+    expect("store: removed plugin stays empty", PluginStore.forPlugin("com.test.d").keys().isEmpty)
     PluginCookieJar.clearAll()
     let files = (try? FileManager.default.contentsOfDirectory(atPath: PluginCookieJar.directory!.path)) ?? []
     expect("clearAll deletes every jar file", !files.contains { $0.hasSuffix(".plist") }, "\(files)")

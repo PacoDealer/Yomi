@@ -20,6 +20,8 @@ struct CFBypassView: View {
     @State private var urlText:   String
     @State private var committed = false
     @State private var bypassed: [String] = []
+    /// The page's web view, for saving its localStorage/sessionStorage to the plugin when the sheet closes.
+    @State private var webBox = WebViewBox()
 
     init(initialURL: String = "https://", isWebsite: Bool = false, cookieJar: PluginCookieJar? = nil,
          onSuccess: @escaping () -> Void) {
@@ -43,6 +45,7 @@ struct CFBypassView: View {
                     urlText:   $urlText,
                     committed: $committed,
                     cookieJar: cookieJar,
+                    webBox: webBox,
                     onBypassed: { host in
                         bypassed.append(host)
                     }
@@ -52,13 +55,19 @@ struct CFBypassView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        Task {
+                            await saveWebStorage()
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         Task {
                             // Website mode: a login has no cf_clearance to wait for — hand the plugin this site's cookies.
                             if isWebsite { await CFCookieCopy.copySiteCookies(of: initialURL, to: cookieJar) }
+                            await saveWebStorage()
                             onSuccess()
                             dismiss()
                         }
@@ -67,6 +76,23 @@ struct CFBypassView: View {
                     .disabled(bypassed.isEmpty && !isWebsite)
                 }
             }
+        }
+    }
+
+    /// LNReader's `webStorageUtilized` (S209, WebviewScreen.tsx, MIT): what the site's page keeps in localStorage /
+    /// sessionStorage (often a login token) is saved for the plugin, which reads it with
+    /// `require('@libs/storage').localStorage.get()`. Only for a JS plugin's own page (it has a cookie jar).
+    private func saveWebStorage() async {
+        guard let jar = cookieJar, let webView = webBox.webView,
+              let json = try? await webView.evaluateJavaScript(
+                "JSON.stringify({l: Object.assign({}, window.localStorage), s: Object.assign({}, window.sessionStorage)})")
+                as? String,
+              let both = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else { return }
+        let store = PluginStore.forPlugin(jar.id)
+        for (key, part) in [(PluginStore.localStorageKey, "l"), (PluginStore.sessionStorageKey, "s")] {
+            guard let object = both[part],
+                  let data = try? JSONSerialization.data(withJSONObject: object) else { continue }
+            store.set(key, String(data: data, encoding: .utf8))
         }
     }
 
@@ -118,10 +144,16 @@ struct CFBypassView: View {
 
 // MARK: - CFWebViewRepresentable
 
+/// Lets the sheet reach its web view (to read the page's web storage on close).
+@MainActor private final class WebViewBox {
+    weak var webView: WKWebView?
+}
+
 private struct CFWebViewRepresentable: UIViewRepresentable {
     @Binding var urlText:   String
     @Binding var committed: Bool
     var cookieJar: PluginCookieJar?
+    var webBox: WebViewBox
     var onBypassed: (String) -> Void
 
     func makeUIView(context: Context) -> WKWebView {
@@ -129,6 +161,7 @@ private struct CFWebViewRepresentable: UIViewRepresentable {
         wv.customUserAgent = CFBypassConstants.userAgent
         wv.navigationDelegate = context.coordinator
         context.coordinator.webView = wv
+        webBox.webView = wv
         navigate(wv)
         return wv
     }
@@ -210,13 +243,33 @@ enum CFBypassConstants {
 }
 
 enum CFBypassManager {
+    /// Passes in flight, by host: Browse, a detail page and the reader can hit the same blocked site at once — they
+    /// share one hidden web view instead of starting three (A5, S209).
+    @MainActor private static var inFlight: [String: Task<Bool, Never>] = [:]
+    /// When a hidden pass last failed, by host. A site that needs a human (a captcha) would otherwise cost 30 s on
+    /// every chapter opened; for 5 minutes Yomi goes straight to the manual "Bypass Cloudflare" instead.
+    @MainActor private static var lastFailure: [String: Date] = [:]
+    static let failureCooldown: TimeInterval = 300
+
     /// Loads url in an off-screen full-size WKWebView, polls for cf_clearance for up to 30 s.
-    /// Copies all domain cookies to HTTPCookieStorage.shared on success.
+    /// Copies the site's cookies to the plugin's jar and HTTPCookieStorage.shared on success.
     /// Uses CFBypassConstants.userAgent so the clearance cookie is valid for URLSession requests too.
     @MainActor
     static func autoBypass(url: URL, cookieJar: PluginCookieJar?) async -> Bool {
-        let helper = AutoBypassHelper(cookieJar: cookieJar)
-        return await helper.run(url: url)
+        let host = url.host()?.lowercased() ?? url.absoluteString
+        if let running = inFlight[host] { return await running.value }
+        if let failed = lastFailure[host], Date().timeIntervalSince(failed) < failureCooldown { return false }
+        let task = Task { @MainActor in
+            let helper = AutoBypassHelper(cookieJar: cookieJar)   // held for the whole wait; `run` captures it weakly
+            let passed = await helper.run(url: url)
+            withExtendedLifetime(helper) {}
+            return passed
+        }
+        inFlight[host] = task
+        let success = await task.value
+        inFlight[host] = nil
+        lastFailure[host] = success ? nil : Date()
+        return success
     }
 }
 
@@ -284,7 +337,10 @@ private final class AutoBypassHelper: NSObject, WKNavigationDelegate {
             webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
                 DispatchQueue.main.async {
                     guard !self.finished else { return }
-                    guard cookies.contains(where: { CFBypassConstants.clearanceCookieNames.contains($0.name) }) else { return }
+                    // This site's clearance only: WebKit's store is shared, so another site's old cf_clearance used
+                    // to end the wait at once as a "success" (A5, S209).
+                    let site = CFCookieCopy.matching(cookies, host: self.url?.host() ?? "")
+                    guard site.contains(where: { CFBypassConstants.clearanceCookieNames.contains($0.name) }) else { return }
                     self.collectedCookies = cookies
                     t.invalidate()
                     self.finish(success: true)

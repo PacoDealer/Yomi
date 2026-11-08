@@ -43,5 +43,8 @@
   "Find in Chapter": "Buscar en el capítulo",
   "Checking for new chapters…": "Buscando capítulos nuevos…",
   "Couldn't check %@": "No se pudo consultar %@",
-  "the source": "la fuente"
+  "the source": "la fuente",
+  "Retry These": "Reintentar estos",
+  "Migrate These": "Migrar estos",
+  "Saved for this extension on this iPhone.": "Guardado para esta extensión en este iPhone."
 }

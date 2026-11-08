@@ -201,6 +201,10 @@ struct YomiApp: App {
             for (name, value) in KeiyoushiCovers.shared.headers(for: request.url) {
                 request.setValue(value, forHTTPHeaderField: name)
             }
+            // LNReader plugins' imageRequestInit headers (Referer…) for their cover hosts (S209).
+            for (name, value) in PluginImageHeaders.headers(for: request.url) {
+                request.setValue(value, forHTTPHeaderField: name)
+            }
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
             // Keiyoushi pages: the bridge's token (S191), and its new port after the app was in the background (S144).
             return KeiyoushiBridge.bridgeImageRequest(request)

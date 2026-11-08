@@ -1,5 +1,6 @@
 import Foundation
 import JavaScriptCore
+import CryptoKit
 
 // Module-level CF-block tracking — keyed by JSContext identity, guarded by _cfLock.
 nonisolated private let _cfLock = NSLock()
@@ -59,6 +60,10 @@ final class JSBridge {
     /// This plugin's own cookies (S192): its Cloudflare checks and Website logins go here, not to every plugin.
     nonisolated let cookieJar: PluginCookieJar
 
+    /// LNReader's `plugin.imageRequestInit.headers` (A4, S209) — usually a Referer its site's images need. Read once
+    /// after the script loads; handed to Kingfisher through `PluginImageHeaders` for the hosts its covers come from.
+    nonisolated(unsafe) private(set) var imageHeaders: [String: String] = [:]
+
     // Set by getChapterList() for Mangayomi plugins — detail metadata extracted
     // from the same getDetail() call so MangaDetailView can update synopsis/cover/status.
     // Read only through `getChapterListWithMeta`, under the same lock hold: read after the call returned, it could
@@ -97,6 +102,22 @@ final class JSBridge {
         JSBridge.injectPaperbackAdapter(into: ctx)
         JSBridge.injectLNReaderAdapter(into: ctx)
         JSBridge.injectMangayomiAdapter(into: ctx)
+        let info = ctx.evaluateScript("""
+            (function() {
+                var p = (typeof plugin !== 'undefined' && plugin) ? plugin : null;
+                var h = p && p.imageRequestInit && p.imageRequestInit.headers;
+                return JSON.stringify({ site: (p && typeof p.site === 'string') ? p.site : '',
+                                        headers: (h && typeof h === 'object') ? h : {} });
+            })()
+            """)?.toString().flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+        imageHeaders = (info?["headers"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
+        registerImageHosts([info?["site"] as? String])
+    }
+
+    /// Covers from these addresses get the plugin's image headers (their CDN host is often not the site's).
+    nonisolated private func registerImageHosts(_ urls: [String?]) {
+        guard !imageHeaders.isEmpty else { return }
+        PluginImageHeaders.register(imageHeaders, forHostsOf: urls)
     }
 
     /// true when the loaded script exposes a `plugin` global with `popularNovels` (LNReader format)
@@ -536,6 +557,8 @@ final class JSBridge {
         injectSyncPromise(into: ctx)   // Must be first — replaces global Promise before any plugin code runs
         injectConsole(into: ctx)
         injectStorage(into: ctx)
+        injectPluginStore(into: ctx, store: PluginStore.forPlugin(jar.id))
+        injectNativeHelpers(into: ctx)
         injectSourceFetch(into: ctx, jar: jar, gate: gate)
         injectCheerio(into: ctx)       // Bundled libs: cheerio, dayjs, htmlparser2 + URL/atob/TextEncoder/setTimeout polyfills
         injectWebAPIs(into: ctx)       // FormData (+ URL fallback if the bundle is missing)
@@ -863,6 +886,118 @@ final class JSBridge {
         """)
     }
 
+    /// `__yomiStore` — the plugin's saved key/value store (`PluginStore`, A4 S209), read by `require('@libs/storage')`.
+    nonisolated private static func injectPluginStore(into ctx: JSContext, store: PluginStore) {
+        let get: @convention(block) (String) -> JSValue = { key in
+            let current = JSContext.current()
+            guard let value = store.get(key) else { return JSValue(nullIn: current) }
+            return JSValue(object: value, in: current)
+        }
+        let set: @convention(block) (String, JSValue) -> Void = { key, value in
+            store.set(key, value.isNull || value.isUndefined ? nil : value.toString())
+        }
+        let keys: @convention(block) () -> [String] = { store.keys() }
+        let obj = JSValue(newObjectIn: ctx)
+        obj?.setObject(get, forKeyedSubscript: "get" as NSString)
+        obj?.setObject(set, forKeyedSubscript: "set" as NSString)
+        obj?.setObject(keys, forKeyedSubscript: "keys" as NSString)
+        ctx.setObject(obj, forKeyedSubscript: "__yomiStore" as NSString)
+    }
+
+    /// Native pieces of LNReader modules JavaScriptCore can't do itself (A4, S209): `urlencode` in a charset (GBK search
+    /// queries) and AES-GCM for `@libs/aes` (CryptoKit). Bytes cross as plain number arrays.
+    nonisolated private static func injectNativeHelpers(into ctx: JSContext) {
+        let encode: @convention(block) (String, String) -> String = { text, charset in
+            JSBridge.percentEncode(text, charset: charset)
+        }
+        let decode: @convention(block) (String, String) -> String = { text, charset in
+            JSBridge.percentDecode(text, charset: charset)
+        }
+        let gcm: @convention(block) (Bool, [NSNumber], [NSNumber], [NSNumber], [NSNumber]) -> JSValue = {
+            encrypt, key, nonce, data, aad in
+            let current = JSContext.current()
+            guard let bytes = JSBridge.aesGCM(encrypt: encrypt, key: key.map(\.uint8Value),
+                                              nonce: nonce.map(\.uint8Value), data: data.map(\.uint8Value),
+                                              aad: aad.map(\.uint8Value)) else {
+                current?.exception = JSValue(newErrorFromMessage: "aes/gcm: invalid ciphertext or key", in: current)
+                return JSValue(undefinedIn: current)
+            }
+            return JSValue(object: bytes.map { NSNumber(value: $0) }, in: current)
+        }
+        let obj = JSValue(newObjectIn: ctx)
+        obj?.setObject(encode, forKeyedSubscript: "urlEncode" as NSString)
+        obj?.setObject(decode, forKeyedSubscript: "urlDecode" as NSString)
+        obj?.setObject(gcm, forKeyedSubscript: "aesGcm" as NSString)
+        ctx.setObject(obj, forKeyedSubscript: "__yomiNative" as NSString)
+    }
+
+    /// `String.Encoding` for an IANA charset name ("gbk", "shift_jis", "utf-8"); nil when unknown.
+    nonisolated static func encoding(named name: String) -> String.Encoding? {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let cf = CFStringConvertIANACharSetNameToEncoding(trimmed as CFString)
+        guard cf != kCFStringEncodingInvalidId else { return nil }
+        return String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(cf))
+    }
+
+    /// encodeURIComponent, but over the bytes of `text` in `charset` (the npm `urlencode` package LNReader ships).
+    nonisolated static func percentEncode(_ text: String, charset: String) -> String {
+        let enc = encoding(named: charset.isEmpty ? "utf-8" : charset) ?? .utf8
+        guard let data = text.data(using: enc, allowLossyConversion: true) else { return text }
+        let unreserved = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()".utf8)
+        var out = ""
+        for byte in data {
+            if unreserved.contains(byte) { out.append(Character(UnicodeScalar(byte))) }
+            else { out += String(format: "%%%02X", byte) }
+        }
+        return out
+    }
+
+    nonisolated static func percentDecode(_ text: String, charset: String) -> String {
+        let enc = encoding(named: charset.isEmpty ? "utf-8" : charset) ?? .utf8
+        var bytes: [UInt8] = []
+        let utf8 = Array(text.utf8)
+        var i = 0
+        while i < utf8.count {
+            if utf8[i] == UInt8(ascii: "%"), i + 2 < utf8.count,
+               let byte = UInt8(String(decoding: utf8[(i + 1)...(i + 2)], as: UTF8.self), radix: 16) {
+                bytes.append(byte); i += 3
+            } else {
+                bytes.append(utf8[i]); i += 1
+            }
+        }
+        return String(data: Data(bytes), encoding: enc) ?? text
+    }
+
+    /// @noble/ciphers' `gcm(key, nonce, aad)`: encrypt returns ciphertext + 16-byte tag, decrypt takes the same.
+    nonisolated static func aesGCM(encrypt: Bool, key: [UInt8], nonce: [UInt8], data: [UInt8], aad: [UInt8]) -> [UInt8]? {
+        guard [16, 24, 32].contains(key.count), let gcmNonce = try? AES.GCM.Nonce(data: nonce) else { return nil }
+        let symmetric = SymmetricKey(data: key)
+        if encrypt {
+            guard let box = try? AES.GCM.seal(data, using: symmetric, nonce: gcmNonce, authenticating: aad) else { return nil }
+            return Array(box.ciphertext) + Array(box.tag)
+        }
+        guard data.count >= 16,
+              let box = try? AES.GCM.SealedBox(nonce: gcmNonce, ciphertext: data.dropLast(16), tag: data.suffix(16)),
+              let plain = try? AES.GCM.open(box, using: symmetric, authenticating: aad) else { return nil }
+        return Array(plain)
+    }
+
+    /// A response body as text: the charset the plugin asked for (`fetchText(url, init, "gbk")`), else the one the
+    /// server declares when it isn't a Latin one (GBK/Shift-JIS/EUC-KR sites came out garbled before S209), else
+    /// UTF-8 with Latin-1 as the last resort — the pre-S209 rule, kept for sites that mislabel UTF-8 as Latin-1.
+    nonisolated static func decodeBody(_ data: Data, requested: String?, declared: String?) -> String {
+        if let requested, let enc = encoding(named: requested), let text = String(data: data, encoding: enc) {
+            return text
+        }
+        if let declared, let enc = encoding(named: declared),
+           ![.utf8, .isoLatin1, .ascii, .windowsCP1252].contains(enc),
+           let text = String(data: data, encoding: enc) {
+            return text
+        }
+        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+    }
+
     /// SOURCE.fetch(url, options?) — synchronous HTTP via DispatchSemaphore (GET and POST).
     /// JS wrapper routes through SOURCE._fetchSync(url, method, body, headersJSON).
     #if DEBUG
@@ -874,7 +1009,8 @@ final class JSBridge {
         let ctxID = ObjectIdentifier(ctx)
         /// One blocking request. Returns the body plus what a fetch() Response needs: status, final URL after
         /// redirects (Madara plugins compare it to the requested host to spot captcha redirects) and headers.
-        func perform(_ urlString: String, _ method: String, _ body: String?, _ headersJSON: String?)
+        func perform(_ urlString: String, _ method: String, _ body: String?, _ headersJSON: String?,
+                     _ encodingName: String? = nil)
             -> (body: String, status: Int, url: String, headers: [String: String]) {
             guard let url = URL(string: urlString), PluginNetworkPolicy.allows(url) else { return ("", 0, urlString, [:]) }
             // Over its time limit (S192): refuse, and make the plugin's fetch throw so it stops instead of looping on
@@ -899,6 +1035,11 @@ final class JSBridge {
                     request.setValue("\(value)", forHTTPHeaderField: key)
                 }
             }
+            // …except the User-Agent once this plugin holds a site's clearance cookie: Cloudflare binds cf_clearance
+            // to the UA that earned it (Yomi's, in the web view), so a plugin's own UA would void it (A5, S209).
+            if jar.hasCookie(named: CFBypassConstants.clearanceCookieNames, for: url) {
+                request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
+            }
             // Method + optional body
             request.httpMethod = method
             if method == "POST", let bodyStr = body {
@@ -914,7 +1055,7 @@ final class JSBridge {
             jar.session.dataTask(with: request) { data, response, error in
                 yomiLogNetwork(request, response: response, data: data, error: error)
                 if let data = data {
-                    result = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+                    result = JSBridge.decodeBody(data, requested: encodingName, declared: response?.textEncodingName)
                 }
                 if let http = response as? HTTPURLResponse {
                     status = http.statusCode
@@ -922,15 +1063,17 @@ final class JSBridge {
                     for (key, value) in http.allHeaderFields {
                         responseHeaders[String(describing: key).lowercased()] = String(describing: value)
                     }
-                    let hasCFRay = http.allHeaderFields["CF-RAY"] != nil
+                    // Blocked = Cloudflare says it served a challenge (`cf-mitigated: challenge`), or an error page that
+                    // is one. Any `CF-RAY` used to count (A5, S209) — every response from a Cloudflare-fronted site has
+                    // one, good pages included, so a site that merely returned nothing looked "blocked".
+                    let mitigated = (http.value(forHTTPHeaderField: "cf-mitigated") ?? "").lowercased() == "challenge"
                     let isErrorStatus = http.statusCode >= 400
                     let bodyHasCF = result.contains("Just a moment")
-                        || result.contains("cf-mitigated")
                         || result.contains("Cloudflare Ray ID")
                         || result.contains("cf-browser-verification")
+                        || result.contains("challenge-platform")
                         || result.contains("Attention Required! | Cloudflare")
-                        || result.contains("Please enable cookies")
-                    if hasCFRay || (isErrorStatus && bodyHasCF) { detectedCFURL = urlString }
+                    if mitigated || (isErrorStatus && bodyHasCF) { detectedCFURL = urlString }
                 }
                 sem.signal()
             }.resume()
@@ -952,9 +1095,10 @@ final class JSBridge {
         let fetchSync: @convention(block) (String, String, String?, String?) -> String = { url, method, body, headers in
             perform(url, method, body, headers).body
         }
-        let fetchResponse: @convention(block) (String, String, String?, String?) -> [String: Any] = {
-            url, method, body, headers in
-            let r = perform(url, method, body, headers)
+        let fetchResponse: @convention(block) (String, String, String?, String?, String?) -> [String: Any] = {
+            url, method, body, headers, encoding in
+            // JS passes '' for "no encoding": `fetchText(url, init, encoding)` is the only caller that sets one.
+            let r = perform(url, method, body, headers, encoding.flatMap { $0.isEmpty || $0 == "undefined" ? nil : $0 })
             return ["body": r.body, "status": r.status, "url": r.url, "headers": r.headers]
         }
         let source = JSValue(newObjectIn: ctx)
@@ -998,8 +1142,12 @@ final class JSBridge {
                 headers = origHdrs;
             }
             return Promise.resolve(SOURCE._makeResponse(
-                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(headers)), url));
+                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(headers), ''), url));
         };
+
+        // Plain `fetch()` — React Native (LNReader's host) has it, JavaScriptCore doesn't; some plugins call it directly
+        // (S209, 爱下电子书 "Can't find variable: fetch"). Same request path as fetchApi.
+        if (typeof this.fetch !== 'function') this.fetch = this.fetchApi;
 
         // A fetch()-style Response: real status/ok, final URL after redirects, headers.get().
         SOURCE._makeResponse = function(r, requestedURL) {
@@ -1242,12 +1390,87 @@ final class JSBridge {
                     })();
 
                 } else if (name === '@libs/storage') {
-                    // LNReader storage utility — in-memory key-value store
-                    var _lnStore = {};
+                    // LNReader's helpers/storage.ts (MIT), saved per plugin by PluginStore (S209; was in-memory).
+                    var DB = '_DB_';
+                    var storage = {
+                        set: function(key, value, expires) {
+                            var item = { created: new Date(), value: value,
+                                         expires: expires instanceof Date ? expires.getTime() : expires };
+                            __yomiStore.set(DB + key, JSON.stringify(item));
+                        },
+                        get: function(key, raw) {
+                            var stored = __yomiStore.get(DB + key);
+                            if (stored === null || stored === undefined) return undefined;
+                            var item;
+                            try { item = JSON.parse(stored); } catch (e) { return undefined; }
+                            if (item.expires) {
+                                if (Date.now() > item.expires) { storage.delete(key); return undefined; }
+                                if (raw) item.expires = new Date(item.expires).getTime();
+                            }
+                            return raw ? item : item.value;
+                        },
+                        delete: function(key) { __yomiStore.set(DB + key, null); },
+                        clearAll: function() { storage.getAllKeys().forEach(function(k) { storage.delete(k); }); },
+                        getAllKeys: function() {
+                            return __yomiStore.keys().filter(function(k) { return k.indexOf(DB) === 0; })
+                                .map(function(k) { return k.slice(DB.length); });
+                        }
+                    };
+                    function webStorage(key) {
+                        return { get: function() {
+                            var s = __yomiStore.get(key);
+                            try { return s ? JSON.parse(s) : undefined; } catch (e) { return undefined; }
+                        } };
+                    }
+                    mod.exports = { storage: storage, localStorage: webStorage('_LocalStorage'),
+                                    sessionStorage: webStorage('_SessionStorage') };
+
+                } else if (name === 'urlencode') {
+                    // npm `urlencode` (what LNReader ships): charset-aware encode/decode, parse, stringify (S209).
+                    var ue = function(str, charset) { return __yomiNative.urlEncode(String(str), charset || 'utf-8'); };
+                    ue.encode = ue;
+                    ue.decode = function(str, charset) { return __yomiNative.urlDecode(String(str), charset || 'utf-8'); };
+                    ue.parse = function(qs, opts) {
+                        var cs = (opts && opts.charset) || 'utf-8', out = {};
+                        String(qs).split('&').forEach(function(pair) {
+                            if (!pair) return;
+                            var i = pair.indexOf('='), k = i < 0 ? pair : pair.slice(0, i), v = i < 0 ? '' : pair.slice(i + 1);
+                            out[ue.decode(k.replace(/\\+/g, ' '), cs)] = ue.decode(v.replace(/\\+/g, ' '), cs);
+                        });
+                        return out;
+                    };
+                    ue.stringify = function(obj, opts) {
+                        var cs = (opts && opts.charset) || 'utf-8';
+                        return Object.keys(obj || {}).map(function(k) {
+                            return ue(k, cs) + '=' + ue(obj[k] === undefined || obj[k] === null ? '' : obj[k], cs);
+                        }).join('&');
+                    };
+                    mod.exports = ue;
+
+                } else if (name === '@libs/aes') {
+                    // @noble/ciphers' gcm, backed by CryptoKit AES-GCM (S209).
+                    var toArr = function(b) { return b ? Array.prototype.slice.call(b) : []; };
                     mod.exports = {
-                        storage: {
-                            get: function(k) { return Object.prototype.hasOwnProperty.call(_lnStore, k) ? _lnStore[k] : null; },
-                            set: function(k, v) { _lnStore[k] = v; }
+                        gcm: function(key, nonce, aad) {
+                            var run = function(encrypt, data) {
+                                return new Uint8Array(__yomiNative.aesGcm(encrypt, toArr(key), toArr(nonce), toArr(data), toArr(aad)));
+                            };
+                            return { encrypt: function(d) { return run(true, d); },
+                                     decrypt: function(d) { return run(false, d); } };
+                        }
+                    };
+
+                } else if (name === '@libs/utils') {
+                    mod.exports = {
+                        utf8ToBytes: function(str) {
+                            var bin = unescape(encodeURIComponent(String(str))), out = new Uint8Array(bin.length);
+                            for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+                            return out;
+                        },
+                        bytesToUtf8: function(bytes) {
+                            var bin = '';
+                            for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                            return decodeURIComponent(escape(bin));
                         }
                     };
 
@@ -1261,7 +1484,8 @@ final class JSBridge {
                     };
 
                 } else if (name === '@libs/defaultCover') {
-                    mod.exports = { defaultCover: '' };
+                    // LNReader's own "no cover" image (src/plugins/helpers/constants.ts).
+                    mod.exports = { defaultCover: 'https://github.com/LNReader/lnreader-plugins/blob/master/icons/src/coverNotAvailable.jpg?raw=true' };
 
                 } else if (name === '@libs/fetch') {
                     // LNReader v3 fetch helper — plugin calls n.fetchApi(url, opts)
@@ -1289,11 +1513,17 @@ final class JSBridge {
                                 hdrs = origHdrs;
                             }
                             return Promise.resolve(SOURCE._makeResponse(
-                                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(hdrs)), url));
+                                SOURCE._fetchResponse(url, method, bodyStr, JSON.stringify(hdrs),
+                                                      (options && options.__encoding) || ''), url));
                         },
-                        // LNReader's fetchText resolves to the body, or '' on a failed request.
-                        fetchText: function(url, init) {
-                            return this.fetchApi(url, init).then(function(res) {
+                        // LNReader's fetchText resolves to the body, or '' on a failed request. `encoding` = the
+                        // page's charset ("gbk"), decoded natively (S209; LNReader reads the blob with FileReader).
+                        fetchText: function(url, init, encoding) {
+                            var opts = {}; init = init || {};
+                            for (var k in init) opts[k] = init[k];
+                            opts.__encoding = encoding || '';
+                            // mod.exports, not `this`: `const { fetchText } = require('@libs/fetch')` has no `this`.
+                            return mod.exports.fetchApi(url, opts).then(function(res) {
                                 return res.ok ? res.text() : '';
                             });
                         }
@@ -1304,7 +1534,10 @@ final class JSBridge {
                         NovelStatus: {
                             Ongoing: 'Ongoing', Completed: 'Completed', Unknown: 'Unknown',
                             Hiatus: 'Hiatus', OnHiatus: 'Hiatus',
-                            Cancelled: 'Cancelled', Canceled: 'Cancelled'
+                            Cancelled: 'Cancelled', Canceled: 'Cancelled',
+                            // The rest of LNReader's enum (S209) — were undefined.
+                            Licensed: 'Licensed', PublishingFinished: 'Publishing Finished',
+                            STUB: 'Unknown', Inactive: 'Inactive'
                         }
                     };
 
@@ -1571,16 +1804,51 @@ final class JSBridge {
     /// stays lexically scoped) and pure-API sources (MangaDex, Comick — `path` is an id, not a
     /// URL segment) can't resolve one. Returns nil rather than guessing; callers should hide the
     /// icon in that case instead of showing a dead link.
-    nonisolated func resolveSourceURL(path: String) -> URL? {
+    nonisolated func resolveSourceURL(path: String, isNovel: Bool = false) -> URL? {
         callLock.lock(); defer { callLock.unlock() }
         guard !path.isEmpty else { return nil }
         if path.hasPrefix("http://") || path.hasPrefix("https://") {
             return URL(string: path)
         }
+        // LNReader plugins (A4, S209): their own `resolveUrl(path, isNovel)` when they have one (API-based plugins,
+        // whose paths aren't site paths), else `plugin.site + path` — LNReader's services/plugin/fetch.ts.
+        context.setObject(path as NSString, forKeyedSubscript: "__lnr_rpath" as NSString)
+        context.setObject(isNovel as NSNumber, forKeyedSubscript: "__lnr_rnovel" as NSString)
+        if let text = context.evaluateScript("""
+            (function() {
+                if (typeof plugin === 'undefined' || !plugin) return '';
+                try {
+                    if (typeof plugin.resolveUrl === 'function') return String(plugin.resolveUrl(__lnr_rpath, !!__lnr_rnovel) || '');
+                } catch (e) { return ''; }
+                return (typeof plugin.site === 'string' && plugin.site) ? plugin.site + __lnr_rpath : '';
+            })()
+            """)?.toString(), !text.isEmpty, text != "undefined",
+           let url = URL(string: text), url.scheme == "https" || url.scheme == "http" {
+            return url
+        }
         guard let result = context.evaluateScript(
             "(typeof BASE_URL !== 'undefined') ? BASE_URL : ((typeof BASE !== 'undefined') ? BASE : '')"
         ), let base = result.toString(), !base.isEmpty, base != "undefined" else { return nil }
         return URL(string: base + path)
+    }
+
+    // MARK: - Plugin settings (LNReader `pluginSettings`, A4 S209)
+
+    /// The settings form an LNReader plugin declares, in its own order; empty for plugins without one.
+    nonisolated func pluginSettings() -> [PluginSettingField] {
+        callLock.lock(); defer { callLock.unlock() }
+        guard let json = context.evaluateScript("""
+            (function() {
+                var s = (typeof plugin !== 'undefined' && plugin && plugin.pluginSettings) || {};
+                return JSON.stringify(Object.keys(s).map(function(k) {
+                    var v = s[k] || {};
+                    return { key: k, label: String(v.label || k), type: v.type || 'Text', value: v.value,
+                             options: Array.isArray(v.options) ? v.options : [] };
+                }));
+            })()
+            """)?.toString(),
+              let list = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]] else { return [] }
+        return list.compactMap(PluginSettingField.init(json:))
     }
 
     // MARK: - Search
@@ -1712,8 +1980,9 @@ final class JSBridge {
             })();
             """)
             callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
-            let raw = context.objectForKeyedSubscript("__lnr_result")
-            return JSBridge.parseNovelItems(raw)
+            let items = JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+            registerImageHosts(items.map(\.cover))
+            return items
         }
     }
 
@@ -1731,8 +2000,9 @@ final class JSBridge {
             };
             """)
             callPluginMethod("popularNovels", argGlobals: ["__lnr_p", "__lnr_opts"])
-            let raw = context.objectForKeyedSubscript("__lnr_result")
-            return JSBridge.parseNovelItems(raw)
+            let items = JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+            registerImageHosts(items.map(\.cover))
+            return items
         }
     }
 
@@ -1741,7 +2011,9 @@ final class JSBridge {
             context.setObject(query as AnyObject, forKeyedSubscript: "__lnr_q" as NSString)
             context.setObject(page as AnyObject,  forKeyedSubscript: "__lnr_p" as NSString)
             callPluginMethod("searchNovels", argGlobals: ["__lnr_q", "__lnr_p"])
-            return JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+            let items = JSBridge.parseNovelItems(context.objectForKeyedSubscript("__lnr_result"))
+            registerImageHosts(items.map(\.cover))
+            return items
         }
     }
 
@@ -1776,6 +2048,7 @@ final class JSBridge {
                     releaseTime:   $0["releaseTime"]   as? String
                 )
             }
+            registerImageHosts([dict["cover"] as? String])
             return SourceNovel(
                 path:     dict["path"]    as? String ?? path,
                 name:     dict["name"]    as? String ?? "",

@@ -71,7 +71,11 @@ struct ChapterReaderView: View {
         _currentChapterIndex = State(initialValue: chapterIndex)
         let modeString = AppSettings.shared.readerMode
         var initialMode = ReaderMode(rawValue: modeString) ?? .horizontalRTL
-        if AppSettings.shared.autoWebtoonFromTags {
+        // A mode picked in the reader for this title wins (v34, synced); only without one does the webtoon-tag
+        // guess apply (J2K). One primary-key read.
+        if let saved = (try? MangaQueries.readerMode(mangaId: manga.id)).flatMap(ReaderMode.init(rawValue:)) {
+            initialMode = saved
+        } else if AppSettings.shared.autoWebtoonFromTags {
             let webtoonTags = ["webtoon", "long strip", "manhwa", "manhua"]
             let genres = manga.genres.map { $0.lowercased() }
             if webtoonTags.contains(where: { tag in genres.contains(where: { $0.contains(tag) }) }) {
@@ -286,6 +290,11 @@ struct ChapterReaderView: View {
             }
         }
         // Pages ahead load before they're reached (S161): on every page change, a new page list, the next chapter's list.
+        // Changing the mode in the reader remembers it for this title (A3, S209).
+        .onChange(of: readerMode) { _, mode in
+            let mangaId = manga.id, raw = mode.rawValue
+            Task.detached(priority: .utility) { try? MangaQueries.setReaderMode(raw, mangaId: mangaId) }
+        }
         .onChange(of: pages) { prefetchAhead() }
         .onReceive(NotificationCenter.default.publisher(for: PageRetry.pageFailed)) { note in
             if let url = note.object as? String { refreshCachedList(afterFailing: url) }
@@ -645,30 +654,46 @@ struct ChapterReaderView: View {
     /// `URLSession` work and needs no hop. So is the Keiyoushi path: the extension runs in the embedded JVM
     /// and pages come back as `http://127.0.0.1:<port>/image/<id>` URLs served by the on-device bridge.
     static func fetchPages(bridge: JSBridge?, path: String) async -> [String] {
+        await fetchPagesReportingCloudflare(bridge: bridge, path: path).pages
+    }
+
+    /// `fetchPages`, plus the address a Cloudflare check blocked when that is why the list came back empty (A5).
+    static func fetchPagesReportingCloudflare(bridge: JSBridge?, path: String) async -> (pages: [String], cloudflare: URL?) {
         if path.hasPrefix(LocalLibrary.mangaScheme) {
             // A CBZ is unpacked into Caches on first open — off the main actor (S148).
-            return await Task.detached(priority: .userInitiated) {
+            let pages = await Task.detached(priority: .userInitiated) {
                 ((try? LocalLibrary.pageURLs(chapterPath: path)) ?? []).map(\.absoluteString)
             }.value
+            return (pages, nil)
         }
         if SuwayomiService.chapterRef(from: path) != nil {
-            return (try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? []
+            return ((try? await SuwayomiService.shared.fetchPageURLs(chapterPath: path)) ?? [], nil)
         }
         if let ref = KeiyoushiMapping.chapterRef(from: path) {
             // Twice: the first call after a launch once lost its reply on device ("Socket closed", S144).
             var pages: [KeiyoushiPage] = []
-            for _ in 0..<2 where pages.isEmpty {
-                pages = (try? await KeiyoushiBridge.shared.pages(sourceId: ref.sourceId, chapterURL: ref.url,
-                                                                 chapterName: ref.name)) ?? []
+            var cloudflare: URL?
+            for _ in 0..<2 where pages.isEmpty && cloudflare == nil {
+                do {
+                    pages = try await KeiyoushiBridge.shared.pages(sourceId: ref.sourceId, chapterURL: ref.url,
+                                                                   chapterName: ref.name)
+                } catch {
+                    // The bridge reports a Cloudflare challenge as "CLOUDFLARE:<url>" (MangaDetailView reads it too).
+                    let message = error.localizedDescription
+                    if message.hasPrefix("CLOUDFLARE:") { cloudflare = URL(string: String(message.dropFirst(11))) }
+                }
             }
-            return pages.sorted { $0.index < $1.index }.compactMap { page in
+            let urls = pages.sorted { $0.index < $1.index }.compactMap { page -> String? in
                 if let image = page.imageUrl, !image.isEmpty { return image }
                 return page.url
             }
+            return (urls, urls.isEmpty ? cloudflare : nil)
         }
-        guard let bridge else { return [] }
+        guard let bridge else { return ([], nil) }
         return await Task.detached(priority: .userInitiated) {
-            bridge.getPageList(chapterPath: path)
+            bridge.clearCFBlock()   // this call's block only, not one left by an earlier request
+            let pages = bridge.getPageList(chapterPath: path)
+            return (pages, pages.isEmpty ? bridge.cfBlockedURL.flatMap(URL.init(string:)) : nil)
         }.value
     }
 
@@ -682,7 +707,14 @@ struct ChapterReaderView: View {
             return (kept, true)
         }
         let start = Date()
-        let fetched = await fetchPages(bridge: bridge, path: path)
+        var (fetched, cloudflare) = await fetchPagesReportingCloudflare(bridge: bridge, path: path)
+        // Blocked by a Cloudflare check: pass it in a hidden web view once and ask again (A5, S209) — before, the
+        // reader said "No pages found" until the user went back and solved it on the title's page.
+        if fetched.isEmpty, let cloudflare,
+           await CFBypassManager.autoBypass(url: cloudflare, cookieJar: bridge?.cookieJar) {
+            bridge?.clearCFBlock()
+            fetched = await fetchPages(bridge: bridge, path: path)
+        }
         #if DEBUG
         print("[PageListCache] miss \(path): fetched \(fetched.count) pages in \(Int(Date().timeIntervalSince(start) * 1000)) ms")
         #endif

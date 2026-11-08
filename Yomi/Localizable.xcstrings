@@ -881,6 +881,46 @@
         }
       }
     },
+    "%lld titles couldn't update": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld title couldn't update"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld titles couldn't update"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld título no se pudo actualizar"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld títulos no se pudieron actualizar"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld titles imported": {
       "localizations": {
         "en": {
@@ -5748,6 +5788,16 @@
         }
       }
     },
+    "Migrate These": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Migrar estos"
+          }
+        }
+      }
+    },
     "Migrate to this source?": {
       "localizations": {
         "es": {
@@ -8196,6 +8246,16 @@
         }
       }
     },
+    "Retry These": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar estos"
+          }
+        }
+      }
+    },
     "Review": {
       "localizations": {
         "es": {
@@ -8303,6 +8363,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar en Fotos"
+          }
+        }
+      }
+    },
+    "Saved for this extension on this iPhone.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado para esta extensión en este iPhone."
           }
         }
       }
