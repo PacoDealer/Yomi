@@ -6971,6 +6971,16 @@
         }
       }
     },
+    "Old Keiyoushi connection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conexión antigua de Keiyoushi"
+          }
+        }
+      }
+    },
     "Oldest first": {
       "localizations": {
         "es": {
@@ -7057,6 +7067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "En curso"
+          }
+        }
+      }
+    },
+    "Only if Keiyoushi sources stopped working after an update. Takes effect after Yomi restarts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo si las fuentes de Keiyoushi dejaron de funcionar tras una actualización. Se aplica al reiniciar Yomi."
           }
         }
       }
@@ -9715,6 +9735,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El motor de extensiones no arrancó."
+          }
+        }
+      }
+    },
+    "The extension took too long to answer.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La extensión tardó demasiado en responder."
           }
         }
       }

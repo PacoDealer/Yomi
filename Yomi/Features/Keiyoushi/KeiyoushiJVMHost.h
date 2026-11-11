@@ -20,6 +20,23 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)startWithToken:(NSString *)token completion:(void (^)(NSInteger port, NSString *_Nullable error))completion;
 /// Stops serving but keeps loaded extensions (the app is going to the background).
 - (void)pauseBridge;
+
+// MARK: Direct JNI transport (A6) — no loopback server, no port, no token.
+
+/// Creates the VM on first use and prepares the extension runtime (`mextensionserver.YomiHost.start`).
+/// `apkDirectory` is the only folder `apkPath` requests may read from. Safe to call again (cheap after the first).
+/// Completion runs on a background queue; error is nil on success.
+- (void)startEngineWithAPKDirectory:(NSString *)apkDirectory
+                         completion:(void (^)(NSString *_Nullable error))completion;
+/// One `/dalvik`-shaped request (UTF-8 JSON). Completion runs on a background queue with an HTTP-style status,
+/// the UTF-8 JSON answer, and the server-issued extension handle on success.
+- (void)callWithRequest:(NSData *)json
+              userAgent:(NSString *)userAgent
+                cookies:(nullable NSString *)cookies
+             completion:(void (^)(NSInteger status, NSData *body, NSString *_Nullable extensionId))completion;
+/// The image behind `keiyoushi-image://<imageId>`. Completion runs on a background queue.
+- (void)imageWithId:(NSString *)imageId
+         completion:(void (^)(NSInteger status, NSString *_Nullable contentType, NSData *_Nullable bytes))completion;
 @end
 
 NS_ASSUME_NONNULL_END

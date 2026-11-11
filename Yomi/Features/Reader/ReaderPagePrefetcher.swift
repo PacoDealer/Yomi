@@ -45,7 +45,8 @@ import Kingfisher
             order.append(pages[back])
         }
         // Downloaded and local pages are files already.
-        let urls = order.compactMap(URL.init(string:)).filter { $0.scheme == "http" || $0.scheme == "https" }
+        let urls = order.compactMap(URL.init(string:))
+            .filter { $0.scheme == "http" || $0.scheme == "https" || $0.scheme == KeiyoushiBridge.imageScheme }
         guard urls != wanted else { return }
         wanted = urls
 

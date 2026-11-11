@@ -139,9 +139,11 @@ private nonisolated struct BridgeErrorBody: Decodable {
 
 // MARK: - KeiyoushiBridge
 
-/// Client for the M-Extension-Server bridge running in-process (`KeiyoushiJVMHost`), speaking its one endpoint,
-/// `POST /dalvik`. The first call per extension per launch sends the APK; later calls reuse the handle the server
-/// returns in `X-Mangayomi-Extension-Id` (409 = handle gone → resend). Converted extensions are cached on disk by
+/// Client for the M-Extension-Server bridge running in-process (`KeiyoushiJVMHost`), speaking its one request shape,
+/// `/dalvik`. Since A6 (S210) that goes straight through JNI (`YomiHost`): no loopback server, no port to lose after
+/// a suspend, no token. The old loopback transport stays for one build behind `httpTransportKey`.
+/// The first call per extension per launch names the APK (its file path; base64 over HTTP); later calls reuse the
+/// handle the server returns (409 = handle gone → resend). Converted extensions are cached on disk by
 /// the bridge itself (our patch), so only the very first load of an extension version pays for dex2jar.
 ///
 /// Requests carry Yomi's bypass User-Agent and the source site's cookies: the bridge copies both into the
@@ -149,6 +151,39 @@ private nonisolated struct BridgeErrorBody: Decodable {
 final class KeiyoushiBridge {
     static let shared = KeiyoushiBridge()
     private init() {}
+
+    // MARK: Transport choice (A6, S210)
+
+    /// Hidden fallback switch (UserDefaults): true = the old loopback HTTP server. Read once per launch — the
+    /// extension runtime hands out one image-URL scheme per process. Kept for one TestFlight build so a phone problem
+    /// can be told apart from a site problem; the build after a clean phone check removes the HTTP path.
+    nonisolated static let httpTransportKey = "keiyoushiHTTPTransport"
+    nonisolated static let usesJNI: Bool = !UserDefaults.standard.bool(forKey: httpTransportKey)
+
+    /// Page and cover images the extension serves itself: `keiyoushi-image://<id>` (`KeiyoushiImageProtocol`).
+    nonisolated static let imageScheme = "keiyoushi-image"
+
+    private var engine: Task<Void, Error>?
+    private var engineReady = false
+
+    /// Starts the extension runtime once per process (JNI transport). Nothing to pause or resume afterwards.
+    private func ensureEngine() async throws {
+        if engineReady { return }
+        if let engine { return try await engine.value }
+        guard KeiyoushiJVMHost.isAvailable else { throw KeiyoushiError.runtimeUnavailable }
+        let dir = KeiyoushiRepository.apkDirectory.path
+        let task = Task<Void, Error> {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                KeiyoushiJVMHost.shared.startEngine(withAPKDirectory: dir) { error in
+                    if let error { cont.resume(throwing: KeiyoushiError.bridge(error)) } else { cont.resume() }
+                }
+            }
+        }
+        engine = task
+        defer { engine = nil }
+        try await task.value
+        engineReady = true
+    }
 
     private var port: Int? {
         didSet {
@@ -188,6 +223,7 @@ final class KeiyoushiBridge {
     /// A page or cover served by the bridge: `http://127.0.0.1:<port>/image/<id>`.
     nonisolated static func isBridgeImage(_ url: URL?) -> Bool {
         guard let url else { return false }
+        if url.scheme == imageScheme { return true }
         return url.host == "127.0.0.1" && url.path.hasPrefix("/image/")
     }
 
@@ -197,7 +233,7 @@ final class KeiyoushiBridge {
     ///   after the restart once moved to the new port). Pages keep the URL they were listed with — so Kingfisher's
     ///   cache keys stay put — and every request is pointed at the live port here.
     nonisolated static func bridgeImageRequest(_ request: URLRequest) -> URLRequest {
-        guard isBridgeImage(request.url), let url = request.url else { return request }
+        guard isBridgeImage(request.url), let url = request.url, url.scheme == "http" else { return request }
         var prepared = request
         prepared.setValue(token, forHTTPHeaderField: tokenHeader)
         if let live = livePort.withLock({ $0 }), url.port != live,
@@ -213,7 +249,7 @@ final class KeiyoushiBridge {
     /// A cached port is checked too: a listener that died while suspended would otherwise stay dead for page images,
     /// which don't go through `call`'s retry. The server's `start` returns the live port at once when it is up (S193).
     func resumeIfPaused() async {
-        guard everStarted else { return }
+        guard !Self.usesJNI, everStarted else { return }
         if let cached = port, starting == nil { dropDeadPort(cached) }
         _ = try? await ensurePort()
     }
@@ -257,13 +293,15 @@ final class KeiyoushiBridge {
         return code == .cannotConnectToHost || code == .networkConnectionLost
     }
 
-    /// The port the bridge serves on now, starting it again if it was paused (page images are fetched straight
-    /// from it, not through `call`).
-    func servingPort() async throws -> Int { try await ensurePort() }
+    /// True once bridge-served page images can load again (the runtime is up; over HTTP, a live port).
+    func imagesReady() async -> Bool {
+        if Self.usesJNI { return (try? await ensureEngine()) != nil }
+        return (try? await ensurePort()) != nil
+    }
 
     /// App going to the background: stop serving (iOS would suspend the socket anyway) but keep extensions loaded.
     func pause() {
-        guard port != nil || starting != nil else { return }
+        guard !Self.usesJNI, port != nil || starting != nil else { return }
         pauseCount += 1
         port = nil
         KeiyoushiJVMHost.shared.pauseBridge()   // queued after any start in flight
@@ -368,56 +406,40 @@ final class KeiyoushiBridge {
         guard let ext = KeiyoushiRepository.shared.installedExtension(forSourceId: sourceId) else {
             throw KeiyoushiError.bridge(String(localized: "This Keiyoushi source isn't installed."))
         }
-        var port = try await ensurePort()
-        var restarted = false
         let pkg = ext.id
         let homeURL = ext.info.sources.first { $0.id == sourceId }?.homeURL
         var body = params
         body["method"] = method
         body["sourceId"] = sourceId
+        var cookieHeader: String?
+        if let homeURL, let site = URL(string: homeURL),
+           let cookies = HTTPCookieStorage.shared.cookies(for: site), !cookies.isEmpty {
+            cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+        }
 
         var attempt = 0
         while attempt < 2 {
             defer { attempt += 1 }
+            body["extensionId"] = nil
+            body["data"] = nil
+            body["apkPath"] = nil
             if let handle = handles[pkg], attempt == 0 {
                 body["extensionId"] = handle
-                body["data"] = nil
             } else {
-                body["extensionId"] = nil
                 let apk = KeiyoushiRepository.apkDirectory.appendingPathComponent(ext.apkFileName)
-                body["data"] = try await Task.detached(priority: .userInitiated) {
-                    try Data(contentsOf: apk).base64EncodedString()
-                }.value
+                if Self.usesJNI {
+                    body["apkPath"] = apk.path   // read by the runtime itself, only inside the APK directory
+                } else {
+                    body["data"] = try await Task.detached(priority: .userInitiated) {
+                        try Data(contentsOf: apk).base64EncodedString()
+                    }.value
+                }
             }
-            var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/dalvik")!)
-            request.httpMethod = "POST"
-            // Zero is an interpreter and the first call converts the extension — allow a slow first response.
-            request.timeoutInterval = 180
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(Self.token, forHTTPHeaderField: Self.tokenHeader)
-            request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
-            if let homeURL, let site = URL(string: homeURL),
-               let cookies = HTTPCookieStorage.shared.cookies(for: site), !cookies.isEmpty {
-                request.setValue(cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; "),
-                                 forHTTPHeaderField: "Cookie")
-            }
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-            let data: Data, response: URLResponse
-            do {
-                (data, response) = try await URLSession.shared.data(for: request)
-            } catch where !restarted && Self.isDeadListener(error) {
-                // Once per call: restart the listener and send the same request again (it never reached the server).
-                restarted = true
-                dropDeadPort(port)
-                port = try await ensurePort()
-                attempt -= 1
-                continue
-            }
-            let http = response as? HTTPURLResponse
-            if let handle = http?.value(forHTTPHeaderField: "X-Mangayomi-Extension-Id") { handles[pkg] = handle }
-            switch http?.statusCode ?? 0 {
+            let reply = try await send(try JSONSerialization.data(withJSONObject: body), cookies: cookieHeader)
+            if let handle = reply.extensionId { handles[pkg] = handle }
+            switch reply.status {
             case 200:
+                let data = reply.data
                 return try await Task.detached(priority: .userInitiated) {
                     try JSONDecoder().decode(T.self, from: data)
                 }.value
@@ -425,20 +447,127 @@ final class KeiyoushiBridge {
                 handles[pkg] = nil   // the bridge dropped this extension — resend the APK once
                 continue
             default:
-                let err = try? JSONDecoder().decode(BridgeErrorBody.self, from: data)
-                if err?.code == 403 || http?.statusCode == 403, let homeURL {
+                let err = try? JSONDecoder().decode(BridgeErrorBody.self, from: reply.data)
+                if err?.code == 403 || reply.status == 403, let homeURL {
                     throw KeiyoushiError.bridge("CLOUDFLARE:\(homeURL)")
                 }
                 // S208: extensions whose site check needs a WebView (Batcave's guard) can't open one on iOS; they
                 // report Mihon's "Open in WebView to bypass …". Same remedy as Cloudflare: verify in CFBypassView,
-                // whose cookies reach the extension through the Cookie header above.
+                // whose cookies reach the extension through the cookie header above.
                 if let message = err?.error, message.localizedCaseInsensitiveContains("open in webview"), let homeURL {
                     throw KeiyoushiError.bridge("CLOUDFLARE:\(homeURL)")
                 }
-                throw KeiyoushiError.bridge(err?.error ?? String(localized: "The extension failed (HTTP \(http?.statusCode ?? 0))."))
+                throw KeiyoushiError.bridge(err?.error ?? String(localized: "The extension failed (HTTP \(reply.status))."))
             }
         }
         throw KeiyoushiError.bridge(String(localized: "The extension could not be loaded."))
+    }
+
+    private struct Reply: Sendable {
+        let status: Int
+        let data: Data
+        let extensionId: String?
+    }
+
+    /// Zero is an interpreter and the first call converts the extension — allow a slow first answer.
+    private nonisolated static let callTimeout: TimeInterval = 180
+
+    private func send(_ json: Data, cookies: String?) async throws -> Reply {
+        guard Self.usesJNI else { return try await sendHTTP(json, cookies: cookies) }
+        try await ensureEngine()
+        let once = Mutex(false)   // the answer or the timeout, whichever comes first
+        return await withCheckedContinuation { (cont: CheckedContinuation<Reply, Never>) in
+            let finish: @Sendable (Reply) -> Void = { reply in
+                if once.withLock({ done in defer { done = true }; return !done }) { cont.resume(returning: reply) }
+            }
+            KeiyoushiJVMHost.shared.call(withRequest: json, userAgent: CFBypassConstants.userAgent,
+                                         cookies: cookies) { status, data, extensionId in
+                finish(Reply(status: status, data: data, extensionId: extensionId))
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + Self.callTimeout) {
+                let body = (try? JSONSerialization.data(withJSONObject: [
+                    "error": String(localized: "The extension took too long to answer."), "code": 504,
+                ])) ?? Data()
+                finish(Reply(status: 504, data: body, extensionId: nil))
+            }
+        }
+    }
+
+    /// The pre-A6 transport: `POST http://127.0.0.1:<port>/dalvik` with the per-launch token.
+    private func sendHTTP(_ json: Data, cookies: String?) async throws -> Reply {
+        var port = try await ensurePort()
+        var restarted = false
+        while true {
+            var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/dalvik")!)
+            request.httpMethod = "POST"
+            request.timeoutInterval = Self.callTimeout
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(Self.token, forHTTPHeaderField: Self.tokenHeader)
+            request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
+            if let cookies { request.setValue(cookies, forHTTPHeaderField: "Cookie") }
+            request.httpBody = json
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                let http = response as? HTTPURLResponse
+                return Reply(status: http?.statusCode ?? 0, data: data,
+                             extensionId: http?.value(forHTTPHeaderField: "X-Mangayomi-Extension-Id"))
+            } catch where !restarted && Self.isDeadListener(error) {
+                // Once per call: restart the listener and send the same request again (it never reached the server).
+                restarted = true
+                dropDeadPort(port)
+                port = try await ensurePort()
+            }
+        }
+    }
+}
+
+// MARK: - Images served by the extension (A6)
+
+/// Serves `keiyoushi-image://<id>` — pages and covers only the extension can fetch (Asura's scrambled tiles, a
+/// `fetchImage` override) — by asking the runtime over JNI. Registered for `URLSession.shared` and in Kingfisher's
+/// session, so the reader, prefetcher and downloads load them like any other URL; cache keys don't change
+/// (`PageNames` keys bridge pages by chapter + index).
+nonisolated final class KeiyoushiImageProtocol: URLProtocol, @unchecked Sendable {
+    private let stopped = Mutex(false)
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.scheme == KeiyoushiBridge.imageScheme
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url, let id = url.host, !id.isEmpty else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+        Task { [weak self] in
+            // Normally the runtime is already up (the page list came from it); a cached cover URL after a relaunch
+            // starts it here — its id is gone then, so that request ends 404 and the cover's own URL is used.
+            _ = await KeiyoushiBridge.shared.imagesReady()
+            let (status, contentType, bytes) = await KeiyoushiJVMHost.shared.image(withId: id)
+            self?.finish(url: url, status: status, contentType: contentType, bytes: bytes)
+        }
+    }
+
+    override func stopLoading() {
+        stopped.withLock { $0 = true }
+    }
+
+    private func finish(url: URL, status: Int, contentType: String?, bytes: Data?) {
+        guard !stopped.withLock({ $0 }), let client else { return }
+        guard status == 200, let bytes else {
+            // 503 = runtime not up: retryable for the reader (PageRetry); 404 = id gone with a relaunch.
+            client.urlProtocol(self, didFailWithError: URLError(status == 404 ? .fileDoesNotExist : .cannotLoadFromNetwork))
+            return
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: [
+            "Content-Type": contentType ?? "application/octet-stream",
+            "Content-Length": String(bytes.count),
+        ])!
+        client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client.urlProtocol(self, didLoad: bytes)
+        client.urlProtocolDidFinishLoading(self)
     }
 }
 
@@ -639,9 +768,11 @@ nonisolated final class KeiyoushiCovers: @unchecked Sendable {
         return KeiyoushiBridge.bridgeImageRequest(request)
     }
 
-    /// Covers saved before S134 point at the bridge's proxy (`http://127.0.0.1:<port>/image/<token>`), which dies
-    /// with the launch that issued it.
-    static func isProxyURL(_ url: URL?) -> Bool { url?.host == "127.0.0.1" && url?.path.hasPrefix("/image/") == true }
+    /// Covers saved before S134 point at the bridge's proxy (`http://127.0.0.1:<port>/image/<token>`, since A6
+    /// `keiyoushi-image://<token>`), which dies with the launch that issued it.
+    static func isProxyURL(_ url: URL?) -> Bool {
+        url?.scheme == KeiyoushiBridge.imageScheme || (url?.host == "127.0.0.1" && url?.path.hasPrefix("/image/") == true)
+    }
 }
 
 extension KFImage {

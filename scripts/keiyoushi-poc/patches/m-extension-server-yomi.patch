@@ -476,6 +476,28 @@ index 0000000..b4148c0
 +    }
 +
 +}
+diff --git a/server/src/main/java/mextensionserver/YomiNative.java b/server/src/main/java/mextensionserver/YomiNative.java
+new file mode 100644
+index 0000000..869e320
+--- /dev/null
++++ b/server/src/main/java/mextensionserver/YomiNative.java
+@@ -0,0 +1,16 @@
++package mextensionserver;
++
++/**
++ * Yomi (A6): the host app's completion callbacks for {@link YomiHost}. The iOS host binds these with
++ * RegisterNatives when it starts the engine; nothing else calls them. Plain Java so the JNI names and
++ * signatures are exactly what the host registers.
++ */
++final class YomiNative {
++    private YomiNative() {}
++
++    /** A finished {@code YomiHost.call}: HTTP-style status, UTF-8 JSON body, the extension handle (or null). */
++    static native void complete(long ticket, int status, byte[] body, String extensionId);
++
++    /** A finished {@code YomiHost.image}: status, content type, raw image bytes (null on failure). */
++    static native void completeImage(long ticket, int status, String contentType, byte[] bytes);
++}
 diff --git a/server/src/main/kotlin/com/squareup/zstd/okio/OkioZstd.kt b/server/src/main/kotlin/com/squareup/zstd/okio/OkioZstd.kt
 new file mode 100644
 index 0000000..7ae6200
@@ -801,6 +823,376 @@ index 4ffd257..1ed33e1 100644
                      it.start(port)
                      controller = it
                  }.getPort()
+diff --git a/server/src/main/kotlin/mextensionserver/YomiHost.kt b/server/src/main/kotlin/mextensionserver/YomiHost.kt
+new file mode 100644
+index 0000000..5f004c9
+--- /dev/null
++++ b/server/src/main/kotlin/mextensionserver/YomiHost.kt
+@@ -0,0 +1,162 @@
++package mextensionserver
++
++import mextensionserver.controller.DalvikCore
++import mextensionserver.impl.MihonImageProxy
++import java.io.File
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.Executors
++import java.util.concurrent.ThreadFactory
++import java.util.concurrent.atomic.AtomicInteger
++
++/**
++ * Yomi (A6): the bridge as direct JNI calls, no loopback server. The host app calls [start] once, then [call] and
++ * [image] with a ticket; each answer comes back on a worker thread through [YomiNative] (or [sink] in tests).
++ * There is no port to lose after a suspend and nothing other apps on the device can reach.
++ *
++ * Request/response JSON is the same as `POST /dalvik` (see `DalvikCore`), passed as UTF-8 bytes both ways —
++ * JNI's own string encoding (modified UTF-8) would mangle emoji in titles.
++ */
++object YomiHost {
++    /** Image URLs handed out while the host runs; the app serves this scheme by calling [image]. */
++    const val IMAGE_SCHEME = "keiyoushi-image://"
++
++    /** Receives completions instead of the native callbacks (desktop tests, where no host registered them). */
++    interface Sink {
++        fun complete(
++            ticket: Long,
++            status: Int,
++            body: ByteArray,
++            extensionId: String?,
++        )
++
++        fun completeImage(
++            ticket: Long,
++            status: Int,
++            contentType: String?,
++            bytes: ByteArray?,
++        )
++    }
++
++    @Volatile
++    var sink: Sink? = null
++
++    private val lock = Any()
++
++    @Volatile
++    private var started = false
++    private var apkDir: File? = null
++
++    // Three of each, like the app's own Keiyoushi concurrency; separate so page images never wait behind a slow
++    // chapter list (and the reverse). Java threads take -Xss from the VM options (8 MB on iOS).
++    private val calls: ExecutorService = Executors.newFixedThreadPool(3, daemon("YomiHost-call"))
++    private val images: ExecutorService = Executors.newFixedThreadPool(3, daemon("YomiHost-image"))
++
++    private fun daemon(prefix: String): ThreadFactory {
++        val n = AtomicInteger()
++        return ThreadFactory { r -> Thread(r, "$prefix-${n.incrementAndGet()}").apply { isDaemon = true } }
++    }
++
++    /**
++     * Prepares the extension runtime (once per process; later calls only update [apkDirectory]).
++     * `apkPath` requests are refused unless the file is inside [apkDirectory].
++     */
++    @JvmStatic
++    fun start(
++        appDir: String,
++        apkDirectory: String,
++    ) {
++        synchronized(lock) {
++            apkDir = File(apkDirectory).canonicalFile
++            MihonImageProxy.configureBase(IMAGE_SCHEME)
++            if (started) return
++            initApplication(appDir)
++            started = true
++        }
++    }
++
++    /** Runs one `/dalvik` request (UTF-8 JSON) on a worker thread; the answer goes to `complete(ticket, …)`. */
++    @JvmStatic
++    fun call(
++        requestJson: ByteArray,
++        userAgent: String?,
++        cookieHeader: String?,
++        ticket: Long,
++    ) {
++        calls.execute {
++            val result =
++                try {
++                    check(started) { "YomiHost.start was not called" }
++                    DalvikCore.handle(
++                        json = String(requestJson, Charsets.UTF_8),
++                        userAgent = userAgent,
++                        cookieHeader = cookieHeader,
++                        cloudflareProxy = null,
++                        baseUrlHeader = null,
++                        resolveApk = ::readApk,
++                    )
++                } catch (t: Throwable) {
++                    mextensionserver.controller.DalvikResult(500, errorJson(t), null)
++                }
++            deliver(ticket, result.status, result.body.toByteArray(Charsets.UTF_8), result.extensionId)
++        }
++    }
++
++    /** Fetches one image by the id after [IMAGE_SCHEME]; the bytes go to `completeImage(ticket, …)`. */
++    @JvmStatic
++    fun image(
++        id: String,
++        ticket: Long,
++    ) {
++        images.execute {
++            var status = 500
++            var type: String? = null
++            var bytes: ByteArray? = null
++            try {
++                val data = MihonImageProxy.fetch(id)
++                if (data == null) {
++                    status = 404
++                } else {
++                    status = 200
++                    type = data.contentType
++                    bytes = data.bytes
++                }
++            } catch (t: Throwable) {
++                status = 500
++            }
++            deliverImage(ticket, status, type, bytes)
++        }
++    }
++
++    /** The APK at [path], only if it lies inside the directory given to [start]. */
++    internal fun readApk(path: String): ByteArray {
++        val dir = synchronized(lock) { apkDir } ?: error("No APK directory")
++        val file = File(path).canonicalFile
++        require(file.toPath().startsWith(dir.toPath()) && file != dir) { "APK outside the extension directory" }
++        return file.readBytes()
++    }
++
++    private fun errorJson(t: Throwable): String {
++        val message = (t.message ?: t.javaClass.simpleName).replace("\\", "/").replace("\"", "'")
++        return """{"error":"$message","code":500}"""
++    }
++
++    private fun deliver(
++        ticket: Long,
++        status: Int,
++        body: ByteArray,
++        extensionId: String?,
++    ) {
++        val s = sink
++        if (s != null) s.complete(ticket, status, body, extensionId) else YomiNative.complete(ticket, status, body, extensionId)
++    }
++
++    private fun deliverImage(
++        ticket: Long,
++        status: Int,
++        type: String?,
++        bytes: ByteArray?,
++    ) {
++        val s = sink
++        if (s != null) s.completeImage(ticket, status, type, bytes) else YomiNative.completeImage(ticket, status, type, bytes)
++    }
++}
+diff --git a/server/src/main/kotlin/mextensionserver/controller/DalvikHandler.kt b/server/src/main/kotlin/mextensionserver/controller/DalvikHandler.kt
+index dbf45d2..8c9998a 100644
+--- a/server/src/main/kotlin/mextensionserver/controller/DalvikHandler.kt
++++ b/server/src/main/kotlin/mextensionserver/controller/DalvikHandler.kt
+@@ -12,25 +12,50 @@ import mextensionserver.model.DataBody
+ import okhttp3.Cookie
+ import okhttp3.HttpUrl
+ 
+-class DalvikHandler {
++/** One `/dalvik` call's answer: HTTP-style status, JSON body, and the extension handle on success. */
++data class DalvikResult(
++    val status: Int,
++    val body: String,
++    val extensionId: String?,
++)
++
++/**
++ * The transport-free half of `/dalvik` (Yomi A6): the HTTP handler and `YomiHost`'s JNI call both use it, with the
++ * same JSON in and out and the same `{error, code}` error shape.
++ */
++object DalvikCore {
+     private val logger = KotlinLogging.logger {}
+     private val objectMapper =
+         jacksonObjectMapper().apply {
+             configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+         }
+ 
+-    fun serve(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response =
++    /**
++     * @param resolveApk reads `apkPath` requests (only `YomiHost` allows them); null refuses them.
++     */
++    fun handle(
++        json: String,
++        userAgent: String?,
++        cookieHeader: String?,
++        cloudflareProxy: String?,
++        baseUrlHeader: String?,
++        resolveApk: ((String) -> ByteArray)? = null,
++    ): DalvikResult =
+         try {
+-            // Parse JSON body first to get extension data
+-            val body = mutableMapOf<String, String>()
+-            session.parseBody(body)
+-            val json = body["postData"] ?: throw IllegalArgumentException("No JSON body")
+-
+-            // Deserialize DataBody
+             val dataBody = objectMapper.readValue(json, DataBody::class.java)
++            val apkBytes =
++                when {
++                    dataBody.apkPath != null ->
++                        requireNotNull(resolveApk) { "apkPath is not accepted here" }(dataBody.apkPath)
++                    dataBody.data != null ->
++                        java.util.Base64
++                            .getDecoder()
++                            .decode(dataBody.data)
++                    else -> null
++                }
+ 
+             val invocation =
+-                MExtensionServerLoader.invokeWithExtension(dataBody.data, dataBody.extensionId) { loadedExtension ->
++                MExtensionServerLoader.invokeWithApk(apkBytes, dataBody.extensionId) { loadedExtension ->
+                     val selectedSource = MihonInvoker.selectSource(loadedExtension.sources, dataBody)
+                     MihonInvoker.preparePreferences(dataBody, selectedSource)
+ 
+@@ -56,16 +81,15 @@ class DalvikHandler {
+                             }
+                         }
+ 
+-                    val ua = (session.headers["user-agent"] ?: session.headers["User-Agent"])
+-                    if (ua != null) {
+-                        network?.setUA(ua)
++                    if (userAgent != null) {
++                        network?.setUA(userAgent)
+                     }
+ 
+                     // Intercept Cookie header and save to global cookie jar
+                     val cookies =
+-                        (session.headers["cookie"] ?: session.headers["Cookie"])
+-                            ?.let { cookieHeader ->
+-                                cookieHeader
++                        cookieHeader
++                            ?.let { header ->
++                                header
+                                     .split(";")
+                                     .mapNotNull { cookieStr ->
+                                         val trimmed = cookieStr.trim()
+@@ -106,14 +130,10 @@ class DalvikHandler {
+                         }
+                     }
+ 
+-                    val cloudflareProxy =
+-                        (session.headers[CF_PROXY_HEADER] ?: session.headers["Cf-Proxy-Url"])
+                     if (cloudflareProxy != null) {
+                         network?.setCloudflareProxyUrl(cloudflareProxy)
+                     }
+ 
+-                    val baseUrlHeader =
+-                        (session.headers[SOURCE_BASE_URL_HEADER] ?: session.headers["Source-Base-Url"])
+                     val invocationBody =
+                         if (baseUrlHeader.isNullOrBlank() || !dataBody.sourceBaseUrl.isNullOrBlank()) {
+                             dataBody
+@@ -124,40 +144,24 @@ class DalvikHandler {
+                     MihonInvoker.invokeMethod(loadedExtension, invocationBody)
+                 }
+ 
+-            // Serialize response
+-            val responseJson = objectMapper.writeValueAsString(invocation.result)
+-
+-            NanoHTTPD
+-                .newFixedLengthResponse(
+-                    NanoHTTPD.Response.Status.OK,
+-                    "application/json",
+-                    responseJson,
+-                ).apply {
+-                    addHeader("X-Mangayomi-Extension-Id", invocation.extensionId)
+-                }
++            DalvikResult(200, objectMapper.writeValueAsString(invocation.result), invocation.extensionId)
+         } catch (e: LinkageError) {
+-            errorResponse(e)
++            errorResult(e)
+         } catch (e: Exception) {
+-            errorResponse(e)
++            errorResult(e)
+         }
+ 
+-    private fun errorResponse(error: Throwable): NanoHTTPD.Response {
++    private fun errorResult(error: Throwable): DalvikResult {
+         logger.error(error) { "Error handling request" }
+         val status =
+             when (error) {
+-                is MExtensionServerLoader.ExtensionNotLoadedException -> NanoHTTPD.Response.Status.CONFLICT
+-                is eu.kanade.tachiyomi.network.HttpException -> {
++                is MExtensionServerLoader.ExtensionNotLoadedException -> 409
++                is eu.kanade.tachiyomi.network.HttpException ->
+                     when (error.code) {
+-                        400 -> NanoHTTPD.Response.Status.BAD_REQUEST
+-                        401 -> NanoHTTPD.Response.Status.UNAUTHORIZED
+-                        403 -> NanoHTTPD.Response.Status.FORBIDDEN
+-                        404 -> NanoHTTPD.Response.Status.NOT_FOUND
+-                        429 -> NanoHTTPD.Response.Status.INTERNAL_ERROR
+-                        500 -> NanoHTTPD.Response.Status.INTERNAL_ERROR
+-                        else -> NanoHTTPD.Response.Status.INTERNAL_ERROR
++                        400, 401, 403, 404 -> error.code
++                        else -> 500
+                     }
+-                }
+-                else -> NanoHTTPD.Response.Status.INTERNAL_ERROR
++                else -> 500
+             }
+         val errorResponse =
+             mapOf(
+@@ -169,12 +173,44 @@ class DalvikHandler {
+                         else -> 500
+                     },
+             )
+-        val errorJson = objectMapper.writeValueAsString(errorResponse)
+-        return NanoHTTPD.newFixedLengthResponse(
+-            status,
+-            "application/json",
+-            errorJson,
+-        )
++        return DalvikResult(status, objectMapper.writeValueAsString(errorResponse), null)
++    }
++}
++
++class DalvikHandler {
++    fun serve(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response {
++        val result =
++            try {
++                val body = mutableMapOf<String, String>()
++                session.parseBody(body)
++                val json = body["postData"] ?: throw IllegalArgumentException("No JSON body")
++                DalvikCore.handle(
++                    json = json,
++                    userAgent = session.headers["user-agent"] ?: session.headers["User-Agent"],
++                    cookieHeader = session.headers["cookie"] ?: session.headers["Cookie"],
++                    cloudflareProxy = session.headers[CF_PROXY_HEADER] ?: session.headers["Cf-Proxy-Url"],
++                    baseUrlHeader = session.headers[SOURCE_BASE_URL_HEADER] ?: session.headers["Source-Base-Url"],
++                )
++            } catch (e: Exception) {
++                DalvikResult(
++                    500,
++                    """{"error":"${(e.message ?: e.javaClass.simpleName).replace("\\", "/").replace("\"", "'")}","code":500}""",
++                    null,
++                )
++            }
++        val status =
++            when (result.status) {
++                200 -> NanoHTTPD.Response.Status.OK
++                400 -> NanoHTTPD.Response.Status.BAD_REQUEST
++                401 -> NanoHTTPD.Response.Status.UNAUTHORIZED
++                403 -> NanoHTTPD.Response.Status.FORBIDDEN
++                404 -> NanoHTTPD.Response.Status.NOT_FOUND
++                409 -> NanoHTTPD.Response.Status.CONFLICT
++                else -> NanoHTTPD.Response.Status.INTERNAL_ERROR
++            }
++        return NanoHTTPD.newFixedLengthResponse(status, "application/json", result.body).apply {
++            result.extensionId?.let { addHeader("X-Mangayomi-Extension-Id", it) }
++        }
+     }
+ 
+     companion object {
 diff --git a/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt b/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt
 index 89b7a3d..05634fa 100644
 --- a/server/src/main/kotlin/mextensionserver/controller/MExtensionServerController.kt
@@ -854,7 +1246,7 @@ index 89b7a3d..05634fa 100644
                  "/dalvik" -> DalvikHandler().serve(session)
                  "/youtube/resolve" -> YouTubeHandler().serve(session)
 diff --git a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
-index c9c373a..b66d4c9 100644
+index c9c373a..473ba02 100644
 --- a/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
 +++ b/server/src/main/kotlin/mextensionserver/impl/MExtensionServerLoader.kt
 @@ -24,6 +24,18 @@ object MExtensionServerLoader {
@@ -876,7 +1268,27 @@ index c9c373a..b66d4c9 100644
      // Extensions retain pagination iterators and other request state. Keep one
      // instance per APK for the server lifetime instead of decoding it per call.
      private val loadedExtensions =
-@@ -145,13 +157,23 @@ object MExtensionServerLoader {
+@@ -106,10 +118,17 @@ object MExtensionServerLoader {
+         base64Data: String?,
+         extensionId: String?,
+         block: (LoadedExtension) -> T,
++    ): ExtensionInvocation<T> = invokeWithApk(base64Data?.let { Base64.getDecoder().decode(it) }, extensionId, block)
++
++    /** Like [invokeWithExtension] with the APK's raw bytes (Yomi A6: read from a file path, no base64). */
++    fun <T> invokeWithApk(
++        apkData: ByteArray?,
++        extensionId: String?,
++        block: (LoadedExtension) -> T,
+     ): ExtensionInvocation<T> {
+         val keyedResult =
+-            if (base64Data != null) {
+-                loadedExtensions.useAndGetKey(Base64.getDecoder().decode(base64Data), block)
++            if (apkData != null) {
++                loadedExtensions.useAndGetKey(apkData, block)
+             } else {
+                 val key = requireNotNull(extensionId) { "Either data or extensionId is required" }
+                 loadedExtensions.useByKey(key, block) ?: throw ExtensionNotLoadedException(key)
+@@ -145,13 +164,23 @@ object MExtensionServerLoader {
                  }
              logger.debug { "Main class for extension is $className" }
  
@@ -907,6 +1319,63 @@ index c9c373a..b66d4c9 100644
  
              // Load extension sources
              val loadedSource = loadExtensionSources(jarFile, className, tempApkFile)
+diff --git a/server/src/main/kotlin/mextensionserver/impl/MihonImageProxy.kt b/server/src/main/kotlin/mextensionserver/impl/MihonImageProxy.kt
+index f287bd5..0cc1966 100644
+--- a/server/src/main/kotlin/mextensionserver/impl/MihonImageProxy.kt
++++ b/server/src/main/kotlin/mextensionserver/impl/MihonImageProxy.kt
+@@ -57,17 +57,26 @@ internal object MihonImageProxy {
+     @Volatile
+     private var port: Int = 0
+ 
++    /** Yomi (A6): when set, image URLs are `<base><token>` (e.g. `keiyoushi-image://`), served over JNI, not HTTP. */
++    @Volatile
++    private var base: String? = null
++
+     fun configure(port: Int) {
+         require(port > 0) { "Image proxy port must be positive" }
+         this.port = port
+     }
+ 
++    fun configureBase(base: String) {
++        require(base.isNotEmpty()) { "Image proxy base must not be empty" }
++        this.base = base
++    }
++
+     fun register(
+         source: HttpSource,
+         page: Page,
+     ): String? {
+         val currentPort = port
+-        if (currentPort <= 0) return null
++        if (currentPort <= 0 && base == null) return null
+ 
+         val key =
+             buildString {
+@@ -109,7 +118,7 @@ internal object MihonImageProxy {
+         resolver: (OkHttpClient, String) -> String? = { _, _ -> null },
+     ): String? {
+         val currentPort = port
+-        if (currentPort <= 0) return null
++        if (currentPort <= 0 && base == null) return null
+ 
+         val key =
+             buildString {
+@@ -277,7 +286,7 @@ internal object MihonImageProxy {
+     private fun proxyUrl(
+         currentPort: Int,
+         token: String,
+-    ): String = "http://127.0.0.1:$currentPort/image/$token"
++    ): String = base?.let { it + token } ?: "http://127.0.0.1:$currentPort/image/$token"
+ 
+     fun clear() {
+         synchronized(lock) {
+@@ -285,5 +294,6 @@ internal object MihonImageProxy {
+             tokensByKey.clear()
+         }
+         port = 0
++        base = null
+     }
+ }
 diff --git a/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt b/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt
 index cd2d72e..3f4438d 100644
 --- a/server/src/main/kotlin/mextensionserver/impl/MihonInvoker.kt
@@ -932,6 +1401,18 @@ index cd2d72e..3f4438d 100644
          )
      }
  
+diff --git a/server/src/main/kotlin/mextensionserver/model/DataBody.kt b/server/src/main/kotlin/mextensionserver/model/DataBody.kt
+index ccd3dca..9151c60 100644
+--- a/server/src/main/kotlin/mextensionserver/model/DataBody.kt
++++ b/server/src/main/kotlin/mextensionserver/model/DataBody.kt
+@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+ @JsonIgnoreProperties(ignoreUnknown = true)
+ data class DataBody(
+     val data: String? = null, // Base64 encoded APK data
++    val apkPath: String? = null, // Yomi (A6): APK file inside the directory YomiHost.start was given
+     val extensionId: String? = null, // Server-issued SHA-256 handle
+     val method: String,
+     val page: Int? = null,
 diff --git a/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt b/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt
 index a919a82..a9a29fa 100644
 --- a/server/src/main/kotlin/mextensionserver/model/ResponseModels.kt
@@ -1182,3 +1663,173 @@ index 70fe740..f5c4a73 100644
 +        }
 +    }
  }
+diff --git a/server/src/test/kotlin/mextensionserver/YomiHostTest.kt b/server/src/test/kotlin/mextensionserver/YomiHostTest.kt
+new file mode 100644
+index 0000000..68687a9
+--- /dev/null
++++ b/server/src/test/kotlin/mextensionserver/YomiHostTest.kt
+@@ -0,0 +1,164 @@
++package mextensionserver
++
++import java.io.File
++import java.nio.file.Files
++import java.util.concurrent.CompletableFuture
++import java.util.concurrent.ConcurrentHashMap
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicLong
++import kotlin.test.BeforeTest
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertTrue
++
++/** Yomi A6: the JNI entry point, driven through its test sink (no host app registers the natives here). */
++class YomiHostTest {
++    private data class Reply(
++        val status: Int,
++        val body: String,
++        val extensionId: String?,
++    )
++
++    private class ImageReply(
++        val status: Int,
++        val type: String?,
++        val bytes: ByteArray?,
++    )
++
++    private val tickets = AtomicLong()
++    private val calls = ConcurrentHashMap<Long, CompletableFuture<Reply>>()
++    private val images = ConcurrentHashMap<Long, CompletableFuture<ImageReply>>()
++
++    private lateinit var apkDir: File
++
++    @BeforeTest
++    fun setUp() {
++        val app = Files.createTempDirectory("yomihost-app").toFile()
++        apkDir = Files.createTempDirectory("yomihost-apks").toFile()
++        YomiHost.sink =
++            object : YomiHost.Sink {
++                override fun complete(
++                    ticket: Long,
++                    status: Int,
++                    body: ByteArray,
++                    extensionId: String?,
++                ) {
++                    calls.remove(ticket)?.complete(Reply(status, String(body, Charsets.UTF_8), extensionId))
++                }
++
++                override fun completeImage(
++                    ticket: Long,
++                    status: Int,
++                    contentType: String?,
++                    bytes: ByteArray?,
++                ) {
++                    images.remove(ticket)?.complete(ImageReply(status, contentType, bytes))
++                }
++            }
++        YomiHost.start(app.path, apkDir.path)
++    }
++
++    private fun call(json: String): Reply {
++        val t = tickets.incrementAndGet()
++        val f = CompletableFuture<Reply>().also { calls[t] = it }
++        YomiHost.call(json.toByteArray(), "Yomi-Test", null, t)
++        return f.get(600, TimeUnit.SECONDS)
++    }
++
++    private fun image(id: String): ImageReply {
++        val t = tickets.incrementAndGet()
++        val f = CompletableFuture<ImageReply>().also { images[t] = it }
++        YomiHost.image(id, t)
++        return f.get(120, TimeUnit.SECONDS)
++    }
++
++    @Test
++    fun `bad json comes back as an error body, not a crash`() {
++        val r = call("{not json")
++        assertEquals(500, r.status)
++        assertTrue(r.body.contains("\"code\":500"), r.body)
++    }
++
++    @Test
++    fun `unknown handle is 409 so the app resends the apk`() {
++        val r = call("""{"method":"getPopularManga","extensionId":"nope","page":1}""")
++        assertEquals(409, r.status, r.body)
++    }
++
++    @Test
++    fun `apk paths outside the extension directory are refused`() {
++        val outside = Files.createTempFile("evil", ".apk").toFile()
++        val r = call("""{"method":"getPopularManga","apkPath":"${outside.path}","page":1}""")
++        assertEquals(500, r.status)
++        assertTrue(r.body.contains("outside"), r.body)
++        val sneaky = call("""{"method":"getPopularManga","apkPath":"${apkDir.path}/../${outside.name}","page":1}""")
++        assertTrue(sneaky.body.contains("outside"), sneaky.body)
++    }
++
++    @Test
++    fun `unknown image id is 404`() {
++        assertEquals(404, image("does-not-exist").status)
++    }
++
++    /** A page the extension must fetch itself gets a keiyoushi-image:// URL, and image() returns its bytes. */
++    @Test
++    fun `proxied page image comes back as raw bytes over the image call`() {
++        val payload = ByteArray(4096) { (it % 251).toByte() }
++        val source =
++            object : eu.kanade.tachiyomi.source.online.HttpSource() {
++                override val name = "Fake"
++                override val lang = "en"
++                override val supportsLatest = false
++                override val baseUrl = "https://fake.test"
++                override val client: okhttp3.OkHttpClient =
++                    okhttp3.OkHttpClient
++                        .Builder()
++                        .addInterceptor { chain ->
++                            okhttp3.Response
++                                .Builder()
++                                .request(chain.request())
++                                .protocol(okhttp3.Protocol.HTTP_1_1)
++                                .code(200)
++                                .message("OK")
++                                .body(
++                                    okhttp3.ResponseBody.run {
++                                        payload.toResponseBody(okhttp3.MediaType.run { "image/webp".toMediaType() })
++                                    },
++                                ).build()
++                        }.build()
++            }
++        val page =
++            eu.kanade.tachiyomi.source.model
++                .Page(0, "https://fake.test/c/1", "https://fake.test/p/1.webp")
++        val url = requireNotNull(mextensionserver.impl.MihonImageProxy.register(source, page))
++        assertTrue(url.startsWith(YomiHost.IMAGE_SCHEME), url)
++        val reply = image(url.removePrefix(YomiHost.IMAGE_SCHEME))
++        assertEquals(200, reply.status)
++        assertEquals("image/webp", reply.type)
++        assertTrue(payload.contentEquals(reply.bytes))
++    }
++
++    /** Full chain against the live site when YOMI_TEST_APK points at an extension (e.g. Asura); skipped otherwise. */
++    @Test
++    fun `real extension popular, chapters, pages, image`() {
++        val apk = System.getenv("YOMI_TEST_APK")?.let(::File)?.takeIf(File::isFile) ?: return
++        val copy = File(apkDir, apk.name).also { apk.copyTo(it, overwrite = true) }
++        val popular = call("""{"method":"getPopularManga","apkPath":"${copy.path}","page":1}""")
++        assertEquals(200, popular.status, popular.body.take(400))
++        val handle = requireNotNull(popular.extensionId)
++        val url = Regex("\"url\":\"([^\"]+)\"").find(popular.body)!!.groupValues[1]
++        val chapters = call("""{"method":"getChapterList","extensionId":"$handle","mangaData":{"url":"$url"}}""")
++        assertEquals(200, chapters.status, chapters.body.take(400))
++        val chUrl = Regex("\"url\":\"([^\"]+)\"").find(chapters.body)!!.groupValues[1]
++        val pages = call("""{"method":"getPageList","extensionId":"$handle","chapterData":{"url":"$chUrl","name":"x"}}""")
++        assertEquals(200, pages.status, pages.body.take(400))
++        println("YomiHostTest pages: ${pages.body.take(300)}")
++        val proxied = Regex("keiyoushi-image://([0-9a-f-]+)").find(pages.body)?.groupValues?.get(1)
++        if (proxied != null) {
++            val img = image(proxied)
++            assertEquals(200, img.status)
++            assertTrue((img.bytes?.size ?: 0) > 1000)
++            println("YomiHostTest image: ${img.type} ${img.bytes?.size} bytes")
++        }
++    }
++}

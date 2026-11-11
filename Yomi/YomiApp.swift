@@ -206,7 +206,8 @@ struct YomiApp: App {
                 request.setValue(value, forHTTPHeaderField: name)
             }
             request.setValue(CFBypassConstants.userAgent, forHTTPHeaderField: "User-Agent")
-            // Keiyoushi pages: the bridge's token (S191), and its new port after the app was in the background (S144).
+            // Keiyoushi pages over the HTTP fallback: the bridge's token (S191) and its live port (S144). No-op for
+            // keiyoushi-image:// (A6).
             return KeiyoushiBridge.bridgeImageRequest(request)
         }
         KingfisherManager.shared.defaultOptions += [.requestModifier(uaModifier)]
@@ -218,6 +219,10 @@ struct YomiApp: App {
         kfSessionConfig.httpCookieStorage = .shared
         kfSessionConfig.httpShouldSetCookies = true
         kfSessionConfig.httpCookieAcceptPolicy = .always
+        // Keiyoushi pages/covers the extension serves itself: keiyoushi-image:// over JNI (A6, S210). Kingfisher has
+        // its own session; URLSession.shared (downloads) picks the class up from registerClass.
+        kfSessionConfig.protocolClasses = [KeiyoushiImageProtocol.self] + (kfSessionConfig.protocolClasses ?? [])
+        URLProtocol.registerClass(KeiyoushiImageProtocol.self)
         KingfisherManager.shared.downloader.sessionConfiguration = kfSessionConfig
     }
 
@@ -289,8 +294,8 @@ struct YomiApp: App {
                 }
             }
             if phase == .background {
-                // iOS suspends the on-device extension bridge's socket anyway; pausing keeps extensions loaded
-                // and lets the next Keiyoushi call restart serving on a fresh port.
+                // HTTP fallback only (A6 has no socket): iOS suspends the bridge's socket anyway; pausing keeps
+                // extensions loaded and lets the next Keiyoushi call restart serving on a fresh port.
                 KeiyoushiBridge.shared.pause()
                 if settings.appLockEnabled { isLocked = true }
                 if settings.backgroundAutoRefreshEnabled { scheduleBackgroundRefresh() }

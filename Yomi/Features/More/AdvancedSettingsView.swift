@@ -9,6 +9,8 @@ import PulseUI
 
 struct AdvancedSettingsView: View {
     @State private var settings = AppSettings.shared
+    /// A6 fallback (S210, one build only): the pre-A6 loopback server for Keiyoushi. Read at launch.
+    @AppStorage(KeiyoushiBridge.httpTransportKey) private var keiyoushiHTTP = false
 
     var body: some View {
         CalmList {
@@ -75,11 +77,20 @@ struct AdvancedSettingsView: View {
     // MARK: - Database
 
     private var databaseSection: some View {
-        Section(calm: "Support") {
+        Section {
             Button("Export diagnostic log") {
                 exportLog()
             }
             .foregroundStyle(.primary)
+            if KeiyoushiJVMHost.isAvailable {
+                Toggle("Old Keiyoushi connection", isOn: $keiyoushiHTTP)
+            }
+        } header: {
+            CalmSectionHeader("Support")
+        } footer: {
+            if KeiyoushiJVMHost.isAvailable {
+                Text("Only if Keiyoushi sources stopped working after an update. Takes effect after Yomi restarts.")
+            }
         }
     }
 

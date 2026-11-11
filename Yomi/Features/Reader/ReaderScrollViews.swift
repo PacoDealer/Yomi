@@ -477,7 +477,7 @@ enum PageRetry {
             try? await Task.sleep(for: .milliseconds(500))
         }
         if KeiyoushiBridge.isBridgeImage(URL(string: url)) {
-            return (try? await KeiyoushiBridge.shared.servingPort()) != nil
+            return await KeiyoushiBridge.shared.imagesReady()
         }
         try? await Task.sleep(for: .seconds(Double(attempt + 1)))
         return true

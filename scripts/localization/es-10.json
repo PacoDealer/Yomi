@@ -46,5 +46,8 @@
   "the source": "la fuente",
   "Retry These": "Reintentar estos",
   "Migrate These": "Migrar estos",
-  "Saved for this extension on this iPhone.": "Guardado para esta extensión en este iPhone."
+  "Saved for this extension on this iPhone.": "Guardado para esta extensión en este iPhone.",
+  "Old Keiyoushi connection": "Conexión antigua de Keiyoushi",
+  "Only if Keiyoushi sources stopped working after an update. Takes effect after Yomi restarts.": "Solo si las fuentes de Keiyoushi dejaron de funcionar tras una actualización. Se aplica al reiniciar Yomi.",
+  "The extension took too long to answer.": "La extensión tardó demasiado en responder."
 }
