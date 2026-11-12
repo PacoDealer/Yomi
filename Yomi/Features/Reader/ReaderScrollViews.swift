@@ -468,6 +468,14 @@ struct ContinuousHorizontalReaderView: View {
 enum PageRetry {
     /// Posted with the page URL on a page's first failure; the reader refetches the list if it came from the cache.
     static let pageFailed = Notification.Name("YomiReaderPageFailed")
+    /// Every page showing Retry loads again (A7).
+    static let retryAllNote = Notification.Name("YomiReaderRetryAllPages")
+    /// A failed page's "Open in WebView" (A7).
+    static let openWebViewNote = Notification.Name("YomiReaderOpenPageWebView")
+
+    static func retryAll() {
+        NotificationCenter.default.post(name: retryAllNote, object: nil)
+    }
 
     static func shouldRetry(_ url: String, attempt: Int) async -> Bool {
         guard attempt < 3 else { return false }
@@ -484,24 +492,61 @@ enum PageRetry {
     }
 }
 
-/// A page that gave up: tap to load it again.
+/// A page that gave up: tap to load it again, retry every page that gave up, or open the chapter in a web view
+/// (A7, S212 — J2K/Komikku): a Cloudflare check or a site login on the image host used to mean leaving the reader.
 struct PageRetryButton: View {
+    let url: String
     let action: () -> Void
 
+    @Environment(\.readerCanOpenWebView) private var canOpenWebView
+    @State private var settings = AppSettings.shared
+    private var failed: FailedPages { FailedPages.shared }
+    /// `.secondary` came out near-black on the reader's black (S212 screenshot): ink from the reader background.
+    private var ink: Color { ReaderBackdrop.isLight(settings.readerBackground) ? .black.opacity(0.65) : .white.opacity(0.75) }
+
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.title2)
-                Text("Page didn't load · Tap to retry")
-                    .font(.footnote)
+        VStack(spacing: 14) {
+            Button(action: action) {
+                VStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.title2)
+                    Text("Page didn't load · Tap to retry")
+                        .font(.footnote)
+                }
+                .foregroundStyle(ink)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            HStack(spacing: 10) {
+                if failed.urls.count > 1 {
+                    Button("Retry all \(failed.urls.count) failed pages") { PageRetry.retryAll() }
+                }
+                if canOpenWebView {
+                    Button("Open in WebView") { NotificationCenter.default.post(name: PageRetry.openWebViewNote, object: nil) }
+                }
+            }
+            .font(.footnote)
+            .buttonStyle(.bordered)
+            .tint(ink)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { failed.urls.insert(url) }
+        .onDisappear { failed.urls.remove(url) }
     }
+}
+
+/// Pages showing `PageRetryButton` right now, so one of them can offer "Retry all". A page leaves the set when its
+/// retry button goes away (retried, loaded, or scrolled far enough that the lazy stack drops it and it starts over).
+@Observable final class FailedPages {
+    static let shared = FailedPages()
+    var urls: Set<String> = []
+}
+
+extension EnvironmentValues {
+    /// Set by the reader when it knows the chapter's web address: "Open in WebView" posts `PageRetry.openWebViewNote`,
+    /// the reader opens the verify sheet, then retries every failed page with the cookies it earned.
+    @Entry var readerCanOpenWebView = false
 }
 
 
@@ -526,7 +571,8 @@ private struct StripPageImage: View {
 
     @ViewBuilder private var page: some View {
         if failed {
-            PageRetryButton { attempt = 0; failed = false }
+            PageRetryButton(url: url) { attempt = 0; failed = false }
+                .onReceive(NotificationCenter.default.publisher(for: PageRetry.retryAllNote)) { _ in attempt = 0; failed = false }
                 .aspectRatio(2 / 3, contentMode: .fit)
                 .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
         } else if let pieces {

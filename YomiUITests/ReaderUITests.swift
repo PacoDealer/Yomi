@@ -230,4 +230,22 @@ final class ReaderUITests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
         XCTAssertTrue(app.staticTexts["Fixture home"].waitForExistence(timeout: 3), "edge swipe did not go back in pages mode")
     }
+
+    // MARK: Failed manga pages (A7, S212)
+
+    /// Two unreadable pages in the long strip: each gives up after its retries and offers "Retry all 2 failed pages";
+    /// tapping it loads them again (they fail again, and the offer comes back). The local fixture has no web address,
+    /// so "Open in WebView" must stay hidden.
+    func testFailedPagesOfferRetryAll() {
+        app = XCUIApplication()
+        app.launchArguments = ["-yomiReaderFixture", "manga", "-yomiFixtureBrokenPages", "-readerMode", "Webtoon"]
+        app.launch()
+        let retryAll = app.buttons["Retry all 2 failed pages"].firstMatch   // one on each failed page
+        // 3 retries per page wait 1 + 2 + 3 s.
+        XCTAssertTrue(retryAll.waitForExistence(timeout: 30), "no Retry all on two failed pages")
+        XCTAssertFalse(app.buttons["Open in WebView"].firstMatch.exists, "WebView offered for a chapter with no web address")
+        retryAll.tap()
+        XCTAssertTrue(gone(retryAll, timeout: 3), "Retry all did not restart the failed pages")
+        XCTAssertTrue(retryAll.waitForExistence(timeout: 30), "pages that fail again should offer Retry all again")
+    }
 }

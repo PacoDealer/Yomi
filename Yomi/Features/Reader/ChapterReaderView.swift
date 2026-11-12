@@ -43,6 +43,8 @@ struct ChapterReaderView: View {
     @State private var showDiscussSheet = false
     @State private var sourceURL: URL? = nil
     @State private var showSourceSheet = false
+    /// A failed page's "Open in WebView" (A7): the chapter's page in the verify sheet, then every failed page retries.
+    @State private var showPageWebView = false
     @State private var showFinishedBanner = false
     @State private var didMarkCurrentChapterRead = false
     @State private var toastMessage: String? = nil
@@ -235,6 +237,8 @@ struct ChapterReaderView: View {
                 onScrubbingChanged: { isScrubbing = $0 }
             )
         }
+        .environment(\.readerCanOpenWebView, sourceURL != nil)
+        .onReceive(NotificationCenter.default.publisher(for: PageRetry.openWebViewNote)) { _ in showPageWebView = true }
         .navigationBarHidden(true)
         .swipeBackEnabled()
         .navigationBarStaysHidden(true)   // #206: opened while a search was active
@@ -335,7 +339,8 @@ struct ChapterReaderView: View {
             // BASE_URL exists to resolve, so both icons stay hidden.
             guard let b = bridge else {
                 discussURL = nil
-                sourceURL = nil
+                // Keiyoushi chapters have no JS bridge but do have a page on the site (A7: "Open in WebView").
+                sourceURL = KeiyoushiMapping.chapterWebURL(from: path)
                 return
             }
             let discuss = await Task.detached(priority: .background) {
@@ -357,6 +362,16 @@ struct ChapterReaderView: View {
         .sheet(isPresented: $showSourceSheet) {
             if let url = sourceURL {
                 DiscussWebSheet(url: url, title: String(localized: "Source"))
+            }
+        }
+        .sheet(isPresented: $showPageWebView) {
+            if let url = sourceURL {
+                // Website mode: Done is always there and copies the site's cookies (a solved check, a login) to the
+                // plugin and to the store page images are fetched with.
+                CFBypassView(initialURL: url.absoluteString, isWebsite: true, cookieJar: bridge?.cookieJar) {
+                    bridge?.clearCFBlock()
+                    PageRetry.retryAll()
+                }
             }
         }
         .onChange(of: shouldRequestReview) { _, should in

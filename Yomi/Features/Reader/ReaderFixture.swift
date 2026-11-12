@@ -40,6 +40,10 @@ enum ReaderFixture {
 
     // MARK: Manga long strip
 
+    /// `-yomiFixtureBrokenPages` (A7, S212): the manga fixture's chapter has pages 1 and 2 unreadable, so the reader
+    /// shows its failed-page buttons ("Retry all 2 failed pages").
+    static var wantsBrokenPages: Bool { ProcessInfo.processInfo.arguments.contains("-yomiFixtureBrokenPages") }
+
     static let manga = Manga(
         id: "fixture-manga", path: "local://app/.perf-fixture", sourceId: LocalLibrary.sourceId, title: "Perf Fixture",
         coverURL: nil, summary: nil, author: nil, artist: nil, status: .unknown, genres: [], inLibrary: false,
@@ -48,6 +52,11 @@ enum ReaderFixture {
     static let mangaChapter = Chapter(
         id: "fixture-manga-ch-1", mangaId: manga.id, path: "local://app/.perf-fixture/Chapter 1", name: "Chapter 1",
         chapterNumber: 1, isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil, progress: 0,
+        readingSeconds: 0, lastPageRead: 0)
+
+    static let brokenChapter = Chapter(
+        id: "fixture-manga-ch-broken", mangaId: manga.id, path: "local://app/.perf-fixture/Broken", name: "Broken",
+        chapterNumber: 2, isRead: false, isDownloaded: false, downloadedAt: nil, readAt: nil, progress: 0,
         readingSeconds: 0, lastPageRead: 0)
 
     nonisolated static let stripPages = 8
@@ -79,6 +88,22 @@ enum ReaderFixture {
         }
     }
 
+    /// Documents/Local/.perf-fixture/Broken: two files that aren't images, then one good page.
+    nonisolated static func prepareBrokenManga() {
+        prepareManga()
+        let root = LocalLibrary.appRoot.appendingPathComponent(".perf-fixture", isDirectory: true)
+        let dir = root.appendingPathComponent("Broken", isDirectory: true)
+        let fm = FileManager.default
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        for name in ["001.jpg", "002.jpg"] {
+            try? Data("not an image".utf8).write(to: dir.appendingPathComponent(name))
+        }
+        let good = dir.appendingPathComponent("003.jpg")
+        if !fm.fileExists(atPath: good.path) {
+            try? fm.copyItem(at: root.appendingPathComponent("Chapter 1/001.jpg"), to: good)
+        }
+    }
+
     struct MangaRootView: View {
         @State private var ready = false
         @State private var path = ["reader"]
@@ -88,14 +113,19 @@ enum ReaderFixture {
                     .navigationDestination(for: String.self) { _ in
                         if ready {
                             ChapterReaderView(manga: ReaderFixture.manga, bridge: nil,
-                                              chapters: [ReaderFixture.mangaChapter], chapterIndex: 0)
+                                              chapters: [ReaderFixture.wantsBrokenPages ? ReaderFixture.brokenChapter
+                                                                                        : ReaderFixture.mangaChapter],
+                                              chapterIndex: 0)
                         } else {
                             ProgressView("Preparing pages")
                         }
                     }
             }
             .task {
-                await Task.detached(priority: .userInitiated) { ReaderFixture.prepareManga() }.value
+                let broken = ReaderFixture.wantsBrokenPages
+                await Task.detached(priority: .userInitiated) {
+                    if broken { ReaderFixture.prepareBrokenManga() } else { ReaderFixture.prepareManga() }
+                }.value
                 ready = true
             }
         }

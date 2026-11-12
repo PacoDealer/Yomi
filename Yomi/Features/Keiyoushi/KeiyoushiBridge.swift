@@ -670,6 +670,17 @@ enum KeiyoushiMapping {
         return chapterScheme + b64
     }
 
+    /// The chapter's page on the source's site, for the reader's "Open in WebView" (A7, S212). Mihon's default
+    /// `getChapterUrl`: the chapter url when absolute, else the source's base URL + that path.
+    @MainActor static func chapterWebURL(from path: String) -> URL? {
+        guard let ref = chapterRef(from: path) else { return nil }
+        if ref.url.hasPrefix("http://") || ref.url.hasPrefix("https://") { return URL(string: ref.url) }
+        guard let home = KeiyoushiRepository.shared.installedExtension(forSourceId: ref.sourceId)?
+                .info.sources.first(where: { $0.id == ref.sourceId })?.homeURL, !home.isEmpty else { return nil }
+        let base = home.hasSuffix("/") ? String(home.dropLast()) : home
+        return URL(string: base + (ref.url.hasPrefix("/") ? ref.url : "/" + ref.url))
+    }
+
     nonisolated static func chapterRef(from path: String) -> (sourceId: String, url: String, name: String)? {
         guard path.hasPrefix(chapterScheme) else { return nil }
         var b64 = String(path.dropFirst(chapterScheme.count))

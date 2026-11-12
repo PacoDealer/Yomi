@@ -160,7 +160,10 @@ private struct MangaPageView: View {
             // AsyncImage uses a bare URLSession with no way to attach that, so it 403s silently.
             Group {
                 if loadFailed {
-                    PageRetryButton { attempt = 0; loadFailed = false }
+                    PageRetryButton(url: url) { attempt = 0; loadFailed = false }
+                        .onReceive(NotificationCenter.default.publisher(for: PageRetry.retryAllNote)) { _ in
+                            attempt = 0; loadFailed = false
+                        }
                 } else {
                     KFImage(source: PageNames.source(url))
                         .readerPage()

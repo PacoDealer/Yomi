@@ -7141,6 +7141,16 @@
         }
       }
     },
+    "Open in WebView": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en WebView"
+          }
+        }
+      }
+    },
     "Open in reader": {
       "localizations": {
         "es": {
@@ -8272,6 +8282,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reintentar estos"
+          }
+        }
+      }
+    },
+    "Retry all %lld failed pages": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar las %lld páginas que fallaron"
           }
         }
       }
