@@ -57,5 +57,8 @@
   "Repository added. Its extensions are in Browse → Extensions.": "Repositorio agregado. Sus extensiones están en Explorar → Extensiones.",
   "Swipe left to remove a repository, right to turn a Mihon repository off. Extensions you already added from it stay.": "Desliza a la izquierda para quitar un repositorio, a la derecha para desactivar un repositorio de Mihon. Las extensiones que ya agregaste se quedan.",
   "Turn Off": "Desactivar",
-  "Turn On": "Activar"
+  "Turn On": "Activar",
+  "Mark every chapter as read?": "¿Marcar todos los capítulos como leídos?",
+  "Mark every chapter as unread?": "¿Marcar todos los capítulos como no leídos?",
+  "Undo": "Deshacer"
 }

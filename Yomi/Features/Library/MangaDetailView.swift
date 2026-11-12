@@ -73,6 +73,10 @@ struct MangaDetailView: View {
     // Feature 4 — Chapter selection
     @State private var isSelectingChapters = false
     @State private var selectedChapterIds: Set<String> = []
+    /// The last bulk Mark read / unread, while its Undo bar shows (A13).
+    @State private var readUndo: ReadUndo?
+    /// "Mark all as read/unread" waits for this confirmation (A13): one tap used to change every chapter.
+    @State private var confirmMarkAll: Bool?
     @State private var chapterForNav: Chapter? = nil
 
     // Feature 5 — Scanlator filter
@@ -466,6 +470,24 @@ struct MangaDetailView: View {
         }
         .yomiToast($toastMessage)
         .pullRefreshStatus($pullStatus)
+        .overlay(alignment: .bottom) {
+            if let readUndo, !isSelectingChapters { undoBar(readUndo) }
+        }
+        .confirmationDialog(confirmMarkAll == true ? "Mark every chapter as read?" : "Mark every chapter as unread?",
+                            isPresented: Binding(get: { confirmMarkAll != nil }, set: { if !$0 { confirmMarkAll = nil } }),
+                            titleVisibility: .visible) {
+            if let read = confirmMarkAll {
+                Button(read ? "Mark all as read" : "Mark all as unread") {
+                    confirmMarkAll = nil
+                    Task { await markAllChapters(read: read) }
+                }
+            }
+            Button("Cancel", role: .cancel) { confirmMarkAll = nil }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Self.downloadsRemovedNote)) { note in
+            guard note.object as? String == manga.id else { return }
+            Task { await refreshChapterStates() }
+        }
         .yomiToast(Binding(
             get: { NetworkMonitor.shared.queuedNotice },
             set: { NetworkMonitor.shared.queuedNotice = $0 }
@@ -567,12 +589,12 @@ struct MangaDetailView: View {
                 if !chapters.isEmpty {
                     Divider()
                     Button {
-                        Task { await markAllChapters(read: true) }
+                        confirmMarkAll = true
                     } label: {
                         Label("Mark all as read", systemImage: "checkmark.circle.fill")
                     }
                     Button {
-                        Task { await markAllChapters(read: false) }
+                        confirmMarkAll = false
                     } label: {
                         Label("Mark all as unread", systemImage: "circle")
                     }
@@ -1772,70 +1794,120 @@ struct MangaDetailView: View {
     // MARK: - Mark Selected Read/Unread
 
     private func markSelected(read: Bool) async {
-        let ids = selectedChapterIds
-        let mangaId = manga.id
-        // When marking as read, collect downloaded chapters to auto-delete — only if "Delete manga after reading" is
-        // on (S195: these two bulk paths deleted downloads even with the setting off; the reader always checked it).
-        let downloadedIds: Set<String> = read && AppSettings.shared.deleteDownloadAfterReading
-            ? Set(chapters.filter { ids.contains($0.id) && $0.isDownloaded }.map { $0.id })
-            : []
-        await Task.detached(priority: .userInitiated) {
-            try? ChapterQueries.setReadBatch(chapterIds: Array(ids), mangaId: mangaId, isRead: read)
-            // Auto-delete downloaded files when marking as read
-            for id in downloadedIds {
-                let dir = FileManager.default
-                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("Downloads/\(mangaId)/\(id)")
-                try? FileManager.default.removeItem(at: dir)
-                try? DownloadQueries.markNotDownloaded(chapterId: id)
-            }
-        }.value
-        // Update in-memory state
-        chapters = chapters.map { ch in
-            if ids.contains(ch.id) {
-                var updated = ch
-                updated.isRead = read
-                if downloadedIds.contains(ch.id) { updated.isDownloaded = false }
-                return updated
-            }
-            return ch
-        }
+        await applyRead(ids: selectedChapterIds, read: read)
         withMotion(.spring(duration: 0.2)) {
             isSelectingChapters = false
             selectedChapterIds = []
         }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: - Mark All Chapters
 
     private func markAllChapters(read: Bool) async {
-        let ids = Set(chapters.map { $0.id })
+        await applyRead(ids: Set(chapters.map(\.id)), read: read)
+    }
+
+    // MARK: - Read / unread with Undo (A13, S212 — J2K)
+
+    /// What a bulk read change replaced, for Undo. Downloads that "Delete manga after reading" would remove wait out
+    /// the Undo window (`deletion`), so Undo has nothing to bring back from disk.
+    struct ReadUndo: Identifiable {
+        let id = UUID()
+        let message: String
+        let previous: [ChapterQueries.ReadState]
+        let deletion: Task<Void, Never>?
+    }
+
+    /// Marks `ids` read or unread. Only chapters that change are written: a chapter already read keeps its real
+    /// read date (before, Mark all as read stamped every chapter with now, one write each). Offers Undo for 5 s.
+    private func applyRead(ids: Set<String>, read: Bool) async {
+        let changed = chapters.filter { ids.contains($0.id) && $0.isRead != read }
+        guard !changed.isEmpty else {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            return
+        }
+        let changedIds = changed.map(\.id)
+        let previous = changed.map { ChapterQueries.ReadState(id: $0.id, isRead: $0.isRead, readAt: $0.readAt) }
         let mangaId = manga.id
-        let downloadedIds: Set<String> = read && AppSettings.shared.deleteDownloadAfterReading   // S195, see above
-            ? Set(chapters.filter { $0.isDownloaded }.map { $0.id })
+        // Downloaded chapters to remove — only if "Delete manga after reading" is on (S195: these two bulk paths
+        // deleted downloads even with the setting off; the reader always checked it).
+        let downloadedIds: Set<String> = read && AppSettings.shared.deleteDownloadAfterReading
+            ? Set(changed.filter(\.isDownloaded).map(\.id))
             : []
         await Task.detached(priority: .userInitiated) {
-            for id in ids {
-                try? ChapterQueries.setRead(chapterId: id, mangaId: mangaId, isRead: read)
-            }
-            if read {
-                for id in downloadedIds {
-                    let dir = FileManager.default
-                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        .appendingPathComponent("Downloads/\(mangaId)/\(id)")
-                    try? FileManager.default.removeItem(at: dir)
-                    try? DownloadQueries.markNotDownloaded(chapterId: id)
-                }
-            }
+            try? ChapterQueries.setReadBatch(chapterIds: changedIds, mangaId: mangaId, isRead: read)
         }.value
+        let now = Date()
+        let changedSet = Set(changedIds)
         chapters = chapters.map { ch in
+            guard changedSet.contains(ch.id) else { return ch }
             var updated = ch
             updated.isRead = read
-            if downloadedIds.contains(ch.id) { updated.isDownloaded = false }
+            updated.readAt = read ? now : nil
             return updated
         }
+        var deletion: Task<Void, Never>?
+        if !downloadedIds.isEmpty {
+            // Not tied to this screen: leaving it within the 5 s still deletes, as the setting asks.
+            deletion = Task.detached(priority: .utility) {
+                try? await Task.sleep(for: .seconds(Self.undoSeconds))
+                guard !Task.isCancelled else { return }
+                let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                for id in downloadedIds {
+                    try? FileManager.default.removeItem(at: root.appendingPathComponent("Downloads/\(mangaId)/\(id)"))
+                    try? DownloadQueries.markNotDownloaded(chapterId: id)
+                }
+                await MainActor.run { NotificationCenter.default.post(name: Self.downloadsRemovedNote, object: mangaId) }
+            }
+        }
+        let message = read ? String(localized: "Marked \(changed.count) chapters as read")
+                           : String(localized: "Marked \(changed.count) chapters as unread")
+        withMotion(.spring(duration: 0.25)) {
+            readUndo = ReadUndo(message: message, previous: previous, deletion: deletion)
+        }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    nonisolated static let undoSeconds = 5.0
+    /// Posted (object: manga id) once the downloads a bulk Mark read removed are gone, so the list drops their badges.
+    static let downloadsRemovedNote = Notification.Name("YomiBulkReadDownloadsRemoved")
+
+    private func undoRead(_ undo: ReadUndo) {
+        undo.deletion?.cancel()
+        let previous = undo.previous, mangaId = manga.id
+        let byId = Dictionary(uniqueKeysWithValues: previous.map { ($0.id, $0) })
+        chapters = chapters.map { ch in
+            guard let old = byId[ch.id] else { return ch }
+            var restored = ch
+            restored.isRead = old.isRead
+            restored.readAt = old.readAt
+            return restored
+        }
+        withMotion(.spring(duration: 0.25)) { readUndo = nil }
+        Task.detached(priority: .userInitiated) { try? ChapterQueries.restoreReadStates(previous, mangaId: mangaId) }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func undoBar(_ undo: ReadUndo) -> some View {
+        HStack(spacing: 12) {
+            Text(undo.message)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button("Undo") { undoRead(undo) }
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+        .transition(Motion.slide(.bottom))
+        .task(id: undo.id) {
+            try? await Task.sleep(for: .seconds(Self.undoSeconds))
+            if readUndo?.id == undo.id { withMotion(.spring(duration: 0.25)) { readUndo = nil } }
+        }
     }
 
     // MARK: - Storage size

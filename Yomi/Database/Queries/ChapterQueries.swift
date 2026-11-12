@@ -319,6 +319,26 @@ enum ChapterQueries {
         if isRead { try? MangaQueries.touchLastRead(mangaId: mangaId) }
     }
 
+    /// A chapter's read state before a bulk change, for Undo (A13, S212).
+    struct ReadState: Sendable {
+        let id: String
+        let isRead: Bool
+        let readAt: Date?
+    }
+
+    /// Puts chapters back exactly as they were (read flag and read date), in ONE transaction — the bulk Mark read /
+    /// unread Undo. Synced like any read change.
+    nonisolated static func restoreReadStates(_ states: [ReadState], mangaId: String) throws {
+        guard !states.isEmpty else { return }
+        _ = try appDatabase.write { db in
+            for s in states {
+                try db.execute(sql: "UPDATE chapter SET isRead = ?, readAt = ? WHERE id = ?",
+                               arguments: [s.isRead, s.readAt, s.id])
+            }
+        }
+        markCloudDirtyBatch(.mangaChapterState, keys: states.map { "\(mangaId)|\($0.id)" })
+    }
+
     /// Bookmarks or un-bookmarks chapters in ONE transaction (v28; the only writer of `isBookmarked`).
     nonisolated static func setBookmarked(chapterIds: [String], mangaId: String, bookmarked: Bool) throws {
         guard !chapterIds.isEmpty else { return }

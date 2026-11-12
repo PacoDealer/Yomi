@@ -5718,6 +5718,26 @@
         }
       }
     },
+    "Mark every chapter as read?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Marcar todos los capítulos como leídos?"
+          }
+        }
+      }
+    },
+    "Mark every chapter as unread?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Marcar todos los capítulos como no leídos?"
+          }
+        }
+      }
+    },
     "Mark previous": {
       "localizations": {
         "es": {
@@ -5744,6 +5764,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Marcar como leído"
+          }
+        }
+      }
+    },
+    "Marked %lld chapters as read": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Marked %lld chapter as read"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Marked %lld chapters as read"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capítulo marcado como leído"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capítulos marcados como leídos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Marked %lld chapters as unread": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Marked %lld chapter as unread"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Marked %lld chapters as unread"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capítulo marcado como no leído"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capítulos marcados como no leídos"
+                }
+              }
+            }
           }
         }
       }
@@ -10716,6 +10816,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Queda menos de un minuto"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deshacer"
           }
         }
       }

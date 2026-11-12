@@ -258,5 +258,25 @@
       "one": "Falta %lld capítulo",
       "other": "Faltan %lld capítulos"
     }
+  },
+  "Marked %lld chapters as read": {
+    "en": {
+      "one": "Marked %lld chapter as read",
+      "other": "Marked %lld chapters as read"
+    },
+    "es": {
+      "one": "%lld capítulo marcado como leído",
+      "other": "%lld capítulos marcados como leídos"
+    }
+  },
+  "Marked %lld chapters as unread": {
+    "en": {
+      "one": "Marked %lld chapter as unread",
+      "other": "Marked %lld chapters as unread"
+    },
+    "es": {
+      "one": "%lld capítulo marcado como no leído",
+      "other": "%lld capítulos marcados como no leídos"
+    }
   }
 }
