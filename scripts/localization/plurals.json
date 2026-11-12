@@ -248,5 +248,15 @@
       "one": "%lld título no se pudo actualizar",
       "other": "%lld títulos no se pudieron actualizar"
     }
+  },
+  "%lld chapters missing": {
+    "en": {
+      "one": "%lld chapter missing",
+      "other": "%lld chapters missing"
+    },
+    "es": {
+      "one": "Falta %lld capítulo",
+      "other": "Faltan %lld capítulos"
+    }
   }
 }

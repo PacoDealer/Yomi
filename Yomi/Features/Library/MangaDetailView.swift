@@ -880,8 +880,14 @@ struct MangaDetailView: View {
                     .listRowSeparator(.hidden)
                 }
                 let filtered = displayedChapters
-                ForEach(filtered.prefix(displayedChapterCount), id: \.id) { chapter in
+                let shown = Array(filtered.prefix(displayedChapterCount))
+                // "N chapters missing" between neighbours (A15 #32, Mihon) — only on the whole list: a filter or a
+                // search leaves holes on purpose.
+                let gaps = chapterFilter == .all && chapterSearchText.isEmpty
+                    ? ChapterGaps.after(shown.map(\.chapterNumber)) : [:]
+                ForEach(Array(shown.enumerated()), id: \.element.id) { i, chapter in
                     chapterRow(chapter)
+                    if let gap = gaps[i] { missingChaptersRow(gap) }
                 }
                 Group {
                     if filtered.count > displayedChapterCount {
@@ -911,6 +917,22 @@ struct MangaDetailView: View {
                 .listRowSeparator(.hidden)
             }
         }
+    }
+
+    private func missingChaptersRow(_ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Rectangle().fill(canvas.textSecondary.opacity(0.3)).frame(height: 1)
+            Text("\(count) chapters missing")
+                .font(.caption)
+                .foregroundStyle(canvas.textSecondary)
+                .fixedSize()
+            Rectangle().fill(canvas.textSecondary.opacity(0.3)).frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 2, leading: YomiTokens.Layout.screenMargin,
+                                  bottom: 2, trailing: YomiTokens.Layout.screenMargin))
     }
 
     @ViewBuilder private var chaptersEmptyState: some View {
