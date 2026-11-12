@@ -17,6 +17,9 @@ struct ContentView: View {
     @State private var listenReader: ListenReaderTarget?
     /// Result of a CBZ/EPUB opened from Files or the share sheet ("Open in Yomi", S148).
     @State private var openedFileReport: String?
+    /// `yomi://add-repo?url=…` (A9, S212): a repository link waiting for the user's OK — a link never adds one alone.
+    @State private var pendingRepoLink: String?
+    @State private var repoLinkResult: String?
     /// The device's light/dark setting — the Automatic theme follows it (S142).
     @Environment(\.colorScheme) private var colorScheme
     /// Increase Contrast (S178) strengthens the palette's secondary text and dividers.
@@ -73,6 +76,19 @@ struct ContentView: View {
                 if let link, SharedLink.url(in: link) != nil { appRouter.openSharedLink(link) }
                 return
             }
+            // <scheme>://add-repo?url=<index link> (A9, J2K/Komikku): the "add to app" buttons on repository pages.
+            // Accepted from Yomi's own scheme (and tachiyomi/mihon if they are ever registered); always asks first.
+            if ["yomi", "tachiyomi", "mihon"].contains(url.scheme ?? ""), url.host == "add-repo" {
+                let link = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first(where: { $0.name == "url" })?.value?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if let link, let target = URL(string: link), target.scheme == "https", target.host() != nil {
+                    pendingRepoLink = link
+                } else {
+                    repoLinkResult = String(localized: "That isn't a valid repository URL.")
+                }
+                return
+            }
             guard url.isFileURL else { TrackerManager.route(url: url); return }
             Task {
                 let report = await Task.detached(priority: .userInitiated) { () -> String in
@@ -87,6 +103,30 @@ struct ContentView: View {
                 }.value
                 openedFileReport = report.isEmpty ? nil : report
             }
+        }
+        .alert("Add Repository?", isPresented: Binding(get: { pendingRepoLink != nil },
+                                                       set: { if !$0 { pendingRepoLink = nil } })) {
+            Button("Add") {
+                guard let link = pendingRepoLink else { return }
+                pendingRepoLink = nil
+                Task {
+                    do {
+                        try await KeiyoushiRepository.shared.addRepository(link)
+                        repoLinkResult = String(localized: "Repository added. Its extensions are in Browse → Extensions.")
+                    } catch {
+                        repoLinkResult = error.localizedDescription
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingRepoLink = nil }
+        } message: {
+            Text("Only add repositories you trust. Yomi will list the extensions from:\n\(pendingRepoLink ?? "")")
+        }
+        .alert("Repositories", isPresented: Binding(get: { repoLinkResult != nil },
+                                                    set: { if !$0 { repoLinkResult = nil } })) {
+            Button("OK") { repoLinkResult = nil }
+        } message: {
+            Text(repoLinkResult ?? "")
         }
         .alert("Local Files", isPresented: Binding(get: { openedFileReport != nil },
                                                    set: { if !$0 { openedFileReport = nil } })) {

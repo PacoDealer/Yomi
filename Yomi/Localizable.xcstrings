@@ -1392,6 +1392,16 @@
         }
       }
     },
+    "Add Repository?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Agregar repositorio?"
+          }
+        }
+      }
+    },
     "Add Sources": {
       "localizations": {
         "es": {
@@ -7071,6 +7081,16 @@
         }
       }
     },
+    "Only add repositories you trust. Yomi will list the extensions from:\n%@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrega solo repositorios de confianza. Yomi listará las extensiones de:\n%@"
+          }
+        }
+      }
+    },
     "Only if Keiyoushi sources stopped working after an update. Takes effect after Yomi restarts.": {
       "localizations": {
         "es": {
@@ -8162,6 +8182,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enlace del repositorio"
+          }
+        }
+      }
+    },
+    "Repository added. Its extensions are in Browse → Extensions.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repositorio agregado. Sus extensiones están en Explorar → Extensiones."
           }
         }
       }
@@ -9368,22 +9398,22 @@
         }
       }
     },
+    "Swipe left to remove a repository, right to turn a Mihon repository off. Extensions you already added from it stay.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desliza a la izquierda para quitar un repositorio, a la derecha para desactivar un repositorio de Mihon. Las extensiones que ya agregaste se quedan."
+          }
+        }
+      }
+    },
     "Swipe to change chapter": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Deslizar para cambiar de capítulo"
-          }
-        }
-      }
-    },
-    "Swipe to remove a repository. Extensions you already added from it stay.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desliza para quitar un repositorio. Las extensiones que ya agregaste desde él se quedan."
           }
         }
       }
@@ -10516,6 +10546,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prueba otro idioma desde el menú del globo."
+          }
+        }
+      }
+    },
+    "Turn Off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivar"
+          }
+        }
+      }
+    },
+    "Turn On": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar"
           }
         }
       }

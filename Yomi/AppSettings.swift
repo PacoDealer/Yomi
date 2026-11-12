@@ -553,6 +553,12 @@ import Observation
         didSet { defaults.set(mihonRepoURLs, forKey: "mihonRepoURLs") }
     }
 
+    /// Mihon repositories the user turned off (A9, S212 — J2K/Komikku): kept, but their extensions leave the list
+    /// and their updates aren't offered or fetched until turned back on. Installed extensions keep running.
+    var turnedOffMihonRepoURLs: [String] {
+        didSet { defaults.set(turnedOffMihonRepoURLs, forKey: "turnedOffMihonRepoURLs") }
+    }
+
     /// Browse's "Last used" section, most recent first — `BrowseSourceKey` raw values (plugin id or Keiyoushi
     /// source id, prefixed by kind).
     var recentSourceKeys: [String] {
@@ -825,6 +831,7 @@ import Observation
             let legacy = (d.string(forKey: "keiyoushiRepoURL") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             mihonRepoURLs = legacy.isEmpty ? [] : [legacy]
         }
+        turnedOffMihonRepoURLs   = d.stringArray(forKey: "turnedOffMihonRepoURLs") ?? []
         recentSourceKeys         = d.stringArray(forKey: "recentSourceKeys")     ?? []
         pinnedSourceKeys         = d.stringArray(forKey: "pinnedSourceKeys")     ?? []
         turnedOffSourceIds       = d.stringArray(forKey: "turnedOffSourceIds")   ?? []

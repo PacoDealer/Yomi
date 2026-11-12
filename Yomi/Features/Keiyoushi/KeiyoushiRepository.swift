@@ -68,6 +68,8 @@ enum KeiyoushiError: LocalizedError {
     case download(String)
     case runtimeUnavailable
     case bridge(String)
+    /// An index that holds no list, only the link to one (index.pb field 102). Followed once by `fetchIndex`.
+    case pointsTo(String)
 
     var errorDescription: String? {
         switch self {
@@ -81,6 +83,7 @@ enum KeiyoushiError: LocalizedError {
         case .runtimeUnavailable:
             return String(localized: "Keiyoushi extensions need the on-device runtime, which this build doesn't include.")
         case .bridge(let why): return why
+        case .pointsTo: return KeiyoushiError.notAnIndex.errorDescription
         }
     }
 }
@@ -143,6 +146,11 @@ final class KeiyoushiRepository {
         return rootDirectory.appendingPathComponent("index-\(key).cache")
     }
 
+    /// The repository's name from its `repo.json` (A9), for indexes that carry none (index.min.json).
+    nonisolated private static func nameFile(for url: String) -> URL {
+        cacheFile(for: url).deletingPathExtension().appendingPathExtension("name")
+    }
+
     private init() {
         installed = Self.loadInstalled()
         let urls = AppSettings.shared.mihonRepoURLs
@@ -150,7 +158,9 @@ final class KeiyoushiRepository {
             var data = try? Data(contentsOf: Self.cacheFile(for: url))
             if data == nil, i == 0 { data = try? Data(contentsOf: Self.legacyIndexCacheFile) }
             let decoded = data.flatMap { try? Self.decodeIndex($0, repoURL: url) }
-            return MihonRepo(url: url, name: decoded?.name, extensions: decoded?.extensions ?? [])
+            let name = decoded.flatMap { $0.name.isEmpty ? nil : $0.name }
+                ?? (try? String(contentsOf: Self.nameFile(for: url), encoding: .utf8))
+            return MihonRepo(url: url, name: name, extensions: decoded?.extensions ?? [])
         }
         rebuildAvailable()
         let cacheDates = urls.enumerated().map { i, url -> Date? in
@@ -191,7 +201,7 @@ final class KeiyoushiRepository {
     func availableUpdate(for ext: InstalledKeiyoushiExtension) -> KeiyoushiExtension? {
         let candidates: [KeiyoushiExtension]
         if let origin = ext.info.repoURL {
-            candidates = repos.first { $0.url == origin }?.extensions ?? []
+            candidates = isTurnedOff(origin) ? [] : repos.first { $0.url == origin }?.extensions ?? []
         } else {
             candidates = available
         }
@@ -207,9 +217,21 @@ final class KeiyoushiRepository {
             ?? repo.map { PluginCatalogService.repoLabel(from: $0.url) } ?? "Mihon"
     }
 
+    func isTurnedOff(_ url: String) -> Bool { AppSettings.shared.turnedOffMihonRepoURLs.contains(url) }
+
+    /// Turns a repository off or back on (A9). Off: its extensions leave the list and get no updates; nothing is
+    /// deleted. On: fetched again at once.
+    func setRepository(_ url: String, turnedOff: Bool) async {
+        var list = AppSettings.shared.turnedOffMihonRepoURLs.filter { $0 != url }
+        if turnedOff { list.append(url) }
+        AppSettings.shared.turnedOffMihonRepoURLs = list
+        rebuildAvailable()
+        if !turnedOff { await refresh() }
+    }
+
     private func rebuildAvailable() {
         var best: [String: KeiyoushiExtension] = [:]
-        for ext in repos.flatMap(\.extensions) {
+        for ext in repos.filter({ !isTurnedOff($0.url) }).flatMap(\.extensions) {
             if let have = best[ext.packageName], have.versionCode >= ext.versionCode { continue }
             best[ext.packageName] = ext
         }
@@ -226,12 +248,12 @@ final class KeiyoushiRepository {
             throw KeiyoushiError.badRepoURL
         }
         guard PluginNetworkPolicy.isSecureDownload(url) else { throw KeiyoushiError.insecure }
-        let candidates: [URL]
-        let path = url.path.lowercased()
-        if path.hasSuffix(".pb") || path.hasSuffix(".json") {
-            candidates = [url]
-        } else {
-            candidates = [url.appendingPathComponent("index.pb"), url.appendingPathComponent("index.min.json")]
+        var candidates = Self.indexCandidates(for: url)
+        // repo.json's `index_v2` wins (A9): Keiyoushi's old index.min.json — the link most guides still give — is
+        // now a two-entry "Outdated App" stub, and repo.json next to it points at the real index.pb.
+        if let first = candidates.first, let v2 = await Self.fetchRepoMeta(near: first).indexV2 {
+            candidates.removeAll { $0 == v2 }
+            candidates.insert(v2, at: 0)
         }
         var lastError: Error = KeiyoushiError.notAnIndex
         for candidate in candidates {
@@ -240,6 +262,7 @@ final class KeiyoushiRepository {
             do {
                 let (data, decoded) = try await Self.fetchIndex(key)
                 try? data.write(to: Self.cacheFile(for: key), options: .atomic)
+                Self.saveName(decoded.name, for: key)
                 AppSettings.shared.mihonRepoURLs.append(key)
                 repos.append(MihonRepo(url: key, name: decoded.name, extensions: decoded.extensions))
                 rebuildAvailable()
@@ -251,11 +274,45 @@ final class KeiyoushiRepository {
         throw lastError
     }
 
+    /// The index links a pasted repository link may stand for (A9, S212). An index link is itself; a folder is tried
+    /// as `index.pb` then `index.min.json`; a GitHub page (`github.com/<owner>/<repo>[/tree/<branch>/<path>]`, what
+    /// people copy from a browser) becomes its raw files — branch `repo` when none is named, Mihon's convention for
+    /// published extension repositories. A `…/blob|raw/<branch>/…/index.pb` link becomes that file's raw link.
+    nonisolated static func indexCandidates(for url: URL) -> [URL] {
+        func indexes(in folder: URL) -> [URL] {
+            [folder.appendingPathComponent("index.pb"), folder.appendingPathComponent("index.min.json")]
+        }
+        let isIndex = { (u: URL) in u.path.lowercased().hasSuffix(".pb") || u.path.lowercased().hasSuffix(".json") }
+        if url.host()?.lowercased() == "github.com" {
+            let parts = url.pathComponents.filter { $0 != "/" }
+            if parts.count >= 2, var raw = URL(string: "https://raw.githubusercontent.com") {
+                let repo = parts[1].hasSuffix(".git") ? String(parts[1].dropLast(4)) : parts[1]
+                raw.append(path: parts[0])
+                raw.append(path: repo)
+                if parts.count >= 4, ["tree", "blob", "raw"].contains(parts[2]) {
+                    for p in parts[3...] { raw.append(path: p) }
+                } else {
+                    raw.append(path: "repo")
+                }
+                return isIndex(raw) ? [raw] : indexes(in: raw)
+            }
+        }
+        return isIndex(url) ? [url] : indexes(in: url)
+    }
+
+    nonisolated private static func saveName(_ name: String, for url: String) {
+        let file = nameFile(for: url)
+        if name.isEmpty { try? FileManager.default.removeItem(at: file) }
+        else { try? name.write(to: file, atomically: true, encoding: .utf8) }
+    }
+
     /// Removes a repository. Extensions already added from it stay installed.
     func removeRepository(_ url: String) {
         AppSettings.shared.mihonRepoURLs.removeAll { $0 == url }
+        AppSettings.shared.turnedOffMihonRepoURLs.removeAll { $0 == url }
         repos.removeAll { $0.url == url }
         try? FileManager.default.removeItem(at: Self.cacheFile(for: url))
+        try? FileManager.default.removeItem(at: Self.nameFile(for: url))
         rebuildAvailable()
     }
 
@@ -267,10 +324,12 @@ final class KeiyoushiRepository {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
-        for url in urls {
+        for url in urls where !isTurnedOff(url) {
+            if url.lowercased().hasSuffix(".json"), await moveToIndexV2(url) { continue }
             do {
                 let (data, decoded) = try await Self.fetchIndex(url)
                 try? data.write(to: Self.cacheFile(for: url), options: .atomic)
+                Self.saveName(decoded.name, for: url)
                 if let i = repos.firstIndex(where: { $0.url == url }) {
                     repos[i] = MihonRepo(url: url, name: decoded.name, extensions: decoded.extensions)
                 }
@@ -283,7 +342,7 @@ final class KeiyoushiRepository {
         rebuildAvailable()
     }
 
-    private static func fetchIndex(_ urlString: String) async throws
+    private static func fetchIndex(_ urlString: String, followPointer: Bool = true) async throws
         -> (Data, (name: String, extensions: [KeiyoushiExtension])) {
         guard let url = URL(string: urlString) else { throw KeiyoushiError.badRepoURL }
         guard PluginNetworkPolicy.isSecureDownload(url) else { throw KeiyoushiError.insecure }
@@ -295,10 +354,73 @@ final class KeiyoushiRepository {
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw KeiyoushiError.download("HTTP \(http.statusCode)")
         }
-        let decoded = try await Task.detached(priority: .userInitiated) {
-            try decodeIndex(data, repoURL: urlString)
-        }.value
-        return (data, decoded)
+        do {
+            var decoded = try await Task.detached(priority: .userInitiated) {
+                try decodeIndex(data, repoURL: urlString)
+            }.value
+            if decoded.name.isEmpty, let name = await fetchRepoName(near: url) { decoded.name = name }
+            return (data, decoded)
+        } catch KeiyoushiError.pointsTo(let link) where followPointer {
+            // The list lives elsewhere (A9): fetch it once (never a chain), and keep this link as the repository —
+            // the extensions remember it, so updates still come from the repository the user added.
+            guard let target = URL(string: link, relativeTo: url)?.absoluteURL else { throw KeiyoushiError.notAnIndex }
+            var (listData, decoded) = try await fetchIndex(target.absoluteString, followPointer: false)
+            for i in decoded.extensions.indices { decoded.extensions[i].repoURL = urlString }
+            if decoded.name.isEmpty, let name = await fetchRepoName(near: url) { decoded.name = name }
+            return (listData, decoded)
+        }
+    }
+
+    /// `repo.json` next to the index — Mihon's repository metadata: `{"index_v2": …, "meta": {"name": …}}` — for
+    /// its display name and the link to the current index. Optional: any failure returns nothing.
+    private static func fetchRepoMeta(near index: URL) async -> (name: String?, indexV2: URL?) {
+        struct RepoJSON: Decodable {
+            struct Meta: Decodable { let name: String? }
+            let meta: Meta?
+            let index_v2: String?
+        }
+        let link = index.deletingLastPathComponent().appendingPathComponent("repo.json")
+        guard PluginNetworkPolicy.isSecureDownload(link),
+              let (data, response) = try? await URLSession.shared.data(from: link),
+              PluginNetworkPolicy.isSecureDownload(response.url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let repo = try? JSONDecoder().decode(RepoJSON.self, from: data) else { return (nil, nil) }
+        let name = repo.meta?.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Same shape as a pasted link (github.com/…/raw/… → raw.githubusercontent.com), so it matches one already added.
+        let v2 = repo.index_v2.flatMap { URL(string: $0, relativeTo: link)?.absoluteURL }
+            .flatMap { indexCandidates(for: $0).first }
+            .flatMap { PluginNetworkPolicy.isSecureDownload($0) && $0.path.lowercased().hasSuffix(".pb") ? $0 : nil }
+        return (name.flatMap { $0.isEmpty || $0.count > 80 ? nil : $0 }, v2)
+    }
+
+    private static func fetchRepoName(near index: URL) async -> String? {
+        await fetchRepoMeta(near: index).name
+    }
+
+    /// An index.min.json repository whose repo.json now names an index.pb (A9): fetch that, and if it works, the
+    /// repository becomes that link everywhere — the list, the turned-off list, and the extensions installed from it
+    /// (their updates are matched by repository link). Returns false to fall back to the old link as it is.
+    private func moveToIndexV2(_ url: String) async -> Bool {
+        guard let old = URL(string: url), let v2 = await Self.fetchRepoMeta(near: old).indexV2 else { return false }
+        let new = v2.absoluteString
+        guard new != url, !AppSettings.shared.mihonRepoURLs.contains(new),
+              let (data, decoded) = try? await Self.fetchIndex(new) else { return false }
+        try? data.write(to: Self.cacheFile(for: new), options: .atomic)
+        Self.saveName(decoded.name, for: new)
+        try? FileManager.default.removeItem(at: Self.cacheFile(for: url))
+        try? FileManager.default.removeItem(at: Self.nameFile(for: url))
+        AppSettings.shared.mihonRepoURLs = AppSettings.shared.mihonRepoURLs.map { $0 == url ? new : $0 }
+        AppSettings.shared.turnedOffMihonRepoURLs = AppSettings.shared.turnedOffMihonRepoURLs.map { $0 == url ? new : $0 }
+        if let i = repos.firstIndex(where: { $0.url == url }) {
+            repos[i] = MihonRepo(url: new, name: decoded.name, extensions: decoded.extensions)
+        }
+        var changed = false
+        for i in installed.indices where installed[i].info.repoURL == url {
+            installed[i].info.repoURL = new
+            changed = true
+        }
+        if changed { saveInstalled() }
+        return true
     }
 
     // MARK: Install / uninstall
@@ -382,7 +504,8 @@ final class KeiyoushiRepository {
 
     /// Decodes a Mihon extension repository index (gzip'd or plain protobuf). Field numbers follow Suwayomi's
     /// `NetworkExtensionStore` (verified S124 against Keiyoushi's live index: 1,399 extensions, all inline in
-    /// field 101). An index that only points elsewhere (field 102, `extensionListUrl`) isn't followed yet.
+    /// field 101). An index that only points elsewhere (field 102, `extensionListUrl`) throws `.pointsTo` for
+    /// `fetchIndex` to follow (A9, S212).
     nonisolated static func decodeIndex(_ raw: Data, repoURL: String) throws
         -> (name: String, extensions: [KeiyoushiExtension]) {
         let data = raw.starts(with: [0x1f, 0x8b]) ? try TachiyomiBackupParser.gunzip(raw) : raw
@@ -393,6 +516,7 @@ final class KeiyoushiRepository {
         var name = ""
         var extensions: [KeiyoushiExtension] = []
         var sawList = false
+        var pointer: String?
         while top.hasNext {
             let (field, wire) = try top.readTag()
             switch (field, wire) {
@@ -409,10 +533,14 @@ final class KeiyoushiRepository {
                         try list.skip(wireType: w)
                     }
                 }
+            case (102, 2): pointer = try top.readString()
             default: try top.skip(wireType: wire)
             }
         }
-        guard sawList else { throw KeiyoushiError.notAnIndex }
+        guard sawList else {
+            if let pointer, !pointer.isEmpty { throw KeiyoushiError.pointsTo(pointer) }
+            throw KeiyoushiError.notAnIndex
+        }
         extensions.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         return (name, extensions)
     }

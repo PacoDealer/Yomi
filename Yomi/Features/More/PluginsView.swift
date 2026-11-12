@@ -759,12 +759,23 @@ struct RepositoriesView: View {
                         })
                 }
                 ForEach(keiyoushi.repos) { repo in
+                    let off = settings.turnedOffMihonRepoURLs.contains(repo.url)
                     repositoryRow(name: repo.name.flatMap { $0.isEmpty ? nil : $0 }
                                     ?? PluginCatalogService.repoLabel(from: repo.url),
                                   url: repo.url,
                                   count: repo.extensions.isEmpty ? nil : repo.extensions.count,
-                                  error: repo.error)
+                                  error: off ? nil : repo.error,
+                                  isOff: off)
                         .modifier(DeleteSwipe { keiyoushi.removeRepository(repo.url) })
+                        // A9 (S212): off keeps the repository but hides its extensions and their updates.
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                Task { await keiyoushi.setRepository(repo.url, turnedOff: !off) }
+                            } label: {
+                                Label(off ? "Turn On" : "Turn Off", systemImage: off ? "power" : "poweroff")
+                            }
+                            .tint(off ? .green : .gray)
+                        }
                 }
                 Button { showAddRepo = true } label: {
                     Label("Add Repository", systemImage: "plus")
@@ -775,7 +786,7 @@ struct RepositoriesView: View {
                                           bottom: 12, trailing: YomiTokens.Layout.screenMargin))
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Swipe to remove a repository. Extensions you already added from it stay.")
+                    Text("Swipe left to remove a repository, right to turn a Mihon repository off. Extensions you already added from it stay.")
                     if !KeiyoushiJVMHost.isAvailable && !settings.mihonRepoURLs.isEmpty {
                         Text("This build doesn't include the on-device runtime, so Mihon extensions can't run here.")
                     }
@@ -800,14 +811,19 @@ struct RepositoriesView: View {
         }
     }
 
-    private func repositoryRow(name: String, url: String, count: Int?, error: String? = nil) -> some View {
+    private func repositoryRow(name: String, url: String, count: Int?, error: String? = nil,
+                               isOff: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline) {
                 Text(name)
                     .font(.body)
-                    .foregroundStyle(canvas.textPrimary)
+                    .foregroundStyle(isOff ? canvas.textSecondary : canvas.textPrimary)
                 Spacer()
-                if let count {
+                if isOff {
+                    Text("Off")
+                        .font(.subheadline)
+                        .foregroundStyle(canvas.textSecondary)
+                } else if let count {
                     Text("\(count) extensions")
                         .font(.subheadline)
                         .monospacedDigit()

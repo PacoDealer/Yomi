@@ -51,5 +51,11 @@
   "Only if Keiyoushi sources stopped working after an update. Takes effect after Yomi restarts.": "Solo si las fuentes de Keiyoushi dejaron de funcionar tras una actualización. Se aplica al reiniciar Yomi.",
   "The extension took too long to answer.": "La extensión tardó demasiado en responder.",
   "Open in WebView": "Abrir en WebView",
-  "Retry all %lld failed pages": "Reintentar las %lld páginas que fallaron"
+  "Retry all %lld failed pages": "Reintentar las %lld páginas que fallaron",
+  "Add Repository?": "¿Agregar repositorio?",
+  "Only add repositories you trust. Yomi will list the extensions from:\n%@": "Agrega solo repositorios de confianza. Yomi listará las extensiones de:\n%@",
+  "Repository added. Its extensions are in Browse → Extensions.": "Repositorio agregado. Sus extensiones están en Explorar → Extensiones.",
+  "Swipe left to remove a repository, right to turn a Mihon repository off. Extensions you already added from it stay.": "Desliza a la izquierda para quitar un repositorio, a la derecha para desactivar un repositorio de Mihon. Las extensiones que ya agregaste se quedan.",
+  "Turn Off": "Desactivar",
+  "Turn On": "Activar"
 }
