@@ -51,6 +51,12 @@ import SwiftUI
 
     // MARK: - Private
 
+    /// S214: the next chapter's page list, fetched while the current chapter downloads — on AquaManga that request was
+    /// ~1.5 s of every ~6 s chapter with the network otherwise idle. One chapter ahead only; dropped on pause/cancel
+    /// and when older than `pageListMaxAge` (some sources sign page URLs that expire).
+    private var pageListAhead: (chapterId: String, fetchedAt: ContinuousClock.Instant?, task: Task<[String], Never>)?
+    nonisolated private static let pageListMaxAge: Duration = .seconds(300)
+
     private struct QueueItem {
         let chapter: Chapter
         let manga: Manga
@@ -121,6 +127,7 @@ import SwiftUI
     func pause() {
         guard !isPaused else { return }
         isPaused = true
+        dropPageListAhead()
         if activeChapterId != nil {
             stopReason = .pause
             currentTask?.cancel()
@@ -148,6 +155,7 @@ import SwiftUI
             progress.removeValue(forKey: chapterId)
         } else {
             items.removeAll { $0.chapter.id == chapterId }
+            if pageListAhead?.chapterId == chapterId { dropPageListAhead() }
             publishQueue()
             progress.removeValue(forKey: chapterId)
         }
@@ -271,8 +279,41 @@ import SwiftUI
         }
     }
 
+    // MARK: - Page list ahead
+
+    /// Starts fetching the page list of the chapter that is next in line, unless it is already being fetched.
+    private func fetchPageListAhead() {
+        guard let next = items.first, !isPaused else { return }
+        guard pageListAhead?.chapterId != next.chapter.id else { return }
+        dropPageListAhead()
+        let path = next.chapter.path
+        let bridge = next.bridge
+        let chapterId = next.chapter.id
+        let task = Task { await ChapterReaderView.fetchPages(bridge: bridge, path: path) }
+        pageListAhead = (chapterId, nil, task)
+        Task {
+            _ = await task.value
+            if pageListAhead?.chapterId == chapterId { pageListAhead?.fetchedAt = .now }
+        }
+    }
+
+    /// The list fetched ahead for this chapter, if there is one and it is fresh; nil means fetch it now. An empty list
+    /// (the early fetch failed) also makes the caller fetch again rather than fail the chapter.
+    private func pageListFetchedAhead(for chapterId: String) async -> [String]? {
+        guard let ahead = pageListAhead, ahead.chapterId == chapterId else { return nil }
+        pageListAhead = nil
+        if let fetchedAt = ahead.fetchedAt, ContinuousClock.now - fetchedAt > Self.pageListMaxAge { return nil }
+        return await ahead.task.value
+    }
+
+    private func dropPageListAhead() {
+        pageListAhead?.task.cancel()
+        pageListAhead = nil
+    }
+
     private func pauseForLowStorage() {
         isPaused = true
+        dropPageListAhead()
         pauseMessage = String(localized: "Paused — less than 200 MB free on this iPhone")
         YomiHaptics.error()
     }
@@ -299,7 +340,12 @@ import SwiftUI
 
         // 1. Get the page list the same way the reader does (JS plugin off MainActor, Keiyoushi through the
         //    embedded JVM — its pages are 127.0.0.1 image URLs the extension serves, already descrambled).
-        let urls = await ChapterReaderView.fetchPages(bridge: bridge, path: chapterPath)
+        var urls = await pageListFetchedAhead(for: chapterId) ?? []
+        if urls.isEmpty, !Task.isCancelled {
+            urls = await ChapterReaderView.fetchPages(bridge: bridge, path: chapterPath)
+        }
+        // Only now: started earlier, it would replace this chapter's own list fetched ahead.
+        fetchPageListAhead()
         if Task.isCancelled { return .stopped }
 
         // An empty page list means the plugin fetch failed (JS exceptions are swallowed and return []) — surface it
@@ -317,51 +363,57 @@ import SwiftUI
         var outOfSpace = false
         progress[chapterId] = Double(completed) / Double(total)
 
-        // 3. Download pages — concurrent via sliding-window withTaskGroup
+        // 3. Download pages. Fetches run `concurrentLimit` at a time; a fetched page is handed to a second stage that
+        //    splits it (tall pages, one at a time — `TallPageSplitter`) and writes it, so a page waiting for the splitter
+        //    no longer holds a fetch slot (S214; a split is ~0.4–0.6 s per tall page). At most `concurrentLimit`
+        //    fetched pages wait for that stage, which bounds the memory held. Writes happen off the main actor.
         let concurrentLimit = max(1, AppSettings.shared.concurrentDownloads)
         let splitTall = AppSettings.shared.splitTallPages
-        await withTaskGroup(of: (Int, [Data]?).self) { group in
+        enum Step: Sendable { case fetched(Int, Data?), stored(Int, StoreResult) }
+        await withTaskGroup(of: Step.self) { group in
             var next = 0
-            func addNext() {
-                guard next < missing.count else { return }
-                let idx = missing[next]
-                let urlStr = urls[idx]
-                group.addTask {
-                    guard let url = URL(string: urlStr.trimmingCharacters(in: .whitespacesAndNewlines))
-                    else { return (idx, nil) }
-                    guard let data = await Self.pageDataWithRetries(url) else { return (idx, nil) }
-                    // D12: a very tall page is stored as parts (`TallPageSplitter`); anything else as fetched.
-                    guard splitTall, let parts = await TallPageSplitter.shared.parts(of: data) else { return (idx, [data]) }
-                    return (idx, parts)
-                }
-                next += 1
-            }
-            for _ in 0..<concurrentLimit { addNext() }
-
-            for await (idx, parts) in group {
-                // A page counts as landed only if its bytes actually reached disk — both the fetch and the write can
-                // fail, and neither must be mistaken for success. A split page counts once all its parts are written;
-                // a half-written set is removed (and `DownloadedPages.scan` ignores one a crash leaves behind).
-                if let parts {
-                    let files = parts.indices.map {
-                        dir.appendingPathComponent(DownloadedPages.fileName(page: idx, part: $0, of: parts.count))
+            var fetching = 0
+            var storing = 0
+            func addFetches() {
+                while fetching < concurrentLimit, storing < concurrentLimit, next < missing.count {
+                    let idx = missing[next]
+                    let urlStr = urls[idx]
+                    group.addTask {
+                        guard let url = URL(string: urlStr.trimmingCharacters(in: .whitespacesAndNewlines))
+                        else { return .fetched(idx, nil) }
+                        let data = await Self.pageDataWithRetries(url)
+                        return .fetched(idx, data)
                     }
-                    do {
-                        for (part, file) in zip(parts, files) { try part.write(to: file, options: .atomic) }
-                        completed += 1
-                    } catch {
-                        for file in files { try? FileManager.default.removeItem(at: file) }
+                    next += 1
+                    fetching += 1
+                }
+            }
+            addFetches()
+
+            for await step in group {
+                switch step {
+                case .fetched(let idx, let data):
+                    fetching -= 1
+                    if let data, !Task.isCancelled, !outOfSpace {
+                        storing += 1
+                        group.addTask { .stored(idx, await Self.store(data, page: idx, in: dir, splitTall: splitTall)) }
+                    } else if data == nil {
+                        failedPages += 1
+                    }
+                case .stored(_, let result):
+                    storing -= 1
+                    switch result {
+                    case .ok: completed += 1
+                    case .writeFailed:
                         failedPages += 1
                         if !Self.hasRoomForDownloads() { outOfSpace = true }
                     }
-                } else {
-                    failedPages += 1
+                    progress[chapterId] = Double(completed) / Double(total)
                 }
-                progress[chapterId] = Double(completed) / Double(total)
                 if Task.isCancelled || outOfSpace {
                     group.cancelAll()
                 } else {
-                    addNext()
+                    addFetches()
                 }
             }
         }
@@ -370,6 +422,27 @@ import SwiftUI
         if outOfSpace { return .lowStorage }
         if failedPages > 0 { return .failed("\(failedPages) of \(total) pages failed to download") }
         return .done
+    }
+
+    // MARK: - Page store
+
+    private enum StoreResult: Sendable { case ok, writeFailed }
+
+    /// Splits a page if it is very tall (D12, `TallPageSplitter`) and writes it. A page counts as landed only if its
+    /// bytes actually reached disk; a split page counts once all its parts are written, and a half-written set is
+    /// removed (`DownloadedPages.scan` also ignores one a crash leaves behind).
+    nonisolated private static func store(_ data: Data, page idx: Int, in dir: URL, splitTall: Bool) async -> StoreResult {
+        let parts = splitTall ? (await TallPageSplitter.shared.parts(of: data) ?? [data]) : [data]
+        let files = parts.indices.map {
+            dir.appendingPathComponent(DownloadedPages.fileName(page: idx, part: $0, of: parts.count))
+        }
+        do {
+            for (part, file) in zip(parts, files) { try part.write(to: file, options: .atomic) }
+            return .ok
+        } catch {
+            for file in files { try? FileManager.default.removeItem(at: file) }
+            return .writeFailed
+        }
     }
 
     // MARK: - Page fetch

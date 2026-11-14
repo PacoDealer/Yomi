@@ -81,8 +81,8 @@ struct SettingsView: View {
                     .onChange(of: settings.downloadOnlyOnWiFi) { _, _ in NetworkMonitor.shared.settingsChanged() }
                 toggle("Delete manga after reading", isOn: $settings.deleteDownloadAfterReading,
                        note: "Removes a manga chapter's pages when you finish it.")
-                Stepper(value: $settings.concurrentDownloads, in: 1...5) {
-                    valueLabel("Manga chapters at once", "\(settings.concurrentDownloads)")
+                Stepper(value: $settings.concurrentDownloads, in: 1...8) {
+                    valueLabel("Pages at once", "\(settings.concurrentDownloads)")
                 }
                 toggle("Split tall pages", isOn: $settings.splitTallPages,
                        note: "Long-strip pages are saved in screen-sized parts, so downloaded chapters open lighter.")

@@ -793,7 +793,7 @@ import Observation
         alternateIconName       = d.string(forKey: "alternateIconName")
         autoWebtoonFromTags     = d.object(forKey: "autoWebtoonFromTags")          as? Bool ?? true
         deleteDownloadAfterReading = d.object(forKey: "deleteDownloadAfterReading") as? Bool ?? true
-        concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 3
+        concurrentDownloads     = d.object(forKey: "concurrentDownloads")          as? Int  ?? 5
         splitTallPages          = d.object(forKey: "splitTallPages")               as? Bool ?? true
         backgroundAutoRefreshEnabled = d.object(forKey: "backgroundAutoRefreshEnabled") as? Bool ?? false
         backgroundDownloadEnabled    = d.object(forKey: "backgroundDownloadEnabled")    as? Bool ?? false

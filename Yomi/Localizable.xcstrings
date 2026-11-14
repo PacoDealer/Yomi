@@ -5637,16 +5637,6 @@
         }
       }
     },
-    "Manga chapters at once": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capítulos de manga a la vez"
-          }
-        }
-      }
-    },
     "Manga only — for Mihon, Tachiyomi, Tachimanga": {
       "localizations": {
         "es": {
@@ -7508,6 +7498,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Páginas"
+          }
+        }
+      }
+    },
+    "Pages at once": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Páginas a la vez"
           }
         }
       }
